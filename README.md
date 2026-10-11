@@ -21,7 +21,8 @@ the node you stand on, with a 5x5 paved square outside its entrance. It
 **overwrites the chosen site immediately, with no preview or confirmation**:
 use it only in disposable Creative worlds (such as Testlandia). Unsuitable
 sites (water, or a surface that varies by more than one node) are rejected
-without changing anything. It needs neither WorldEdit nor Living Villages.
+without changing anything. The site surface must also be within one node of
+your ground level. It needs neither WorldEdit nor Living Villages.
 
 ## Installation
 

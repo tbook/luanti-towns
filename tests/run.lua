@@ -182,6 +182,46 @@ check_plan(90,  114, 58, 108, 54, {103, 52}, {107, 56}, {103, 50}, {114, 58})
 check_plan(180, 116, 56, 112, 56, {110, 57}, {114, 61}, {108, 50}, {116, 61})
 check_plan(270, 114, 58, 114, 54, {115, 52}, {119, 56}, {108, 50}, {119, 58})
 
+-- Entrance at the edge columns: the 5-wide square overhangs the building
+-- side, and the bounds must include the overhang.
+local synth = {size = {x = 9, y = 8, z = 7}}
+for _, ex in ipairs({0, 8}) do
+	synth.entrance = {x = ex, z = 0}
+	for _, r_ in ipairs(geometry.ROTATIONS) do
+		local p = placement.plan(synth, ground, r_)
+		local l = "edge x=" .. ex .. " rot " .. r_ .. " "
+		local e = p.building.entrance
+		-- Square is centred on the entrance along the edge, 5 wide.
+		if p.building.front.x == 0 then
+			eq(p.square.min.x, e.x - 2, l .. "square min x")
+			eq(p.square.max.x, e.x + 2, l .. "square max x")
+		else
+			eq(p.square.min.z, e.z - 2, l .. "square min z")
+			eq(p.square.max.z, e.z + 2, l .. "square max z")
+		end
+		-- Square always inside the combined bounds, building too.
+		eq(p.bounds.min.x <= math.min(p.square.min.x, p.building.min.x), true, l .. "bounds min x")
+		eq(p.bounds.max.x >= math.max(p.square.max.x, p.building.max.x), true, l .. "bounds max x")
+		eq(p.bounds.min.z <= math.min(p.square.min.z, p.building.min.z), true, l .. "bounds min z")
+		eq(p.bounds.max.z >= math.max(p.square.max.z, p.building.max.z), true, l .. "bounds max z")
+		local overlap = false
+		placement.each_column(p, function(x, z, kind)
+			if kind == "square" and placement.in_box(p.building, x, z) then overlap = true end
+		end)
+		eq(overlap, false, l .. "no overlap")
+	end
+end
+-- Concrete: x=0, rot 0 -> entrance x=108, square x 106..110 (overhangs west).
+synth.entrance = {x = 0, z = 0}
+local ps = placement.plan(synth, ground, 0)
+eq(ps.square.min.x, 106, "edge0 rot0 square min x")
+eq(ps.bounds.min.x, 106, "edge0 rot0 bounds min x")
+-- x=8, rot 90: entrance z = sx-1-8 = 0 -> square z 48..52, bounds min z 48.
+synth.entrance = {x = 8, z = 0}
+ps = placement.plan(synth, ground, 90)
+eq(ps.square.min.z, 48, "edge8 rot90 square min z")
+eq(ps.bounds.min.z, 48, "edge8 rot90 bounds min z")
+
 -- Nothing in any plan lies within 3 nodes of the player's column.
 for _, r_ in ipairs(geometry.ROTATIONS) do
 	local p = placement.plan(demo, ground, r_)

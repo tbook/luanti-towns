@@ -16,7 +16,9 @@ local HELP = "WARNING: overwrites the chosen site immediately (no preview, no "
 	.. "Places <building_id> rotated 0, 90, 180 or 270 with its minimum corner "
 	.. placement.OFFSET_X .. " nodes east of the node you stand on, plus a "
 	.. placement.SQUARE .. "x" .. placement.SQUARE
-	.. " paved square outside its entrance. Reports the combined bounds. "
+	.. " paved square outside its entrance. Rejects water, a surface that varies by "
+	.. "more than one node, and a surface more than one node above or below your "
+	.. "ground level. Reports the combined bounds. "
 	.. "Requires the 'server' privilege. Usage: /towns_test <building_id> <rotation>"
 
 -- Node info for placement.classify, from the game's registrations.
@@ -44,7 +46,7 @@ end
 -- fills: list of positions at support depth that need filling.
 local function inspect(plan)
 	local top = plan.bounds.max.y
-	local bottom = plan.ground_y - placement.SUPPORT_DEPTH - 1
+	local bottom = plan.bounds.min.y
 	local fills = {}
 	local heights = {}
 	local function column_height(x, z)
