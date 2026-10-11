@@ -7,7 +7,8 @@ landmarks, and surrounding development. It is intended to work alongside
 villager behavior.
 
 This repository is a starting point. The mod loads, but does not generate towns
-yet. See the [design brief](docs/design_brief.md) for the intended direction.
+yet. See the [design brief](docs/design_brief.md) for the intended direction
+and the [engineering design](docs/engineering_design.md) for implementation phases.
 
 ## Installation
 
