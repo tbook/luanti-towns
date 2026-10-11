@@ -12,10 +12,8 @@ local M = {}
 local entries = {
 	demo_house = {
 		path = "schematics/demo_house.mts",
-		-- PLACEHOLDER values until ticket #2 lands schematics/demo_house.mts.
-		-- Replace size and entrance with the real ones from #2 (this is the
-		-- only place); verify() reports a mismatch at startup.
-		size = {x = 9, y = 7, z = 9},
+		-- Dimensions and entrance match schematics/demo_house.mts (ticket #2).
+		size = {x = 9, y = 8, z = 7},
 		entrance = {x = 4, z = 0},
 	},
 }
