@@ -5,11 +5,13 @@
 -- -----------
 -- File orientation (shared with ticket #2): the schematic origin is its
 -- minimum X/Z corner and bottom Y; size = {x, y, z}; the main entrance is on
--- the north (-Z) edge, at file-local offset entrance = {x = ex, z = ez}
--- (ez is 0 for a door on the north face).
+-- the -Z edge (the file's z = 0 row), at file-local offset
+-- entrance = {x = ex, z = ez} (ez is 0 for a door flush with that edge).
+-- The entrance faces -Z in the file orientation.
 --
--- World axes: +X east, +Z north, +Y up. In the file orientation the
--- entrance faces -Z (the file's z = 0 row).
+-- World axes: +X east, +Z north, +Y up. So -Z is geographically SOUTH in
+-- Luanti; the issue text calls the entrance side "north", which is just a
+-- label for the -Z edge. This file uses axis names (-Z, +X, ...) only.
 --
 -- Rotation: core.place_schematic(pos, schem, "90"/"180"/"270") is passed
 -- the minimum corner of the *rotated* footprint. Luanti's placement
@@ -19,9 +21,9 @@
 --     90  : (x, z) -> (z,        sx-1-x)   footprint is sz wide, sx deep
 --     180 : (x, z) -> (sx-1-x,   sz-1-z)
 --     270 : (x, z) -> (sz-1-z,   x)        footprint is sz wide, sx deep
--- i.e. 90 turns the building counter-clockwise seen from above: the
--- entrance that faces -Z (north) in the file faces -X (west) at 90,
--- +Z (south) at 180 and +X (east) at 270.
+-- i.e. the direction the entrance faces goes -Z (file) -> -X at 90 ->
+-- +Z at 180 -> +X at 270. Seen from above with +X east and +Z north that is
+-- a clockwise turn (south -> west -> north -> east).
 -- This was derived from the engine source, NOT yet verified in game
 -- (lua_api.md does not state the direction); ticket #4 must confirm it
 -- against a real placement. If it turns out mirrored, swap the 90 and 270
@@ -33,16 +35,21 @@ M.ROTATIONS = {0, 90, 180, 270}
 
 -- Outward ("front") unit vector in world X/Z for each rotation.
 local FRONT = {
-	[0]   = {x =  0, z = -1}, -- north
-	[90]  = {x = -1, z =  0}, -- west
-	[180] = {x =  0, z =  1}, -- south
-	[270] = {x =  1, z =  0}, -- east
+	[0]   = {x =  0, z = -1}, -- -Z
+	[90]  = {x = -1, z =  0}, -- -X
+	[180] = {x =  0, z =  1}, -- +Z
+	[270] = {x =  1, z =  0}, -- +X
 }
 
 local function check_rotation(rotation)
 	local n = rotation
 	if type(n) == "string" then
-		n = tonumber(n)
+		-- Exact strings only: no hex, exponent, whitespace or signs.
+		if n == "0" or n == "90" or n == "180" or n == "270" then
+			n = tonumber(n)
+		else
+			n = nil
+		end
 	end
 	if n ~= 0 and n ~= 90 and n ~= 180 and n ~= 270 then
 		error("towns: invalid rotation " .. tostring(rotation)

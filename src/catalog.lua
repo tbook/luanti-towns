@@ -20,17 +20,20 @@ local entries = {
 	},
 }
 
+for id, e in pairs(entries) do
+	e.id = id
+end
+
 M.entries = entries
 -- id -> error message for entries that failed verify(); filled at startup.
 M.invalid = {}
 
--- Returns the entry for id (with .id set); errors on an unknown id.
+-- Returns the entry for id (entries carry their .id); errors on an unknown id.
 function M.get(id)
 	local e = entries[id]
 	if not e then
 		error("towns: unknown building id '" .. tostring(id) .. "'", 2)
 	end
-	e.id = id
 	return e
 end
 
@@ -52,10 +55,12 @@ function M.verify(read, modpath)
 	for _, id in ipairs(M.ids()) do
 		local e = entries[id]
 		local full = modpath .. "/" .. e.path
-		local s = read(full)
+		local ok, s = pcall(read, full)
 		local ez = e.entrance.z or 0
 		local msg
-		if not s or not s.size then
+		if not ok then
+			msg = "schematic read failed: " .. tostring(s)
+		elseif not s or not s.size then
 			msg = "schematic missing or unreadable"
 		elseif s.size.x ~= e.size.x or s.size.y ~= e.size.y or s.size.z ~= e.size.z then
 			msg = string.format("size mismatch: catalog declares %dx%dx%d, file is %dx%dx%d",
