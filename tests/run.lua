@@ -1,0 +1,298 @@
+-- Plain Lua 5.1 tests for the pure modules. Run from the mod root:
+--   lua5.1 tests/run.lua
+local geometry = dofile("src/geometry.lua")
+local catalog = dofile("src/catalog.lua")
+local placement = dofile("src/placement.lua")(geometry)
+
+local failures, count = 0, 0
+local function eq(actual, expected, label)
+	count = count + 1
+	if actual ~= expected then
+		failures = failures + 1
+		print(("FAIL %s: expected %s, got %s"):format(label, tostring(expected), tostring(actual)))
+	end
+end
+local function xz(t, x, z, label)
+	eq(t.x, x, label .. ".x")
+	eq(t.z, z, label .. ".z")
+end
+local function xyz(t, x, y, z, label)
+	eq(t.x, x, label .. ".x")
+	eq(t.y, y, label .. ".y")
+	eq(t.z, z, label .. ".z")
+end
+local function fails(fn, pattern, label)
+	count = count + 1
+	local ok, err = pcall(fn)
+	if ok or not tostring(err):find(pattern, 1, true) then
+		failures = failures + 1
+		print(("FAIL %s: expected error containing %q, got %s"):format(label, pattern, tostring(err)))
+	end
+end
+
+-- Non-square fixture: 5 (x) by 4 (y) by 3 (z), door at x=1 on the north edge.
+local box = {size = {x = 5, y = 4, z = 3}, entrance = {x = 1, z = 0}}
+local pos = {x = 100, y = 10, z = -20}
+
+local r = geometry.place(box, pos, 0)
+xyz(r.size, 5, 4, 3, "0 size")
+xyz(r.min, 100, 10, -20, "0 min")
+xyz(r.max, 104, 13, -18, "0 max")
+xyz(r.entrance, 101, 10, -20, "0 entrance")
+xz(r.front, 0, -1, "0 front")
+xyz(r.outside, 101, 10, -21, "0 outside")
+
+r = geometry.place(box, pos, 90)
+xyz(r.size, 3, 4, 5, "90 size")
+xyz(r.max, 102, 13, -16, "90 max")
+xyz(r.entrance, 100, 10, -17, "90 entrance")
+xz(r.front, -1, 0, "90 front")
+xyz(r.outside, 99, 10, -17, "90 outside")
+
+r = geometry.place(box, pos, 180)
+xyz(r.size, 5, 4, 3, "180 size")
+xyz(r.max, 104, 13, -18, "180 max")
+xyz(r.entrance, 103, 10, -18, "180 entrance")
+xz(r.front, 0, 1, "180 front")
+xyz(r.outside, 103, 10, -17, "180 outside")
+
+r = geometry.place(box, pos, 270)
+xyz(r.size, 3, 4, 5, "270 size")
+xyz(r.max, 102, 13, -16, "270 max")
+xyz(r.entrance, 102, 10, -19, "270 entrance")
+xz(r.front, 1, 0, "270 front")
+xyz(r.outside, 103, 10, -19, "270 outside")
+
+-- Numeric strings are accepted (core.place_schematic uses strings).
+eq(geometry.place(box, pos, "90").size.x, 3, "string rotation")
+
+-- Entrance is inside the bounds; the outside node is outside them.
+for _, rot in ipairs(geometry.ROTATIONS) do
+	local p = geometry.place(box, pos, rot)
+	local e, o = p.entrance, p.outside
+	eq(e.x >= p.min.x and e.x <= p.max.x and e.z >= p.min.z and e.z <= p.max.z,
+		true, rot .. " entrance in bounds")
+	eq(o.x < p.min.x or o.x > p.max.x or o.z < p.min.z or o.z > p.max.z,
+		true, rot .. " outside out of bounds")
+end
+
+-- Recessed entrance: 5x4x3 box, door at x=2, z=1 (one node in from the -Z edge).
+local rec = {size = {x = 5, y = 4, z = 3}, entrance = {x = 2, z = 1}}
+r = geometry.place(rec, pos, 0)
+xyz(r.entrance, 102, 10, -19, "rec 0 entrance")
+xyz(r.outside, 102, 10, -20, "rec 0 outside")
+r = geometry.place(rec, pos, 90)
+xyz(r.entrance, 101, 10, -18, "rec 90 entrance")
+xz(r.front, -1, 0, "rec 90 front")
+xyz(r.outside, 100, 10, -18, "rec 90 outside")
+r = geometry.place(rec, pos, 180)
+xyz(r.entrance, 102, 10, -19, "rec 180 entrance")
+xyz(r.outside, 102, 10, -18, "rec 180 outside")
+r = geometry.place(rec, pos, 270)
+xyz(r.entrance, 101, 10, -18, "rec 270 entrance")
+xz(r.front, 1, 0, "rec 270 front")
+xyz(r.outside, 102, 10, -18, "rec 270 outside")
+
+-- Strict rotation strings.
+for _, bad_rot in ipairs({"0x5a", "9e1", " 90", "90 ", "+90", "090", "", "1.8e2", 90.5, 360, -90}) do
+	fails(function() geometry.place(box, pos, bad_rot) end, "invalid rotation",
+		"strict rotation " .. tostring(bad_rot))
+end
+eq(geometry.place(box, pos, "270").rotation, 270, "string 270")
+eq(geometry.place(box, pos, "0").rotation, 0, "string 0")
+
+-- Invalid rotation.
+fails(function() geometry.place(box, pos, 45) end, "invalid rotation 45", "bad rotation")
+fails(function() geometry.place(box, pos, nil) end, "invalid rotation", "nil rotation")
+fails(function() geometry.place(box, pos, "random") end, "invalid rotation", "random rotation")
+
+-- Catalog.
+fails(function() catalog.get("nope") end, "unknown building id 'nope'", "unknown id")
+eq(catalog.get("demo_house").id, "demo_house", "demo_house registered")
+
+-- verify(): ok, missing, mismatch.
+local d = catalog.get("demo_house")
+local function reader(result) return function() return result end end
+eq(next(catalog.verify(reader({size = d.size}), "/m")), nil, "verify ok")
+local bad = catalog.verify(reader(nil), "/mod")
+eq(bad.demo_house ~= nil
+	and bad.demo_house:find("demo_house", 1, true) ~= nil
+	and bad.demo_house:find("/mod/schematics/demo_house.mts", 1, true) ~= nil,
+	true, "missing message has id and path")
+bad = catalog.verify(reader({size = {x = 1, y = 1, z = 1}}), "/mod")
+eq(bad.demo_house:find("size mismatch", 1, true) ~= nil, true, "mismatch message")
+
+-- verify(): read raising, entrance outside the schematic.
+bad = catalog.verify(function() error("boom") end, "/mod")
+eq(bad.demo_house:find("read failed", 1, true) ~= nil, true, "read error reported")
+local saved = d.entrance
+d.entrance = {x = d.size.x, z = 0}
+bad = catalog.verify(reader({size = d.size}), "/mod")
+eq(bad.demo_house:find("entrance offset outside", 1, true) ~= nil, true, "entrance outside")
+d.entrance = {x = 0, z = d.size.z}
+bad = catalog.verify(reader({size = d.size}), "/mod")
+eq(bad.demo_house:find("entrance offset outside", 1, true) ~= nil, true, "entrance z outside")
+d.entrance = saved
+
+-- placement.parse_args: valid, bad count, bad rotation.
+local id, rot = placement.parse_args("demo_house 90")
+eq(id, "demo_house", "parse id")
+eq(rot, 90, "parse rotation")
+id, rot = placement.parse_args("  demo_house   0 ")
+eq(rot, 0, "parse rotation 0 with spaces")
+for _, bad_param in ipairs({"", "demo_house", "a b c", "demo_house 45", "demo_house -90",
+		"demo_house 360", "demo_house 90.0", "demo_house 0x5A", "demo_house north"}) do
+	local i, msg = placement.parse_args(bad_param)
+	eq(i, nil, "rejects '" .. bad_param .. "'")
+	eq(type(msg), "string", "message for '" .. bad_param .. "'")
+end
+eq(placement.parse_args(nil), nil, "nil param")
+
+-- placement.plan: demo_house (9x8x7, entrance (4,0)), player ground (100,20,50).
+local demo = catalog.get("demo_house")
+local ground = {x = 100, y = 20, z = 50}
+local function check_plan(rot_, maxx, maxz, entx, entz, smin, smax, bmin, bmax)
+	local p = placement.plan(demo, ground, rot_)
+	local l = rot_ .. " "
+	xyz(p.pos, 108, 20, 50, l .. "pos")
+	xyz(p.building.min, 108, 20, 50, l .. "building min")
+	eq(p.building.max.x, maxx, l .. "building max x")
+	eq(p.building.max.z, maxz, l .. "building max z")
+	eq(p.building.max.y, 27, l .. "building max y")
+	xyz(p.building.entrance, entx, 20, entz, l .. "entrance")
+	xyz(p.square.min, smin[1], 20, smin[2], l .. "square min")
+	xyz(p.square.max, smax[1], 20, smax[2], l .. "square max")
+	xyz(p.bounds.min, bmin[1], 19, bmin[2], l .. "bounds min")
+	xyz(p.bounds.max, bmax[1], 27, bmax[2], l .. "bounds max")
+	-- Square is 5x5, adjacent to the building and not overlapping it.
+	eq(p.square.max.x - p.square.min.x, 4, l .. "square width")
+	eq(p.square.max.z - p.square.min.z, 4, l .. "square depth")
+	local o = p.building.outside
+	eq(placement.in_box(p.square, o.x, o.z), true, l .. "square holds outside node")
+	local overlap, n = false, 0
+	placement.each_column(p, function(x, z, kind)
+		n = n + 1
+		if kind == "square" and placement.in_box(p.building, x, z) then overlap = true end
+	end)
+	eq(overlap, false, l .. "square does not overlap building")
+	eq(n, 9 * 7 + 25, l .. "column count")
+end
+check_plan(0,   116, 56, 112, 50, {110, 45}, {114, 49}, {108, 45}, {116, 56})
+check_plan(90,  114, 58, 108, 54, {103, 52}, {107, 56}, {103, 50}, {114, 58})
+check_plan(180, 116, 56, 112, 56, {110, 57}, {114, 61}, {108, 50}, {116, 61})
+check_plan(270, 114, 58, 114, 54, {115, 52}, {119, 56}, {108, 50}, {119, 58})
+
+-- Entrance at the edge columns: the 5-wide square overhangs the building
+-- side, and the bounds must include the overhang.
+local synth = {size = {x = 9, y = 8, z = 7}}
+for _, ex in ipairs({0, 8}) do
+	synth.entrance = {x = ex, z = 0}
+	for _, r_ in ipairs(geometry.ROTATIONS) do
+		local p = placement.plan(synth, ground, r_)
+		local l = "edge x=" .. ex .. " rot " .. r_ .. " "
+		local e = p.building.entrance
+		-- Square is centred on the entrance along the edge, 5 wide.
+		if p.building.front.x == 0 then
+			eq(p.square.min.x, e.x - 2, l .. "square min x")
+			eq(p.square.max.x, e.x + 2, l .. "square max x")
+		else
+			eq(p.square.min.z, e.z - 2, l .. "square min z")
+			eq(p.square.max.z, e.z + 2, l .. "square max z")
+		end
+		-- Square always inside the combined bounds, building too.
+		eq(p.bounds.min.x <= math.min(p.square.min.x, p.building.min.x), true, l .. "bounds min x")
+		eq(p.bounds.max.x >= math.max(p.square.max.x, p.building.max.x), true, l .. "bounds max x")
+		eq(p.bounds.min.z <= math.min(p.square.min.z, p.building.min.z), true, l .. "bounds min z")
+		eq(p.bounds.max.z >= math.max(p.square.max.z, p.building.max.z), true, l .. "bounds max z")
+		local overlap = false
+		placement.each_column(p, function(x, z, kind)
+			if kind == "square" and placement.in_box(p.building, x, z) then overlap = true end
+		end)
+		eq(overlap, false, l .. "no overlap")
+	end
+end
+-- Concrete: x=0, rot 0 -> entrance x=108, square x 106..110 (overhangs west).
+synth.entrance = {x = 0, z = 0}
+local ps = placement.plan(synth, ground, 0)
+eq(ps.square.min.x, 106, "edge0 rot0 square min x")
+eq(ps.bounds.min.x, 106, "edge0 rot0 bounds min x")
+-- x=8, rot 90: entrance z = sx-1-8 = 0 -> square z 48..52, bounds min z 48.
+synth.entrance = {x = 8, z = 0}
+ps = placement.plan(synth, ground, 90)
+eq(ps.square.min.z, 48, "edge8 rot90 square min z")
+eq(ps.bounds.min.z, 48, "edge8 rot90 bounds min z")
+
+-- Nothing in any plan lies within 3 nodes of the player's column.
+for _, r_ in ipairs(geometry.ROTATIONS) do
+	local p = placement.plan(demo, ground, r_)
+	eq(p.bounds.min.x >= ground.x + 3, true, r_ .. " clear of the player")
+	eq(p.bounds.min.y, ground.y - 1, r_ .. " support layer")
+end
+fails(function() placement.plan(demo, ground, 45) end, "invalid rotation", "plan rejects bad rotation")
+
+-- classify
+local infos = {
+	["mcl_core:stone"] = {walkable = true},
+	["mcl_core:water_source"] = {liquid = true},
+	["mcl_core:leaves"] = {walkable = true, clearable = true},
+	["mcl_flowers:poppy"] = {walkable = false},
+}
+local function info(name) return infos[name] end
+eq(placement.classify("air", info), "air", "classify air")
+eq(placement.classify("ignore", info), "unknown", "classify ignore")
+eq(placement.classify("nope:node", info), "unknown", "classify unregistered")
+eq(placement.classify("mcl_core:stone", info), "solid", "classify stone")
+eq(placement.classify("mcl_core:water_source", info), "water", "classify water")
+eq(placement.classify("mcl_core:leaves", info), "clear", "classify leaves")
+eq(placement.classify("mcl_flowers:poppy", info), "clear", "classify plant")
+
+-- scan_column: skips air/vegetation, stops at ground, reports water/unknown.
+local function col(t, top) return function(y) return t[top - y + 1] or "solid" end end
+local h = placement.scan_column(col({"air", "clear", "air", "solid"}, 10), 10, 0)
+eq(h, 7, "scan finds first solid")
+local hh, prob, py = placement.scan_column(col({"air", "clear", "water", "solid"}, 10), 10, 0)
+eq(hh, nil, "scan water height")
+eq(prob, "water", "scan water problem")
+eq(py, 8, "scan water y")
+hh, prob = placement.scan_column(col({"air", "unknown"}, 10), 10, 0)
+eq(prob, "unknown", "scan unknown")
+hh, prob = placement.scan_column(function() return "air" end, 10, 5)
+eq(prob, "none", "scan no ground")
+
+-- check_site
+local plan0 = placement.plan(demo, ground, 0)
+local function flat(y) return function() return y end end
+local ok, reason = placement.check_site(plan0, flat(20))
+eq(ok, true, "flat site ok")
+eq((placement.check_site(plan0, flat(19))), true, "flat site one below ok")
+eq((placement.check_site(plan0, flat(21))), true, "flat site one above ok")
+ok, reason = placement.check_site(plan0, flat(22))
+eq(ok, false, "site two above rejected")
+eq(reason:find("too far from ground", 1, true) ~= nil, true, "far reason")
+eq((placement.check_site(plan0, flat(17))), false, "site far below rejected")
+-- Step of one is fine; step of two is not.
+eq((placement.check_site(plan0, function(x) return x < 112 and 20 or 21 end)), true, "one-node step ok")
+ok, reason = placement.check_site(plan0, function(x) return x < 112 and 19 or 21 end)
+eq(ok, false, "two-node step rejected")
+eq(reason:find("uneven", 1, true) ~= nil, true, "uneven reason")
+-- Water in a single square column rejects the whole site.
+ok, reason = placement.check_site(plan0, function(x, z)
+	if x == 110 and z == 45 then return nil, "water", 20 end
+	return 20
+end)
+eq(ok, false, "water rejected")
+eq(reason:find("water or lava at (110,20,45)", 1, true) ~= nil, true, "water reason")
+-- Only the plan's columns are consulted.
+local seen = 0
+placement.check_site(plan0, function() seen = seen + 1; return 20 end)
+eq(seen, 9 * 7 + 25, "only plan columns inspected")
+-- Missing ground and unloaded terrain.
+ok, reason = placement.check_site(plan0, function() return nil, "none", 10 end)
+eq(ok, false, "no ground rejected")
+ok, reason = placement.check_site(plan0, function() return nil, "unknown", 20 end)
+eq(reason:find("unloaded", 1, true) ~= nil, true, "unknown reason")
+
+eq(placement.format_bounds(plan0.bounds), "(108,19,45) to (116,27,56)", "format_bounds")
+
+print(("%d checks, %d failures"):format(count, failures))
+os.exit(failures == 0 and 0 or 1)
