@@ -83,8 +83,11 @@ square at a chosen location, then inspect its orientation and ground contact.
   files go in this repo. Add a few tiny reference schematics or an intentionally
   simple test structure.
 - Add a minimal catalog and a privileged, hand-triggered test command. Report
-  the chosen seed and bounds. Only build in a fresh test area; do not make
-  repeat commands silently overwrite player work.
+  the building ID, rotation, and exact bounds (no seed until the Phase 2
+  planner exists). The command may overwrite its chosen site immediately: it
+  is for the disposable Testlandia Creative world, requires the `server`
+  privilege, and says so in its help text. There is no preview or
+  confirmation flow.
 - Prove rotated footprints, entrance location, schematic placement, and
   basic terrain clearing on flat ground.
 
