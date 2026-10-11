@@ -36,6 +36,9 @@ mod root:
 
     lua5.1 tests/run.lua
 
+GitHub Actions runs the same command on every pull request and on pushes to
+`main` (see `.github/workflows/tests.yml`).
+
 ## License
 
 GPL-3.0; see [LICENSE](LICENSE).
