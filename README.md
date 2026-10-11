@@ -10,6 +10,9 @@ This repository is a starting point. The mod loads, but does not generate towns
 yet. See the [design brief](docs/design_brief.md) for the intended direction
 and the [engineering design](docs/engineering_design.md) for implementation phases.
 
+To add a building, see the [building workflow](docs/building_workflow.md),
+which covers capturing `.mts` schematics from a local world with WorldEdit.
+
 ## Installation
 
 Place this repository in a directory named `towns` under Luanti's `mods`
