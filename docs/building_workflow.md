@@ -10,7 +10,9 @@ The user should not have to run any of this by hand. A request to an agent
 needs four inputs:
 
 1. the source world name or path (for example `Testlandia`, or
-   `~/Library/Application Support/minetest/worlds/Home`);
+   `~/Library/Application Support/minetest/worlds/Home`; paths in this guide
+   are macOS examples, so substitute your platform's Luanti user directory and
+   binary location);
 2. the building's rough location or exact bounding coordinates;
 3. the desired stable ID (becomes `schematics/<id>.mts`, for example
    `demo_house`);
@@ -28,10 +30,10 @@ Capture every building so that:
 - everything is stored with the entrance north; rotation is applied only at
   placement time.
 
-If a source building faces another way, either rotate it first in a copy of
-the world (WorldEdit `//rotate`), or have the catalog entry record the actual
-entrance side. Prefer re-orienting a copy so everything in the repo is
-canonical.
+Towns' catalog is canonical-orientation-only: the entrance is always on the
+-Z edge. A building whose entrance is on another side must be re-oriented
+before capture (for example, rotate it with WorldEdit `//rotate` in a copy of
+the world), so that the captured file is canonical.
 
 ## Reference: `demo_house`
 
@@ -75,7 +77,7 @@ rows.
   copy.
 
 Enable WorldEdit for the world by adding these lines to its `world.mt` if
-they are not already there (WorldEdit lives in
+they are not already there (macOS example: WorldEdit lives in
 `~/Library/Application Support/minetest/mods/worldedit/`):
 
 ```
@@ -106,11 +108,13 @@ coordinates of two opposite corners shown in the F5 debug screen).
 
 ### 3. Select and capture
 
-WorldEdit commands, in game or via chat command handlers:
+In game, with the `worldedit` privilege, run these WorldEdit chat commands.
+Select the corners either by standing on each corner node and running
+`//pos1` and `//pos2`, or by coordinates with `//fixedpos`:
 
 ```
-//pos1        (stand on/point at the min corner node; or use //fixedpos set1 x y z)
-//pos2
+//fixedpos set1 <minX> <minY> <minZ>
+//fixedpos set2 <maxX> <maxY> <maxZ>
 //mtschemcreate <id>
 ```
 
@@ -131,7 +135,8 @@ is exactly what was done for `demo_house`:
 
    Important: the area must be **loaded** (`minetest.emerge_area`) before the
    capture, otherwise unloaded blocks are saved as `ignore`/air.
-2. Start the world headless with its own port and log:
+2. Start the world headless with its own port and log (the binary path is
+   the macOS example; use your platform's `luanti` executable):
 
    ```
    /Applications/luanti.app/Contents/MacOS/luanti --server \
@@ -184,9 +189,23 @@ column.
 
 ### Four rotations
 
+`//mtschemplace` loads from `<world>/schems/<id>.mts`, not from this repo.
+First copy the repo file there:
+
 ```
-//pos1 at a clear spot
-//mtschemplace <id> 0     (also 90, 180, 270; use a different pos1 each time)
+cp schematics/<id>.mts "<world>/schems/<id>.mts"
+```
+
+Luanti caches loaded schematics, so if an older version of `<id>.mts` was
+already loaded in that world, restart the server after replacing the file.
+Then, with `//pos1` set at a clear spot (use a different spot for each
+rotation):
+
+```
+//mtschemplace <id> 0
+//mtschemplace <id> 90
+//mtschemplace <id> 180
+//mtschemplace <id> 270
 ```
 
 or programmatically `minetest.place_schematic(P, path, "90")` for each
