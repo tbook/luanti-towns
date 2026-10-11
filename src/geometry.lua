@@ -24,10 +24,9 @@
 -- i.e. the direction the entrance faces goes -Z (file) -> -X at 90 ->
 -- +Z at 180 -> +X at 270. Seen from above with +X east and +Z north that is
 -- a clockwise turn (south -> west -> north -> east).
--- This was derived from the engine source, NOT yet verified in game
--- (lua_api.md does not state the direction); ticket #4 must confirm it
--- against a real placement. If it turns out mirrored, swap the 90 and 270
--- branches in rotate_local() and the FRONT table; nothing else depends on it.
+-- Derived from the engine source and confirmed in game: ticket #2 measured
+-- placements (docs/building_workflow.md) and ticket #4 re-checked the helper
+-- coordinates (door node, chimney) against real placements.
 
 local M = {}
 

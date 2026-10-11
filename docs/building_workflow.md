@@ -200,6 +200,14 @@ Place in a clear, loaded area: `place_schematic` is synchronous only for
 loaded blocks. Placement overwrites everything in the (rotated) box including
 with air; there is no undo.
 
+### In game: `/towns_test`
+
+`/towns_test <building_id> <rotation>` (`server` privilege) places a
+registered building and its paved square next to where you stand, and prints
+the building ID, rotation and exact combined bounds. **It overwrites the site
+immediately, with no preview or confirmation**: only use it in a disposable
+Creative world such as Testlandia.
+
 ## Caveats
 
 - **Caching.** Luanti caches schematics once loaded. After replacing a `.mts`

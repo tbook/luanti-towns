@@ -6,6 +6,7 @@ towns = {
 	catalog = dofile(modpath .. "/src/catalog.lua"),
 	geometry = dofile(modpath .. "/src/geometry.lua"),
 }
+towns.placement = dofile(modpath .. "/src/placement.lua")(towns.geometry)
 
 -- Startup check: report missing or mismatched schematics clearly.
 local invalid = towns.catalog.verify(function(path)
@@ -16,3 +17,6 @@ for _, id in ipairs(towns.catalog.ids()) do
 		core.log("error", invalid[id])
 	end
 end
+
+-- Privileged Phase 1 test command (overwrites its site; Testlandia only).
+loadfile(modpath .. "/src/test_command.lua")(towns)

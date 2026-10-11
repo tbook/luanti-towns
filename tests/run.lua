@@ -2,6 +2,7 @@
 --   lua5.1 tests/run.lua
 local geometry = dofile("src/geometry.lua")
 local catalog = dofile("src/catalog.lua")
+local placement = dofile("src/placement.lua")(geometry)
 
 local failures, count = 0, 0
 local function eq(actual, expected, label)
@@ -132,6 +133,126 @@ d.entrance = {x = 0, z = d.size.z}
 bad = catalog.verify(reader({size = d.size}), "/mod")
 eq(bad.demo_house:find("entrance offset outside", 1, true) ~= nil, true, "entrance z outside")
 d.entrance = saved
+
+-- placement.parse_args: valid, bad count, bad rotation.
+local id, rot = placement.parse_args("demo_house 90")
+eq(id, "demo_house", "parse id")
+eq(rot, 90, "parse rotation")
+id, rot = placement.parse_args("  demo_house   0 ")
+eq(rot, 0, "parse rotation 0 with spaces")
+for _, bad_param in ipairs({"", "demo_house", "a b c", "demo_house 45", "demo_house -90",
+		"demo_house 360", "demo_house 90.0", "demo_house 0x5A", "demo_house north"}) do
+	local i, msg = placement.parse_args(bad_param)
+	eq(i, nil, "rejects '" .. bad_param .. "'")
+	eq(type(msg), "string", "message for '" .. bad_param .. "'")
+end
+eq(placement.parse_args(nil), nil, "nil param")
+
+-- placement.plan: demo_house (9x8x7, entrance (4,0)), player ground (100,20,50).
+local demo = catalog.get("demo_house")
+local ground = {x = 100, y = 20, z = 50}
+local function check_plan(rot_, maxx, maxz, entx, entz, smin, smax, bmin, bmax)
+	local p = placement.plan(demo, ground, rot_)
+	local l = rot_ .. " "
+	xyz(p.pos, 108, 20, 50, l .. "pos")
+	xyz(p.building.min, 108, 20, 50, l .. "building min")
+	eq(p.building.max.x, maxx, l .. "building max x")
+	eq(p.building.max.z, maxz, l .. "building max z")
+	eq(p.building.max.y, 27, l .. "building max y")
+	xyz(p.building.entrance, entx, 20, entz, l .. "entrance")
+	xyz(p.square.min, smin[1], 20, smin[2], l .. "square min")
+	xyz(p.square.max, smax[1], 20, smax[2], l .. "square max")
+	xyz(p.bounds.min, bmin[1], 19, bmin[2], l .. "bounds min")
+	xyz(p.bounds.max, bmax[1], 27, bmax[2], l .. "bounds max")
+	-- Square is 5x5, adjacent to the building and not overlapping it.
+	eq(p.square.max.x - p.square.min.x, 4, l .. "square width")
+	eq(p.square.max.z - p.square.min.z, 4, l .. "square depth")
+	local o = p.building.outside
+	eq(placement.in_box(p.square, o.x, o.z), true, l .. "square holds outside node")
+	local overlap, n = false, 0
+	placement.each_column(p, function(x, z, kind)
+		n = n + 1
+		if kind == "square" and placement.in_box(p.building, x, z) then overlap = true end
+	end)
+	eq(overlap, false, l .. "square does not overlap building")
+	eq(n, 9 * 7 + 25, l .. "column count")
+end
+check_plan(0,   116, 56, 112, 50, {110, 45}, {114, 49}, {108, 45}, {116, 56})
+check_plan(90,  114, 58, 108, 54, {103, 52}, {107, 56}, {103, 50}, {114, 58})
+check_plan(180, 116, 56, 112, 56, {110, 57}, {114, 61}, {108, 50}, {116, 61})
+check_plan(270, 114, 58, 114, 54, {115, 52}, {119, 56}, {108, 50}, {119, 58})
+
+-- Nothing in any plan lies within 3 nodes of the player's column.
+for _, r_ in ipairs(geometry.ROTATIONS) do
+	local p = placement.plan(demo, ground, r_)
+	eq(p.bounds.min.x >= ground.x + 3, true, r_ .. " clear of the player")
+	eq(p.bounds.min.y, ground.y - 1, r_ .. " support layer")
+end
+fails(function() placement.plan(demo, ground, 45) end, "invalid rotation", "plan rejects bad rotation")
+
+-- classify
+local infos = {
+	["mcl_core:stone"] = {walkable = true},
+	["mcl_core:water_source"] = {liquid = true},
+	["mcl_core:leaves"] = {walkable = true, clearable = true},
+	["mcl_flowers:poppy"] = {walkable = false},
+}
+local function info(name) return infos[name] end
+eq(placement.classify("air", info), "air", "classify air")
+eq(placement.classify("ignore", info), "unknown", "classify ignore")
+eq(placement.classify("nope:node", info), "unknown", "classify unregistered")
+eq(placement.classify("mcl_core:stone", info), "solid", "classify stone")
+eq(placement.classify("mcl_core:water_source", info), "water", "classify water")
+eq(placement.classify("mcl_core:leaves", info), "clear", "classify leaves")
+eq(placement.classify("mcl_flowers:poppy", info), "clear", "classify plant")
+
+-- scan_column: skips air/vegetation, stops at ground, reports water/unknown.
+local function col(t, top) return function(y) return t[top - y + 1] or "solid" end end
+local h = placement.scan_column(col({"air", "clear", "air", "solid"}, 10), 10, 0)
+eq(h, 7, "scan finds first solid")
+local hh, prob, py = placement.scan_column(col({"air", "clear", "water", "solid"}, 10), 10, 0)
+eq(hh, nil, "scan water height")
+eq(prob, "water", "scan water problem")
+eq(py, 8, "scan water y")
+hh, prob = placement.scan_column(col({"air", "unknown"}, 10), 10, 0)
+eq(prob, "unknown", "scan unknown")
+hh, prob = placement.scan_column(function() return "air" end, 10, 5)
+eq(prob, "none", "scan no ground")
+
+-- check_site
+local plan0 = placement.plan(demo, ground, 0)
+local function flat(y) return function() return y end end
+local ok, reason = placement.check_site(plan0, flat(20))
+eq(ok, true, "flat site ok")
+eq((placement.check_site(plan0, flat(19))), true, "flat site one below ok")
+eq((placement.check_site(plan0, flat(21))), true, "flat site one above ok")
+ok, reason = placement.check_site(plan0, flat(22))
+eq(ok, false, "site two above rejected")
+eq(reason:find("too far from ground", 1, true) ~= nil, true, "far reason")
+eq((placement.check_site(plan0, flat(17))), false, "site far below rejected")
+-- Step of one is fine; step of two is not.
+eq((placement.check_site(plan0, function(x) return x < 112 and 20 or 21 end)), true, "one-node step ok")
+ok, reason = placement.check_site(plan0, function(x) return x < 112 and 19 or 21 end)
+eq(ok, false, "two-node step rejected")
+eq(reason:find("uneven", 1, true) ~= nil, true, "uneven reason")
+-- Water in a single square column rejects the whole site.
+ok, reason = placement.check_site(plan0, function(x, z)
+	if x == 110 and z == 45 then return nil, "water", 20 end
+	return 20
+end)
+eq(ok, false, "water rejected")
+eq(reason:find("water or lava at (110,20,45)", 1, true) ~= nil, true, "water reason")
+-- Only the plan's columns are consulted.
+local seen = 0
+placement.check_site(plan0, function() seen = seen + 1; return 20 end)
+eq(seen, 9 * 7 + 25, "only plan columns inspected")
+-- Missing ground and unloaded terrain.
+ok, reason = placement.check_site(plan0, function() return nil, "none", 10 end)
+eq(ok, false, "no ground rejected")
+ok, reason = placement.check_site(plan0, function() return nil, "unknown", 20 end)
+eq(reason:find("unloaded", 1, true) ~= nil, true, "unknown reason")
+
+eq(placement.format_bounds(plan0.bounds), "(108,19,45) to (116,27,56)", "format_bounds")
 
 print(("%d checks, %d failures"):format(count, failures))
 os.exit(failures == 0 and 0 or 1)
