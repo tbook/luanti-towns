@@ -15,6 +15,13 @@ and the [engineering design](docs/engineering_design.md) for implementation phas
 Place this repository in a directory named `towns` under Luanti's `mods`
 directory or a world's `worldmods` directory. Enable it for a VoxeLibre world.
 
+## Tests
+
+Geometry and catalog logic are pure Lua and tested with plain Lua 5.1. From the
+mod root:
+
+    lua5.1 tests/run.lua
+
 ## License
 
 GPL-3.0; see [LICENSE](LICENSE).
