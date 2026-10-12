@@ -13,6 +13,9 @@ towns.planner = dofile(modpath .. "/src/planner.lua")
 -- Read-only nearby site search and terrain inspection (no world writes).
 towns.site_search = dofile(modpath .. "/src/site_search.lua")(towns.placement, towns.planner)
 
+-- Flat-town builder: one validated plan + inspected site -> nodes (#15).
+towns.builder = dofile(modpath .. "/src/builder.lua")(towns.placement, towns.planner)
+
 -- Startup check: report missing or mismatched schematics clearly.
 local invalid = towns.catalog.verify(function(path)
 	return core.read_schematic(path, {})
