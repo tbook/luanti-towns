@@ -21,8 +21,10 @@
 --   invalid_palette a required node name is not registered
 --   inspection_failed  the area could not be opened, is not loaded (ignore
 --                   nodes), a surface node is missing, or liquid appeared
---   write_failed    the engine raised while committing (the only code that
---                   may follow a partial write)
+--   write_failed    the engine raised while writing/committing (the only
+--                   code that may follow a partial write); the message says
+--                   so and names the bounds, and a 4th return value is
+--                   {bounds, planned}. build() itself never raises.
 -- Every code except write_failed guarantees that nothing was written.
 --
 -- Sequence: validate result -> planner.validate(plan) -> static palette ->
@@ -121,9 +123,10 @@ end
 
 local function is_ground(info)
 	return info ~= nil and info.walkable and not info.liquid and not info.clearable
+		and not info.ice
 end
 
-function M.build(result, opts, env)
+local function build_impl(result, opts, env)
 	opts = opts or {}
 	env = env or M.core_env(core)
 	local log = function(level, msg)
@@ -162,16 +165,19 @@ function M.build(result, opts, env)
 	if missing then return fail("invalid_palette", "node '" .. missing .. "' is not registered") end
 	log("action", ("towns builder: [2/6] palette ok (%d static names)"):format(#static))
 
-	-- 4. Open the region and read each column's surface.
-	local region, err = env.open_region(bb.min, bb.max)
-	if not region then
-		return fail("inspection_failed", "cannot read the build area: " .. tostring(err))
-	end
-	local surf, surf_p2 = {}, {}
-	local rects = plan.boundary.rects
-	do
+	-- 4..6. Read phase: open the region, read surfaces, derive the layout,
+	-- inspect every owned row. Any failure (including an engine error) is an
+	-- inspection failure with zero writes.
+	local wmin_y = result.build_volume.min.y
+	local wbounds = {min = {x = bb.min.x, y = wmin_y, z = bb.min.z}, max = bb.max}
+	local function read_phase()
+		local region, err = env.open_region(bb.min, bb.max)
+		if not region then
+			return fail("inspection_failed", "cannot read the build area: " .. tostring(err))
+		end
+		local surf, surf_p2 = {}, {}
 		local seen = {}
-		for _, r in ipairs(rects) do
+		for _, r in ipairs(plan.boundary.rects) do
 			for x = r.x1, r.x2 do
 				for z = r.z1, r.z2 do
 					seen[x] = seen[x] or {}
@@ -202,68 +208,85 @@ function M.build(result, opts, env)
 				end
 			end
 		end
-	end
 
-	-- 5. The intended layout.
-	local lok, L = pcall(TL.new, plan, g, {
-		heights = function(x, z) return result.heights[x][z] end,
-		surface = function(x, z) return surf[x][z] end,
-		max_y = bb.max.y,
-	})
-	if not lok then
-		return fail("invalid_plan", (tostring(L):gsub("^[^\n]-:%d+: ", "")))
-	end
-	local palette = L.palette()
-	missing = palette_problem(env, palette)
-	if missing then return fail("invalid_palette", "node '" .. missing .. "' is not registered") end
-	log("action", ("towns builder: [3/6] layout derived for %d columns, palette %d names"):format(
-		#L.columns, #palette))
-
-	-- 6. Inspect every row to be written; collect the changes.
-	local cx, cy, cz, cname, cp2, ckind = {}, {}, {}, {}, {}, {}
-	local n_changed, examined = 0, 0
-	local by_kind = {clear = 0, fill = 0, surface = 0, pave = 0, landmark = 0}
-	local by_name = {}
-	local paved = 0
-	for _, c in ipairs(L.columns) do
-		local x, z = c.x, c.z
-		if L.pavement(x, z) then paved = paved + 1 end
-		local ylo, yhi = L.column_range(x, z)
-		if ylo < bb.min.y or yhi > bb.max.y then
-			return fail("bad_result", ("column (%d,%d) rows %d..%d leave the build bounds"):format(
-				x, z, ylo, yhi))
+		-- The intended layout.
+		local lok, L = pcall(TL.new, plan, g, {
+			heights = function(x, z) return result.heights[x][z] end,
+			surface = function(x, z) return surf[x][z] end,
+			max_y = bb.max.y,
+		})
+		if not lok then
+			return fail("invalid_plan", (tostring(L):gsub("^[^\n]-:%d+: ", "")))
 		end
-		for y = ylo, yhi do
-			local want, kind = L.node_at(x, y, z)
-			local have = region.get(x, y, z)
-			examined = examined + 1
-			if have == "ignore" then
-				return fail("inspection_failed", ("area not loaded at (%d,%d,%d)"):format(x, y, z))
+		local palette = L.palette()
+		local missing = palette_problem(env, palette)
+		if missing then return fail("invalid_palette", "node '" .. missing .. "' is not registered") end
+		log("action", ("towns builder: [3/6] layout derived for %d columns, palette %d names"):format(
+			#L.columns, #palette))
+
+		-- Inspect every owned row; collect the changes.
+		local D = {L = L, palette = palette, region = region,
+			cx = {}, cy = {}, cz = {}, cname = {}, cp2 = {}, n = 0, examined = 0,
+			by_kind = {clear = 0, fill = 0, support = 0, surface = 0, pave = 0, landmark = 0},
+			by_name = {}, paved = 0}
+		for _, c in ipairs(L.columns) do
+			local x, z = c.x, c.z
+			if L.pavement(x, z) then D.paved = D.paved + 1 end
+			local ylo, yhi = L.column_range(x, z)
+			if ylo < wmin_y or yhi > bb.max.y then
+				return fail("bad_result", ("column (%d,%d) rows %d..%d leave the build volume"):format(
+					x, z, ylo, yhi))
 			end
-			local info = env.node_info(have)
-			if info and info.liquid then
-				return fail("inspection_failed", ("liquid '%s' at (%d,%d,%d)"):format(have, x, y, z))
-			end
-			if want and want ~= have then
-				if not TL.confined(L.in_town, bb, x, y, z) then
-					return fail("bad_result", ("write at (%d,%d,%d) is outside the build bounds"):format(x, y, z))
+			for y = ylo, yhi do
+				local want, kind = L.node_at(x, y, z)
+				local have = region.get(x, y, z)
+				D.examined = D.examined + 1
+				if have == "ignore" then
+					return fail("inspection_failed", ("area not loaded at (%d,%d,%d)"):format(x, y, z))
 				end
-				n_changed = n_changed + 1
-				cx[n_changed], cy[n_changed], cz[n_changed] = x, y, z
-				cname[n_changed] = want
-				cp2[n_changed] = (kind == "surface") and surf_p2[x][z] or 0
-				ckind[n_changed] = kind
-				by_kind[kind] = (by_kind[kind] or 0) + 1
-				by_name[want] = (by_name[want] or 0) + 1
+				local info = env.node_info(have)
+				local write = false
+				if kind == "support" then
+					-- Under the finished ground: anything that is not solid,
+					-- stable ground is replaced (air, liquid, ice, sand...).
+					write = not (is_ground(info) and not info.falling)
+				else
+					if info and (info.liquid or info.ice) then
+						return fail("inspection_failed", ("liquid or ice '%s' at (%d,%d,%d)"):format(
+							have, x, y, z))
+					end
+					write = want ~= nil and want ~= have
+				end
+				if write then
+					if not TL.confined(L.in_town, wbounds, x, y, z) then
+						return fail("bad_result", ("write at (%d,%d,%d) is outside the build volume"):format(x, y, z))
+					end
+					local n = D.n + 1
+					D.n = n
+					D.cx[n], D.cy[n], D.cz[n] = x, y, z
+					D.cname[n] = want
+					D.cp2[n] = (kind == "surface") and surf_p2[x][z] or 0
+					D.by_kind[kind] = (D.by_kind[kind] or 0) + 1
+					D.by_name[want] = (D.by_name[want] or 0) + 1
+				end
 			end
 		end
+		return D
 	end
-	log("action", ("towns builder: [4/6] inspected %d nodes; %d changes (clear %d, fill %d, surface %d, pave %d, landmark %d)")
-		:format(examined, n_changed, by_kind.clear, by_kind.fill, by_kind.surface,
+	local rok, D, rmsg, rcode = pcall(read_phase)
+	if not rok then
+		return fail("inspection_failed", "reading the build area failed: " .. tostring(D))
+	end
+	if not D then return nil, rmsg, rcode end
+	local L, palette, region = D.L, D.palette, D.region
+	local n_changed, examined, by_kind, by_name, paved = D.n, D.examined, D.by_kind, D.by_name, D.paved
+	local cx, cy, cz, cname, cp2 = D.cx, D.cy, D.cz, D.cname, D.cp2
+	log("action", ("towns builder: [4/6] inspected %d nodes; %d changes (clear %d, fill %d, support %d, surface %d, pave %d, landmark %d)")
+		:format(examined, n_changed, by_kind.clear, by_kind.fill, by_kind.support, by_kind.surface,
 			by_kind.pave, by_kind.landmark))
 
 	-- 7. Write (the only phase that changes the world).
-	log("action", ("towns builder: [5/6] writing %d nodes inside %s"):format(n_changed, fmt_bounds(bb)))
+	log("action", ("towns builder: [5/6] writing %d nodes inside %s"):format(n_changed, fmt_bounds(wbounds)))
 	if n_changed > 0 then
 		local wok, werr = pcall(function()
 			for i = 1, n_changed do
@@ -272,8 +295,10 @@ function M.build(result, opts, env)
 			region.commit()
 		end)
 		if not wok then
-			log("error", "towns builder: write failed: " .. tostring(werr))
-			return nil, "write failed: " .. tostring(werr), "write_failed"
+			local msg = ("write failed: %s. The area %s may be partially written; %d nodes were planned"):format(
+				tostring(werr), fmt_bounds(wbounds), n_changed)
+			log("error", "towns builder: " .. msg)
+			return nil, msg, "write_failed", {bounds = wbounds, planned = n_changed}
 		end
 	end
 	log("action", "towns builder: [6/6] committed; construction complete")
@@ -294,6 +319,7 @@ function M.build(result, opts, env)
 		center = {x = plan.center.x, z = plan.center.z},
 		ground_y = g,
 		bounds = bb,
+		write_bounds = wbounds,
 		plan_bounds = plan.bounds,
 		volume = result.build_volume,
 		sites = sites,
@@ -310,6 +336,16 @@ function M.build(result, opts, env)
 		:format(tostring(plan.seed), plan.center.x, plan.center.z, g, fmt_bounds(bb),
 			#plan.streets, #plan.blocks, #plan.frontage, n_changed))
 	return summary
+end
+
+-- Never raises: anything unexpected before the write phase (the write phase
+-- is protected on its own) is reported as a failed inspection, zero writes.
+function M.build(result, opts, env)
+	local function unwrap(ok, ...)
+		if ok then return ... end
+		return nil, "internal error before any write: " .. tostring((...)), "inspection_failed"
+	end
+	return unwrap(pcall(build_impl, result, opts, env))
 end
 
 ------------------------------------------------------------------------

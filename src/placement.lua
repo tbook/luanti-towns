@@ -136,10 +136,14 @@ function M.node_info(registered_nodes, name)
 		or g.tree or g.leaves or g.plant or g.vines or g.flower or g.deco_block
 		or g.dead_bush or g.mushroom or g.sapling
 		or name:find("^mcl_core:snow_?%d*$") ~= nil
+	-- Ice is treated like water (never ground): product decision, ticket #15.
+	local ice = (g.ice or g.slippery or g.frosted_ice) and true or false
 	return {
 		walkable = def.walkable ~= false,
 		liquid = liquid,
 		clearable = clearable and true or false,
+		ice = ice,
+		falling = g.falling_node and true or false,
 	}
 end
 
@@ -147,7 +151,8 @@ end
 -- {walkable=bool, liquid=bool, clearable=bool} or nil for unknown nodes.
 --   "air"     nothing there
 --   "clear"   vegetation/snow/leaves/trunks to remove, not ground
---   "water"   liquid (any); sites with liquid in the way are rejected
+--   "water"   liquid (any) or ice (info.ice: ice, packed ice, frosted ice,
+--             anything slippery); sites with such nodes in the way are rejected
 --   "solid"   ground
 --   "unknown" ignore / not emerged / unregistered
 function M.classify(name, info)
@@ -155,7 +160,7 @@ function M.classify(name, info)
 	if name == "ignore" then return "unknown" end
 	local i = info(name)
 	if not i then return "unknown" end
-	if i.liquid then return "water" end
+	if i.liquid or i.ice then return "water" end
 	if i.clearable then return "clear" end
 	if i.walkable then return "solid" end
 	-- Non-walkable, non-liquid nodes (torches, signs, plants) are airspace.

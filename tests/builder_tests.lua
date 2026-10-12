@@ -20,6 +20,9 @@ local function nodes_table()
 		["mcl_core:tree"] = {walkable = true, clearable = true},
 		["mcl_core:leaves"] = {walkable = true, clearable = true},
 		["mcl_core:water_source"] = {liquid = true},
+		["mcl_core:sand"] = {walkable = true, falling = true},
+		["mcl_core:gravel"] = {walkable = true, falling = true},
+		["mcl_core:ice"] = {walkable = true, ice = true},
 	}
 	for _, n in ipairs(blockouts.names()) do t[n] = {walkable = true} end
 	return t
@@ -139,13 +142,18 @@ do
 		surface = function() return "x:grass" end, max_y = 30})
 	eq(L.node_at(0, 20, 0), STONEBRICK, "paved level column: pavement at ground")
 	eq(L.node_at(0, 21, 0), "air", "paved level column: air above")
-	eq(L.node_at(0, 19, 0), nil, "paved level column: ground untouched below")
+	eq(L.node_at(0, 19, 0), DIRT, "paved level column: support row below the surface")
+	eq(L.node_at(0, 16, 0), nil, "paved level column: deeper ground untouched")
+	local _, kind19 = L.node_at(0, 19, 0)
+	eq(kind19, "support", "support rows are flagged for the builder")
 	eq(L.node_at(1, 22, 0), "air", "cut column: cleared above ground")
 	eq(L.node_at(1, 21, 0), "air", "cut column: cut to ground")
 	eq(L.node_at(1, 20, 0), "x:grass", "cut column: natural surface at ground")
-	eq(L.node_at(1, 19, 0), nil, "cut column: below ground untouched")
+	eq(L.node_at(1, 19, 0), DIRT, "cut column: support row under the ground")
+	eq(L.node_at(1, 17, 0), DIRT, "cut column: third support row")
+	eq(L.node_at(1, 16, 0), nil, "cut column: deeper ground untouched")
 	local lo, hi = L.column_range(1, 0)
-	eq(lo, 20, "cut column range starts at ground")
+	eq(lo, 17, "cut column range starts at the support rows")
 	eq(hi, 30, "cut column range top")
 	eq(L.node_at(2, 20, 0), "x:grass", "fill column: surface at ground")
 	eq(L.node_at(2, 19, 0), DIRT, "fill column: dirt under the surface")
@@ -156,6 +164,7 @@ do
 	lo = L.column_range(2, 0)
 	eq(lo, 15, "fill column range starts above the old surface")
 	eq(L.node_at(3, 20, 0), nil, "level unpaved column: nothing to do at ground")
+	eq(L.node_at(3, 18, 0), DIRT, "level column: support row")
 	eq(L.node_at(3, 21, 0), "air", "level unpaved column: airspace cleared")
 	eq(L.node_at(9, 21, 0), nil, "outside the boundary: untouched")
 	eq(L.in_town(3, 0), true, "in_town inside")
@@ -204,6 +213,10 @@ local function new_world(spec)
 		local c = w.over[x]
 		local n = c and c[z] and c[z][y]
 		return n or base(x, y, z)
+	end
+	if spec.world then
+		local base0 = base
+		base = function(x, y, z) return spec.world(x, y, z) or base0(x, y, z) end
 	end
 	w.base = base
 	local env = {
@@ -635,6 +648,166 @@ do
 	local summary, msg, code = builder.build(copy_result(), {log = false}, w.env)
 	eq(summary, nil, "commit failure: no summary")
 	eq(code, "write_failed", "commit failure: code")
+end
+
+-- Support under every column (cut columns included).
+do
+	local res = copy_result()
+	local g = res.ground_y
+	local plan = res.plan
+	-- A cut column (surface above ground) away from landmarks and pavement.
+	local cutx, cutz
+	for _, c in ipairs(ss.boundary_columns(plan.boundary.rects)) do
+		local h = res.heights[c.x][c.z]
+		if h > g and not cutx and not expected_pavement(plan, c.x, c.z)
+				and not in_rect(plan.sites.cathedral.rect, c.x, c.z)
+				and not in_rect(plan.sites.castle.rect, c.x, c.z) then
+			cutx, cutz = c.x, c.z
+		end
+	end
+	eq(cutx ~= nil, true, "fixture has a cut column")
+	local h = res.heights[cutx][cutz]
+
+	-- Cavity under the cut column: air g-4..g-1 (and liquid at g-2 next door).
+	local w = new_world({world = function(x, y, z)
+		if x == cutx and z == cutz and y >= g - 4 and y <= g - 1 then return "air" end
+	end})
+	local summary, msg = builder.build(res, {log = false}, w.env)
+	eq(summary ~= nil, true, "cavity: built (" .. tostring(msg) .. ")")
+	for y = g - 3, g - 1 do
+		eq(w.get(cutx, y, cutz), DIRT, "cavity: row " .. (y - g) .. " filled with dirt")
+	end
+	eq(w.get(cutx, g - 4, cutz), "air", "cavity: deeper rows untouched")
+	eq(w.get(cutx, g, cutz), GRASS, "cavity: natural surface at ground")
+	eq(summary.nodes.by_kind.support >= 3, true, "cavity: support nodes counted")
+	local deep = 0
+	for _, wr in ipairs(w.writes) do
+		if wr.y < g - 3 and wr.y <= res.heights[wr.x][wr.z] then deep = deep + 1 end
+	end
+	eq(deep, 0, "no write below the support rows under existing ground")
+	local ymin = res.build_volume.min.y
+	local lowest = 1e9
+	for _, wr in ipairs(w.writes) do lowest = math.min(lowest, wr.y) end
+	eq(lowest >= ymin, true, "writes stay inside the build volume")
+
+	-- Sand surface over a cavity, gravel under it: replaced by dirt, sand top kept.
+	w = new_world({world = function(x, y, z)
+		if x == cutx and z == cutz then
+			if y == h then return "mcl_core:sand" end
+			if y >= g - 3 and y <= g - 1 then return "mcl_core:gravel" end
+			if y == g - 4 then return "air" end
+		end
+	end})
+	summary, msg = builder.build(res, {log = false}, w.env)
+	eq(summary ~= nil, true, "sand: built (" .. tostring(msg) .. ")")
+	eq(w.get(cutx, g, cutz), "mcl_core:sand", "sand: surface node kept at ground")
+	for y = g - 3, g - 1 do
+		eq(w.get(cutx, y, cutz), DIRT, "sand: falling gravel row replaced by dirt")
+	end
+
+	-- Liquid under the surface is filled, not rejected.
+	w = new_world({world = function(x, y, z)
+		if x == cutx and z == cutz and y == g - 2 then return "mcl_core:water_source" end
+	end})
+	summary, msg = builder.build(res, {log = false}, w.env)
+	eq(summary ~= nil, true, "liquid under surface: built (" .. tostring(msg) .. ")")
+	eq(w.get(cutx, g - 2, cutz), DIRT, "liquid under surface: filled with dirt")
+
+	-- Liquid or ice in the airspace above the ground still rejects.
+	expect_rejection("liquid above ground", copy_result(), new_world({world = function(x, y, z)
+		if x == cutx and z == cutz and y == h + 2 then return "mcl_core:water_source" end
+	end}), "inspection_failed", "liquid or ice")
+	expect_rejection("ice above ground", copy_result(), new_world({world = function(x, y, z)
+		if x == cutx and z == cutz and y == h + 2 then return "mcl_core:ice" end
+	end}), "inspection_failed", "liquid or ice")
+
+	-- Frozen lake: every surface node is ice; not ground, nothing written.
+	expect_rejection("frozen lake", copy_result(), new_world({world = function(x, y, z)
+		if y == terrain(x, z) then return "mcl_core:ice" end
+	end}), "inspection_failed", "not solid ground")
+end
+
+-- Ice is water-like for the shared classifier.
+do
+	local reg = {
+		["mcl_core:ice"] = {walkable = true, groups = {ice = 1, slippery = 3}},
+		["mcl_core:packed_ice"] = {walkable = true, groups = {ice = 1, slippery = 3}},
+		["mcl_core:frosted_ice_0"] = {walkable = true, groups = {frosted_ice = 1, slippery = 3, ice = 1}},
+		["mcl_core:stone"] = {walkable = true, groups = {}},
+		["mcl_core:sand"] = {walkable = true, groups = {falling_node = 1}},
+	}
+	local function info(n) return placement.node_info(reg, n) end
+	for name in pairs(reg) do
+		local want = name:find("ice", 1, true) and "water" or "solid"
+		eq(placement.classify(name, info), want, "classify " .. name)
+	end
+	eq(info("mcl_core:sand").falling, true, "falling flag from node groups")
+	eq(info("mcl_core:stone").falling, false, "stone does not fall")
+end
+
+-- build() never raises: errors while reading are inspection failures.
+do
+	local function raising(label, mutate)
+		local w = new_world()
+		local inner = w.env.open_region
+		w.env.open_region = function(a, b) return mutate(inner, a, b) end
+		local ok, summary, msg, code = pcall(builder.build, copy_result(), {log = false}, w.env)
+		eq(ok, true, label .. ": build did not raise")
+		eq(summary, nil, label .. ": no summary")
+		eq(code, "inspection_failed", label .. ": code")
+		eq(#w.writes, 0, label .. ": zero writes")
+		eq(w.commits, 0, label .. ": zero commits")
+	end
+	raising("open raises", function() error("open boom") end)
+	raising("get raises", function(inner, a, b)
+		local r = inner(a, b)
+		local n = 0
+		r.get = function() n = n + 1; if n > 500 then error("get boom") end return "air" end
+		return r
+	end)
+	raising("get raises on first read", function(inner, a, b)
+		local r = inner(a, b)
+		r.get = function() error("index boom") end
+		return r
+	end)
+	local w = new_world()
+	w.env.node_info = function() error("node_info boom") end
+	local ok, summary, _, code = pcall(builder.build, copy_result(), {log = false}, w.env)
+	eq(ok, true, "node_info raising: build did not raise")
+end
+
+-- Partial commit: write_failed says so, names the bounds, reports the plan.
+do
+	local w = new_world()
+	local inner = w.env.open_region
+	w.env.open_region = function(a, b)
+		local r = inner(a, b)
+		local set = r.set
+		local n = 0
+		r.set = function(...)
+			n = n + 1
+			if n == 10 then error("disk boom") end
+			return set(...)
+		end
+		return r
+	end
+	local ok, summary, msg, code, info = pcall(builder.build, copy_result(), {log = false}, w.env)
+	eq(ok, true, "partial: build did not raise")
+	eq(summary, nil, "partial: no summary")
+	eq(code, "write_failed", "partial: code")
+	eq(msg:find("disk boom", 1, true) ~= nil, true, "partial: cause in message")
+	eq(msg:find("partially written", 1, true) ~= nil, true, "partial: says the area may be partially written")
+	local wb = info and info.bounds
+	eq(wb ~= nil, true, "partial: bounds returned")
+	if wb then
+		local expect = ("(%d,%d,%d) to (%d,%d,%d)"):format(wb.min.x, wb.min.y, wb.min.z,
+			wb.max.x, wb.max.y, wb.max.z)
+		eq(msg:find(expect, 1, true) ~= nil, true, "partial: bounds in message")
+		eq(wb.min.x, base_result.build_bounds.min.x, "partial: bounds are the build bounds in X")
+	end
+	eq(info and info.planned > 100, true, "partial: planned node count reported")
+	eq(#w.writes, 9, "partial: nine writes happened before the failure")
+	eq(w.commits, 0, "partial: never committed")
 end
 
 -- Determinism: the same result builds the same nodes.

@@ -51,8 +51,9 @@
 -- Also: the player must stand on solid ground (else done(nil, msg)); a
 -- throwing env function or any internal error ends the search through
 -- done(nil, "internal error: ..."). Emerge requests have a watchdog.
--- Terrain classes are exactly Phase 1's (ice, cactus etc. behave as in
--- /towns_test; nothing is special-cased here).
+-- Terrain classes are exactly Phase 1's (placement.classify). Ice (ice,
+-- packed ice, frosted ice, any slippery node) counts as water: never ground,
+-- so a frozen lake is rejected as "water". Cactus etc. are not special-cased.
 -- Rejection codes: out_of_range (centre beyond planner's +/-31000),
 -- emerge_timeout (see EMERGE_TIMEOUT), player_inside (player within the candidate's bounds plus
 -- PLAYER_MARGIN), plan_failed, emerge_failed (CANCELLED/ERRORED), water

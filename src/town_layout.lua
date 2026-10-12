@@ -20,7 +20,7 @@
 --   L.node_at(x, y, z)       name, kind | nil
 --        nil  = leave the existing node (outside the town, or a row the
 --               layout does not touch, e.g. the unchanged surface row).
---        kind = "clear" | "fill" | "surface" | "pave" | "landmark"
+--        kind = "clear" | "fill" | "support" | "surface" | "pave" | "landmark"
 --   L.pavement(x, z)         material name or nil
 --   L.landmark_dy(x, z)      sparse {[dy]=name} for a landmark column or nil
 --   L.palette()              sorted list of every node name the layout can
@@ -35,7 +35,12 @@
 --             (nil if h == g and nothing paves it)
 --   h < y < g: fill (dirt for the top FILL_DIRT_DEPTH rows below g, stone
 --             deeper), so nothing floats
---   y <= h and y < g : untouched (existing ground)
+--   g-FILL_DIRT_DEPTH <= y < g and y <= h : "support" (dirt): the builder
+--             writes it only where the existing node is not solid, stable
+--             ground (air, liquid, ice, falling sand/gravel, vegetation), so
+--             every column has solid support under the finished ground even
+--             over a cave or overhang
+--   deeper existing rows : untouched
 -- Pavement: market and parvis squares first, then principal streets, then
 -- secondary streets, each in id order; the first claim on a cell wins, so
 -- squares and principal streets always beat secondary streets.
@@ -180,8 +185,9 @@ function TL.new(plan, ground_y, opts)
 	function L.column_range(x, z)
 		local r = rec[x] and rec[x][z]
 		if not r then return nil end
-		if r.h < g then return r.h + 1, max_y end
-		return g, max_y
+		local support = g - TL.FILL_DIRT_DEPTH
+		if r.h < g then return math.min(r.h + 1, support), max_y end
+		return support, max_y
 	end
 
 	function L.pavement(x, z)
@@ -217,6 +223,8 @@ function TL.new(plan, ground_y, opts)
 		elseif y > r.h then
 			if y > g - 1 - TL.FILL_DIRT_DEPTH then return TL.FILL_DIRT, "fill" end
 			return TL.FILL_DEEP, "fill"
+		elseif y >= g - TL.FILL_DIRT_DEPTH then
+			return TL.FILL_DIRT, "support"
 		end
 		return nil
 	end

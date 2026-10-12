@@ -90,6 +90,7 @@ local function new_world(spec)
 	local names = {
 		["default:stone"] = {walkable = true},
 		["default:water"] = {liquid = true},
+		["default:ice"] = {walkable = true, ice = true},
 	}
 	local env = {}
 	env.node_info = function(name) return names[name] end
@@ -97,6 +98,7 @@ local function new_world(spec)
 		w.reads = w.reads + 1
 		if spec.unloaded and spec.unloaded(x, z) then return "ignore" end
 		local h = surface(x, z)
+		if spec.ice and spec.ice(x, z) and y == h then return "default:ice" end
 		if y <= h then return "default:stone" end
 		local wl = spec.water and spec.water(x, z)
 		if wl and y <= wl then return "default:water" end
@@ -723,3 +725,11 @@ do
 		eq(dd.rejections.emerge_timeout, nil, "limit volumes " .. px .. ": no emerge timeouts")
 	end
 end
+
+-- Frozen lake: ice is never ground (water-like), so every candidate touching
+-- it is rejected as water and nothing is written.
+local fw2 = new_world({ice = function(x, z) return math.abs(x) > 8 or math.abs(z) > 8 end})
+local rf, sf, df = run(fw2, PLAYER, SMALL)
+eq(rf, nil, "frozen lake: no site")
+eq(df.rejections.water ~= nil and df.rejections.water > 0, true, "frozen lake: rejected as water")
+eq(#fw2.writes, 0, "frozen lake: no writes")
