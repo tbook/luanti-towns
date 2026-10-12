@@ -410,10 +410,7 @@ for _, spec in ipairs(SEEDS) do
 	eq(top_ok, true, label .. "unpaved ground keeps a grass top")
 	eq(air_ok, true, label .. "airspace cleared above ground")
 	eq(paved_cols > 300, true, label .. "substantial pavement")
-	eq(summary and summary.counts.paved_columns, paved_cols + (function()
-		-- paved columns under landmarks never occur (validated), so equal
-		return 0
-	end)(), label .. "paved column count")
+	eq(summary and summary.counts.paved_columns, paved_cols, label .. "paved column count")
 
 	-- Both principal-street materials and the cobble secondary appear.
 	local seen_mat = {}
