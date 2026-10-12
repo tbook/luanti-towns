@@ -293,6 +293,18 @@ do
 	-- The abandoned search finishing late must not release the new one.
 	f.searches[2].done(nil, "late", {})
 	eq(f.c.busy(), true, "late done does not release the newer search")
+	eq(has(sent_text(f), "newer /towns_generate replaced this search"), true,
+		"late failure reported as replaced")
+	-- A late SUCCESS from a taken-over search must not build.
+	local nb, ns = #f.builds, #f.sent
+	f.searches[1].done({build_bounds = summary.bounds}, nil, {})
+	eq(#f.builds, nb, "late success from a replaced search: builder not called")
+	eq(#f.sent > ns and has(f.sent[#f.sent][2], "nothing was changed"), true,
+		"late success reported as nothing changed")
+	eq(f.c.busy(), true, "late success does not release the newer search")
+	f.searches[3].done({build_bounds = summary.bounds}, nil, {})
+	eq(#f.builds, nb + 1, "newer search still builds")
+	eq(f.c.busy(), false, "newer search releases normally")
 end
 
 -- Search failure: reason + nothing changed, builder never called.
@@ -349,7 +361,7 @@ do
 	f.c.run("alice", "5")
 	f.searches[1].done({build_bounds = summary.bounds}, nil, {})
 	local s = sent_text(f)
-	eq(has(s, "PARTIALLY written within"), true, "write_failed: honest partial report")
+	eq(has(s, "PARTIALLY written") and has(s, "Site bounds ("), true, "write_failed: honest partial report")
 	eq(has(s, "Nothing was changed"), false, "write_failed: no false reassurance")
 	eq(has(logs_text(f), "PARTIALLY"), true, "write_failed logged")
 	eq(f.c.busy(), false, "write_failed releases")
@@ -359,6 +371,8 @@ do -- builder raising is treated as a possibly partial write
 	f.c.run("alice", "5")
 	f.searches[1].done({build_bounds = summary.bounds}, nil, {})
 	eq(has(sent_text(f), "PARTIALLY"), true, "builder raise reported as partial")
+	eq(has(sent_text(f), "extend a few nodes below"), true, "builder raise: region may extend below")
+	eq(has(sent_text(f), "nothing outside it was touched"), false, "builder raise: no false claim")
 	eq(f.c.busy(), false, "builder raise releases")
 end
 
@@ -371,4 +385,26 @@ do
 	f.searches[1].done({}, nil, {})
 	eq(#f.builds, 1, "build still happens for an offline starter")
 	eq(has(logs_text(f), "Town built"), true, "offline starter: result logged")
+end
+
+-- write_failed with a result that knows write_bounds, and with builder bounds.
+do
+	local wb = {min = {x = 1, y = 2, z = 3}, max = {x = 4, y = 5, z = 6}}
+	local m = generate.format_build_failure("x", "write_failed", {build_bounds = summary.bounds, write_bounds = wb})
+	eq(has(m, "within (1,2,3) to (4,5,6)"), true, "result.write_bounds preferred")
+	m = generate.format_build_failure("x", "write_failed", {build_bounds = summary.bounds})
+	eq(has(m, "may extend a few nodes below"), true, "site bounds only: extends below")
+end
+
+-- A throwing chat send must not break completion or the guard.
+do
+	local f = fakes()
+	f.deps.send = function() error("chat down") end
+	f.c.run("alice", "5")
+	local ok = pcall(f.searches[1].done, {}, nil, {})
+	eq(ok, true, "throwing send does not raise out of done")
+	eq(f.c.busy(), false, "throwing send: guard released")
+	eq(#f.builds, 1, "throwing send: town still built")
+	eq(has(logs_text(f), "could not send chat"), true, "throwing send logged")
+	eq((f.c.run("alice", "6")), true, "can run again after a send failure")
 end

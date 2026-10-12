@@ -169,13 +169,22 @@ function M.format_build_failure(message, code, result, extra)
 	local m = tostring(message)
 	if code == "write_failed" then
 		local where = ""
-		local b = type(extra) == "table" and type(extra.bounds) == "table" and extra.bounds
-			or (type(result) == "table" and type(result.build_bounds) == "table"
-				and result.build_bounds) or nil
-		if b then where = " within " .. bounds_str(b) end
+		if type(extra) == "table" and type(extra.bounds) == "table" then
+			return "Town construction FAILED while writing (write_failed): " .. m
+				.. ". The site may be PARTIALLY written within "
+				.. bounds_str(extra.bounds) .. "; nothing outside it was touched."
+		end
+		if type(result) == "table" and type(result.write_bounds) == "table" then
+			where = bounds_str(result.write_bounds)
+			return "Town construction FAILED while writing (write_failed): " .. m
+				.. ". The site may be PARTIALLY written within " .. where .. "."
+		end
+		if type(result) == "table" and type(result.build_bounds) == "table" then
+			where = " Site bounds " .. bounds_str(result.build_bounds)
+				.. "; the written region may extend a few nodes below them."
+		end
 		return "Town construction FAILED while writing (write_failed): " .. m
-			.. ". The site may be PARTIALLY written" .. where
-			.. "; nothing outside it was touched."
+			.. ". The site may be PARTIALLY written." .. where
 	end
 	return "Town not built (" .. tostring(code or "error") .. "): " .. m
 		.. ". Nothing was changed."
@@ -227,7 +236,14 @@ function M.new(deps)
 			if returning then
 				sync_ok, sync_msg = ok, table.concat(lines, "\n")
 			else
-				for _, l in ipairs(lines) do deps.send(name, (ok and "" or "Error: ") .. l) end
+				for _, l in ipairs(lines) do
+					local sent, serr = pcall(deps.send, name, (ok and "" or "Error: ") .. l)
+					if not sent then
+						deps.log("warning", "towns_generate (" .. name .. "): could not send chat: "
+							.. tostring(serr))
+						break
+					end
+				end
 			end
 		end
 
@@ -237,7 +253,13 @@ function M.new(deps)
 		end
 
 		local function on_done(result, message)
+			local replaced = active ~= mine
 			release()
+			if replaced then
+				-- A stale takeover started a newer search; never build for this one.
+				return finish(false, {"A newer /towns_generate replaced this search; "
+					.. "nothing was changed."})
+			end
 			if not result then
 				return finish(false, {M.format_search_failure(message)})
 			end
