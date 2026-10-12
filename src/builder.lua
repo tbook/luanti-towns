@@ -34,24 +34,33 @@
 -- result.build_bounds (never outside) and inside the boundary column union.
 --
 -- env contract:
---   env.node_info(name)           {walkable, liquid, clearable} or nil
+--   env.node_info(name)           {walkable, liquid, clearable, ice,
+--                                 falling} or nil (ice counts as water;
+--                                 falling = sand/gravel)
 --   env.open_region(minpos, maxpos)
 --       -> region | nil, err      region.get(x, y, z) -> name ("ignore" when
 --                                 not loaded), region.get_param2(x, y, z),
 --                                 region.set(x, y, z, name, param2),
---                                 region.commit(). The region must not touch
---                                 the world before commit().
+--                                 region.commit(). It is opened over the whole
+--                                 write range (write_bounds, support rows
+--                                 included) and only accessed inside it. The
+--                                 region must not touch the world before
+--                                 commit(); an access outside the opened
+--                                 range must fail or read "ignore".
 --   env.log(level, msg)           optional
 --
 -- Summary (for the command ticket to print):
 --   seed, center {x, z}, ground_y, bounds {min, max} (build_bounds),
+--   write_bounds {min, max} = the exact area that may have been modified
+--   (build_bounds extended down to the support rows; print this as the
+--   "area modified"),
 --   plan_bounds {x1, z1, x2, z2}, volume (build_volume),
 --   sites = {cathedral|castle = {rect, entrance, side, opening = {...}},
 --            parvis|market = {rect}},
 --   approaches = {{name, side, pos}, ...},
 --   counts = {streets, principal, secondary, blocks, frontage, columns,
 --             paved_columns},
---   nodes = {examined, changed, by_kind = {clear, fill, surface, pave,
+--   nodes = {examined, changed, by_kind = {clear, fill, support, surface, pave,
 --            landmark}, by_name = {[name] = n}},
 --   palette = {names}
 
@@ -126,11 +135,12 @@ local function is_ground(info)
 		and not info.ice
 end
 
-local function build_impl(result, opts, env)
+local function build_impl(result, opts, env, st)
 	opts = opts or {}
 	env = env or M.core_env(core)
+	-- Logging must never change the outcome: errors from env.log are swallowed.
 	local log = function(level, msg)
-		if opts.log ~= false and env.log then env.log(level, msg) end
+		if opts.log ~= false and env.log then pcall(env.log, level, msg) end
 	end
 	local function fail(code, msg)
 		log("warning", "towns builder: rejected (" .. code .. "): " .. msg .. ". Nothing was written.")
@@ -168,10 +178,18 @@ local function build_impl(result, opts, env)
 	-- 4..6. Read phase: open the region, read surfaces, derive the layout,
 	-- inspect every owned row. Any failure (including an engine error) is an
 	-- inspection failure with zero writes.
-	local wmin_y = result.build_volume.min.y
-	local wbounds = {min = {x = bb.min.x, y = wmin_y, z = bb.min.z}, max = bb.max}
+	-- The whole written range: build_bounds extended down to the support rows.
+	local wmin_y = math.min(bb.min.y, g - TL.FILL_DIRT_DEPTH)
+	if wmin_y < result.build_volume.min.y then
+		return fail("bad_result", "support rows lie below the build volume")
+	end
+	local wbounds = {
+		min = {x = bb.min.x, y = wmin_y, z = bb.min.z},
+		max = {x = bb.max.x, y = bb.max.y, z = bb.max.z},
+	}
+	st.wbounds = wbounds
 	local function read_phase()
-		local region, err = env.open_region(bb.min, bb.max)
+		local region, err = env.open_region(wbounds.min, wbounds.max)
 		if not region then
 			return fail("inspection_failed", "cannot read the build area: " .. tostring(err))
 		end
@@ -288,6 +306,7 @@ local function build_impl(result, opts, env)
 	-- 7. Write (the only phase that changes the world).
 	log("action", ("towns builder: [5/6] writing %d nodes inside %s"):format(n_changed, fmt_bounds(wbounds)))
 	if n_changed > 0 then
+		st.writing, st.planned = true, n_changed
 		local wok, werr = pcall(function()
 			for i = 1, n_changed do
 				region.set(cx[i], cy[i], cz[i], cname[i], cp2[i])
@@ -338,14 +357,22 @@ local function build_impl(result, opts, env)
 	return summary
 end
 
--- Never raises: anything unexpected before the write phase (the write phase
--- is protected on its own) is reported as a failed inspection, zero writes.
+-- Never raises. Anything unexpected before the first write is a failed
+-- inspection (zero writes); anything that throws after writing began is
+-- write_failed.
 function M.build(result, opts, env)
+	local st = {}
 	local function unwrap(ok, ...)
 		if ok then return ... end
+		if st.writing then
+			-- Anything that throws once writing began may leave a partial town.
+			local msg = ("write failed: %s. The area %s may be partially written; %d nodes were planned"):format(
+				tostring((...)), fmt_bounds(st.wbounds), st.planned or 0)
+			return nil, msg, "write_failed", {bounds = st.wbounds, planned = st.planned}
+		end
 		return nil, "internal error before any write: " .. tostring((...)), "inspection_failed"
 	end
-	return unwrap(pcall(build_impl, result, opts, env))
+	return unwrap(pcall(build_impl, result, opts, env, st))
 end
 
 ------------------------------------------------------------------------
@@ -360,6 +387,13 @@ function M.core_env(c)
 		open_region = function(minpos, maxpos)
 			local vm = c.get_voxel_manip()
 			local emin, emax = vm:read_from_map(minpos, maxpos)
+			-- The emerged area is snapped to whole mapblocks; it must hold
+			-- the requested range, and every access is checked against it
+			-- (VoxelArea:index does no bounds check and would alias).
+			if emin.x > minpos.x or emin.y > minpos.y or emin.z > minpos.z
+					or emax.x < maxpos.x or emax.y < maxpos.y or emax.z < maxpos.z then
+				error("voxel area does not contain the requested range")
+			end
 			local area = VoxelArea:new({MinEdge = emin, MaxEdge = emax})
 			local data, p2 = vm:get_data(), vm:get_param2_data()
 			local ids, names = {}, {}
@@ -373,10 +407,25 @@ function M.core_env(c)
 				if not n then n = c.get_name_from_content_id(id); names[id] = n end
 				return n
 			end
+			local function inside(x, y, z)
+				return x >= emin.x and x <= emax.x and y >= emin.y and y <= emax.y
+					and z >= emin.z and z <= emax.z
+			end
 			local r = {}
-			function r.get(x, y, z) return name_of(data[area:index(x, y, z)]) end
-			function r.get_param2(x, y, z) return p2[area:index(x, y, z)] end
+			function r.get(x, y, z)
+				if not inside(x, y, z) then return "ignore" end
+				local id = data[area:index(x, y, z)]
+				if id == nil then return "ignore" end
+				return name_of(id)
+			end
+			function r.get_param2(x, y, z)
+				if not inside(x, y, z) then return 0 end
+				return p2[area:index(x, y, z)] or 0
+			end
 			function r.set(x, y, z, name, param2)
+				if not inside(x, y, z) then
+					error(("write at (%d,%d,%d) is outside the voxel area"):format(x, y, z))
+				end
 				local i = area:index(x, y, z)
 				data[i] = id_of(name)
 				p2[i] = param2 or 0

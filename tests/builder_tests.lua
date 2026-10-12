@@ -192,9 +192,18 @@ local function new_world(spec)
 	spec = spec or {}
 	local w = {over = {}, writes = {}, commits = 0, opened = 0}
 	local nodes = spec.nodes or nodes_table()
-	local function tree_at(x, z) return (x * 31 + z * 17) % 53 == 0 end
+	local terrain = spec.terrain or terrain
+	local function tree_at(x, z)
+		return not spec.notrees and (x * 31 + z * 17) % 53 == 0
+	end
 	local function base(x, y, z)
 		local h = terrain(x, z)
+		if spec.notrees then
+			if y < h - 3 then return STONE end
+			if y < h then return DIRT end
+			if y == h then return GRASS end
+			return "air"
+		end
 		if y < h - 3 then return STONE end
 		if y < h then return DIRT end
 		if y == h then return GRASS end
@@ -254,8 +263,9 @@ for k, v in pairs(ss.CONSTANTS) do C[k] = v end
 C.BLOCKOUT_CLEARANCE = C.LANDMARK_BLOCKOUT_HEIGHT + C.BLOCKOUT_MARGIN
 
 -- A site_search-shaped result for `seed` over the fake terrain.
-local function make_result(seed, cx, cz)
-	local plan = planner.plan({x = cx, z = cz}, seed)
+local function make_result(seed, cx, cz, terrain_fn, plan0)
+	local terrain = terrain_fn or terrain
+	local plan = plan0 or planner.plan({x = cx, z = cz}, seed)
 	local cols = ss.boundary_columns(plan.boundary.rects)
 	local heights, list = {}, {}
 	local lo, hi
@@ -808,6 +818,174 @@ do
 	eq(info and info.planned > 100, true, "partial: planned node count reported")
 	eq(#w.writes, 9, "partial: nine writes happened before the failure")
 	eq(w.commits, 0, "partial: never committed")
+end
+
+-- Engine path: builder.core_env over a finite VoxelArea/VoxelManip fake that
+-- snaps to 16-node mapblocks and does no bounds checking (like the engine).
+-- Support rows can lie below build_bounds, so the region must be opened over
+-- the whole write range; every access must stay inside the requested range.
+do
+	local saved_area, saved_core = rawget(_G, "VoxelArea"), rawget(_G, "core")
+	local VA = {}
+	VA.__index = VA
+	function VA:new(t)
+		local a = setmetatable({}, self)
+		a.min, a.max = t.MinEdge, t.MaxEdge
+		a.sx = a.max.x - a.min.x + 1
+		a.sy = a.max.y - a.min.y + 1
+		return a
+	end
+	function VA:index(x, y, z)
+		return (z - self.min.z) * self.sx * self.sy + (y - self.min.y) * self.sx + (x - self.min.x) + 1
+	end
+	_G.VoxelArea = VA
+	local function snap(v) return math.floor(v / 16) * 16 end
+
+	local function vm_case(label, terrain_fn, plan)
+		local res = make_result(1, 0, 0, terrain_fn, plan)
+		local g = res.ground_y
+		-- reference: plain fake world
+		local ref = new_world({terrain = terrain_fn, notrees = true})
+		local rs, rmsg = builder.build(res, {log = false}, ref.env)
+		eq(rs ~= nil, true, label .. ": reference build (" .. tostring(rmsg) .. ")")
+		local truth = new_world({terrain = terrain_fn, notrees = true})
+
+		local ids, names, nid = {}, {}, 0
+		local function cid(n)
+			if not ids[n] then nid = nid + 1; ids[n] = nid; names[nid] = n end
+			return ids[n]
+		end
+		local reg = {}
+		for name, i in pairs(nodes_table()) do
+			local groups = {}
+			if i.ice then groups.ice = 1 end
+			if i.falling then groups.falling_node = 1 end
+			reg[name] = {walkable = i.walkable, groups = groups,
+				liquidtype = i.liquid and "source" or nil, buildable_to = i.clearable}
+		end
+		local vm_state
+		local fake_core = {
+			registered_nodes = reg, log = function() end,
+			get_content_id = cid,
+			get_name_from_content_id = function(i) return names[i] end,
+			get_voxel_manip = function()
+				local vm = {}
+				function vm:read_from_map(a, b)
+					self.emin = {x = snap(a.x), y = snap(a.y), z = snap(a.z)}
+					self.emax = {x = snap(b.x) + 15, y = snap(b.y) + 15, z = snap(b.z) + 15}
+					self.area = VA:new({MinEdge = self.emin, MaxEdge = self.emax})
+					self.data, self.p2 = {}, {}
+					for z = self.emin.z, self.emax.z do
+						for y = self.emin.y, self.emax.y do
+							for x = self.emin.x, self.emax.x do
+								local i = self.area:index(x, y, z)
+								self.data[i] = cid(truth.get(x, y, z))
+								self.p2[i] = 0
+							end
+						end
+					end
+					vm_state = self
+					return self.emin, self.emax
+				end
+				function vm:get_data() return self.data end
+				function vm:get_param2_data() return self.p2 end
+				function vm:set_data(d) self.data = d end
+				function vm:set_param2_data(d) self.p2 = d end
+				function vm:write_to_map() self.written = true end
+				return vm
+			end,
+		}
+		local env = builder.core_env(fake_core)
+		local req_min, req_max, bad_access = nil, nil, 0
+		local open = env.open_region
+		env.open_region = function(a, b)
+			req_min, req_max = a, b
+			local r = open(a, b)
+			local function chk(x, y, z)
+				if x < a.x or x > b.x or y < a.y or y > b.y or z < a.z or z > b.z then
+					bad_access = bad_access + 1
+				end
+			end
+			local get, set = r.get, r.set
+			r.get = function(x, y, z) chk(x, y, z); return get(x, y, z) end
+			r.set = function(x, y, z, n, p) chk(x, y, z); return set(x, y, z, n, p) end
+			return r
+		end
+		local summary, msg, code = builder.build(res, {log = false}, env)
+		eq(summary ~= nil, true, label .. ": engine-path build (" .. tostring(msg) .. ")")
+		eq(bad_access, 0, label .. ": every get/set inside the requested range")
+		eq(vm_state and vm_state.written, true, label .. ": committed")
+		if summary then
+			local wb = summary.write_bounds
+			eq(req_min.y, wb.min.y, label .. ": region opened from the lowest written row")
+			eq(req_max.y, wb.max.y, label .. ": region opened to the top row")
+			eq(wb.min.y <= g - 3, true, label .. ": support rows covered")
+			eq(wb.min.x, res.build_bounds.min.x, label .. ": write bounds X")
+		end
+		-- The resulting area equals the reference rendering node for node.
+		local diff, checked = 0, 0
+		local a = vm_state.area
+		for z = vm_state.emin.z, vm_state.emax.z do
+			for y = vm_state.emin.y, vm_state.emax.y do
+				for x = vm_state.emin.x, vm_state.emax.x do
+					checked = checked + 1
+					local have = names[vm_state.data[a:index(x, y, z)]]
+					if have ~= ref.get(x, y, z) then diff = diff + 1 end
+				end
+			end
+		end
+		eq(checked > 100000, true, label .. ": compared the whole area")
+		eq(diff, 0, label .. ": identical to the reference rendering")
+		return g
+	end
+
+	local plan1 = planner.plan({x = 0, z = 0}, 1)
+	local function flat(k) return function() return 64 + k end end
+	for _, k in ipairs({0, 1, 2, 3, 15}) do
+		local g = vm_case("vm flat g%16=" .. k, flat(k), plan1)
+		eq(g % 16, k, "flat ground level residue " .. k)
+	end
+	-- Uneven terrain: shift so the median lands on each residue class.
+	local function hilly(shift)
+		return function(x, z) return 64 + shift + math.floor(4 + 4 * math.sin(x / 9) * math.sin(z / 11 + 1)) end
+	end
+	for _, k in ipairs({0, 1, 2, 3, 15}) do
+		local probe = make_result(1, 0, 0, hilly(0), plan1).ground_y
+		local shift = (k - probe) % 16
+		local g = vm_case("vm hilly g%16=" .. k, hilly(shift), plan1)
+		eq(g % 16, k, "hilly ground level residue " .. k)
+	end
+	_G.VoxelArea = saved_area
+	_G.core = saved_core
+end
+
+-- Output after the commit must not turn a successful build into a failure:
+-- env.log throwing is swallowed; any throw after writing began is write_failed.
+do
+	local w = new_world()
+	local res = copy_result()
+	w.env.log = function() error("log boom") end
+	local ok, summary, msg, code = pcall(builder.build, res, nil, w.env)
+	eq(ok, true, "throwing log: build did not raise")
+	eq(summary ~= nil, true, "throwing log: summary returned (" .. tostring(msg) .. ")")
+	eq(w.commits, 1, "throwing log: committed once")
+
+	-- A failure after the first set that the write phase does not catch
+	-- (region.set replaced by a function that kills the pcall'd section's
+	-- error handling is impossible, so use a throwing summary input).
+	local w2 = new_world()
+	local inner = w2.env.open_region
+	w2.env.open_region = function(a, b)
+		local r = inner(a, b)
+		local commit = r.commit
+		r.commit = function() commit(); error("post-commit boom") end
+		return r
+	end
+	local ok2, s2, m2, c2, i2 = pcall(builder.build, copy_result(), {log = false}, w2.env)
+	eq(ok2, true, "post-commit throw: no raise")
+	eq(s2, nil, "post-commit throw: no summary")
+	eq(c2, "write_failed", "post-commit throw: write_failed")
+	eq(m2:find("partially written", 1, true) ~= nil, true, "post-commit throw: message")
 end
 
 -- Determinism: the same result builds the same nodes.
