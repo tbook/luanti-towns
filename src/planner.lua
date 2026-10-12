@@ -1,4 +1,4 @@
--- Towns: pure town planner (boundary + civic sites).
+-- Towns: pure town planner (boundary, civic sites, streets, blocks, frontage).
 -- No core.* dependency, so it runs under plain Lua 5.1 and the tests.
 --
 --   local planner = dofile("src/planner.lua")
@@ -44,7 +44,9 @@
 --   approaches = {                        -- boundary entrances for routing
 --     {name = "approach_1", side = "+z", edge = rect, pos = {x, z}}, ...
 --   },
---   streets = {}, blocks = {}, frontage = {},  -- filled by the street ticket
+--   streets  = { street, ... },           -- see "Streets" below (src/streets.lua)
+--   blocks   = { block, ... },
+--   frontage = { run, ... },
 --   attempts = integer,                   -- 1-based attempt that succeeded
 -- }
 --
@@ -77,14 +79,72 @@
 -- Boundary approaches: `edge` is a 6-wide, 1-deep rect of boundary nodes on
 -- an outer edge, `pos` its middle node, `side` the outward direction.
 --
+-- Streets, blocks, frontage (filled by src/streets.lua on every accepted
+-- boundary/sites attempt; a street failure counts as a rejected attempt and
+-- is retried within the same budget). Squares (market, parvis) gain
+-- `material` = SQUARE_MATERIAL.
+--
+-- street = {
+--   id       = integer (index in plan.streets; principal streets come first),
+--   kind     = "principal" | "secondary",
+--   width    = 6 | 4,                     -- equals the rect's short side
+--   rect     = rect,                      -- full-width straight run
+--   axis     = "x" | "z",                 -- long axis ("x" for a 6x6 corner)
+--   material = "mcl_core:stonebrick" (principal) | "mcl_core:cobble",
+--   route    = "approach_1>market" | "approach_2>market" | "network>parvis"
+--              | "network>castle" | "secondary",
+-- }
+-- A route is several straight street rects (one per run between bends);
+-- rects may overlap each other and squares at bends and junctions. The
+-- pavement is the union of all street rects and the market/parvis rects; a
+-- cell takes the material of the first of: squares, then streets in id order.
+-- Principal streets never lie wholly on existing pavement (such runs are
+-- dropped, and fully paved run ends are trimmed so streets abut squares).
+--
+-- block = {
+--   id = integer, rect = rect, size = {x, z}, area = integer,
+--   frontage = { frontage ids },          -- always at least one run
+-- }
+-- Blocks are free interior cells (inside the boundary, off streets, squares
+-- and landmark footprints), at least MIN_BLOCK_SIDE on both sides. Adjacent
+-- block rects may abut where a leftover area was not rectangular; there is
+-- no street between them and so no frontage between them. Empty in Phase 2.
+--
+-- run (plan.frontage) = {
+--   id = integer, block = block id,
+--   side   = "-z"|"+z"|"-x"|"+x",         -- outward direction from the block
+--   facing = {x, z},                      -- unit vector for `side`
+--   rect   = rect,                        -- 1-thick run of block edge nodes
+--   length = integer (>= MIN_FRONTAGE_RUN),
+--   street = street id  | square = "market"|"parvis",  -- what it faces
+--   material = that street's / the square's material,
+-- }
+-- Every node one step from the run along `facing` is pavement of the named
+-- street or square.
+--
 -- Guarantees checked before a plan is returned: boundary connected, bounds
 -- within the envelope, non-square and stepped (no feature < MIN_FEATURE),
 -- sites contained, non-overlapping and >= STREET_WIDTH apart (cathedral and
 -- parvis touch by design), the castle on the boundary edge, and a
 -- STREET_WIDTH-wide walkable corridor from each boundary approach to the
 -- parvis, market and castle approach edge around the landmark footprints.
+-- Streets: widths, containment in the boundary, no landmark overlap, both
+-- approaches connected by pavement (and by principal streets alone) to the
+-- market, parvis and castle approach edge, blocks off the pavement, frontage
+-- facing real pavement, at least MIN_BLOCKS blocks.
 
 local M = {}
+
+-- Sibling module: via the mod path inside Luanti, else relative to the mod
+-- root (tests run from there).
+local function load_sibling(name)
+	local c = rawget(_G, "core")
+	if c and c.get_modpath and c.get_current_modname then
+		return dofile(c.get_modpath(c.get_current_modname()) .. "/src/" .. name)
+	end
+	return dofile("src/" .. name)
+end
+local streets = load_sibling("streets.lua")
 
 M.CONSTANTS = {
 	ENVELOPE = 96,            -- town envelope, nodes per side
@@ -108,6 +168,20 @@ M.CONSTANTS = {
 	CASTLE_EDGE_SLACK = 2,    -- max nodes between castle and outer edge
 	MAX_ATTEMPTS = 128,        -- bounded retries
 	SITE_TRIES = 40,          -- random placements tried per site per attempt
+	-- Streets, blocks, frontage (src/streets.lua)
+	SECONDARY_WIDTH = 4,
+	TURN_PENALTY = 6,         -- route cost of a bend, in nodes
+	MAX_BLOCK_DEPTH = 12,     -- free cells farther than this from any road
+	                          --  trigger a secondary street
+	MIN_SECONDARY_LEN = 12,
+	MAX_SECONDARY = 8,
+	MIN_BLOCK_SIDE = 8,
+	MAX_BLOCK_SCAN = 64,
+	MIN_FRONTAGE_RUN = 4,
+	MIN_BLOCKS = 3,           -- fewer blocks with frontage reject the attempt
+	PRINCIPAL_MATERIAL = "mcl_core:stonebrick",
+	SECONDARY_MATERIAL = "mcl_core:cobble",
+	SQUARE_MATERIAL = "mcl_core:stonebrick",
 }
 
 local SIDES = {"-z", "+z", "-x", "+x"}
@@ -862,14 +936,15 @@ function M.plan(center, seed, opts)
 	for i = 1, max_attempts do
 		local p, stage, why = attempt(rng, C)
 		if p then
-			return to_world(p, seed, center, C, i)
-		end
+			local full, swhy = streets.fill(to_world(p, seed, center, C, i), rng, C)
+			if full then return full end
+			stage, why = "streets", swhy		end
 		rejections[stage] = (rejections[stage] or 0) + 1
 		last = why
 	end
 
 	local parts = {}
-	for _, stage in ipairs({"boundary", "market", "cathedral", "castle", "approach", "routes"}) do
+	for _, stage in ipairs({"boundary", "market", "cathedral", "castle", "approach", "routes", "streets"}) do
 		if rejections[stage] then
 			parts[#parts + 1] = stage .. " x" .. rejections[stage]
 		end
@@ -886,7 +961,9 @@ function M.plan(center, seed, opts)
 end
 
 -- ASCII top-down rendering for debugging. North (+Z) is up, east (+X) right.
--- Legend: . boundary  C cathedral  p parvis  M market  K castle  A approach
+-- Legend: . boundary  # principal street  = secondary street  b block
+--         ^ v < > frontage run, pointing at the street it faces (outward)
+--         C cathedral  p parvis  M market  K castle  A approach
 --         + centre  e entrance  (blank = outside)
 function M.render(plan)
 	local b = plan.bounds
@@ -903,6 +980,28 @@ function M.render(plan)
 	for _, r in ipairs(plan.boundary.rects) do
 		for z = r.z1, r.z2 do
 			for x = r.x1, r.x2 do put(x, z, ".") end
+		end
+	end
+	for _, bl in ipairs(plan.blocks) do
+		local r = bl.rect
+		for z = r.z1, r.z2 do
+			for x = r.x1, r.x2 do put(x, z, "b") end
+		end
+	end
+	for _, kind in ipairs({"secondary", "principal"}) do
+		for _, st in ipairs(plan.streets) do
+			if st.kind == kind then
+				local r = st.rect
+				for z = r.z1, r.z2 do
+					for x = r.x1, r.x2 do put(x, z, kind == "principal" and "#" or "=") end
+				end
+			end
+		end
+	end
+	local arrow = {["+z"] = "^", ["-z"] = "v", ["-x"] = "<", ["+x"] = ">"}
+	for _, f in ipairs(plan.frontage) do
+		for z = f.rect.z1, f.rect.z2 do
+			for x = f.rect.x1, f.rect.x2 do put(x, z, arrow[f.side]) end
 		end
 	end
 	local glyph = {cathedral = "C", parvis = "p", market = "M", castle = "K"}

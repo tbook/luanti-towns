@@ -297,5 +297,8 @@ eq(placement.format_bounds(plan0.bounds), "(108,19,45) to (116,27,56)", "format_
 -- Planner (ticket #12): boundary and civic sites.
 loadfile("tests/planner_tests.lua")(eq, fails, dofile("src/planner.lua"))
 
+-- Streets, blocks and frontage (ticket #13).
+loadfile("tests/streets_tests.lua")(eq, fails, dofile("src/planner.lua"))
+
 print(("%d checks, %d failures"):format(count, failures))
 os.exit(failures == 0 and 0 or 1)

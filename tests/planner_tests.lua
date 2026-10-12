@@ -147,7 +147,8 @@ for ci, c in ipairs(centers) do
 			eq(plan.seed, seed, label .. " seed")
 			eq(plan.center.x, c.x, label .. " centre x")
 			eq(plan.center.z, c.z, label .. " centre z")
-			eq(#plan.streets + #plan.blocks + #plan.frontage, 0, label .. " placeholders empty")
+			eq(#plan.streets > 0 and #plan.blocks > 0 and #plan.frontage > 0, true,
+				label .. " streets, blocks and frontage filled")
 
 			local set, total = cell_set(plan)
 			local b, env = plan.bounds, plan.envelope
