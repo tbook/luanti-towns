@@ -125,8 +125,7 @@ function M.format_report(summary)
 	add("Centre (%d,%d), ground level y=%d.", s.center.x, s.center.z, g)
 	add("Site bounds %s.", bounds_str(s.bounds))
 	if type(s.write_bounds) == "table" then
-		add("Modified area %s (site bounds extended downward to cover support rows).",
-			bounds_str(s.write_bounds))
+		add("Modified area %s.", bounds_str(s.write_bounds))
 	else
 		add("Modified area %s.", bounds_str(s.bounds))
 	end
