@@ -125,6 +125,24 @@ function M.format_bounds(bounds)
 		bounds.max.x, bounds.max.y, bounds.max.z)
 end
 
+-- Node info for classify, from a registered_nodes table (core.registered_nodes).
+-- Returns {walkable, liquid, clearable} or nil for unregistered names.
+function M.node_info(registered_nodes, name)
+	local def = registered_nodes[name]
+	if not def then return nil end
+	local g = def.groups or {}
+	local liquid = def.liquidtype ~= nil and def.liquidtype ~= "none"
+	local clearable = def.buildable_to
+		or g.tree or g.leaves or g.plant or g.vines or g.flower or g.deco_block
+		or g.dead_bush or g.mushroom or g.sapling
+		or name:find("^mcl_core:snow_?%d*$") ~= nil
+	return {
+		walkable = def.walkable ~= false,
+		liquid = liquid,
+		clearable = clearable and true or false,
+	}
+end
+
 -- Classifies a node name. `info(name)` returns a table
 -- {walkable=bool, liquid=bool, clearable=bool} or nil for unknown nodes.
 --   "air"     nothing there

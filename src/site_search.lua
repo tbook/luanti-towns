@@ -9,8 +9,8 @@
 --     player_pos  {x, y, z} the player's position (core player:get_pos()).
 --                 Rounded to nodes; the node below the feet (y rounded - 1)
 --                 is the reference ground used for the vertical windows.
---     seed        integer, |seed| <= ss.MAX_SEED (2^30 - 1); anything else
---                 raises an error. Passed straight to planner.plan.
+--     seed        integer accepted by planner.check_seed (|seed| <=
+--                 ss.MAX_SEED = planner.SEED_LIMIT); else raises an error.
 --     opts        optional table overriding any ss.CONSTANTS entry by its
 --                 name in lower case (step, max_radius, player_margin,
 --                 max_range, ...) and `planner_opts` (forwarded to
@@ -35,7 +35,11 @@
 --                    (lowest cut/fill row) up to max(max_height, ground_y +
 --                    BLOCKOUT_CLEARANCE), i.e. includes cut/fill and the
 --                    landmark blockout clearance.
---     inspection_volume = {min, max} the volume that was emerged and read.
+--     inspection_volume = {min, max} emerged and read during the search
+--                    (plan bounds X/Z, surface window ref_y-24 .. ref_y+24+1).
+--     build_volume = {min, max} also emerged for the accepted site:
+--                    build_bounds plus CUT_FILL_MARGIN around and below.
+--                    No extra foundation depth below min_height is included.
 --     candidate    = {index, dx, dz}  offset from the player in the order
 --     candidates_tried = integer
 --     rejections   = {[code] = count}  for the candidates rejected on the way
@@ -44,7 +48,13 @@
 --     rejections = {[code]=count}, examples = {[code]="first message"}}
 --
 -- A plan failure for the seed ends the search at once (plan_failed x1).
--- Rejection codes: player_inside (player within the candidate's bounds plus
+-- Also: the player must stand on solid ground (else done(nil, msg)); a
+-- throwing env function or any internal error ends the search through
+-- done(nil, "internal error: ..."). Emerge requests have a watchdog.
+-- Terrain classes are exactly Phase 1's (ice, cactus etc. behave as in
+-- /towns_test; nothing is special-cased here).
+-- Rejection codes: out_of_range (centre beyond planner's +/-31000),
+-- emerge_timeout (see EMERGE_TIMEOUT), player_inside (player within the candidate's bounds plus
 -- PLAYER_MARGIN), plan_failed, emerge_failed (CANCELLED/ERRORED), water
 -- (water/lava), unknown (ignore/unloaded/unregistered node), no_ground (no
 -- solid node in the window), too_high (surface reaches the window top, the
@@ -56,14 +66,15 @@
 --                                    CANCELLED/ERRORED.
 --   env.get_node_name(x, y, z)       node name ("ignore" if unloaded)
 --   env.node_info(name)              {walkable, liquid, clearable} or nil
+--   env.after(seconds, fn)           watchdog timer (core.after)
 -- The search never calls anything else on env.
 
 return function(placement, planner)
 
 local M = {}
 
--- Largest seed accepted by planner.plan (31-bit seeds).
-M.MAX_SEED = 2 ^ 30 - 1
+-- Largest seed accepted by planner.plan (alias of planner.SEED_LIMIT).
+M.MAX_SEED = planner.SEED_LIMIT
 
 M.CONSTANTS = {
 	STEP = 16,                -- candidate lattice spacing, nodes
@@ -75,6 +86,9 @@ M.CONSTANTS = {
 	CUT_FILL_MARGIN = 8,      -- extra nodes emerged around/below the town
 	SCAN_UP = 24,             -- surface window: reference ground +/- this
 	SCAN_DOWN = 24,
+	EMERGE_TIMEOUT = 30,      -- seconds to wait for one emerge before giving up
+	MAX_CONSECUTIVE_TIMEOUTS = 3, -- then fail the whole search
+	CENTER_LIMIT = 31000,     -- planner.plan accepts |centre| <= this
 }
 
 local function constants(opts)
@@ -83,8 +97,17 @@ local function constants(opts)
 	if opts then
 		for k, v in pairs(opts) do
 			local key = type(k) == "string" and k:upper() or nil
-			if key and M.CONSTANTS[key] ~= nil then C[key] = v end
+			if key and M.CONSTANTS[key] ~= nil then
+				if type(v) ~= "number" or v ~= v or v < 0 then
+					error("towns site_search: opts." .. k .. " must be a number >= 0, got "
+						.. tostring(v), 3)
+				end
+				C[key] = v
+			end
 		end
+	end
+	if C.STEP < 1 or C.STEP ~= math.floor(C.STEP) then
+		error("towns site_search: opts.step must be an integer >= 1, got " .. tostring(C.STEP), 3)
 	end
 	C.BLOCKOUT_CLEARANCE = C.LANDMARK_BLOCKOUT_HEIGHT + C.BLOCKOUT_MARGIN
 	return C
@@ -158,19 +181,30 @@ function M.median(values)
 	return s[math.floor((n + 1) / 2)]
 end
 
--- Volume to emerge and read for a plan. Returns volume, scan_top,
+-- Volume emerged and read during the search: the plan bounds in X/Z, and in
+-- Y the surface window ref_y-SCAN_DOWN .. ref_y+SCAN_UP plus one sentinel row
+-- on top (a surface found in the sentinel row means the real surface is out
+-- of the window: too_high). Returns volume, scan_top (the sentinel y),
 -- scan_bottom. ref_y = reference ground y (the node under the player).
--- X/Z: plan bounds grown by CUT_FILL_MARGIN. Y: from the surface window
--- bottom minus CUT_FILL_MARGIN to the window top plus BLOCKOUT_CLEARANCE.
 function M.inspection_volume(plan_bounds, ref_y, C)
 	local b = plan_bounds
-	local m = C.CUT_FILL_MARGIN
-	local top = ref_y + C.SCAN_UP
+	local top = ref_y + C.SCAN_UP + 1
 	local bottom = ref_y - C.SCAN_DOWN
 	return {
-		min = {x = b.x1 - m, y = bottom - m, z = b.z1 - m},
-		max = {x = b.x2 + m, y = top + C.BLOCKOUT_CLEARANCE, z = b.z2 + m},
+		min = {x = b.x1, y = bottom, z = b.z1},
+		max = {x = b.x2, y = top, z = b.z2},
 	}, top, bottom
+end
+
+-- Volume emerged for an accepted site, so the build ticket need not emerge
+-- again: build bounds plus CUT_FILL_MARGIN around and below.
+function M.build_volume(build_bounds, C)
+	local m = C.CUT_FILL_MARGIN
+	local b = build_bounds
+	return {
+		min = {x = b.min.x - m, y = b.min.y - m, z = b.min.z - m},
+		max = {x = b.max.x + m, y = b.max.y, z = b.max.z + m},
+	}
 end
 
 -- Exact build bounds for an accepted site (see header).
@@ -243,15 +277,21 @@ end
 ------------------------------------------------------------------------
 -- Search (callback driven)
 ------------------------------------------------------------------------
+local function same_rect(a, b)
+	return a.x1 == b.x1 and a.z1 == b.z1 and a.x2 == b.x2 and a.z2 == b.z2
+end
+
 function M.search(player_pos, seed, opts, done, env)
-	if type(seed) ~= "number" or seed ~= math.floor(seed)
-			or math.abs(seed) > M.MAX_SEED then
-		error("towns site_search: seed must be an integer with |seed| <= "
-			.. M.MAX_SEED .. ", got " .. tostring(seed), 2)
+	local seed_ok, seed_msg = planner.check_seed(seed)
+	if not seed_ok then
+		error("towns site_search: " .. tostring(seed_msg), 2)
 	end
 	if type(player_pos) ~= "table" or type(player_pos.x) ~= "number"
 			or type(player_pos.y) ~= "number" or type(player_pos.z) ~= "number" then
 		error("towns site_search: player_pos must be a table with numeric x, y, z", 2)
+	end
+	if type(done) ~= "function" then
+		error("towns site_search: done must be a function", 2)
 	end
 	opts = opts or {}
 	local C = constants(opts)
@@ -278,42 +318,94 @@ function M.search(player_pos, seed, opts, done, env)
 		examples[code] = examples[code] or msg
 	end
 
+	-- Like /towns_test: the reference ground must be solid, so a player in
+	-- flight or on water gets a clear failure, not a silently wrong window.
+	local gok, gname = pcall(env.get_node_name, px, ref_y, pz)
+	if not gok then
+		return finish(nil, "internal error: " .. tostring(gname))
+	end
+	if placement.classify(gname, env.node_info) ~= "solid" then
+		return finish(nil, ("You must be standing on solid ground (found '%s' below you at (%d,%d,%d)). Nothing was changed."):format(
+			tostring(gname), px, ref_y, pz))
+	end
+
 	local function class_at(x, y, z)
 		return placement.classify(env.get_node_name(x, y, z), env.node_info)
 	end
 
-	local index = 0
-	local step
-	local function next_candidate()
-		index = index + 1
-		if index > #offsets then
-			local summary = ("No suitable town site within %d nodes of (%d,%d): %d candidates checked"):format(
-				C.MAX_RADIUS, px, pz, tried)
-			if next(rejections) then
-				summary = summary .. "; rejected: " .. M.format_rejections(rejections)
-			end
-			return finish(nil, summary .. ". Nothing was changed.")
-		end
-		return step(index)
-	end
-
 	-- The layout depends only on the seed and the centre merely translates
 	-- it (planner contract), and planning costs tens of ms, so the plan is
-	-- computed once and translated for the cheap candidate tests. The
-	-- accepted candidate gets a genuine planner.plan(center, seed).
+	-- computed once (at the origin) and translated for the cheap candidate
+	-- tests. The accepted candidate gets a genuine planner.plan(center, seed).
 	local base, base_why
 	local function shifted(r, dx, dz)
 		return {x1 = r.x1 + dx, z1 = r.z1 + dz, x2 = r.x2 + dx, z2 = r.z2 + dz}
 	end
 
-	step = function(i)
+	-- Driver: candidates are processed in a loop (never by recursion, so
+	-- synchronous emerges cannot grow the stack); emerge results arrive as
+	-- continuations. Every error is contained and ends the search through
+	-- done(), never through the engine's emerge callback.
+	local index, waiting, cont, running = 0, false, nil, false
+	local timeouts = 0
+	local pump
+
+	-- Emerges a volume with a watchdog. on_result("ok"|"failed"|"timeout")
+	-- runs once, from the driver loop; late callbacks are ignored.
+	local function emerge_step(minp, maxp, on_result)
+		waiting = true
+		local settled = false
+		local function settle(status)
+			if settled or finished then return end
+			settled = true
+			waiting = false
+			cont = function() on_result(status) end
+			pump()
+		end
+		env.emerge(minp, maxp, function(ok) settle(ok and "ok" or "failed") end)
+		if not settled then
+			env.after(C.EMERGE_TIMEOUT, function() settle("timeout") end)
+		end
+	end
+
+	-- Handles a failed/timed-out emerge; returns true if the candidate is dead.
+	local function emerge_bad(status, center)
+		if status == "ok" then
+			timeouts = 0
+			return false
+		end
+		local where = ("(%d,%d)"):format(center.x, center.z)
+		if status == "timeout" then
+			timeouts = timeouts + 1
+			reject("emerge_timeout", "emerge did not finish within "
+				.. C.EMERGE_TIMEOUT .. "s for candidate centre " .. where)
+			if timeouts >= C.MAX_CONSECUTIVE_TIMEOUTS then
+				finish(nil, ("Giving up: %d emerge requests in a row timed out after %ds. Nothing was changed."):format(
+					timeouts, C.EMERGE_TIMEOUT))
+			end
+		else
+			timeouts = 0
+			reject("emerge_failed", "emerge cancelled or failed for candidate centre " .. where)
+		end
+		return true
+	end
+
+	local function candidate(i)
 		local off = offsets[i]
 		local center = {x = px + off.dx, z = pz + off.dz}
-		if base == nil then
-			base, base_why = planner.plan(center, seed, opts.planner_opts)
-			base = base or false
-		end
 		tried = tried + 1
+		if math.abs(center.x) > C.CENTER_LIMIT or math.abs(center.z) > C.CENTER_LIMIT then
+			return reject("out_of_range", ("centre (%d,%d) is beyond the planner limit %d"):format(
+				center.x, center.z, C.CENTER_LIMIT))
+		end
+		if base == nil then
+			local ok, p, why = pcall(planner.plan, {x = 0, z = 0}, seed, opts.planner_opts)
+			if ok then
+				base, base_why = p or false, why
+			else
+				base, base_why = false, p
+			end
+		end
 		if not base then
 			-- The layout depends only on the seed, so every centre fails
 			-- the same way: fail fast with the planner's reason.
@@ -324,80 +416,105 @@ function M.search(player_pos, seed, opts, done, env)
 		local sx, sz = center.x - base.center.x, center.z - base.center.z
 		local bounds = shifted(base.bounds, sx, sz)
 		if M.player_inside(bounds, px, pz, C.PLAYER_MARGIN) then
-			reject("player_inside", ("player at (%d,%d) is within the town bounds"):format(px, pz))
-			return next_candidate()
+			return reject("player_inside",
+				("player at (%d,%d) is within the town bounds"):format(px, pz))
 		end
 		local rects = {}
 		for k, r in ipairs(base.boundary.rects) do rects[k] = shifted(r, sx, sz) end
 		local volume, top, bottom = M.inspection_volume(bounds, ref_y, C)
-		env.emerge(volume.min, volume.max, function(ok)
-			if finished then return end
-			if not ok then
-				reject("emerge_failed", "emerge cancelled or failed for candidate centre ("
-					.. center.x .. "," .. center.z .. ")")
-				return next_candidate()
-			end
-			local columns = M.boundary_columns(rects)
-			local info, code, msg = M.inspect_columns(columns, function(x, z)
+
+		emerge_step(volume.min, volume.max, function(status)
+			if emerge_bad(status, center) then return end
+			local info, code, msg = M.inspect_columns(M.boundary_columns(rects), function(x, z)
 				return placement.scan_column(function(y) return class_at(x, y, z) end, top, bottom)
 			end, top, C.MAX_RANGE)
-			if not info then
-				reject(code, msg)
-				return next_candidate()
+			if not info then return reject(code, msg) end
+
+			-- Real plan for the accepted site; it must be exactly the
+			-- translated layout that was inspected.
+			local pok, plan, pwhy = pcall(planner.plan, center, seed, opts.planner_opts)
+			local same = pok and plan and same_rect(plan.bounds, bounds)
+				and #plan.boundary.rects == #rects
+			if same then
+				for k, r in ipairs(rects) do
+					if not same_rect(plan.boundary.rects[k], r) then same = false end
+				end
 			end
-			local plan, pwhy = planner.plan(center, seed, opts.planner_opts)
-			if not plan or plan.bounds.x1 ~= bounds.x1 or plan.bounds.z1 ~= bounds.z1
-					or plan.bounds.x2 ~= bounds.x2 or plan.bounds.z2 ~= bounds.z2 then
-				reject("plan_failed", pwhy and tostring(pwhy)
+			if not same then
+				return reject("plan_failed", (not pok and tostring(plan)) or (pwhy and tostring(pwhy))
 					or "plan is not a translation of the seed's layout")
-				return next_candidate()
 			end
+
 			local ground = M.median(info.list)
-			return finish({
-				center = center,
-				plan = plan,
-				ground_y = ground,
-				heights = info.heights,
-				columns = #info.list,
-				min_height = info.min_height,
-				max_height = info.max_height,
-				build_bounds = M.build_bounds(bounds, ground, info.min_height, info.max_height, C),
-				inspection_volume = volume,
-				candidate = {index = i, dx = off.dx, dz = off.dz},
-				candidates_tried = tried,
-				rejections = rejections,
-			})
+			local bb = M.build_bounds(bounds, ground, info.min_height, info.max_height, C)
+			local bvol = M.build_volume(bb, C)
+			emerge_step(bvol.min, bvol.max, function(status2)
+				if emerge_bad(status2, center) then return end
+				finish({
+					center = center,
+					plan = plan,
+					ground_y = ground,
+					heights = info.heights,
+					columns = #info.list,
+					min_height = info.min_height,
+					max_height = info.max_height,
+					build_bounds = bb,
+					inspection_volume = volume,
+					build_volume = bvol,
+					candidate = {index = i, dx = off.dx, dz = off.dz},
+					candidates_tried = tried,
+					rejections = rejections,
+				})
+			end)
 		end)
 	end
 
-	return next_candidate()
+	pump = function()
+		if running then return end
+		running = true
+		local ok, err = pcall(function()
+			while not finished and not waiting do
+				local c = cont
+				if c then
+					cont = nil
+					c()
+				else
+					index = index + 1
+					if index > #offsets then
+						local summary = ("No suitable town site within %d nodes of (%d,%d): %d candidates checked"):format(
+							C.MAX_RADIUS, px, pz, tried)
+						if next(rejections) then
+							summary = summary .. "; rejected: " .. M.format_rejections(rejections)
+						end
+						finish(nil, summary .. ". Nothing was changed.")
+					else
+						candidate(index)
+					end
+				end
+			end
+		end)
+		running = false
+		if not ok then
+			if finished then error(err, 0) end -- done() itself raised
+			finish(nil, "internal error: " .. tostring(err) .. ". Nothing was changed.")
+		end
+	end
+
+	pump()
 end
 
 ------------------------------------------------------------------------
 -- core.* adapter (the only part that touches the engine)
 ------------------------------------------------------------------------
--- node_info mirrors /towns_test's rules (src/test_command.lua).
 function M.core_env(c)
-	local function node_info(name)
-		local def = c.registered_nodes[name]
-		if not def then return nil end
-		local g = def.groups or {}
-		local liquid = def.liquidtype ~= nil and def.liquidtype ~= "none"
-		local clearable = def.buildable_to
-			or g.tree or g.leaves or g.plant or g.vines or g.flower or g.deco_block
-			or g.dead_bush or g.mushroom or g.sapling
-			or name:find("^mcl_core:snow_?%d*$") ~= nil
-		return {
-			walkable = def.walkable ~= false,
-			liquid = liquid,
-			clearable = clearable and true or false,
-		}
-	end
 	return {
-		node_info = node_info,
+		node_info = function(name)
+			return placement.node_info(c.registered_nodes, name)
+		end,
 		get_node_name = function(x, y, z)
 			return c.get_node({x = x, y = y, z = z}).name
 		end,
+		after = function(seconds, fn) c.after(seconds, fn) end,
 		-- emerge_area calls back several times (calls_remaining); act once
 		-- when the last one arrives, failed if ANY call reported an error.
 		emerge = function(minpos, maxpos, cb)
