@@ -475,7 +475,7 @@ end
 fails(function() ss.search(PLAYER, SEED, {step = 0}, function() end, new_world({}).env) end,
 	"step must be", "step 0 rejected")
 fails(function() ss.search(PLAYER, SEED, {step = -16}, function() end, new_world({}).env) end,
-	"must be a number >= 0", "negative step rejected")
+	"finite number >= 0", "negative step rejected")
 fails(function() ss.search(PLAYER, SEED, {max_radius = -1}, function() end, new_world({}).env) end,
 	"max_radius", "negative radius rejected")
 eq(ss.MAX_SEED, planner.SEED_LIMIT, "MAX_SEED aliases the planner limit")
@@ -630,5 +630,96 @@ do
 		}), PLAYER, nil)
 		eq(rr ~= nil and rr.candidate.index, ei, "bbox cell outside the rects is ignored")
 		eq(rr ~= nil and ss.height_at(rr, hole[1], hole[2]), nil, "bbox hole has no height")
+	end
+end
+
+------------------------------------------------------------------------
+-- Final cleanups: node_info throw, throwing done, input validation, limits
+------------------------------------------------------------------------
+do
+	-- Throwing env.node_info during the initial ground check.
+	local nw = new_world({})
+	rawset(nw.env, "node_info", function() error("boom in node_info") end)
+	local ok, rr, ss_, dd, cc = pcall(run, nw, PLAYER, nil)
+	-- (name "default:stone" is unregistered for classify only when info throws)
+	eq(ok, true, "throwing node_info: search does not raise")
+	eq(cc, 1, "throwing node_info: done once")
+	eq(rr, nil, "throwing node_info: no site")
+	eq(ss_ ~= nil and ss_:find("internal error", 1, true) ~= nil, true, "throwing node_info: summary")
+end
+
+do
+	-- done raising: swallowed and logged, never rethrown (async and timer).
+	local logged = {}
+	local function with_log(w)
+		rawset(w.env, "log", function(level, msg) logged[#logged + 1] = level .. ": " .. msg end)
+		return w
+	end
+	local dw = with_log(new_world({deferred = true}))
+	local calls_ = 0
+	local ok = pcall(function()
+		ss.search(PLAYER, SEED, nil, function() calls_ = calls_ + 1; error("done blew up") end, dw.env)
+	end)
+	eq(ok, true, "throwing done (sync start): search returns")
+	ok = pcall(dw.pump)
+	eq(ok, true, "throwing done (async callback): not rethrown")
+	eq(calls_, 1, "throwing done (async callback): called once")
+	eq(#logged >= 1 and logged[1]:find("done blew up", 1, true) ~= nil, true, "throwing done: logged")
+
+	logged = {}
+	local hw = with_log(new_world({hang = function() return true end}))
+	calls_ = 0
+	ss.search(PLAYER, SEED, nil, function() calls_ = calls_ + 1; error("done blew up 2") end, hw.env)
+	ok = true
+	for i = 1, ss.CONSTANTS.MAX_CONSECUTIVE_TIMEOUTS do
+		local okk = pcall(hw.timers[i].fn)
+		ok = ok and okk
+	end
+	eq(ok, true, "throwing done (timer): not rethrown")
+	eq(calls_, 1, "throwing done (timer): called once")
+	eq(#logged >= 1 and logged[1]:find("done blew up 2", 1, true) ~= nil, true, "throwing done (timer): logged")
+
+	-- Early synchronous failure (not on solid ground) with a throwing done.
+	ok = pcall(ss.search, {x = 0, y = 90, z = 0}, SEED, nil, function() error("sync done") end,
+		with_log(new_world({})).env)
+	eq(ok, true, "throwing done (sync failure): swallowed")
+end
+
+-- Input validation.
+fails(function() ss.search(PLAYER, SEED, {scan_up = 1.5}, function() end, new_world({}).env) end,
+	"scan_up must be an integer", "fractional scan_up")
+fails(function() ss.search(PLAYER, SEED, {scan_down = 2.5}, function() end, new_world({}).env) end,
+	"scan_down must be an integer", "fractional scan_down")
+fails(function() ss.search(PLAYER, SEED, {stpe = 8}, function() end, new_world({}).env) end,
+	"unknown option 'stpe'", "typo'd option")
+fails(function() ss.search(PLAYER, SEED, {max_radius = math.huge}, function() end, new_world({}).env) end,
+	"finite number", "infinite radius")
+fails(function() ss.search({x = 0 / 0, y = 21, z = 0}, SEED, nil, function() end, new_world({}).env) end,
+	"player_pos.x must be finite", "NaN player x")
+fails(function() ss.search({x = 0, y = math.huge, z = 0}, SEED, nil, function() end, new_world({}).env) end,
+	"player_pos.y must be finite", "inf player y")
+fails(function() ss.search({x = 0, y = 21, z = -math.huge}, SEED, nil, function() end, new_world({}).env) end,
+	"player_pos.z must be finite", "-inf player z")
+fails(function() ss.search(PLAYER, SEED, "x", function() end, new_world({}).env) end,
+	"opts must be a table", "non-table opts")
+do
+	-- planner_opts and upper-case constant names remain accepted.
+	local ok = pcall(run, new_world({}), PLAYER, {STEP = 16, planner_opts = {}, max_radius = 48})
+	eq(ok, true, "known option spellings accepted")
+end
+
+-- No emerge volume may extend beyond +/-31000, margins included.
+do
+	for _, px in ipairs({30990, -30990}) do
+		local mw = new_world({surface = striped(30)})
+		local ok, rr, ss_, dd = pcall(run, mw, {x = px, y = 21, z = 30990}, nil)
+		eq(ok, true, "limit volumes " .. px .. ": no raise")
+		local worst = 0
+		for _, e in ipairs(mw.emerges) do
+			worst = math.max(worst, math.abs(e.min.x), math.abs(e.max.x), math.abs(e.min.z), math.abs(e.max.z))
+		end
+		eq(worst <= 31000, true, "limit volumes " .. px .. ": every emerged volume within +/-31000")
+		eq((dd.rejections.out_of_range or 0) > 0, true, "limit volumes " .. px .. ": out_of_range counted")
+		eq(dd.rejections.emerge_timeout, nil, "limit volumes " .. px .. ": no emerge timeouts")
 	end
 end

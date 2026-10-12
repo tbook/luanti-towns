@@ -67,6 +67,11 @@
 --   env.get_node_name(x, y, z)       node name ("ignore" if unloaded)
 --   env.node_info(name)              {walkable, liquid, clearable} or nil
 --   env.after(seconds, fn)           watchdog timer (core.after)
+--   env.log(level, msg)              optional; receives errors raised by `done`
+-- `done` should not throw: a throwing `done` is logged via env.log and
+-- swallowed (never rethrown into engine callbacks).
+-- Unknown opts keys, non-integer scan_up/scan_down, non-finite numbers and
+-- NaN/inf player_pos components raise errors.
 -- The search never calls anything else on env.
 
 return function(placement, planner)
@@ -98,12 +103,20 @@ local function constants(opts)
 		for k, v in pairs(opts) do
 			local key = type(k) == "string" and k:upper() or nil
 			if key and M.CONSTANTS[key] ~= nil then
-				if type(v) ~= "number" or v ~= v or v < 0 then
-					error("towns site_search: opts." .. k .. " must be a number >= 0, got "
+				if type(v) ~= "number" or v ~= v or v < 0 or v == math.huge then
+					error("towns site_search: opts." .. k .. " must be a finite number >= 0, got "
 						.. tostring(v), 3)
 				end
 				C[key] = v
+			elseif k ~= "planner_opts" then
+				error("towns site_search: unknown option '" .. tostring(k) .. "'", 3)
 			end
+		end
+	end
+	for _, name in ipairs({"SCAN_UP", "SCAN_DOWN"}) do
+		if C[name] ~= math.floor(C[name]) then
+			error("towns site_search: opts." .. name:lower() .. " must be an integer, got "
+				.. tostring(C[name]), 3)
 		end
 	end
 	if C.STEP < 1 or C.STEP ~= math.floor(C.STEP) then
@@ -293,7 +306,16 @@ function M.search(player_pos, seed, opts, done, env)
 	if type(done) ~= "function" then
 		error("towns site_search: done must be a function", 2)
 	end
+	for _, c in ipairs({"x", "y", "z"}) do
+		local v = player_pos[c]
+		if v ~= v or v == math.huge or v == -math.huge then
+			error("towns site_search: player_pos." .. c .. " must be finite, got " .. tostring(v), 2)
+		end
+	end
 	opts = opts or {}
+	if type(opts) ~= "table" then
+		error("towns site_search: opts must be a table", 2)
+	end
 	local C = constants(opts)
 	env = env or M.core_env(core)
 	local px, pz = round(player_pos.x), round(player_pos.z)
@@ -301,6 +323,7 @@ function M.search(player_pos, seed, opts, done, env)
 	local offsets = M.candidate_offsets(C.STEP, C.MAX_RADIUS)
 	local rejections, examples = {}, {}
 	local tried, finished = 0, false
+	local logf = rawget(env, "log") or function() end
 
 	local function details()
 		return {
@@ -311,7 +334,13 @@ function M.search(player_pos, seed, opts, done, env)
 	local function finish(result, summary)
 		if finished then return end
 		finished = true
-		done(result, summary, details())
+		-- `done` must not throw. If it does, that must never propagate into
+		-- the engine's emerge/timer callbacks (fatal to the server): it is
+		-- logged through env.log and swallowed, on every path.
+		local ok, err = pcall(done, result, summary, details())
+		if not ok then
+			logf("error", "towns site_search: done callback raised: " .. tostring(err))
+		end
 	end
 	local function reject(code, msg)
 		rejections[code] = (rejections[code] or 0) + 1
@@ -324,7 +353,11 @@ function M.search(player_pos, seed, opts, done, env)
 	if not gok then
 		return finish(nil, "internal error: " .. tostring(gname))
 	end
-	if placement.classify(gname, env.node_info) ~= "solid" then
+	local cok, gclass = pcall(placement.classify, gname, env.node_info)
+	if not cok then
+		return finish(nil, "internal error: " .. tostring(gclass))
+	end
+	if gclass ~= "solid" then
 		return finish(nil, ("You must be standing on solid ground (found '%s' below you at (%d,%d,%d)). Nothing was changed."):format(
 			tostring(gname), px, ref_y, pz))
 	end
@@ -415,6 +448,16 @@ function M.search(player_pos, seed, opts, done, env)
 		end
 		local sx, sz = center.x - base.center.x, center.z - base.center.z
 		local bounds = shifted(base.bounds, sx, sz)
+		do
+			-- Read and build volumes (margins included) must stay inside the
+			-- map limits; otherwise the emerge could only time out.
+			local m = C.CUT_FILL_MARGIN
+			if bounds.x1 - m < -C.CENTER_LIMIT or bounds.x2 + m > C.CENTER_LIMIT
+					or bounds.z1 - m < -C.CENTER_LIMIT or bounds.z2 + m > C.CENTER_LIMIT then
+				return reject("out_of_range", ("volume around centre (%d,%d) extends beyond +/-%d"):format(
+					center.x, center.z, C.CENTER_LIMIT))
+			end
+		end
 		if M.player_inside(bounds, px, pz, C.PLAYER_MARGIN) then
 			return reject("player_inside",
 				("player at (%d,%d) is within the town bounds"):format(px, pz))
@@ -495,7 +538,10 @@ function M.search(player_pos, seed, opts, done, env)
 		end)
 		running = false
 		if not ok then
-			if finished then error(err, 0) end -- done() itself raised
+			if finished then
+				logf("error", "towns site_search: error after finishing: " .. tostring(err))
+				return
+			end
 			finish(nil, "internal error: " .. tostring(err) .. ". Nothing was changed.")
 		end
 	end
@@ -515,6 +561,7 @@ function M.core_env(c)
 			return c.get_node({x = x, y = y, z = z}).name
 		end,
 		after = function(seconds, fn) c.after(seconds, fn) end,
+		log = function(level, msg) c.log(level, msg) end,
 		-- emerge_area calls back several times (calls_remaining); act once
 		-- when the last one arrives, failed if ANY call reported an error.
 		emerge = function(minpos, maxpos, cb)
