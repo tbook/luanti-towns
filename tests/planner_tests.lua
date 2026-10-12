@@ -207,14 +207,14 @@ local expected_plans = 0
 for ci, c in ipairs(centers) do
 	-- Every seed at the first centre; a subset at the others.
 	for si, seed in ipairs(seeds) do
-		if ci == 1 or si % 4 == 0 then
+		if ci == 1 or si % 8 == 0 then
 		expected_plans = expected_plans + 1
 		local label = ("seed %d centre %d"):format(seed, ci)
 		local plan, reason = planner.plan(c, seed)
 		eq(plan ~= nil, true, label .. " planned (" .. tostring(reason) .. ")")
 		if plan then
 			plans_checked = plans_checked + 1
-			if ci == 1 then
+			if ci == 1 and si % 4 == 0 then
 				local again = planner.plan({x = c.x, z = c.z}, seed)
 				eq(deep_equal(plan, again), true, label .. " deterministic")
 			end

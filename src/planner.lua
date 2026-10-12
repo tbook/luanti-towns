@@ -147,11 +147,16 @@
 -- of the market, parvis, cathedral and castle (so each door has a full street
 -- width of free space in front of it).
 -- Then streets.validate always runs (a plan without streets is rejected):
--- street widths
--- and kinds, containment in the boundary, no landmark overlap, both
--- approaches connected by pavement (and by principal streets alone) to the
--- market, parvis and castle approach edge, blocks off the pavement, frontage
--- facing real pavement. plan() additionally requires MIN_BLOCKS blocks.
+-- street widths, kinds, materials and axes; containment in the boundary; no
+-- landmark overlap; no dead-end principal streets (each end joins a street,
+-- square, landmark, or the town entrance / a door node); both approaches
+-- connected by pavement (and by principal streets alone) to the market and
+-- parvis; fully paved 6-wide windows reachable from both approaches that
+-- cover the castle and cathedral approach.pos (so the castle route reaches
+-- the door, not merely the approach edge); blocks off the pavement, at least
+-- MIN_BLOCK_SIDE with frontage; frontage runs on their block's edge facing
+-- the street or square they name. plan() additionally requires MIN_BLOCKS
+-- blocks and runs this check once, as its final accept gate.
 
 local M = {}
 

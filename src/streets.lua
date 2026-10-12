@@ -635,8 +635,7 @@ function M.fill(plan, rng, C)
 	sites.parvis.material = C.SQUARE_MATERIAL
 	plan.streets, plan.blocks, plan.frontage = streets, blocks, frontage
 
-	local ok, why = M.validate(plan, C)
-	if not ok then return nil, why end
+	-- (planner.plan runs the full validate as its final accept gate.)
 	if #blocks < C.MIN_BLOCKS then
 		return nil, ("only %d blocks with street frontage (need %d)"):format(#blocks, C.MIN_BLOCKS)
 	end
@@ -658,6 +657,37 @@ end
 -- guards the call with pcall as a backstop).
 function M.validate(plan, C)
 	local function bad(msg) return false, "malformed plan: " .. msg end
+	if type(plan) ~= "table" then return bad("plan is not a table") end
+	if not is_rect(plan.envelope) then return bad("plan has no envelope") end
+	if type(plan.boundary) ~= "table" or type(plan.boundary.rects) ~= "table" then
+		return bad("plan has no boundary rects")
+	end
+	for i, r in ipairs(plan.boundary.rects) do
+		if not is_rect(r) then return bad("boundary rect " .. i .. " is malformed") end
+	end
+	if type(plan.sites) ~= "table" then return bad("plan has no sites") end
+	for _, name in ipairs({"cathedral", "parvis", "market", "castle"}) do
+		local st = plan.sites[name]
+		if type(st) ~= "table" or not is_rect(st.rect) or type(st.approach) ~= "table"
+				or type(st.approach.pos) ~= "table" or not is_int(st.approach.pos.x)
+				or not is_int(st.approach.pos.z) or not is_rect(st.approach.edge) then
+			return bad("site " .. name .. " is missing or malformed")
+		end
+	end
+	if type(plan.approaches) ~= "table" or #plan.approaches < 2 then
+		return bad("plan needs two approaches")
+	end
+	for i = 1, 2 do
+		local a = plan.approaches[i]
+		if type(a) ~= "table" or type(a.pos) ~= "table" or not is_int(a.pos.x)
+				or not is_int(a.pos.z) or not is_rect(a.edge)
+				or type(a.side) ~= "string" or type(a.name) ~= "string" then
+			return bad("approach " .. i .. " is malformed")
+		end
+	end
+	if type(C) ~= "table" or type(C.ENVELOPE) ~= "number" then
+		return bad("constants are missing")
+	end
 	if type(plan.streets) ~= "table" or #plan.streets == 0 then
 		return bad("plan has no streets")
 	end
@@ -896,11 +926,32 @@ function M.validate(plan, C)
 			face(r.x1, r.z1 - 1, r.x2, r.z1 - 1, r.x1, r.z1, r.x2, r.z1)
 			face(r.x1, r.z2 + 1, r.x2, r.z2 + 1, r.x1, r.z2, r.x2, r.z2)
 		end
+		-- An approach counts only when its 6x6 inward window is one end
+		-- block of this street (the street starts at the town entrance).
 		local on_approach = false
 		for _, a in ipairs(plan.approaches) do
 			local e = a.edge
-			if e.x1 >= r.x1 and e.x2 <= r.x2 and e.z1 >= r.z1 and e.z2 <= r.z2 then
-				on_approach = true
+			local wx, wz = e.x1, e.z1
+			if a.side == "+z" then wz = e.z2 - sw + 1 elseif a.side == "+x" then wx = e.x2 - sw + 1 end
+			if wx >= r.x1 and wx + sw - 1 <= r.x2 and wz >= r.z1 and wz + sw - 1 <= r.z2 then
+				local at_end
+				if ex > ez then at_end = wx == r.x1 or wx + sw - 1 == r.x2
+				elseif ez > ex then at_end = wz == r.z1 or wz + sw - 1 == r.z2
+				else at_end = true end
+				if at_end then on_approach = true end
+			end
+		end
+		-- A street may end at a landmark door: the door node (approach.pos)
+		-- must lie within one end block of the street.
+		local at_door = false
+		for _, name in ipairs({"castle", "cathedral"}) do
+			local q = sites[name].approach.pos
+			if q.x >= r.x1 and q.x <= r.x2 and q.z >= r.z1 and q.z <= r.z2 then
+				local near
+				if ex > ez then near = q.x <= r.x1 + sw - 1 or q.x >= r.x2 - sw + 1
+				elseif ez > ex then near = q.z <= r.z1 + sw - 1 or q.z >= r.z2 - sw + 1
+				else near = true end
+				if near then at_door = true end
 			end
 		end
 		local joined = 0
@@ -913,7 +964,6 @@ function M.validate(plan, C)
 				if other_pavement(c[1], c[2], i) then ok = true; break end
 				if inenv(c[1], c[2]) then
 					local k = idx(c[1], c[2])
-					if reserved[k] == 1 then ok = true; break end
 					if inb[k] ~= 1 and on_approach then ok = true; break end
 				elseif on_approach then
 					ok = true; break
@@ -922,24 +972,13 @@ function M.validate(plan, C)
 			if ok then joined = joined + 1 end
 		end
 		if s.kind == "principal" then
-			-- A 6x6 corner window needs two joined faces; a street sitting on
-			-- an approach edge is entered from outside the town, which covers
-			-- one face (or a long side).
+			-- A 6x6 corner window needs two joined faces; a street starting at
+			-- an approach window is entered from outside the town, and one
+			-- ending at a door node is entered from the landmark: each covers
+			-- one face.
 			local allowed = (#faces == 4) and 2 or 0
 			if on_approach then allowed = allowed + 1 end
-			-- A street running along a landmark front ends at its door.
-			local at_landmark = false
-			for x = r.x1, r.x2 do
-				for _, z in ipairs({r.z1 - 1, r.z2 + 1}) do
-					if inenv(x, z) and reserved[idx(x, z)] == 1 then at_landmark = true end
-				end
-			end
-			for z = r.z1, r.z2 do
-				for _, x in ipairs({r.x1 - 1, r.x2 + 1}) do
-					if inenv(x, z) and reserved[idx(x, z)] == 1 then at_landmark = true end
-				end
-			end
-			if at_landmark then allowed = allowed + 1 end
+			if at_door then allowed = allowed + 1 end
 			if #faces - joined > allowed then
 				return false, "principal street " .. i .. " has a dead end"
 			end
