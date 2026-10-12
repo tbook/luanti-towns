@@ -9,7 +9,8 @@
 --     player_pos  {x, y, z} the player's position (core player:get_pos()).
 --                 Rounded to nodes; the node below the feet (y rounded - 1)
 --                 is the reference ground used for the vertical windows.
---     seed        integer, passed straight to planner.plan.
+--     seed        integer, |seed| <= ss.MAX_SEED (2^30 - 1); anything else
+--                 raises an error. Passed straight to planner.plan.
 --     opts        optional table overriding any ss.CONSTANTS entry by its
 --                 name in lower case (step, max_radius, player_margin,
 --                 max_range, ...) and `planner_opts` (forwarded to
@@ -60,6 +61,9 @@
 return function(placement, planner)
 
 local M = {}
+
+-- Largest seed accepted by planner.plan (31-bit seeds).
+M.MAX_SEED = 2 ^ 30 - 1
 
 M.CONSTANTS = {
 	STEP = 16,                -- candidate lattice spacing, nodes
@@ -240,6 +244,15 @@ end
 -- Search (callback driven)
 ------------------------------------------------------------------------
 function M.search(player_pos, seed, opts, done, env)
+	if type(seed) ~= "number" or seed ~= math.floor(seed)
+			or math.abs(seed) > M.MAX_SEED then
+		error("towns site_search: seed must be an integer with |seed| <= "
+			.. M.MAX_SEED .. ", got " .. tostring(seed), 2)
+	end
+	if type(player_pos) ~= "table" or type(player_pos.x) ~= "number"
+			or type(player_pos.y) ~= "number" or type(player_pos.z) ~= "number" then
+		error("towns site_search: player_pos must be a table with numeric x, y, z", 2)
+	end
 	opts = opts or {}
 	local C = constants(opts)
 	env = env or M.core_env(core)

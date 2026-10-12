@@ -430,3 +430,11 @@ ss.search(PLAYER, SEED, SMALL, function(rr) ccalls = ccalls + 1; cres = rr end, 
 eq(ccalls, 1, "core env failure: done once")
 eq(cres, nil, "core env failure: no site")
 eq(#fc.writes, 0, "core env failure: no world writes")
+
+-- Invalid arguments raise clear errors instead of reaching the planner.
+fails(function() ss.search(PLAYER, 2 ^ 30, nil, function() end, new_world({}).env) end,
+	"seed must be an integer", "seed out of range")
+fails(function() ss.search(PLAYER, 1.5, nil, function() end, new_world({}).env) end,
+	"seed must be an integer", "non-integer seed")
+fails(function() ss.search({x = 0}, 1, nil, function() end, new_world({}).env) end,
+	"player_pos", "bad player_pos")
