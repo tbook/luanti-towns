@@ -294,5 +294,8 @@ eq(reason:find("unloaded", 1, true) ~= nil, true, "unknown reason")
 
 eq(placement.format_bounds(plan0.bounds), "(108,19,45) to (116,27,56)", "format_bounds")
 
+-- Planner (ticket #12): boundary and civic sites.
+loadfile("tests/planner_tests.lua")(eq, fails, dofile("src/planner.lua"))
+
 print(("%d checks, %d failures"):format(count, failures))
 os.exit(failures == 0 and 0 or 1)

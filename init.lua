@@ -7,6 +7,8 @@ towns = {
 	geometry = dofile(modpath .. "/src/geometry.lua"),
 }
 towns.placement = dofile(modpath .. "/src/placement.lua")(towns.geometry)
+-- Pure town planner (boundary + civic sites); no world access.
+towns.planner = dofile(modpath .. "/src/planner.lua")
 
 -- Startup check: report missing or mismatched schematics clearly.
 local invalid = towns.catalog.verify(function(path)
