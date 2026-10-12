@@ -29,14 +29,14 @@
 --     heights      = {[x] = {[z] = y}}  surface (topmost solid node) of every
 --                                    boundary column; ss.height_at(result,x,z)
 --     columns      = integer         number of inspected columns
---     min_height, max_height = integer   surface range (max - min <= MAX_RANGE)
+--     min_height, max_height = integer   actual surface extremes, including outliers
 --     build_bounds = {min={x,y,z}, max={x,y,z}} inclusive, exact: X/Z are
 --                    plan.bounds; Y runs from min(min_height, ground_y)
 --                    (lowest cut/fill row) up to max(max_height, ground_y +
 --                    BLOCKOUT_CLEARANCE), i.e. includes cut/fill and the
 --                    landmark blockout clearance.
 --     inspection_volume = {min, max} emerged and read during the search
---                    (plan bounds X/Z, surface window ref_y-24 .. ref_y+24+1).
+--                    (plan bounds X/Z, surface window ref_y-48 .. ref_y+48+1).
 --     build_volume = {min, max} also emerged for the accepted site:
 --                    build_bounds plus CUT_FILL_MARGIN around and below.
 --                    No extra foundation depth below min_height is included.
@@ -84,14 +84,16 @@ M.MAX_SEED = planner.SEED_LIMIT
 
 M.CONSTANTS = {
 	STEP = 16,                -- candidate lattice spacing, nodes
-	MAX_RADIUS = 160,         -- candidate centres within this distance
+	MAX_RADIUS = 320,         -- candidate centres within this distance
 	PLAYER_MARGIN = 4,        -- player must be this far outside the bounds
-	MAX_RANGE = 8,            -- max surface height range (max - min)
+	MAX_RANGE = 16,           -- max range of the middle surface heights
+	OUTLIER_PERCENT = 5,      -- trim up to 2.5% of columns from each tail
+	MAX_CUT_FILL = 24,        -- every surface must be within this of the median
 	LANDMARK_BLOCKOUT_HEIGHT = 40, -- tallest landmark blockout above ground
 	BLOCKOUT_MARGIN = 4,      -- slack above it (#15 may tune both)
 	CUT_FILL_MARGIN = 8,      -- extra nodes emerged around/below the town
-	SCAN_UP = 24,             -- surface window: reference ground +/- this
-	SCAN_DOWN = 24,
+	SCAN_UP = 48,             -- surface window: reference ground +/- this
+	SCAN_DOWN = 48,
 	EMERGE_TIMEOUT = 30,      -- seconds to wait for one emerge before giving up
 	MAX_CONSECUTIVE_TIMEOUTS = 3, -- then fail the whole search
 	CENTER_LIMIT = 31000,     -- planner.plan accepts |centre| <= this
@@ -122,6 +124,9 @@ local function constants(opts)
 	end
 	if C.STEP < 1 or C.STEP ~= math.floor(C.STEP) then
 		error("towns site_search: opts.step must be an integer >= 1, got " .. tostring(C.STEP), 3)
+	end
+	if C.OUTLIER_PERCENT >= 100 then
+		error("towns site_search: opts.outlier_percent must be < 100", 3)
 	end
 	C.BLOCKOUT_CLEARANCE = C.LANDMARK_BLOCKOUT_HEIGHT + C.BLOCKOUT_MARGIN
 	return C
@@ -242,7 +247,10 @@ end
 -- (the placement.scan_column results). Pure given `read`.
 -- Returns info table, or nil, code, message with code one of
 -- water, unknown, no_ground, too_high, too_uneven.
-function M.inspect_columns(columns, read, top, max_range)
+-- Optional outlier_percent trims equally from both tails, rounded down so
+-- the allowance is never exceeded. Actual extremes and all heights are kept
+-- for construction. max_cut_fill caps every column relative to the median.
+function M.inspect_columns(columns, read, top, max_range, outlier_percent, max_cut_fill)
 	local heights, list = {}, {}
 	local lo, hi
 	for _, c in ipairs(columns) do
@@ -266,11 +274,21 @@ function M.inspect_columns(columns, read, top, max_range)
 		if not hi or h > hi then hi = h end
 	end
 	if not lo then return nil, "no_ground", "no columns to inspect" end
-	if hi - lo > max_range then
+	table.sort(list)
+	local ground = list[math.floor((#list + 1) / 2)]
+	local trim = math.floor(#list * (outlier_percent or 0) / 200)
+	local core_lo, core_hi = list[trim + 1], list[#list - trim]
+	if core_hi - core_lo > max_range then
 		return nil, "too_uneven",
-			("surface varies from y=%d to y=%d (range %d, max %d)"):format(lo, hi, hi - lo, max_range)
+			("middle surface heights vary from y=%d to y=%d (range %d, max %d; %d columns excluded from each tail)"):format(
+				core_lo, core_hi, core_hi - core_lo, max_range, trim)
 	end
-	return {heights = heights, list = list, min_height = lo, max_height = hi}
+	if max_cut_fill and math.max(ground - lo, hi - ground) > max_cut_fill then
+		return nil, "too_uneven",
+			("surface extremes y=%d..%d require more than %d nodes of cut/fill at median y=%d"):format(
+				lo, hi, max_cut_fill, ground)
+	end
+	return {heights = heights, list = list, min_height = lo, max_height = hi, ground_y = ground}
 end
 
 -- "water x3, too_uneven x10": most frequent first, ties by code.
@@ -471,7 +489,7 @@ function M.search(player_pos, seed, opts, done, env)
 			if emerge_bad(status, center) then return end
 			local info, code, msg = M.inspect_columns(M.boundary_columns(rects), function(x, z)
 				return placement.scan_column(function(y) return class_at(x, y, z) end, top, bottom)
-			end, top, C.MAX_RANGE)
+			end, top, C.MAX_RANGE, C.OUTLIER_PERCENT, C.MAX_CUT_FILL)
 			if not info then return reject(code, msg) end
 
 			-- Real plan for the accepted site; it must be exactly the
@@ -489,7 +507,7 @@ function M.search(player_pos, seed, opts, done, env)
 					or "plan is not a translation of the seed's layout")
 			end
 
-			local ground = M.median(info.list)
+			local ground = info.ground_y
 			local bb = M.build_bounds(bounds, ground, info.min_height, info.max_height, C)
 			local bvol = M.build_volume(bb, C)
 			emerge_step(bvol.min, bvol.max, function(status2)
