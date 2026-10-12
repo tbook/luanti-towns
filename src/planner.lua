@@ -5,9 +5,11 @@
 --   local plan, reason, detail = planner.plan({x = cx, z = cz}, seed [, opts])
 --
 -- Inputs are validated with error() (programmer errors): the centre must be
--- a table with integer x and z (|v| <= 31000), the seed an integer
--- (|seed| <= 2^30 - 1, so distinct seeds
--- never alias). When bounded retries are exhausted, plan returns
+-- a table with integer x and z (|v| <= 31000), the seed an integer with
+-- |seed| <= planner.SEED_LIMIT (2^30 - 1, so distinct seeds never alias).
+-- planner.check_seed(seed) returns true or nil plus a message, for callers
+-- that want to pre-validate without pcall. When bounded retries are
+-- exhausted, plan returns
 -- nil, "<readable reason>", {code = "retries_exhausted", attempts = n,
 -- rejections = {[stage] = count, ...}}.
 --
@@ -78,7 +80,7 @@
 -- cathedral; their approach is a preferred attachment point only.
 --
 -- Boundary approaches: `edge` is a 6-wide, 1-deep rect of boundary nodes on
--- an outer edge, `pos` a node of it (index 3 of 0..5, so NOT centred: two
+-- an outer edge, `pos` a node of it (x1 + 2 or z1 + 2: NOT centred, two
 -- nodes lie on one side and three on the other), `side` the outward
 -- direction. The two approaches are on different sides and their 6x6
 -- inward windows never overlap. Site `approach.pos` follows the same
@@ -113,7 +115,7 @@
 -- Blocks are free interior cells (inside the boundary, off streets, squares
 -- and landmark footprints), at least MIN_BLOCK_SIDE on both sides. Adjacent
 -- block rects may abut where a leftover area was not rectangular; there is
--- no street between them and so no frontage between them. Empty in Phase 2.
+-- no street between them and so no frontage between them.
 --
 -- run (plan.frontage) = {
 --   id = integer, block = block id,
@@ -144,7 +146,8 @@
 -- 6x6 windows must join the two approaches and cover the approach `pos` node
 -- of the market, parvis, cathedral and castle (so each door has a full street
 -- width of free space in front of it).
--- When plan.streets is non-empty, streets.validate also runs: street widths
+-- Then streets.validate always runs (a plan without streets is rejected):
+-- street widths
 -- and kinds, containment in the boundary, no landmark overlap, both
 -- approaches connected by pavement (and by principal streets alone) to the
 -- market, parvis and castle approach edge, blocks off the pavement, frontage
@@ -195,6 +198,8 @@ M.CONSTANTS = {
 	MIN_BLOCK_SIDE = 8,
 	MAX_BLOCK_SCAN = 64,
 	MIN_FRONTAGE_RUN = 4,
+	MAX_EDGE_FRACTION = 0.3,  -- secondary street: max share of a long side that
+	                          --  may be outside the boundary or a landmark
 	MIN_BLOCKS = 3,           -- fewer blocks with frontage reject the attempt
 	PRINCIPAL_MATERIAL = "mcl_core:stonebrick",
 	SECONDARY_MATERIAL = "mcl_core:cobble",
@@ -215,6 +220,29 @@ local OPPOSITE = {["-z"] = "+z", ["+z"] = "-z", ["-x"] = "+x", ["+x"] = "-x"}
 ------------------------------------------------------------------------
 local MOD = 2147483647
 local SEED_LIMIT = 2 ^ 30 - 1 -- |seed| <= this keeps the seed -> state map injective
+M.SEED_LIMIT = SEED_LIMIT
+
+local function is_int(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+		and v == math.floor(v)
+end
+
+-- true, or nil plus a message saying what to do.
+function M.check_seed(seed)
+	if is_int(seed) and math.abs(seed) <= SEED_LIMIT then return true end
+	return nil, ("seed must be an integer between %d and %d, got %s"):format(
+		-SEED_LIMIT, SEED_LIMIT, tostring(seed))
+end
+
+-- One LCG step. The affine map has exactly one fixed point (1144636272, i.e.
+-- seed 70894448), where the stream would stay forever; it is stepped off by
+-- one so no seed locks up. 48271 is a primitive root of MOD, so every other
+-- state lies on a single cycle of length MOD - 1.
+local function step(s)
+	local nxt = (s * 48271 + 1013904223) % MOD
+	if nxt == s then nxt = (s + 1) % MOD end
+	return nxt
+end
 
 -- Every step is an affine bijection of Z_MOD, so distinct seeds in
 -- [-SEED_LIMIT, SEED_LIMIT] (mapped to 1 .. MOD) give distinct start states
@@ -223,11 +251,11 @@ local SEED_LIMIT = 2 ^ 30 - 1 -- |seed| <= this keeps the seed -> state map inje
 local function new_rng(seed)
 	local s = (seed + 1073741824) % MOD
 	for _ = 1, 8 do
-		s = (s * 48271 + 1013904223) % MOD
+		s = step(s)
 	end
 	local rng = {}
 	function rng.int(a, b) -- uniform integer in [a, b]
-		s = (s * 48271 + 1013904223) % MOD
+		s = step(s)
 		return a + math.floor(s * (b - a + 1) / MOD)
 	end
 	function rng.pick(list)
@@ -797,8 +825,27 @@ local function valid_side(s) return FACING[s] ~= nil end
 local function validate_impl(plan, C)
 	local sw, n = C.STREET_WIDTH, C.ENVELOPE
 	local env = plan.envelope
-	if env.x2 - env.x1 + 1 ~= n or env.z2 - env.z1 + 1 ~= n then
-		return nil, "envelope is not " .. n .. " nodes square"
+	if not M.check_seed(plan.seed) then
+		return nil, "seed is not an integer within the allowed range"
+	end
+	local cen = plan.center
+	if not (is_int(cen.x) and is_int(cen.z)) then
+		return nil, "centre is not an integer pair"
+	end
+	do
+		local half = math.floor(n / 2)
+		if not same_rect(env, rect(cen.x - half, cen.z - half,
+				cen.x + half - 1, cen.z + half - 1)) then
+			return nil, "envelope is not the town centre -" .. half .. " .. +" .. (half - 1)
+		end
+	end
+	for i = 1, #ORDER do
+		if plan.site_order[i] ~= ORDER[i] then
+			return nil, "site_order is not " .. table.concat(ORDER, ",")
+		end
+	end
+	if #plan.site_order ~= #ORDER then
+		return nil, "site_order is not " .. table.concat(ORDER, ",")
 	end
 	local ox, oz = env.x1, env.z1
 	local function L(r) return shift_rect(r, -ox, -oz) end
@@ -849,8 +896,35 @@ local function validate_impl(plan, C)
 		end
 		local pos = s.approach.pos
 		local px, pz = pos.x - ox, pos.z - oz
-		if px < e.x1 or px > e.x2 or pz < e.z1 or pz > e.z2 then
-			return nil, name .. " approach pos not on its edge"
+		if px ~= mid(e.x1, e.x2) or pz ~= mid(e.z1, e.z2) then
+			return nil, name .. " approach pos is not the middle node of its edge"
+		end
+		local kind = (name == "cathedral" or name == "castle") and "landmark" or "square"
+		if s.kind ~= kind then return nil, name .. " has wrong kind" end
+		if s.size.x ~= r.x2 - r.x1 + 1 or s.size.z ~= r.z2 - r.z1 + 1 then
+			return nil, name .. " size does not match its rect"
+		end
+		if s.facing.x ~= FACING[s.side].x or s.facing.z ~= FACING[s.side].z then
+			return nil, name .. " facing does not match its side"
+		end
+		if s.rotation ~= ROTATION[s.side] then
+			return nil, name .. " rotation does not match its side"
+		end
+		if kind == "landmark" then
+			-- Door node: on the footprint edge of the entrance side, in line
+			-- with approach.pos.
+			local ex, ez = px, pz
+			if s.side == "-z" then ez = r.z1 elseif s.side == "+z" then ez = r.z2
+			elseif s.side == "-x" then ex = r.x1 else ex = r.x2 end
+			if type(s.entrance) ~= "table" or s.entrance.x - ox ~= ex
+					or s.entrance.z - oz ~= ez then
+				return nil, name .. " entrance is not the door node on its entrance edge"
+			end
+		elseif s.entrance ~= nil then
+			return nil, name .. " is a square but has an entrance"
+		end
+		if name == "cathedral" and s.parvis ~= "parvis" then
+			return nil, "cathedral does not reference the parvis"
 		end
 		sites[name] = {s = s, r = r, pos = {x = px, z = pz}}
 	end
@@ -924,6 +998,12 @@ local function validate_impl(plan, C)
 		if not all_filled(count, e) or edge_gap(count, e, a.side, 0) ~= 0 then
 			return nil, "approach edge is not on the outer boundary"
 		end
+		if a.name ~= "approach_" .. i then
+			return nil, "approach " .. i .. " has wrong name"
+		end
+		if a.pos.x - ox ~= mid(e.x1, e.x2) or a.pos.z - oz ~= mid(e.z1, e.z2) then
+			return nil, "approach pos is not the middle node of its edge"
+		end
 		local win = approach_window(e, a.side, sw)
 		if not all_filled(count, win) then
 			return nil, "approach has less than a street width of boundary inside"
@@ -977,21 +1057,30 @@ end
 
 -- Validate a plan in world coordinates. Pure; returns true, or nil plus a
 -- reason. `constants` optionally overrides planner.CONSTANTS (as in plan()).
-function M.validate(plan, constants)
+-- With `base_only` the street, block and frontage checks are skipped (used
+-- internally before streets are planned); a public call always checks them.
+local function validate_with(plan, constants, base_only)
 	local C = {}
 	for k, v in pairs(M.CONSTANTS) do C[k] = v end
 	if constants then
 		for k, v in pairs(constants) do C[k] = v end
 	end
-	local ok, a, b = pcall(validate_impl, plan, C)
-	if not ok then return nil, "malformed plan: " .. tostring(a) end
-	if not a then return a, b end
-	if type(plan.streets) == "table" and #plan.streets > 0 then
-		local sok, sa, sb = pcall(streets.validate, plan, C)
-		if not sok then return nil, "malformed plan: " .. tostring(sa) end
-		if not sa then return nil, sb end
+	local function malformed(err)
+		-- Drop any "file:line:" prefix so no internal locations leak.
+		local msg = tostring(err):gsub("^[^\n]-:%d+: ", "")
+		return nil, "malformed plan: " .. msg
 	end
-	return a, b
+	local ok, a, b = pcall(validate_impl, plan, C)
+	if not ok then return malformed(a) end
+	if not a or base_only then return a, b end
+	local sok, sa, sb = pcall(streets.validate, plan, C)
+	if not sok then return malformed(sa) end
+	if not sa then return nil, sb end
+	return true
+end
+
+function M.validate(plan, constants)
+	return validate_with(plan, constants, false)
 end
 
 -- One attempt. Returns plan (local coords) or nil, stage.
@@ -1065,11 +1154,6 @@ end
 -- Public API
 ------------------------------------------------------------------------
 
-local function is_int(v)
-	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
-		and v == math.floor(v)
-end
-
 local function xz_rect(r, ox, oz)
 	return {x1 = r.x1 + ox, z1 = r.z1 + oz, x2 = r.x2 + ox, z2 = r.z2 + oz}
 end
@@ -1136,9 +1220,9 @@ function M.plan(center, seed, opts)
 		error("towns planner: site_center must be a table with integer x and z "
 			.. "(|value| <= 31000)", 2)
 	end
-	if not is_int(seed) or math.abs(seed) > SEED_LIMIT then
-		error("towns planner: seed must be an integer (|seed| <= 2^30 - 1), got "
-			.. tostring(seed), 2)
+	local seed_ok, seed_msg = M.check_seed(seed)
+	if not seed_ok then
+		error("towns planner: " .. seed_msg, 2)
 	end
 	local C = {}
 	for k, v in pairs(M.CONSTANTS) do C[k] = v end
@@ -1170,7 +1254,7 @@ function M.plan(center, seed, opts)
 		local p, stage, why = attempt(rng, C)
 		if p then
 			local world = to_world(p, seed, center, C, i)
-			local ok, vwhy = M.validate(world, C)
+			local ok, vwhy = validate_with(world, C, true)
 			if ok then
 				local full, swhy = streets.fill(world, rng, C)
 				if full then

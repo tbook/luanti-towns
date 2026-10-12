@@ -521,6 +521,15 @@ do
 			approach = {side = side, edge = e,
 				pos = {x = e.x1 + math.floor((e.x2 - e.x1) / 2),
 					z = e.z1 + math.floor((e.z2 - e.z1) / 2)}}}
+		local F = {["-z"] = {0, -1, 0}, ["+z"] = {0, 1, 180}, ["-x"] = {-1, 0, 90}, ["+x"] = {1, 0, 270}}
+		s.facing = {x = F[side][1], z = F[side][2]}
+		s.rotation = F[side][3]
+		if kind == "landmark" then
+			local ent = {x = s.approach.pos.x, z = s.approach.pos.z}
+			if side == "-z" then ent.z = r.z1 elseif side == "+z" then ent.z = r.z2
+			elseif side == "-x" then ent.x = r.x1 else ent.x = r.x2 end
+			s.entrance = ent
+		end
 		for k, v in pairs(extra or {}) do s[k] = v end
 		return s
 	end
@@ -547,7 +556,10 @@ do
 		return plan
 	end
 	local ok, why = planner.validate(build(55), K)
-	eq(ok, true, "hand-built plan validates (" .. tostring(why) .. ")")
+	-- Site/boundary/route checks pass; a plan with no streets is rejected.
+	eq(ok, nil, "hand-built plan without streets rejected")
+	eq(tostring(why):find("no streets", 1, true) ~= nil, true,
+		"no-streets reason: " .. tostring(why))
 
 	ok, why = planner.validate(build(67), K)
 	eq(ok, nil, "wall closes the route")
@@ -582,8 +594,93 @@ do
 	ok, why = planner.validate(p, K)
 	eq(ok, nil, "disconnected boundary rejected")
 
-	-- Garbage in.
-	ok, why = planner.validate({})
+	-- Garbage in; no internal file:line text leaks.
+	ok, why = planner.validate({seed = 1, center = {x = 0, z = 0}, envelope = {x1 = -48, z1 = -48, x2 = 47, z2 = 47}})
 	eq(ok, nil, "malformed plan rejected")
+	eq(planner.validate({}), nil, "empty plan rejected")
+	eq(planner.validate("x"), nil, "non-table plan rejected")
 	eq(tostring(why):find("malformed", 1, true) ~= nil, true, "malformed reason")
+	eq(tostring(why):find("planner.lua", 1, true) == nil, true, "no source location in reason: " .. tostring(why))
+end
+
+-- Schema fields consumers read are validated (mutations of a real plan).
+do
+	local function copy(v)
+		if type(v) ~= "table" then return v end
+		local o = {}
+		for k, x in pairs(v) do o[k] = copy(x) end
+		return o
+	end
+	local base = planner.plan({x = 10, z = -20}, 31)
+	eq(planner.validate(base), true, "mutation base validates")
+	local function bad(label, fn)
+		local p = copy(base)
+		fn(p)
+		local ok, why = planner.validate(p)
+		eq(ok, nil, "validate rejects: " .. label)
+		eq(type(why), "string", "validate gives reason: " .. label)
+	end
+	bad("approach pos at centre", function(p) p.approaches[1].pos = {x = p.center.x, z = p.center.z} end)
+	bad("approach pos off by one", function(p) p.approaches[2].pos.x = p.approaches[2].pos.x + 1 end)
+	bad("approach name", function(p) p.approaches[1].name = "x" end)
+	bad("castle entrance (0,0)", function(p) p.sites.castle.entrance = {x = 0, z = 0} end)
+	bad("cathedral entrance moved", function(p) p.sites.cathedral.entrance.x = p.sites.cathedral.entrance.x + 1 end)
+	bad("square with entrance", function(p) p.sites.market.entrance = {x = 0, z = 0} end)
+	bad("castle rotation", function(p) p.sites.castle.rotation = (p.sites.castle.rotation + 90) % 360 end)
+	bad("castle facing", function(p) p.sites.castle.facing = {x = -p.sites.castle.facing.x, z = -p.sites.castle.facing.z} end)
+	bad("size {1,1}", function(p) p.sites.castle.size = {x = 1, z = 1} end)
+	bad("kind", function(p) p.sites.market.kind = "landmark" end)
+	bad("cathedral parvis ref", function(p) p.sites.cathedral.parvis = "market" end)
+	bad("site_order empty", function(p) p.site_order = {} end)
+	bad("site_order swapped", function(p) p.site_order = {"parvis", "cathedral", "market", "castle"} end)
+	bad("seed string", function(p) p.seed = "a" end)
+	bad("seed fractional", function(p) p.seed = 1.5 end)
+	bad("seed out of range", function(p) p.seed = 2 ^ 31 end)
+	bad("envelope shifted", function(p)
+		local e = p.envelope
+		e.x1, e.x2 = e.x1 + 1, e.x2 + 1
+	end)
+	bad("centre moved", function(p) p.center.x = p.center.x + 1 end)
+	bad("width wrong", function(p) p.width = p.width + 1 end)
+end
+
+-- Seed contract and the LCG fixed point (seed 70894448 used to lock up).
+eq(planner.SEED_LIMIT, 1073741823, "SEED_LIMIT export")
+eq(planner.check_seed(0), true, "check_seed ok")
+eq(planner.check_seed(planner.SEED_LIMIT), true, "check_seed limit ok")
+eq(planner.check_seed(-planner.SEED_LIMIT), true, "check_seed -limit ok")
+do
+	local ok, msg = planner.check_seed(planner.SEED_LIMIT + 1)
+	eq(ok, nil, "check_seed past limit")
+	eq(msg:find("between -1073741823 and 1073741823", 1, true) ~= nil, true, "check_seed message")
+	eq(planner.check_seed("1"), nil, "check_seed string")
+	eq(planner.check_seed(0.5), nil, "check_seed fractional")
+	eq(planner.check_seed(nil), nil, "check_seed nil")
+end
+do
+	local sigs = {}
+	local function sig(plan)
+		local parts = {}
+		for _, r in ipairs(plan.boundary.rects) do
+			parts[#parts + 1] = ("%d,%d,%d,%d"):format(r.x1 - plan.center.x, r.z1 - plan.center.z,
+				r.x2 - plan.center.x, r.z2 - plan.center.z)
+		end
+		for _, name in ipairs(plan.site_order) do
+			local r = plan.sites[name].rect
+			parts[#parts + 1] = ("%d,%d"):format(r.x1 - plan.center.x, r.z1 - plan.center.z)
+		end
+		return table.concat(parts, ";")
+	end
+	for _, c in ipairs({{x = 0, z = 0}, {x = -800, z = 1234}}) do
+		local first
+		for _, seed in ipairs({70894448, 70894447, 70894449}) do
+			local plan, why = planner.plan(c, seed)
+			eq(plan ~= nil, true, "fixed-point seed " .. seed .. " planned: " .. tostring(why))
+			if plan then
+				eq(planner.validate(plan), true, "fixed-point seed " .. seed .. " validates")
+				if c.x == 0 then sigs[sig(plan)] = true end
+			end
+		end
+	end
+	eq(set_size(sigs), 3, "fixed-point seed layout distinct from its neighbours")
 end

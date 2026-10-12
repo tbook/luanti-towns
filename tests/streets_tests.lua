@@ -115,6 +115,13 @@ for _, s in ipairs(seeds) do cases[#cases + 1] = {{x = 0, z = 0}, s} end
 for i, s in ipairs({3, 11, 23, 77}) do
 	cases[#cases + 1] = {i % 2 == 0 and {x = 1000, z = -2000} or {x = -317, z = 4096}, s}
 end
+-- Review repro cases (castle door was once left unpaved).
+for _, rc in ipairs({
+	{-166, -162, -1073711202}, {-2266, -2787, 50}, {-1713, -800, 55},
+	{-133, -168, -1073731110}, {-2132, -793, -1073721938}, {-1378, 2747, -1073719420},
+}) do
+	cases[#cases + 1] = {{x = rc[1], z = rc[2]}, rc[3]}
+end
 
 local sig, with_secondary, kinds = {}, 0, {}
 local material_names = {}
@@ -182,15 +189,25 @@ for _, case in ipairs(cases) do
 			end
 			eq(all, true, label .. " every street connected")
 		end
-		-- Full-width clearance: 6x6 windows walk from approach 1 to the rest.
-		do
-			local w1 = window_walk(principal, plan.bounds, approach_window(a1, 6), 6)
-			local w2 = approach_window(a2, 6)
-			eq(w1[key(w2[1], w2[2])], true, label .. " 6-wide walk to approach 2")
-			eq(window_touches(w1, S.market.rect, 6), true, label .. " 6-wide walk to market")
-			eq(window_touches(w1, S.parvis.rect, 6), true, label .. " 6-wide walk to parvis")
-			eq(window_touches(w1, S.castle.approach.edge, 6), true,
-				label .. " 6-wide walk to castle approach")
+		-- Full-width clearance: 6x6 windows walk from each approach to the
+		-- other approach, the market and parvis, and cover the cathedral and
+		-- castle door nodes (approach.pos).
+		for _, a in ipairs({a1, a2}) do
+			local w = window_walk(principal, plan.bounds, approach_window(a, 6), 6)
+			local o = approach_window(a == a1 and a2 or a1, 6)
+			local l = label .. " " .. a.name
+			eq(w[key(o[1], o[2])], true, l .. " 6-wide walk to other approach")
+			eq(window_touches(w, S.market.rect, 6), true, l .. " 6-wide walk to market")
+			eq(window_touches(w, S.parvis.rect, 6), true, l .. " 6-wide walk to parvis")
+			for _, name in ipairs({"castle", "cathedral"}) do
+				local p = S[name].approach.pos
+				eq(window_touches(w, {x1 = p.x, z1 = p.z, x2 = p.x, z2 = p.z}, 6), true,
+					l .. " 6-wide walk covers " .. name .. " approach.pos")
+			end
+		end
+		for _, name in ipairs({"castle", "cathedral"}) do
+			local p = S[name].approach.pos
+			eq(principal[key(p.x, p.z)], true, label .. " " .. name .. " approach.pos paved")
 		end
 
 		-- Blocks.
@@ -246,12 +263,6 @@ for _, case in ipairs(cases) do
 			end
 		end
 		eq(ok_front, true, label .. " frontage faces its street outward")
-		-- Every block edge cell adjoining pavement lies in some frontage run
-		-- unless its run is shorter than the minimum.
-		local covered = {}
-		for _, f in ipairs(plan.frontage) do
-			rect_cells(f.rect, function(x, z) covered[key(x, z) .. f.side] = true end)
-		end
 		eq(#plan.frontage >= #plan.blocks, true, label .. " frontage per block")
 
 		-- Determinism.
@@ -318,4 +329,85 @@ do
 		eq(text:find(ch, 1, true) ~= nil, true, "render has " .. ch)
 	end
 	eq(text:find("[%^v<>]") ~= nil, true, "render shows frontage arrows")
+end
+
+-- Fuzz: many seeds/centres through planner.validate plus a paved-door check.
+do
+	local state = 12345
+	local function rnd(a, b)
+		state = (state * 48271) % 2147483647
+		return a + state % (b - a + 1)
+	end
+	local ok_all, doors_ok, count = true, true, 0
+	for _ = 1, 14 do
+		local c = {x = rnd(-3000, 3000), z = rnd(-3000, 3000)}
+		local seed = rnd(-1073741823, 1073741823)
+		local plan = planner.plan(c, seed)
+		count = count + 1
+		if not plan then
+			ok_all = false
+		else
+			if not planner.validate(plan) then ok_all = false end
+			local paved = {}
+			for _, st in ipairs(plan.streets) do
+				if st.kind == "principal" then rect_cells(st.rect, function(x, z) paved[key(x, z)] = true end) end
+			end
+			local p = plan.sites.castle.approach.pos
+			if not paved[key(p.x, p.z)] then doors_ok = false end
+		end
+	end
+	eq(count, 14, "fuzz plans attempted")
+	eq(ok_all, true, "fuzz plans valid")
+	eq(doors_ok, true, "fuzz castle door nodes paved")
+end
+
+-- planner.validate rejects tampered street, block and frontage data.
+do
+	local function clone(v)
+		if type(v) ~= "table" then return v end
+		local o = {}
+		for k, x in pairs(v) do o[k] = clone(x) end
+		return o
+	end
+	local base = planner.plan({x = 0, z = 0}, 5)
+	eq(planner.validate(base), true, "base plan validates")
+	local function rejects(label, mutate, pattern)
+		local p = clone(base)
+		mutate(p)
+		local ok, reason = planner.validate(p)
+		eq(ok, nil, label .. " rejected")
+		eq(type(reason) == "string" and (pattern == nil or reason:find(pattern, 1, true) ~= nil),
+			true, label .. " reason (" .. tostring(reason) .. ")")
+		eq(type(reason) == "string" and reason:find("%.lua:%d+") == nil, true,
+			label .. " reason has no source location")
+	end
+	rejects("no streets", function(p) p.streets = {} end, "no streets")
+	rejects("nil streets", function(p) p.streets = nil end)
+	rejects("street without rect", function(p) p.streets[1].rect = nil end, "malformed plan")
+	rejects("street wrong width", function(p)
+		p.streets[1].rect.z2 = p.streets[1].rect.z2 + 1
+		p.streets[1].rect.x2 = p.streets[1].rect.x2 + 1
+	end)
+	rejects("street wrong material", function(p) p.streets[1].material = "mcl_core:cobble" end, "material")
+	rejects("frontage wrong street", function(p)
+		local f = p.frontage[1]
+		f.street = (f.street == 1) and 2 or 1
+		f.square = nil
+	end)
+	rejects("frontage side vs facing", function(p) p.frontage[1].side = "+x"; p.frontage[1].facing = {x = 0, z = 1} end)
+	rejects("frontage wrong material", function(p) p.frontage[1].material = "mcl_core:dirt" end, "material")
+	rejects("frontage outside block", function(p) p.frontage[1].rect.x2 = p.frontage[1].rect.x2 + 40 end)
+	rejects("block too small", function(p)
+		local r = p.blocks[1].rect
+		r.x2 = r.x1 + 3
+	end)
+	rejects("block without frontage", function(p) p.blocks[1].frontage = {} end, "frontage")
+	rejects("principal dead end", function(p)
+		-- A stray principal stub attached to nothing but the town interior.
+		local s = p.streets[1]
+		local c = p.center
+		p.streets[#p.streets + 1] = {id = #p.streets + 1, kind = "principal", width = 6,
+			rect = {x1 = c.x + 40, z1 = c.z + 40, x2 = c.x + 45, z2 = c.z + 52},
+			axis = "z", material = s.material, route = "stub"}
+	end)
 end

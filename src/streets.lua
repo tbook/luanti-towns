@@ -361,9 +361,11 @@ function M.fill(plan, rng, C)
 	set_rect(R, n, parvis, 1)
 	rcount = make_count(R, n)
 
-	local cedge = lrect(sites.castle.approach.edge)
+	-- The corridor must cover the node in front of the castle door: only
+	-- windows containing approach.pos are goals.
 	local cpos = centre(sites.castle)
-	path = route(network_sources(), cedge, cpos, true)
+	local cgoal = {x1 = cpos.x, z1 = cpos.z, x2 = cpos.x, z2 = cpos.z}
+	path = route(network_sources(), cgoal, cpos, true)
 	if not path then return nil, "no street-wide route from the network to the castle approach" end
 	pave(path, "network>castle")
 
@@ -432,6 +434,19 @@ function M.fill(plan, rng, C)
 		while ok_col(lo - 1, b1) do lo = lo - 1 end
 		while ok_col(hi + 1, b1) do hi = hi + 1 end
 		if hi - lo + 1 < C.MIN_SECONDARY_LEN then return nil end
+		-- Both long sides must be mostly free land or pavement, not the
+		-- boundary edge or a landmark (no edge-hugging streets).
+		for _, side_b in ipairs({b1 - 1, b1 + nw}) do
+			local bad = 0
+			for a = lo, hi do
+				local x, z = a, side_b
+				if axis == "z" then x, z = side_b, a end
+				if not (x >= 0 and z >= 0 and x < n and z < n) or F[idx(x, z)] == 0 then
+					bad = bad + 1
+				end
+			end
+			if bad > C.MAX_EDGE_FRACTION * (hi - lo + 1) then return nil end
+		end
 		local function touches(a)
 			for k = 0, nw - 1 do
 				local x, z = a, b1 + k
@@ -631,54 +646,100 @@ end
 ------------------------------------------------------------------------
 -- Validation (uses only plan data; rebuilds occupancy from the rects)
 ------------------------------------------------------------------------
+local function is_int(v) return type(v) == "number" and v == math.floor(v) and v == v end
+
+local function is_rect(r)
+	return type(r) == "table" and is_int(r.x1) and is_int(r.z1) and is_int(r.x2)
+		and is_int(r.z2) and r.x1 <= r.x2 and r.z1 <= r.z2
+end
+
+-- Returns true, or false plus a reason. Shape checks come first so malformed
+-- street/block/frontage entries are rejected cleanly (planner.validate also
+-- guards the call with pcall as a backstop).
 function M.validate(plan, C)
-	local n = C.ENVELOPE
-	local ox, oz = plan.envelope.x1, plan.envelope.z1
-	local function idx(x, z) return (z - oz) * n + (x - ox) + 1 end
-	local function inenv(x, z) return x >= ox and z >= oz and x < ox + n and z < oz + n end
-
-	local inb = new_layer(n, 0)
-	for _, r in ipairs(plan.boundary.rects) do
-		set_rect(inb, n, shift(r, -ox, -oz), 1)
+	local function bad(msg) return false, "malformed plan: " .. msg end
+	if type(plan.streets) ~= "table" or #plan.streets == 0 then
+		return bad("plan has no streets")
 	end
-	local reserved = new_layer(n, 0)
-	set_rect(reserved, n, shift(plan.sites.cathedral.rect, -ox, -oz), 1)
-	set_rect(reserved, n, shift(plan.sites.castle.rect, -ox, -oz), 1)
-
-	local road = new_layer(n, 0)
-	local principal = new_layer(n, 0)
-	local sq = {"market", "parvis"}
-	for _, name in ipairs(sq) do
-		local r = shift(plan.sites[name].rect, -ox, -oz)
-		set_rect(road, n, r, 1)
-		set_rect(principal, n, r, 1)
-		if plan.sites[name].material ~= C.SQUARE_MATERIAL then
-			return false, name .. " material missing"
+	if type(plan.blocks) ~= "table" or type(plan.frontage) ~= "table" then
+		return bad("plan has no blocks or frontage lists")
+	end
+	for i, s in ipairs(plan.streets) do
+		if type(s) ~= "table" or not is_rect(s.rect) then
+			return bad("street " .. i .. " has no valid rect")
+		end
+		if s.kind ~= "principal" and s.kind ~= "secondary" then
+			return bad("street " .. i .. " has unknown kind")
+		end
+	end
+	for i, b in ipairs(plan.blocks) do
+		if type(b) ~= "table" or not is_rect(b.rect) or type(b.frontage) ~= "table" then
+			return bad("block " .. i .. " is malformed")
+		end
+	end
+	for i, f in ipairs(plan.frontage) do
+		if type(f) ~= "table" or not is_rect(f.rect) or type(f.facing) ~= "table"
+				or type(f.side) ~= "string" then
+			return bad("frontage " .. i .. " is malformed")
 		end
 	end
 
-	for _, s in ipairs(plan.streets) do
+	local n = C.ENVELOPE
+	local ox, oz = plan.envelope.x1, plan.envelope.z1
+	local function inenv(x, z) return x >= ox and z >= oz and x < ox + n and z < oz + n end
+	local function idx(x, z) return (z - oz) * n + (x - ox) + 1 end
+	local sites = plan.sites
+	local sw = C.STREET_WIDTH
+
+	local inb = new_layer(n, 0)
+	for _, r in ipairs(plan.boundary.rects) do set_rect(inb, n, shift(r, -ox, -oz), 1) end
+	local reserved = new_layer(n, 0)
+	set_rect(reserved, n, shift(sites.cathedral.rect, -ox, -oz), 1)
+	set_rect(reserved, n, shift(sites.castle.rect, -ox, -oz), 1)
+
+	-- owner[i]: "market" | "parvis" | street id (squares first, then streets
+	-- in id order); mats[owner] is its material.
+	local owner, road, principal = {}, new_layer(n, 0), new_layer(n, 0)
+	local mats = {}
+	for _, name in ipairs({"market", "parvis"}) do
+		if sites[name].material ~= C.SQUARE_MATERIAL then
+			return false, name .. " material missing"
+		end
+		mats[name] = sites[name].material
+		local r = shift(sites[name].rect, -ox, -oz)
+		for z = r.z1, r.z2 do
+			for x = r.x1, r.x2 do
+				local i = z * n + x + 1
+				road[i], principal[i] = 1, 1
+				if owner[i] == nil then owner[i] = name end
+			end
+		end
+	end
+	for i, s in ipairs(plan.streets) do
 		local r = s.rect
 		local ex, ez = r.x2 - r.x1 + 1, r.z2 - r.z1 + 1
 		local want = (s.kind == "principal") and C.STREET_WIDTH or C.SECONDARY_WIDTH
-		if s.kind ~= "principal" and s.kind ~= "secondary" then
-			return false, "street " .. s.id .. " has unknown kind"
-		end
+		if s.id ~= i then return false, "street " .. i .. " has wrong id" end
 		if s.width ~= want or math.min(ex, ez) ~= want then
-			return false, ("street %d is %dx%d, expected width %d"):format(s.id, ex, ez, want)
+			return false, ("street %d is %dx%d, expected width %d"):format(i, ex, ez, want)
 		end
+		local axis = (ez > ex) and "z" or "x"
+		if s.axis ~= axis then return false, "street " .. i .. " axis" end
 		local mat = (s.kind == "principal") and C.PRINCIPAL_MATERIAL or C.SECONDARY_MATERIAL
-		if s.material ~= mat then return false, "street " .. s.id .. " material" end
+		if s.material ~= mat then return false, "street " .. i .. " material" end
+		mats[i] = mat
 		for z = r.z1, r.z2 do
 			for x = r.x1, r.x2 do
 				if not inenv(x, z) or inb[idx(x, z)] ~= 1 then
-					return false, ("street %d leaves the boundary at (%d,%d)"):format(s.id, x, z)
+					return false, ("street %d leaves the boundary at (%d,%d)"):format(i, x, z)
 				end
-				if reserved[idx(x, z)] == 1 then
-					return false, ("street %d crosses a landmark at (%d,%d)"):format(s.id, x, z)
+				local k = idx(x, z)
+				if reserved[k] == 1 then
+					return false, ("street %d crosses a landmark at (%d,%d)"):format(i, x, z)
 				end
-				road[idx(x, z)] = 1
-				if s.kind == "principal" then principal[idx(x, z)] = 1 end
+				road[k] = 1
+				if s.kind == "principal" then principal[k] = 1 end
+				if owner[k] == nil then owner[k] = i end
 			end
 		end
 	end
@@ -709,8 +770,44 @@ function M.validate(plan, C)
 		end
 		return false
 	end
+	-- Fully paved sw x sw windows reachable from an approach window.
+	local function window_walk(layer, a)
+		local count = make_count(layer, n)
+		local e = shift(a.edge, -ox, -oz)
+		local wx, wz = e.x1, e.z1
+		if a.side == "+z" then wz = e.z2 - sw + 1 elseif a.side == "+x" then wx = e.x2 - sw + 1 end
+		local seen = {}
+		local function full(x, z)
+			return x >= 0 and z >= 0 and x + sw <= n and z + sw <= n
+				and count(x, z, x + sw - 1, z + sw - 1) == sw * sw
+		end
+		if not full(wx, wz) then return seen end
+		local queue, head = {{wx, wz}}, 1
+		seen[wz * n + wx] = true
+		while head <= #queue do
+			local c = queue[head]
+			head = head + 1
+			for m = 1, 4 do
+				local x, z = c[1] + MOVES[m][1], c[2] + MOVES[m][2]
+				if not seen[z * n + x] and full(x, z) then
+					seen[z * n + x] = true
+					queue[#queue + 1] = {x, z}
+				end
+			end
+		end
+		return seen
+	end
+	local function covered(seen, p)
+		local lx, lz = p.x - ox, p.z - oz
+		for z = math.max(0, lz - sw + 1), math.min(lz, n - sw) do
+			for x = math.max(0, lx - sw + 1), math.min(lx, n - sw) do
+				if seen[z * n + x] then return true end
+			end
+		end
+		return false
+	end
+
 	local a1, a2 = plan.approaches[1], plan.approaches[2]
-	local sites = plan.sites
 	for _, layer in ipairs({principal, road}) do
 		local label = (layer == principal) and "principal network" or "pavement"
 		for _, a in ipairs({a1, a2}) do
@@ -724,47 +821,211 @@ function M.validate(plan, C)
 			if not hits(seen, sites.parvis.rect) then
 				return false, a.name .. " cannot reach the parvis on " .. label
 			end
-			if not hits(seen, sites.castle.approach.edge) then
-				return false, a.name .. " cannot reach the castle approach on " .. label
-			end
 			local other = (a == a1) and a2 or a1
 			if not seen[idx(other.pos.x, other.pos.z)] then
 				return false, "approaches are not connected on " .. label
 			end
 		end
 	end
+	-- Full-width corridors to every door/approach node, from both approaches.
+	for _, a in ipairs({a1, a2}) do
+		local seen = window_walk(principal, a)
+		-- (market/parvis approach.pos lies outside the square: only a
+		-- preferred attachment point, so not required here.)
+		for _, name in ipairs({"cathedral", "castle"}) do
+			if not covered(seen, sites[name].approach.pos) then
+				return false, ("%s has no fully paved %d-wide route to the %s approach")
+					:format(a.name, sw, name)
+			end
+		end
+	end
 	local seen = flood(road, a1.pos.x, a1.pos.z)
-	for _, s in ipairs(plan.streets) do
+	for i, s in ipairs(plan.streets) do
 		if not seen[idx(s.rect.x1, s.rect.z1)] then
-			return false, "street " .. s.id .. " is not connected to the network"
+			return false, "street " .. i .. " is not connected to the network"
 		end
 	end
 
-	-- Blocks and frontage.
-	local taken = {}
-	for _, b in ipairs(plan.blocks) do
-		local r = b.rect
-		for z = r.z1, r.z2 do
-			for x = r.x1, r.x2 do
-				local i = idx(x, z)
-				if not inenv(x, z) or inb[i] ~= 1 or reserved[i] == 1 or road[i] == 1
-						or taken[i] then
-					return false, ("block %d overlaps at (%d,%d)"):format(b.id, x, z)
+	-- Street ends: no dead-end principal streets; secondaries join the network.
+	local function other_pavement(x, z, i)
+		local s = plan.streets[i]
+		if x >= s.rect.x1 and x <= s.rect.x2 and z >= s.rect.z1 and z <= s.rect.z2 then
+			return false
+		end
+		return inenv(x, z) and road[idx(x, z)] == 1
+	end
+	local function covered_by_other(x, z, i)
+		for _, name in ipairs({"market", "parvis"}) do
+			local q = sites[name].rect
+			if x >= q.x1 and x <= q.x2 and z >= q.z1 and z <= q.z2 then return true end
+		end
+		for j, t in ipairs(plan.streets) do
+			local q = t.rect
+			if j ~= i and x >= q.x1 and x <= q.x2 and z >= q.z1 and z <= q.z2 then
+				return true
+			end
+		end
+		return false
+	end
+	for i, s in ipairs(plan.streets) do
+		local r = s.rect
+		local ex, ez = r.x2 - r.x1 + 1, r.z2 - r.z1 + 1
+		local faces = {}
+		-- Each face is the cells just outside an end plus the end row itself
+		-- (another street may overlap the end, as at a bend).
+		local function face(x1, z1, x2, z2, ix1, iz1, ix2, iz2)
+			local cells = {}
+			for z = z1, z2 do
+				for x = x1, x2 do cells[#cells + 1] = {x, z} end
+			end
+			local inner = {}
+			for z = iz1, iz2 do
+				for x = ix1, ix2 do inner[#inner + 1] = {x, z} end
+			end
+			faces[#faces + 1] = {cells = cells, inner = inner}
+		end
+		if ex > ez then
+			face(r.x1 - 1, r.z1, r.x1 - 1, r.z2, r.x1, r.z1, r.x1, r.z2)
+			face(r.x2 + 1, r.z1, r.x2 + 1, r.z2, r.x2, r.z1, r.x2, r.z2)
+		elseif ez > ex then
+			face(r.x1, r.z1 - 1, r.x2, r.z1 - 1, r.x1, r.z1, r.x2, r.z1)
+			face(r.x1, r.z2 + 1, r.x2, r.z2 + 1, r.x1, r.z2, r.x2, r.z2)
+		else
+			face(r.x1 - 1, r.z1, r.x1 - 1, r.z2, r.x1, r.z1, r.x1, r.z2)
+			face(r.x2 + 1, r.z1, r.x2 + 1, r.z2, r.x2, r.z1, r.x2, r.z2)
+			face(r.x1, r.z1 - 1, r.x2, r.z1 - 1, r.x1, r.z1, r.x2, r.z1)
+			face(r.x1, r.z2 + 1, r.x2, r.z2 + 1, r.x1, r.z2, r.x2, r.z2)
+		end
+		local on_approach = false
+		for _, a in ipairs(plan.approaches) do
+			local e = a.edge
+			if e.x1 >= r.x1 and e.x2 <= r.x2 and e.z1 >= r.z1 and e.z2 <= r.z2 then
+				on_approach = true
+			end
+		end
+		local joined = 0
+		for _, fc in ipairs(faces) do
+			local ok = false
+			for _, c in ipairs(fc.inner) do
+				if covered_by_other(c[1], c[2], i) then ok = true; break end
+			end
+			for _, c in ipairs(ok and {} or fc.cells) do
+				if other_pavement(c[1], c[2], i) then ok = true; break end
+				if inenv(c[1], c[2]) then
+					local k = idx(c[1], c[2])
+					if reserved[k] == 1 then ok = true; break end
+					if inb[k] ~= 1 and on_approach then ok = true; break end
+				elseif on_approach then
+					ok = true; break
 				end
-				taken[i] = true
+			end
+			if ok then joined = joined + 1 end
+		end
+		if s.kind == "principal" then
+			-- A 6x6 corner window needs two joined faces; a street sitting on
+			-- an approach edge is entered from outside the town, which covers
+			-- one face (or a long side).
+			local allowed = (#faces == 4) and 2 or 0
+			if on_approach then allowed = allowed + 1 end
+			-- A street running along a landmark front ends at its door.
+			local at_landmark = false
+			for x = r.x1, r.x2 do
+				for _, z in ipairs({r.z1 - 1, r.z2 + 1}) do
+					if inenv(x, z) and reserved[idx(x, z)] == 1 then at_landmark = true end
+				end
+			end
+			for z = r.z1, r.z2 do
+				for _, x in ipairs({r.x1 - 1, r.x2 + 1}) do
+					if inenv(x, z) and reserved[idx(x, z)] == 1 then at_landmark = true end
+				end
+			end
+			if at_landmark then allowed = allowed + 1 end
+			if #faces - joined > allowed then
+				return false, "principal street " .. i .. " has a dead end"
+			end
+		else
+			local net = false
+			for _, fc in ipairs(faces) do
+				for _, c in ipairs(fc.cells) do
+					if other_pavement(c[1], c[2], i) then net = true end
+				end
+				for _, c in ipairs(fc.inner) do
+					if covered_by_other(c[1], c[2], i) then net = true end
+				end
+			end
+			if not net then
+				return false, "secondary street " .. i .. " does not join the network"
 			end
 		end
 	end
-	for _, f in ipairs(plan.frontage) do
+
+	-- Blocks.
+	local minside = C.MIN_BLOCK_SIDE
+	local taken = {}
+	for i, b in ipairs(plan.blocks) do
+		local r = b.rect
+		if b.id ~= i then return false, "block " .. i .. " has wrong id" end
+		if r.x2 - r.x1 + 1 < minside or r.z2 - r.z1 + 1 < minside then
+			return false, ("block %d is smaller than %dx%d"):format(i, minside, minside)
+		end
+		if #b.frontage == 0 then return false, "block " .. i .. " has no frontage" end
+		for z = r.z1, r.z2 do
+			for x = r.x1, r.x2 do
+				local k = inenv(x, z) and idx(x, z)
+				if not k or inb[k] ~= 1 or reserved[k] == 1 or road[k] == 1 or taken[k] then
+					return false, ("block %d overlaps at (%d,%d)"):format(i, x, z)
+				end
+				taken[k] = true
+			end
+		end
+		for _, fid in ipairs(b.frontage) do
+			local f = plan.frontage[fid]
+			if not f or f.block ~= i then
+				return false, "block " .. i .. " lists foreign frontage " .. tostring(fid)
+			end
+		end
+	end
+
+	-- Frontage runs.
+	local per_block = {}
+	for i, f in ipairs(plan.frontage) do
+		local fl = "frontage " .. i
 		local b = plan.blocks[f.block]
-		if not b then return false, "frontage " .. f.id .. " has no block" end
-		for z = f.rect.z1, f.rect.z2 do
-			for x = f.rect.x1, f.rect.x2 do
-				if not inenv(x + f.facing.x, z + f.facing.z)
-						or road[idx(x + f.facing.x, z + f.facing.z)] ~= 1 then
-					return false, "frontage " .. f.id .. " does not face a street"
+		local d = FACING[f.side]
+		if f.id ~= i then return false, fl .. " has wrong id" end
+		if not b then return false, fl .. " has no block" end
+		if not d or f.facing.x ~= d.x or f.facing.z ~= d.z then
+			return false, fl .. " side and facing disagree"
+		end
+		per_block[f.block] = (per_block[f.block] or 0) + 1
+		local br, fr = b.rect, f.rect
+		local edge_ok = fr.x1 >= br.x1 and fr.x2 <= br.x2 and fr.z1 >= br.z1 and fr.z2 <= br.z2
+		if f.side == "-z" then edge_ok = edge_ok and fr.z1 == br.z1 and fr.z2 == br.z1
+		elseif f.side == "+z" then edge_ok = edge_ok and fr.z1 == br.z2 and fr.z2 == br.z2
+		elseif f.side == "-x" then edge_ok = edge_ok and fr.x1 == br.x1 and fr.x2 == br.x1
+		else edge_ok = edge_ok and fr.x1 == br.x2 and fr.x2 == br.x2 end
+		if not edge_ok then return false, fl .. " is not on its block's edge" end
+		local len = (fr.x2 - fr.x1 + 1) * (fr.z2 - fr.z1 + 1)
+		if f.length ~= len or len < C.MIN_FRONTAGE_RUN then
+			return false, fl .. " has bad length"
+		end
+		if (f.square ~= nil) == (f.street ~= nil) then
+			return false, fl .. " must name exactly one street or square"
+		end
+		local want_owner = f.square or f.street
+		if f.material ~= mats[want_owner] then return false, fl .. " has wrong material" end
+		for z = fr.z1, fr.z2 do
+			for x = fr.x1, fr.x2 do
+				local ux, uz = x + d.x, z + d.z
+				if not inenv(ux, uz) or owner[idx(ux, uz)] ~= want_owner then
+					return false, fl .. " does not face " .. tostring(want_owner)
 				end
 			end
+		end
+	end
+	for i, b in ipairs(plan.blocks) do
+		if (per_block[i] or 0) ~= #b.frontage then
+			return false, "block " .. i .. " frontage list does not match its runs"
 		end
 	end
 	return true
