@@ -24,7 +24,8 @@ Capture every building so that:
 
 - the **main entrance faces north (-Z)**, in the middle of the front (north)
   edge;
-- the schematic includes the ground-level floor/foundation (its bottom layer);
+- the schematic includes its full foundation; if layers sit below site ground,
+  record their depth as `ground_offset` in the catalog;
 - the schematic's **minimum X, Y, Z corner is its placement origin**
   (`//pos1` for `//mtschemplace`, `pos` for `minetest.place_schematic`);
 - everything is stored with the entrance north; rotation is applied only at
@@ -100,6 +101,10 @@ canonical orientation:
 - `minZ` is the front (north) wall's outer face; the entrance is centered
   along X in that wall;
 - `minY` is the foundation layer.
+
+Record the entrance's file-local `(x, y, z)` position. A recessed entrance may
+have `z > 0`. The catalog uses `ground_offset` to place the bottom layer below
+the site's surface; it defaults to zero.
 
 To find bounds in a world that the user has not described precisely, an agent
 can read the map directly (for example by running a small throwaway world mod

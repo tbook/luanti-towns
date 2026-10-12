@@ -123,7 +123,7 @@ function towns.place_test(building_id, rotation, ground, done)
 		build(plan, entry, fills)
 		done(true, string.format("Placed %s rotation %d. Combined bounds: %s. Entrance at (%d,%d,%d) facing (%d,%d). Paved square %s.",
 			id, plan.rotation, bounds_str,
-			plan.building.entrance.x, plan.building.entrance.y + 1, plan.building.entrance.z,
+			plan.building.entrance.x, plan.building.entrance.y, plan.building.entrance.z,
 			plan.building.front.x, plan.building.front.z,
 			placement.format_bounds(plan.square)), plan)
 	end)

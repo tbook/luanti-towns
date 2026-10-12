@@ -4,8 +4,8 @@
 -- To add a building: capture it in the canonical orientation (origin at the
 -- min X/Z corner and bottom Y, entrance on the north/-Z edge), put the .mts
 -- in schematics/, and add one entry below.
--- entrance = file-local offset of the entrance node on the north edge
--- (x along the edge; z is 0 unless the door is recessed).
+-- entrance = file-local offset of the entrance node (z is 0 unless recessed).
+-- ground_offset = optional depth of the captured foundation below site ground.
 
 local M = {}
 
@@ -14,7 +14,16 @@ local entries = {
 		path = "schematics/demo_house.mts",
 		-- Dimensions and entrance match schematics/demo_house.mts (ticket #2).
 		size = {x = 9, y = 8, z = 7},
-		entrance = {x = 4, z = 0},
+		entrance = {x = 4, y = 1, z = 0},
+	},
+	castle = {
+		path = "schematics/castle.mts",
+		size = {x = 54, y = 40, z = 50},
+		-- The gate is recessed six nodes from the file's -Z edge.
+		entrance = {x = 30, y = 8, z = 6},
+		-- The capture includes five foundation layers below the site's ground.
+		ground_offset = 5,
+		role = "landmark",
 	},
 }
 
@@ -66,6 +75,11 @@ function M.verify(read, modpath)
 		elseif e.entrance.x < 0 or e.entrance.x >= e.size.x
 				or ez < 0 or ez >= e.size.z then
 			msg = "entrance offset outside the schematic"
+		elseif e.entrance.y and (e.entrance.y < 0 or e.entrance.y >= e.size.y) then
+			msg = "entrance height outside the schematic"
+		elseif e.ground_offset and (e.ground_offset < 0 or e.ground_offset >= e.size.y
+				or e.ground_offset ~= math.floor(e.ground_offset)) then
+			msg = "ground offset outside the schematic"
 		end
 		if msg then
 			M.invalid[id] = string.format("towns: building '%s' (%s): %s", id, full, msg)

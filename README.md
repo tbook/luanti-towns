@@ -13,6 +13,7 @@ and the [engineering design](docs/engineering_design.md) for implementation phas
 
 To add a building, see the [building workflow](docs/building_workflow.md),
 which covers capturing `.mts` schematics from a local world with WorldEdit.
+The catalog currently includes `demo_house` and the edited workshop `castle`.
 
 ## Town command
 

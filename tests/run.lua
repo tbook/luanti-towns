@@ -109,11 +109,19 @@ fails(function() geometry.place(box, pos, "random") end, "invalid rotation", "ra
 -- Catalog.
 fails(function() catalog.get("nope") end, "unknown building id 'nope'", "unknown id")
 eq(catalog.get("demo_house").id, "demo_house", "demo_house registered")
+eq(catalog.get("castle").id, "castle", "castle registered")
 
 -- verify(): ok, missing, mismatch.
 local d = catalog.get("demo_house")
 local function reader(result) return function() return result end end
-eq(next(catalog.verify(reader({size = d.size}), "/m")), nil, "verify ok")
+local function read_known(path)
+	if path:find("/schematics/demo_house.mts", 1, true) then
+		return {size = {x = 9, y = 8, z = 7}}
+	elseif path:find("/schematics/castle.mts", 1, true) then
+		return {size = {x = 54, y = 40, z = 50}}
+	end
+end
+eq(next(catalog.verify(read_known, "/m")), nil, "verify ok")
 local bad = catalog.verify(reader(nil), "/mod")
 eq(bad.demo_house ~= nil
 	and bad.demo_house:find("demo_house", 1, true) ~= nil
@@ -127,12 +135,23 @@ bad = catalog.verify(function() error("boom") end, "/mod")
 eq(bad.demo_house:find("read failed", 1, true) ~= nil, true, "read error reported")
 local saved = d.entrance
 d.entrance = {x = d.size.x, z = 0}
-bad = catalog.verify(reader({size = d.size}), "/mod")
+bad = catalog.verify(read_known, "/mod")
 eq(bad.demo_house:find("entrance offset outside", 1, true) ~= nil, true, "entrance outside")
 d.entrance = {x = 0, z = d.size.z}
-bad = catalog.verify(reader({size = d.size}), "/mod")
+bad = catalog.verify(read_known, "/mod")
 eq(bad.demo_house:find("entrance offset outside", 1, true) ~= nil, true, "entrance z outside")
 d.entrance = saved
+local castle = catalog.get("castle")
+local saved_height = castle.entrance.y
+castle.entrance.y = castle.size.y
+bad = catalog.verify(read_known, "/mod")
+eq(bad.castle:find("entrance height outside", 1, true) ~= nil, true, "castle entrance y outside")
+castle.entrance.y = saved_height
+local saved_ground_offset = castle.ground_offset
+castle.ground_offset = castle.size.y
+bad = catalog.verify(read_known, "/mod")
+eq(bad.castle:find("ground offset outside", 1, true) ~= nil, true, "castle ground offset outside")
+castle.ground_offset = saved_ground_offset
 
 -- placement.parse_args: valid, bad count, bad rotation.
 local id, rot = placement.parse_args("demo_house 90")
@@ -148,9 +167,15 @@ for _, bad_param in ipairs({"", "demo_house", "a b c", "demo_house 45", "demo_ho
 end
 eq(placement.parse_args(nil), nil, "nil param")
 
--- placement.plan: demo_house (9x8x7, entrance (4,0)), player ground (100,20,50).
+-- placement.plan: demo_house (9x8x7, entrance (4,1,0)), player ground (100,20,50).
 local demo = catalog.get("demo_house")
 local ground = {x = 100, y = 20, z = 50}
+local castle_plan = placement.plan(castle, {x = 100, y = 8, z = 100}, 0)
+xyz(castle_plan.pos, 108, 3, 100, "castle origin below ground")
+xyz(castle_plan.bounds.min, 108, 3, 95, "castle full foundation emerged")
+xyz(castle_plan.bounds.max, 161, 42, 149, "castle full height")
+xyz(castle_plan.building.entrance, 138, 11, 106, "castle gate height and offset")
+xz(castle_plan.building.front, 0, -1, "castle gate faces -Z")
 local function check_plan(rot_, maxx, maxz, entx, entz, smin, smax, bmin, bmax)
 	local p = placement.plan(demo, ground, rot_)
 	local l = rot_ .. " "
@@ -159,7 +184,7 @@ local function check_plan(rot_, maxx, maxz, entx, entz, smin, smax, bmin, bmax)
 	eq(p.building.max.x, maxx, l .. "building max x")
 	eq(p.building.max.z, maxz, l .. "building max z")
 	eq(p.building.max.y, 27, l .. "building max y")
-	xyz(p.building.entrance, entx, 20, entz, l .. "entrance")
+	xyz(p.building.entrance, entx, 21, entz, l .. "entrance")
 	xyz(p.square.min, smin[1], 20, smin[2], l .. "square min")
 	xyz(p.square.max, smax[1], 20, smax[2], l .. "square max")
 	xyz(p.bounds.min, bmin[1], 19, bmin[2], l .. "bounds min")
