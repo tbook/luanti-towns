@@ -26,7 +26,7 @@
 --   get_player_pos(name) -> {x,y,z} | nil   nil when the player is not online
 --   search(pos, seed, opts, done)           site_search.search; done(result,
 --                                           nil, details) / done(nil, msg, details)
---   build(result) -> summary | nil, message, code   builder.build
+--   build(result) -> summary | nil, message, code[, {bounds, planned}]   builder.build
 --   send(name, msg)    chat to the player; must tolerate an offline player
 --   log(level, msg)
 --   entropy() -> number                     clock/world derived (random_seed)
@@ -160,13 +160,14 @@ end
 
 -- Builder failure: `code` is the builder's. Only write_failed may have
 -- written anything and is reported as possibly partial, with the bounds.
-function M.format_build_failure(message, code, result)
+function M.format_build_failure(message, code, result, extra)
 	local m = tostring(message)
 	if code == "write_failed" then
 		local where = ""
-		if type(result) == "table" and type(result.build_bounds) == "table" then
-			where = " within " .. bounds_str(result.build_bounds)
-		end
+		local b = type(extra) == "table" and type(extra.bounds) == "table" and extra.bounds
+			or (type(result) == "table" and type(result.build_bounds) == "table"
+				and result.build_bounds) or nil
+		if b then where = " within " .. bounds_str(b) end
 		return "Town construction FAILED while writing (write_failed): " .. m
 			.. ". The site may be PARTIALLY written" .. where
 			.. "; nothing outside it was touched."
@@ -235,12 +236,16 @@ function M.new(deps)
 			if not result then
 				return finish(false, {M.format_search_failure(message)})
 			end
-			local ok, summary, bmsg, code = pcall(deps.build, result)
+			local ok, summary, bmsg, code, extra = pcall(deps.build, result)
 			if not ok then
 				return finish(false, {M.format_build_failure(summary, "write_failed", result)})
 			end
 			if not summary then
-				return finish(false, {M.format_build_failure(bmsg, code, result)})
+				return finish(false, {M.format_build_failure(bmsg, code, result, extra)})
+			end
+			if type(summary.write_bounds) == "table" then
+				deps.log("action", "towns_generate (" .. name .. "): write bounds "
+					.. bounds_str(summary.write_bounds))
 			end
 			return finish(true, M.format_report(summary))
 		end

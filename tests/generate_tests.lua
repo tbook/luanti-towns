@@ -114,6 +114,8 @@ local function make_summary()
 		counts = {streets = #plan.streets, principal = principal, secondary = secondary,
 			blocks = #plan.blocks, frontage = #plan.frontage},
 		nodes = {changed = 12345},
+		write_bounds = {min = {x = plan.bounds.x1, y = 97, z = plan.bounds.z1},
+			max = {x = plan.bounds.x2, y = 148, z = plan.bounds.z2}},
 	}
 end
 local summary = make_summary()
@@ -150,6 +152,9 @@ bf = generate.format_build_failure("boom", "write_failed", {build_bounds = summa
 eq(has(bf, "PARTIALLY written"), true, "write_failed: partial")
 eq(has(bf, "Nothing was changed"), false, "write_failed: does not claim unchanged")
 eq(has(bf, "(" .. plan.bounds.x1 .. ",100,"), true, "write_failed: bounds")
+bf = generate.format_build_failure("boom", "write_failed", {build_bounds = summary.bounds},
+	{bounds = {min = {x = 1, y = 2, z = 3}, max = {x = 4, y = 5, z = 6}}})
+eq(has(bf, "within (1,2,3) to (4,5,6)"), true, "write_failed: uses the builder's write bounds")
 
 ------------------------------------------------------------------------
 -- Controller with fakes
@@ -238,6 +243,7 @@ do
 	eq(has(s, "Centre (3000,2952)"), true, "player gets the centre")
 	eq(has(logs_text(f), "Town built"), true, "success logged")
 	eq(has(logs_text(f), "Cathedral:"), true, "log has landmark coordinates")
+	eq(has(logs_text(f), "write bounds"), true, "log has write bounds")
 	eq(has(logs_text(f), "Streets"), true, "log has counts")
 	eq(f.sent[1][1], "alice", "report addressed to the player by name")
 	-- A new run is possible again.
