@@ -120,11 +120,17 @@ local function make_summary()
 end
 local summary = make_summary()
 local lines = generate.format_report(summary)
+do -- without write_bounds the modified area falls back to the site bounds
+	local s2 = make_summary()
+	s2.write_bounds = nil
+	eq(has(table.concat(generate.format_report(s2), "\n"), "Modified area (" .. plan.bounds.x1 .. ",100,"),
+		true, "report: modified area falls back to bounds")
+end
 local text = table.concat(lines, "\n")
 eq(has(text, "Seed 11"), true, "report: seed")
 eq(has(text, "Centre (3000,2952)"), true, "report: centre")
 eq(has(text, "ground level y=104"), true, "report: ground level")
-eq(has(text, ("Exact bounds (%d,100,%d) to (%d,148,%d)"):format(plan.bounds.x1, plan.bounds.z1,
+eq(has(text, ("Site bounds (%d,100,%d) to (%d,148,%d)"):format(plan.bounds.x1, plan.bounds.z1,
 	plan.bounds.x2, plan.bounds.z2)), true, "report: exact bounds")
 for _, label in ipairs({"Cathedral:", "Parvis:", "Market:", "Castle:"}) do
 	eq(has(text, label), true, "report: " .. label)

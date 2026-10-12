@@ -123,7 +123,13 @@ function M.format_report(summary)
 	add("Town built. Seed %d (repeat it with /towns_generate %d from the same place).",
 		s.seed, s.seed)
 	add("Centre (%d,%d), ground level y=%d.", s.center.x, s.center.z, g)
-	add("Exact bounds %s.", bounds_str(s.bounds))
+	add("Site bounds %s.", bounds_str(s.bounds))
+	if type(s.write_bounds) == "table" then
+		add("Modified area %s (site bounds extended downward to cover support rows).",
+			bounds_str(s.write_bounds))
+	else
+		add("Modified area %s.", bounds_str(s.bounds))
+	end
 	local function landmark(label, key, door)
 		local site = s.sites[key]
 		if not site then return end
