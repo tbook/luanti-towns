@@ -23,19 +23,7 @@ local HELP = "WARNING: overwrites the chosen site immediately (no preview, no "
 
 -- Node info for placement.classify, from the game's registrations.
 local function node_info(name)
-	local def = core.registered_nodes[name]
-	if not def then return nil end
-	local g = def.groups or {}
-	local liquid = def.liquidtype ~= nil and def.liquidtype ~= "none"
-	local clearable = def.buildable_to
-		or g.tree or g.leaves or g.plant or g.vines or g.flower or g.deco_block
-		or g.dead_bush or g.mushroom or g.sapling
-		or name:find("^mcl_core:snow_?%d*$") ~= nil
-	return {
-		walkable = def.walkable ~= false,
-		liquid = liquid,
-		clearable = clearable and true or false,
-	}
+	return placement.node_info(core.registered_nodes, name)
 end
 
 local function class_at(x, y, z)

@@ -300,5 +300,9 @@ loadfile("tests/planner_tests.lua")(eq, fails, dofile("src/planner.lua"))
 -- Streets, blocks and frontage (ticket #13).
 loadfile("tests/streets_tests.lua")(eq, fails, dofile("src/planner.lua"))
 
+-- Site search (ticket #14): mocked-world search harness.
+loadfile("tests/site_search_tests.lua")(eq, fails, placement, dofile("src/planner.lua"),
+	dofile("src/site_search.lua"))
+
 print(("%d checks, %d failures"):format(count, failures))
 os.exit(failures == 0 and 0 or 1)
