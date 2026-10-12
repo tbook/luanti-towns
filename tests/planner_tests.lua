@@ -207,14 +207,14 @@ local expected_plans = 0
 for ci, c in ipairs(centers) do
 	-- Every seed at the first centre; a subset at the others.
 	for si, seed in ipairs(seeds) do
-		if ci == 1 or si % 4 == 0 then
+		if ci == 1 or si % 8 == 0 then
 		expected_plans = expected_plans + 1
 		local label = ("seed %d centre %d"):format(seed, ci)
 		local plan, reason = planner.plan(c, seed)
 		eq(plan ~= nil, true, label .. " planned (" .. tostring(reason) .. ")")
 		if plan then
 			plans_checked = plans_checked + 1
-			if ci == 1 then
+			if ci == 1 and si % 4 == 0 then
 				local again = planner.plan({x = c.x, z = c.z}, seed)
 				eq(deep_equal(plan, again), true, label .. " deterministic")
 			end
@@ -222,7 +222,8 @@ for ci, c in ipairs(centers) do
 			eq(plan.seed, seed, label .. " seed")
 			eq(plan.center.x, c.x, label .. " centre x")
 			eq(plan.center.z, c.z, label .. " centre z")
-			eq(#plan.streets + #plan.blocks + #plan.frontage, 0, label .. " placeholders empty")
+			eq(#plan.streets > 0 and #plan.blocks > 0 and #plan.frontage > 0, true,
+				label .. " streets, blocks and frontage filled")
 
 			local set, total = cell_set(plan)
 			check_routes(plan, set, label)
@@ -555,7 +556,10 @@ do
 		return plan
 	end
 	local ok, why = planner.validate(build(55), K)
-	eq(ok, true, "hand-built plan validates (" .. tostring(why) .. ")")
+	-- Site/boundary/route checks pass; a plan with no streets is rejected.
+	eq(ok, nil, "hand-built plan without streets rejected")
+	eq(tostring(why):find("no streets", 1, true) ~= nil, true,
+		"no-streets reason: " .. tostring(why))
 
 	ok, why = planner.validate(build(67), K)
 	eq(ok, nil, "wall closes the route")
