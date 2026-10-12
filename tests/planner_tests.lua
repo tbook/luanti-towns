@@ -116,12 +116,87 @@ end
 
 local function set_size(t) local n = 0 for _ in pairs(t) do n = n + 1 end return n end
 
+
+-- Independent route check (does not use planner internals): chains of free
+-- 6x6 windows, cathedral and castle footprints as obstacles, squares open.
+-- Returns a table of reached window top-left keys, given a start window.
+local function route_reach(plan, set, start)
+	local function blocked(x, z)
+		for _, name in ipairs({"cathedral", "castle"}) do
+			local r = plan.sites[name].rect
+			if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return true end
+		end
+		return false
+	end
+	local memo = {}
+	local function free(x, z)
+		local k = key(x, z)
+		local v = memo[k]
+		if v == nil then
+			v = true
+			for zz = z, z + 5 do
+				for xx = x, x + 5 do
+					if not set[key(xx, zz)] or blocked(xx, zz) then v = false end
+				end
+			end
+			memo[k] = v
+		end
+		return v
+	end
+	local seen = {}
+	local sx, sz = start.x1, start.z1
+	if not free(sx, sz) then return seen, free end
+	seen[key(sx, sz)] = true
+	local stack = {{sx, sz}}
+	while #stack > 0 do
+		local c = table.remove(stack)
+		for _, d in ipairs({{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) do
+			local x, z = c[1] + d[1], c[2] + d[2]
+			local k = key(x, z)
+			if not seen[k] and free(x, z) then
+				seen[k] = true
+				stack[#stack + 1] = {x, z}
+			end
+		end
+	end
+	return seen, free
+end
+
+local function covered(seen, pos)
+	for z = pos.z - 5, pos.z do
+		for x = pos.x - 5, pos.x do
+			if seen[key(x, z)] then return true end
+		end
+	end
+	return false
+end
+
+local function check_routes(plan, set, label)
+	local a1, a2 = plan.approaches[1], plan.approaches[2]
+	local function window(a)
+		local e = a.edge
+		if a.side == "-z" then return {x1 = e.x1, z1 = e.z1, x2 = e.x2, z2 = e.z1 + 5} end
+		if a.side == "+z" then return {x1 = e.x1, z1 = e.z2 - 5, x2 = e.x2, z2 = e.z2} end
+		if a.side == "-x" then return {x1 = e.x1, z1 = e.z1, x2 = e.x1 + 5, z2 = e.z2} end
+		return {x1 = e.x2 - 5, z1 = e.z1, x2 = e.x2, z2 = e.z2}
+	end
+	local w1, w2 = window(a1), window(a2)
+	eq(w1.x2 < w2.x1 or w2.x2 < w1.x1 or w1.z2 < w2.z1 or w2.z2 < w1.z1, true,
+		label .. " approach windows disjoint")
+	local seen = route_reach(plan, set, w1)
+	eq(seen[key(w1.x1, w1.z1)] == true, true, label .. " approach 1 window free")
+	eq(seen[key(w2.x1, w2.z1)] == true, true, label .. " approach 2 reachable")
+	for _, name in ipairs({"market", "parvis", "cathedral", "castle"}) do
+		eq(covered(seen, plan.sites[name].approach.pos), true,
+			label .. " " .. name .. " approach pos reachable")
+	end
+end
+
 local OPPOSITE = {["-z"] = "+z", ["+z"] = "-z", ["-x"] = "+x", ["+x"] = "-x"}
 
 local seeds = {}
 for i = 1, 30 do seeds[#seeds + 1] = i end
-for _, s in ipairs({0, -7, 99999, 2147483647, 2147483648, 4294967296,
-		9007199254740991, -9007199254740991}) do
+for _, s in ipairs({0, -7, 99999, 7919, 123456789, 536870912, 1073741823, -1073741823}) do
 	seeds[#seeds + 1] = s
 end
 local centers = {{x = 0, z = 0}, {x = 1000, z = -2000}, {x = -317, z = 4096}}
@@ -151,6 +226,8 @@ for ci, c in ipairs(centers) do
 				label .. " streets, blocks and frontage filled")
 
 			local set, total = cell_set(plan)
+			check_routes(plan, set, label)
+			eq(planner.validate(plan), true, label .. " validates")
 			local b, env = plan.bounds, plan.envelope
 			eq(env.x2 - env.x1 + 1, 96, label .. " envelope width")
 			eq(env.z2 - env.z1 + 1, 96, label .. " envelope depth")
@@ -290,6 +367,20 @@ for ci, c in ipairs(centers) do
 	end
 end
 
+-- Regression: a castle once filled an arm so its door had no street-wide
+-- approach (reviewer fuzz repro).
+do
+	local c = {x = -645, z = -195}
+	for _, seed in ipairs({45000135, 45, 48, 67, 75, 76, 87, 89, 107, 111}) do
+		local plan = planner.plan(c, seed)
+		eq(plan ~= nil, true, "regression seed " .. seed .. " planned")
+		if plan then
+			local set = cell_set(plan)
+			check_routes(plan, set, "regression seed " .. seed)
+		end
+	end
+end
+
 eq(plans_checked, expected_plans, "all fixed seeds planned")
 eq(set_size(sig_layout), #seeds, "every seed gives a distinct layout")
 eq(set_size(sig_bounds) >= 20, true, "varied bounding boxes")
@@ -303,9 +394,21 @@ do
 	local b = planner.plan({x = 250, z = -90}, 17)
 	local function norm(p, c)
 		local out = {}
-		for _, name in ipairs(p.site_order) do
-			local r = p.sites[name].rect
+		local function add(r)
 			out[#out + 1] = ("%d,%d,%d,%d"):format(r.x1 - c.x, r.z1 - c.z, r.x2 - c.x, r.z2 - c.z)
+		end
+		for _, r in ipairs(p.boundary.rects) do add(r) end
+		add(p.bounds)
+		for _, name in ipairs(p.site_order) do
+			local s = p.sites[name]
+			add(s.rect)
+			add(s.approach.edge)
+			out[#out + 1] = (s.approach.pos.x - c.x) .. ":" .. (s.approach.pos.z - c.z)
+			out[#out + 1] = s.side
+		end
+		for _, a in ipairs(p.approaches) do
+			add(a.edge)
+			out[#out + 1] = a.side .. (a.pos.x - c.x) .. ":" .. (a.pos.z - c.z)
 		end
 		return table.concat(out, ";")
 	end
@@ -320,6 +423,8 @@ fails(function() planner.plan({x = 0, z = 0}, "7") end, "seed must be an integer
 fails(function() planner.plan({x = 0, z = 0}, 0 / 0) end, "seed must be an integer", "NaN seed")
 fails(function() planner.plan({x = 0, z = 0}, math.huge) end, "seed must be an integer", "inf seed")
 fails(function() planner.plan({x = 0, z = 0}, 2 ^ 60) end, "seed must be an integer", "huge seed")
+fails(function() planner.plan({x = 0, z = 0}, 2147483647) end, "seed must be an integer", "seed past 2^30")
+fails(function() planner.plan({x = 0, z = 0}, -1073741824) end, "seed must be an integer", "seed past -2^30")
 fails(function() planner.plan(nil, 1) end, "site_center", "nil centre")
 fails(function() planner.plan({x = 1}, 1) end, "site_center", "centre missing z")
 fails(function() planner.plan({x = 1.5, z = 0}, 1) end, "site_center", "fractional centre")
@@ -372,4 +477,113 @@ do
 	for _ in text:gmatch("[^\n]+") do lines = lines + 1 end
 	eq(lines, plan.depth + 1, "render line count")
 	eq(planner.render(plan), text, "render deterministic")
+end
+
+-- Seeds that used to alias (7919 vs 2147483647) and the range extremes give
+-- pairwise distinct layouts.
+do
+	local list = {7919, 0, 1, -1, 7920, 1073741823, -1073741823, 1073741823 - 7919,
+		536870911, -536870911}
+	local sigs, n = {}, 0
+	for _, seed in ipairs(list) do
+		local plan = planner.plan({x = 0, z = 0}, seed)
+		eq(plan ~= nil, true, "alias seed " .. seed .. " planned")
+		if plan then
+			local parts = {}
+			for _, r in ipairs(plan.boundary.rects) do
+				parts[#parts + 1] = ("%d,%d,%d,%d"):format(r.x1, r.z1, r.x2, r.z2)
+			end
+			for _, name in ipairs(plan.site_order) do
+				local r = plan.sites[name].rect
+				parts[#parts + 1] = ("%d,%d"):format(r.x1, r.z1)
+			end
+			sigs[table.concat(parts, ";")] = true
+			n = n + 1
+		end
+	end
+	eq(set_size(sigs), n, "aliasing-prone seeds give distinct layouts")
+end
+
+-- Validator rejects bad plans. Hand-built plan in a 96-node envelope at the
+-- origin (centre 48,48): 60x40 boundary, cathedral wall on the right with
+-- `wall_top` as its far Z edge, castle on the -Z edge, market near centre.
+do
+	local K = {MIN_LONG_SPAN = 50, MIN_SHORT_SPAN = 40, MAX_FILL = 1.0}
+	local function R(x1, z1, x2, z2) return {x1 = x1, z1 = z1, x2 = x2, z2 = z2} end
+	local function site(name, kind, r, side, extra)
+		local e
+		if side == "-z" then e = R(r.x1, r.z1 - 1, r.x2, r.z1 - 1)
+		elseif side == "+z" then e = R(r.x1, r.z2 + 1, r.x2, r.z2 + 1)
+		elseif side == "-x" then e = R(r.x1 - 1, r.z1, r.x1 - 1, r.z2)
+		else e = R(r.x2 + 1, r.z1, r.x2 + 1, r.z2) end
+		local s = {name = name, kind = kind, rect = r, side = side,
+			size = {x = r.x2 - r.x1 + 1, z = r.z2 - r.z1 + 1},
+			approach = {side = side, edge = e,
+				pos = {x = e.x1 + math.floor((e.x2 - e.x1) / 2),
+					z = e.z1 + math.floor((e.z2 - e.z1) / 2)}}}
+		for k, v in pairs(extra or {}) do s[k] = v end
+		return s
+	end
+	local function build(wall_top)
+		local cath = R(60, 28, 66, wall_top)
+		local plan = {
+			seed = 1, center = {x = 48, z = 48}, envelope = R(0, 0, 95, 95),
+			bounds = R(20, 28, 79, 67), width = 60, depth = 40,
+			boundary = {rects = {R(20, 28, 79, 67)}},
+			site_order = {"cathedral", "parvis", "market", "castle"},
+			sites = {
+				cathedral = site("cathedral", "landmark", cath, "+x", {parvis = "parvis"}),
+				parvis = site("parvis", "square", R(67, 28, 78, wall_top), "+x"),
+				market = site("market", "square", R(36, 42, 46, 52), "+x"),
+				castle = site("castle", "landmark", R(22, 28, 40, 35), "+z",
+					{outer_side = "-z", edge_gap = 0}),
+			},
+			approaches = {
+				{name = "approach_1", side = "-x", edge = R(20, 44, 20, 49), pos = {x = 20, z = 46}},
+				{name = "approach_2", side = "+x", edge = R(79, 44, 79, 49), pos = {x = 79, z = 46}},
+			},
+			streets = {}, blocks = {}, frontage = {},
+		}
+		return plan
+	end
+	local ok, why = planner.validate(build(55), K)
+	eq(ok, true, "hand-built plan validates (" .. tostring(why) .. ")")
+
+	ok, why = planner.validate(build(67), K)
+	eq(ok, nil, "wall closes the route")
+	eq(tostring(why):find("not connected by a street-wide route", 1, true) ~= nil, true,
+		"blocked route reason: " .. tostring(why))
+
+	-- Overlapping sites.
+	local p = build(55)
+	p.sites.market = site("market", "square", R(50, 40, 62, 50), "+x")
+	ok, why = planner.validate(p, K)
+	eq(ok, nil, "overlapping sites rejected")
+	eq(tostring(why):find("overlap", 1, true) ~= nil, true, "overlap reason: " .. tostring(why))
+
+	-- Site outside the boundary.
+	p = build(55)
+	p.sites.castle = site("castle", "landmark", R(22, 20, 40, 27), "+z", {outer_side = "-z", edge_gap = 0})
+	ok, why = planner.validate(p, K)
+	eq(ok, nil, "site outside boundary rejected")
+	eq(tostring(why):find("not contained", 1, true) ~= nil, true, "containment reason: " .. tostring(why))
+
+	-- Castle door blocked: moved far from the edge with no door room.
+	p = build(55)
+	p.approaches[2].edge = R(79, 44, 79, 49)
+	p.approaches[1].edge = R(79, 40, 79, 45)
+	p.approaches[1].side = "+x"
+	ok, why = planner.validate(p, K)
+	eq(ok, nil, "same-side approaches rejected")
+
+	-- Cut boundary: disconnected.
+	p = build(55)
+	p.boundary.rects = {R(20, 28, 40, 67), R(60, 28, 79, 67)}
+	ok, why = planner.validate(p, K)
+	eq(ok, nil, "disconnected boundary rejected")
+
+	-- Garbage in.
+	ok, why = planner.validate({})
+	eq(ok, nil, "malformed plan rejected")
+	eq(tostring(why):find("malformed", 1, true) ~= nil, true, "malformed reason")
 end

@@ -6,7 +6,8 @@
 --
 -- Inputs are validated with error() (programmer errors): the centre must be
 -- a table with integer x and z (|v| <= 31000), the seed an integer
--- (|seed| <= 2^53). When bounded retries are exhausted, plan returns
+-- (|seed| <= 2^30 - 1, so distinct seeds
+-- never alias). When bounded retries are exhausted, plan returns
 -- nil, "<readable reason>", {code = "retries_exhausted", attempts = n,
 -- rejections = {[stage] = count, ...}}.
 --
@@ -18,7 +19,7 @@
 -- -----------
 -- The plan depends only on (seed, constants). The centre merely translates
 -- the layout, so the same seed gives the same shape at any centre. Randomness
--- comes from an internal integer PRNG (MINSTD, every intermediate stays
+-- comes from an internal integer PRNG (a 31-bit LCG, every intermediate stays
 -- below 2^53 so it is exact in Lua 5.1 doubles); math.random and
 -- core.PseudoRandom are never used and nothing depends on pairs() order.
 --
@@ -77,7 +78,11 @@
 -- cathedral; their approach is a preferred attachment point only.
 --
 -- Boundary approaches: `edge` is a 6-wide, 1-deep rect of boundary nodes on
--- an outer edge, `pos` its middle node, `side` the outward direction.
+-- an outer edge, `pos` a node of it (index 3 of 0..5, so NOT centred: two
+-- nodes lie on one side and three on the other), `side` the outward
+-- direction. The two approaches are on different sides and their 6x6
+-- inward windows never overlap. Site `approach.pos` follows the same
+-- floor-middle rule along the site's edge.
 --
 -- Streets, blocks, frontage (filled by src/streets.lua on every accepted
 -- boundary/sites attempt; a street failure counts as a rejected attempt and
@@ -122,16 +127,28 @@
 -- Every node one step from the run along `facing` is pavement of the named
 -- street or square.
 --
--- Guarantees checked before a plan is returned: boundary connected, bounds
--- within the envelope, non-square and stepped (no feature < MIN_FEATURE),
--- sites contained, non-overlapping and >= STREET_WIDTH apart (cathedral and
--- parvis touch by design), the castle on the boundary edge, and a
--- STREET_WIDTH-wide walkable corridor from each boundary approach to the
--- parvis, market and castle approach edge around the landmark footprints.
--- Streets: widths, containment in the boundary, no landmark overlap, both
+-- The market is placed with its centre within MARKET_CENTER_RADIUS of the
+-- town centre; it is not guaranteed to contain the centre node.
+--
+-- Validation: planner.validate(plan[, constants]) is pure and works on a
+-- finished plan in world coordinates (it can be re-run before any world
+-- write). It returns true, or nil plus a reason. plan() runs it as its final
+-- accept gate, so generator and validator cannot diverge. It checks:
+-- boundary connectivity, size and feature size (steps, notches, arms >=
+-- MIN_FEATURE), exact bounds inside the envelope, centre inside the
+-- boundary, site containment, no overlaps and >= STREET_WIDTH between sites
+-- (cathedral and parvis touch by design, parvis spanning the entrance side),
+-- the market near the centre, the castle on a straight outer edge, the two
+-- approaches (different sides, non-overlapping windows), and route space:
+-- with the cathedral and castle footprints as obstacles, a chain of free
+-- 6x6 windows must join the two approaches and cover the approach `pos` node
+-- of the market, parvis, cathedral and castle (so each door has a full street
+-- width of free space in front of it).
+-- When plan.streets is non-empty, streets.validate also runs: street widths
+-- and kinds, containment in the boundary, no landmark overlap, both
 -- approaches connected by pavement (and by principal streets alone) to the
 -- market, parvis and castle approach edge, blocks off the pavement, frontage
--- facing real pavement, at least MIN_BLOCKS blocks.
+-- facing real pavement. plan() additionally requires MIN_BLOCKS blocks.
 
 local M = {}
 
@@ -155,8 +172,8 @@ M.CONSTANTS = {
 	CENTER_JITTER = 8,        -- bbox centre vs town centre, nodes per axis
 	MIN_FILL = 0.60,          -- boundary area / bbox area range
 	MAX_FILL = 0.90,
-	RECT_COUNT_MIN = 3,       -- broad overlapping rectangles per boundary
-	RECT_COUNT_MAX = 5,
+	RECT_COUNT_MIN = 3,       -- target broad overlapping rectangles per boundary
+	RECT_COUNT_MAX = 5,       --   (extras are skipped if they would not overlap)
 	STREET_WIDTH = 6,         -- principal street width / route clearance
 	CATHEDRAL_LONG = 32,      -- footprint, long axis (entrance on short end)
 	CATHEDRAL_SHORT = 20,
@@ -166,8 +183,8 @@ M.CONSTANTS = {
 	MARKET_CENTER_RADIUS = 12, -- market centre within this of the town centre
 	CASTLE_X = 30, CASTLE_Z = 26, -- footprint (axes swapped half the time)
 	CASTLE_EDGE_SLACK = 2,    -- max nodes between castle and outer edge
-	MAX_ATTEMPTS = 128,        -- bounded retries
-	SITE_TRIES = 40,          -- random placements tried per site per attempt
+	MARKET_TRIES = 40,        -- random market placements tried per attempt
+	MAX_ATTEMPTS = 256,        -- bounded retries
 	-- Streets, blocks, frontage (src/streets.lua)
 	SECONDARY_WIDTH = 4,
 	TURN_PENALTY = 6,         -- route cost of a bend, in nodes
@@ -185,6 +202,7 @@ M.CONSTANTS = {
 }
 
 local SIDES = {"-z", "+z", "-x", "+x"}
+local ORDER = {"cathedral", "parvis", "market", "castle"}
 local FACING = {
 	["-z"] = {x = 0, z = -1}, ["+z"] = {x = 0, z = 1},
 	["-x"] = {x = -1, z = 0}, ["+x"] = {x = 1, z = 0},
@@ -196,20 +214,21 @@ local OPPOSITE = {["-z"] = "+z", ["+z"] = "-z", ["-x"] = "+x", ["+x"] = "-x"}
 -- PRNG (MINSTD; all products < 2^53)
 ------------------------------------------------------------------------
 local MOD = 2147483647
+local SEED_LIMIT = 2 ^ 30 - 1 -- |seed| <= this keeps the seed -> state map injective
 
+-- Every step is an affine bijection of Z_MOD, so distinct seeds in
+-- [-SEED_LIMIT, SEED_LIMIT] (mapped to 1 .. MOD) give distinct start states
+-- and the first draw of each differs. The state space is only 31 bits, which
+-- is why larger seeds are rejected rather than silently aliased.
 local function new_rng(seed)
-	local s = seed % MOD
-	local hi = math.floor(seed / MOD) % MOD
-	s = (s + hi * 7919 + 12345) % MOD
+	local s = (seed + 1073741824) % MOD
 	for _ = 1, 8 do
 		s = (s * 48271 + 1013904223) % MOD
-		s = (s + math.floor(s / 65536) * 40503) % MOD
 	end
-	if s == 0 then s = 1 end
 	local rng = {}
 	function rng.int(a, b) -- uniform integer in [a, b]
-		s = (s * 48271) % MOD
-		return a + math.floor((s - 1) * (b - a + 1) / (MOD - 1))
+		s = (s * 48271 + 1013904223) % MOD
+		return a + math.floor(s * (b - a + 1) / MOD)
 	end
 	function rng.pick(list)
 		return list[rng.int(1, #list)]
@@ -372,8 +391,9 @@ local function gen_boundary(rng, C)
 		add(u1, rng.int(v1, v2 - 1), u2, nv)
 	end
 	-- Optional extras: further broad rectangles overlapping the spine.
-	local extras = rng.int(0, math.max(0, C.RECT_COUNT_MAX - #rects))
-	for _ = 1, extras do
+	local target = rng.int(C.RECT_COUNT_MIN, C.RECT_COUNT_MAX)
+	for _ = 1, 3 * C.RECT_COUNT_MAX do
+		if #rects >= target then break end
 		local u1 = rng.int(0, nu - 2)
 		local u2 = rng.int(u1 + 2, nu)
 		local a1 = rng.int(0, nv - 2)
@@ -404,7 +424,7 @@ local function profile_ok(vals, first, last, feat)
 end
 
 -- Returns bbox (rect) or nil, reason.
-local function check_boundary(cells, rects, C)
+local function check_boundary(cells, C)
 	local n = C.ENVELOPE
 	local feat = C.MIN_FEATURE
 	local x1, z1, x2, z2 = n, n, -1, -1
@@ -586,7 +606,7 @@ local function shape_site(name, kind, r, side)
 end
 
 local function sample_market(rng, C, count, n)
-	for _ = 1, C.SITE_TRIES do
+	for _ = 1, C.MARKET_TRIES do
 		local w = rng.int(C.MARKET_MIN, C.MARKET_MAX)
 		local d = rng.int(C.MARKET_MIN, C.MARKET_MAX)
 		local cx = math.floor(n / 2) + rng.int(-C.MARKET_CENTER_RADIUS, C.MARKET_CENTER_RADIUS)
@@ -635,7 +655,32 @@ local function sample_cathedral(rng, C, count, bbox, market)
 	return pick[1], pick[2], pick[3]
 end
 
-local function sample_castle(rng, C, count, bbox, n, others)
+-- True when some street-wide window containing the node in front of the
+-- middle of `r`'s `side` edge lies inside the boundary, clear of `blocker`.
+local function door_clear(count, C, r, side, blocker)
+	local sw = C.STREET_WIDTH
+	local e = outer_row(r, side, 1)
+	local px, pz = mid(e.x1, e.x2), mid(e.z1, e.z2)
+	local f = FACING[side]
+	for s = 0, sw - 1 do
+		local w
+		if side == "-z" or side == "+z" then
+			local x1 = px - s
+			local z1 = f.z < 0 and pz - sw + 1 or pz
+			w = rect(x1, z1, x1 + sw - 1, z1 + sw - 1)
+		else
+			local z1 = pz - s
+			local x1 = f.x < 0 and px - sw + 1 or px
+			w = rect(x1, z1, x1 + sw - 1, z1 + sw - 1)
+		end
+		if all_filled(count, w) and not (blocker and intersects(w, blocker)) then
+			return true
+		end
+	end
+	return false
+end
+
+local function sample_castle(rng, C, count, bbox, n, others, cathedral)
 	local sw = C.STREET_WIDTH
 	local found = {}
 	for k = 1, 4 do
@@ -677,7 +722,7 @@ local function sample_castle(rng, C, count, bbox, n, others)
 	return pick[1], pick[2], pick[3]
 end
 
-local function sample_approach(rng, C, count, bbox, n, side, obstacles)
+local function sample_approach(rng, C, count, bbox, n, side, obstacles, avoid)
 	local sw = C.STREET_WIDTH
 	local horizontal = (side == "-z" or side == "+z")
 	local lo = horizontal and bbox.x1 or bbox.z1
@@ -690,6 +735,7 @@ local function sample_approach(rng, C, count, bbox, n, side, obstacles)
 			for j = 1, #obstacles do
 				clear = clear and not intersects(r, obstacles[j])
 			end
+			if avoid and intersects(r, avoid) then clear = false end
 			if clear then found[#found + 1] = r end
 		end
 	end
@@ -697,8 +743,8 @@ local function sample_approach(rng, C, count, bbox, n, side, obstacles)
 	return found[rng.int(1, #found)]
 end
 
--- BFS over top-left corners of free sw x sw windows. Returns the visited set
--- (keyed z * n + x).
+-- BFS over top-left corners of free sw x sw windows from `start` (a window
+-- rect). Returns the visited set keyed z * n + x.
 local function reachable_windows(free_count, start, sw, n)
 	local function free(x, z)
 		return x >= 0 and z >= 0 and x + sw <= n and z + sw <= n
@@ -708,10 +754,10 @@ local function reachable_windows(free_count, start, sw, n)
 	if not free(start.x1, start.z1) then return seen end
 	local queue, head = {{start.x1, start.z1}}, 1
 	seen[start.z1 * n + start.x1] = true
+	local dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
 	while head <= #queue do
 		local c = queue[head]
 		head = head + 1
-		local dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
 		for k = 1, 4 do
 			local nx, nz = c[1] + dirs[k][1], c[2] + dirs[k][2]
 			local key = nz * n + nx
@@ -724,14 +770,228 @@ local function reachable_windows(free_count, start, sw, n)
 	return seen
 end
 
-local function touches(seen, r, sw, n)
-	-- Any visited window rect intersecting r.
-	for z = math.max(0, r.z1 - sw + 1), r.z2 do
-		for x = math.max(0, r.x1 - sw + 1), r.x2 do
-			if seen[z * n + x] then return true end
+-- Is some reachable free window covering node (px, pz)?
+local function covers(seen, px, pz, sw, n)
+	for z = pz - sw + 1, pz do
+		for x = px - sw + 1, px do
+			if x >= 0 and z >= 0 and seen[z * n + x] then return true end
 		end
 	end
 	return false
+end
+
+-- The sw x sw window of an approach edge, extending inward.
+local function approach_window(edge, side, sw)
+	if side == "-z" then return rect(edge.x1, edge.z1, edge.x2, edge.z1 + sw - 1) end
+	if side == "+z" then return rect(edge.x1, edge.z2 - sw + 1, edge.x2, edge.z2) end
+	if side == "-x" then return rect(edge.x1, edge.z1, edge.x1 + sw - 1, edge.z2) end
+	return rect(edge.x2 - sw + 1, edge.z1, edge.x2, edge.z2)
+end
+
+local function same_rect(a, b)
+	return a.x1 == b.x1 and a.z1 == b.z1 and a.x2 == b.x2 and a.z2 == b.z2
+end
+
+local function valid_side(s) return FACING[s] ~= nil end
+
+local function validate_impl(plan, C)
+	local sw, n = C.STREET_WIDTH, C.ENVELOPE
+	local env = plan.envelope
+	if env.x2 - env.x1 + 1 ~= n or env.z2 - env.z1 + 1 ~= n then
+		return nil, "envelope is not " .. n .. " nodes square"
+	end
+	local ox, oz = env.x1, env.z1
+	local function L(r) return shift_rect(r, -ox, -oz) end
+	local function inside_env(r)
+		return r.x1 <= r.x2 and r.z1 <= r.z2 and r.x1 >= 0 and r.z1 >= 0
+			and r.x2 < n and r.z2 < n
+	end
+
+	-- Boundary.
+	local rects = {}
+	if #plan.boundary.rects == 0 then return nil, "boundary has no rectangles" end
+	for i, r in ipairs(plan.boundary.rects) do
+		rects[i] = L(r)
+		if not inside_env(rects[i]) then
+			return nil, "boundary rectangle outside envelope"
+		end
+	end
+	local cells = new_grid(n, rects)
+	local bbox, why = check_boundary(cells, C)
+	if not bbox then return nil, why end
+	if not same_rect(L(plan.bounds), bbox) then
+		return nil, "bounds are not the exact bounding box of the boundary"
+	end
+	if plan.width ~= bbox.x2 - bbox.x1 + 1 or plan.depth ~= bbox.z2 - bbox.z1 + 1 then
+		return nil, "width/depth do not match bounds"
+	end
+	local count = prefix(cells, n)
+	local ctr = {x = plan.center.x - ox, z = plan.center.z - oz}
+	if count(ctr.x, ctr.z, ctr.x, ctr.z) ~= 1 then
+		return nil, "town centre outside boundary"
+	end
+
+	-- Sites.
+	local sites = {}
+	for _, name in ipairs(ORDER) do
+		local s = plan.sites[name]
+		if type(s) ~= "table" or s.name ~= name then
+			return nil, "missing site " .. name
+		end
+		if not valid_side(s.side) then return nil, name .. " has invalid side" end
+		local r = L(s.rect)
+		if not inside_env(r) or not all_filled(count, r) then
+			return nil, name .. " not contained in boundary"
+		end
+		local e = outer_row(r, s.side, 1)
+		if not same_rect(L(s.approach.edge), e) or s.approach.side ~= s.side then
+			return nil, name .. " approach edge is not the row outside its " .. s.side .. " side"
+		end
+		local pos = s.approach.pos
+		local px, pz = pos.x - ox, pos.z - oz
+		if px < e.x1 or px > e.x2 or pz < e.z1 or pz > e.z2 then
+			return nil, name .. " approach pos not on its edge"
+		end
+		sites[name] = {s = s, r = r, pos = {x = px, z = pz}}
+	end
+	for i = 1, #ORDER do
+		for j = i + 1, #ORDER do
+			local a, b = ORDER[i], ORDER[j]
+			local g = gap(sites[a].r, sites[b].r)
+			if a == "cathedral" and b == "parvis" then
+				if g ~= 0 then return nil, "parvis does not touch the cathedral" end
+			elseif g < 0 then
+				return nil, a .. " and " .. b .. " overlap"
+			elseif g < sw then
+				return nil, a .. " and " .. b .. " are closer than a street width"
+			end
+		end
+	end
+
+	-- Cathedral and parvis.
+	local cath, parv = sites.cathedral, sites.parvis
+	if parv.s.side ~= cath.s.side then return nil, "parvis not on the cathedral entrance side" end
+	do
+		local side, c, p = cath.s.side, cath.r, parv.r
+		local touch, spans
+		if side == "-z" then touch = p.z2 == c.z1 - 1
+		elseif side == "+z" then touch = p.z1 == c.z2 + 1
+		elseif side == "-x" then touch = p.x2 == c.x1 - 1
+		else touch = p.x1 == c.x2 + 1 end
+		if side == "-z" or side == "+z" then spans = p.x1 <= c.x1 and p.x2 >= c.x2
+		else spans = p.z1 <= c.z1 and p.z2 >= c.z2 end
+		if not touch then return nil, "parvis not adjacent on the entrance side" end
+		if not spans then return nil, "parvis does not span the cathedral front" end
+	end
+
+	-- Market near the centre.
+	do
+		local m = sites.market.r
+		local mx, mz = (m.x1 + m.x2) / 2, (m.z1 + m.z2) / 2
+		local rad = C.MARKET_CENTER_RADIUS + 1
+		if math.abs(mx - ctr.x) > rad or math.abs(mz - ctr.z) > rad then
+			return nil, "market not near the town centre"
+		end
+	end
+
+	-- Castle on an outer edge.
+	do
+		local k = sites.castle
+		local o = k.s.outer_side
+		if not valid_side(o) or k.s.side ~= OPPOSITE[o] then
+			return nil, "castle does not face away from its outer edge"
+		end
+		local g = edge_gap(count, k.r, o, C.CASTLE_EDGE_SLACK)
+		if g == nil or g ~= k.s.edge_gap then
+			return nil, "castle is not on a straight outer edge within slack"
+		end
+	end
+
+	-- Boundary approaches.
+	if #plan.approaches ~= 2 then return nil, "expected two boundary approaches" end
+	local wins = {}
+	for i, a in ipairs(plan.approaches) do
+		if not valid_side(a.side) then return nil, "approach has invalid side" end
+		local e = L(a.edge)
+		local w = (e.x2 - e.x1 + 1) * (e.z2 - e.z1 + 1)
+		local len = math.max(e.x2 - e.x1 + 1, e.z2 - e.z1 + 1)
+		local horizontal = a.side == "-z" or a.side == "+z"
+		if not inside_env(e) or w ~= sw
+				or (horizontal and e.z1 ~= e.z2) or (not horizontal and e.x1 ~= e.x2)
+				or len ~= sw then
+			return nil, "approach edge is not a street-wide boundary row"
+		end
+		if not all_filled(count, e) or edge_gap(count, e, a.side, 0) ~= 0 then
+			return nil, "approach edge is not on the outer boundary"
+		end
+		local win = approach_window(e, a.side, sw)
+		if not all_filled(count, win) then
+			return nil, "approach has less than a street width of boundary inside"
+		end
+		for _, name in ipairs(ORDER) do
+			if intersects(win, sites[name].r) and (name == "cathedral" or name == "castle") then
+				return nil, "approach window blocked by " .. name
+			end
+			if intersects(e, sites[name].r) then
+				return nil, "approach overlaps " .. name
+			end
+		end
+		wins[i] = win
+	end
+	if plan.approaches[1].side == plan.approaches[2].side then
+		return nil, "approaches are on the same side"
+	end
+	if intersects(wins[1], wins[2]) then
+		return nil, "approach windows overlap"
+	end
+
+	-- Route space: street-wide free windows (cathedral and castle are
+	-- obstacles; squares are open) must connect both approaches, and cover
+	-- the approach node of every site.
+	local free = new_grid(n, {})
+	for z = 0, n - 1 do
+		for x = 0, n - 1 do
+			local f = cells[z][x] == 1
+			if f and (x >= cath.r.x1 and x <= cath.r.x2 and z >= cath.r.z1 and z <= cath.r.z2) then
+				f = false
+			end
+			local k = sites.castle.r
+			if f and (x >= k.x1 and x <= k.x2 and z >= k.z1 and z <= k.z2) then
+				f = false
+			end
+			free[z][x] = f and 1 or 0
+		end
+	end
+	local seen = reachable_windows(prefix(free, n), wins[1], sw, n)
+	if not seen[wins[2].z1 * n + wins[2].x1] then
+		return nil, "boundary approaches not connected by a street-wide route"
+	end
+	for _, name in ipairs({"market", "parvis", "cathedral", "castle"}) do
+		local p = sites[name].pos
+		if not covers(seen, p.x, p.z, sw, n) then
+			return nil, "no street-wide route to the " .. name .. " approach"
+		end
+	end
+	return true
+end
+
+-- Validate a plan in world coordinates. Pure; returns true, or nil plus a
+-- reason. `constants` optionally overrides planner.CONSTANTS (as in plan()).
+function M.validate(plan, constants)
+	local C = {}
+	for k, v in pairs(M.CONSTANTS) do C[k] = v end
+	if constants then
+		for k, v in pairs(constants) do C[k] = v end
+	end
+	local ok, a, b = pcall(validate_impl, plan, C)
+	if not ok then return nil, "malformed plan: " .. tostring(a) end
+	if not a then return a, b end
+	if type(plan.streets) == "table" and #plan.streets > 0 then
+		local sok, sa, sb = pcall(streets.validate, plan, C)
+		if not sok then return nil, "malformed plan: " .. tostring(sa) end
+		if not sa then return nil, sb end
+	end
+	return a, b
 end
 
 -- One attempt. Returns plan (local coords) or nil, stage.
@@ -739,7 +999,7 @@ local function attempt(rng, C)
 	local n = C.ENVELOPE
 	local rects = gen_boundary(rng, C)
 	local cells = new_grid(n, rects)
-	local bbox, why = check_boundary(cells, rects, C)
+	local bbox, why = check_boundary(cells, C)
 	if not bbox then return nil, "boundary", why end
 	local count = prefix(cells, n)
 	local c = math.floor(n / 2)
@@ -750,7 +1010,7 @@ local function attempt(rng, C)
 	local cathedral, parvis, cside = sample_cathedral(rng, C, count, bbox, market)
 	if not cathedral then return nil, "cathedral", "no cathedral and parvis placement" end
 	local castle, outer_side, egap = sample_castle(rng, C, count, bbox, n,
-		{cathedral, parvis, market})
+		{cathedral, parvis, market}, cathedral)
 	if not castle then return nil, "castle", "no castle placement on an outer edge" end
 
 	local sites = {
@@ -776,38 +1036,12 @@ local function attempt(rng, C)
 	repeat s2 = rng.pick(SIDES) until s2 ~= s1
 	local obstacles = {cathedral, parvis, market, castle}
 	local a1 = sample_approach(rng, C, count, bbox, n, s1, obstacles)
-	local a2 = sample_approach(rng, C, count, bbox, n, s2, obstacles)
-	if not a1 or not a2 then
+	if not a1 then
 		return nil, "approach", "no boundary approach window on two outer sides"
 	end
-
-	-- Route space: a street-wide corridor must link both approaches to the
-	-- market, parvis and the castle approach edge, around the landmarks.
-	local sw = C.STREET_WIDTH
-	local free = new_grid(n, {})
-	for z = 0, n - 1 do
-		for x = 0, n - 1 do
-			local f = cells[z][x] == 1
-			if f and (intersects(rect(x, z, x, z), cathedral)
-					or intersects(rect(x, z, x, z), castle)) then
-				f = false
-			end
-			free[z][x] = f and 1 or 0
-		end
-	end
-	local seen = reachable_windows(prefix(free, n), a1, sw, n)
-	local reach_a2 = seen[a2.z1 * n + a2.x1]
-	if not reach_a2 then
-		return nil, "routes", "boundary approaches not connected by a street-wide route"
-	end
-	if not touches(seen, market, sw, n) then
-		return nil, "routes", "no street-wide route to the market"
-	end
-	if not touches(seen, parvis, sw, n) then
-		return nil, "routes", "no street-wide route to the parvis"
-	end
-	if not touches(seen, sites.castle.approach.edge, sw, n) then
-		return nil, "routes", "no street-wide route to the castle approach"
+	local a2 = sample_approach(rng, C, count, bbox, n, s2, obstacles, a1)
+	if not a2 then
+		return nil, "approach", "no boundary approach window on two outer sides"
 	end
 
 	local function approach_of(name, r, side)
@@ -830,7 +1064,6 @@ end
 ------------------------------------------------------------------------
 -- Public API
 ------------------------------------------------------------------------
-local ORDER = {"cathedral", "parvis", "market", "castle"}
 
 local function is_int(v)
 	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
@@ -903,8 +1136,8 @@ function M.plan(center, seed, opts)
 		error("towns planner: site_center must be a table with integer x and z "
 			.. "(|value| <= 31000)", 2)
 	end
-	if not is_int(seed) or math.abs(seed) > 2 ^ 53 then
-		error("towns planner: seed must be an integer (|seed| <= 2^53), got "
+	if not is_int(seed) or math.abs(seed) > SEED_LIMIT then
+		error("towns planner: seed must be an integer (|seed| <= 2^30 - 1), got "
 			.. tostring(seed), 2)
 	end
 	local C = {}
@@ -936,15 +1169,27 @@ function M.plan(center, seed, opts)
 	for i = 1, max_attempts do
 		local p, stage, why = attempt(rng, C)
 		if p then
-			local full, swhy = streets.fill(to_world(p, seed, center, C, i), rng, C)
-			if full then return full end
-			stage, why = "streets", swhy		end
+			local world = to_world(p, seed, center, C, i)
+			local ok, vwhy = M.validate(world, C)
+			if ok then
+				local full, swhy = streets.fill(world, rng, C)
+				if full then
+					ok, vwhy = M.validate(full, C)
+					if ok then return full end
+					stage, why = "validate", vwhy
+				else
+					stage, why = "streets", swhy
+				end
+			else
+				stage, why = "validate", vwhy
+			end
+		end
 		rejections[stage] = (rejections[stage] or 0) + 1
 		last = why
 	end
 
 	local parts = {}
-	for _, stage in ipairs({"boundary", "market", "cathedral", "castle", "approach", "routes", "streets"}) do
+	for _, stage in ipairs({"boundary", "market", "cathedral", "castle", "approach", "validate", "streets"}) do
 		if rejections[stage] then
 			parts[#parts + 1] = stage .. " x" .. rejections[stage]
 		end
