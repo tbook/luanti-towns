@@ -97,22 +97,58 @@ for every later phase.
 
 ### 2. First walkable town plan
 
-**Result:** from above, a hand-triggered town reads as a planned settlement;
-on foot, its main destinations connect naturally.
+**Result:** a privileged `/towns_generate [seed]` builds, in a disposable
+Creative world, a first fully procedural, walkable medieval town near the
+player. From above it reads as a planned settlement; on foot, its main
+destinations connect naturally.
 
-- Choose a modest, mostly rectangular footprint and a single ground level on
-  suitable terrain. Reserve two large landmark sites, a parvis, and a market
-  square. The first landmarks may be blockouts while the handmade structures
-  are being built.
-- Make a few orthogonal principal and secondary streets that connect those
-  spaces, then derive buildable frontage from the leftover blocks. Use one or
-  two coherent paving materials, not per-node noise.
-- Keep the plan serializable or printable for debugging. Provide a dry-run
-  summary or simple top-down plan view before building.
+Agreed behavior (replaces the earlier "modest rectangle, dry-run preview"
+sketch):
+
+- **Boundary.** A broad, stepped orthogonal outline about 96 nodes across,
+  not a square, generated from the seed. There is no fixed template: the
+  boundary, the two landmark sites, the parvis, the market square, the
+  principal and secondary streets and the blocks all come from rules and the
+  seed.
+- **Sites.** Reserve a cathedral (with its parvis) and a castle as landmark
+  sites and a separate market square. The first landmarks are temporary
+  physical blockouts (recognizable silhouettes, real doors and gates) while
+  the handmade structures are being built.
+- **Streets and blocks.** Orthogonal principal and secondary streets connect
+  the boundary approaches, market, parvis and castle gate; leftover blocks
+  are left empty with recorded buildable frontage. One or two coherent
+  paving materials.
+- **Site search.** Search outward from the command player for a site whose
+  surface varies by at most 8 nodes, with no water and fully loaded terrain.
+  The search is read-only and asynchronous (it emerges what it inspects).
+- **Flattening.** The accepted town interior is cut and filled to the median
+  surface height of its columns, with the natural surface node kept at the
+  new ground level. Smoothing the terrain at and beyond the town edge is
+  deferred: a visible step at the boundary is expected.
+- **Direct build.** The command builds immediately on an accepted site. There
+  is no preview, dry run or confirmation (the same posture as `/towns_test`,
+  and likewise for disposable Creative worlds only). It reports and logs the
+  seed, chosen centre, ground level, exact bounds, landmark and square
+  coordinates and street, block and frontage counts. A rejected site or
+  failed search changes nothing and says why; only a failed engine write can
+  leave a partial site, and is reported as such with its bounds.
+- **Reproducibility.** The pure plan depends on the seed alone (the centre
+  only translates it), so the same seed at the same centre reproduces the
+  plan. Seeds are integers in +/-(2^30 - 1); larger values are rejected, not
+  folded. A missing seed is generated and printed.
+- **Not in this phase.** Natural generation, ordinary buildings, residents,
+  walls, edge smoothing and real landmark schematics.
+
+Implementation: `src/planner.lua` and `src/streets.lua` (pure plan),
+`src/site_search.lua` (read-only candidate search), `src/builder.lua` with
+`src/town_layout.lua` and `src/blockouts.lua` (construction), and
+`src/generate.lua` plus `src/generate_command.lua` (the command; pure
+argument, seed and report logic with an injected `core` layer).
 
 **Exit check:** a player can walk from the edge through the market to the
-landmark sites without dead ends or accidental walls. A screenshot from above
-shows a distinct center, streets, and blocks. A failed site explains why.
+landmark sites without dead ends or accidental walls. A view from above shows
+a distinct center, streets, and blocks. A failed site explains why and
+changes nothing. At least two seeds were checked in a disposable world.
 
 ### 3. Dense, usable town core
 

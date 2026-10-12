@@ -6,14 +6,47 @@ landmarks, and surrounding development. It is intended to work alongside
 [Living Villages](https://github.com/tbook/luanti-villages), which handles
 villager behavior.
 
-This repository is a starting point. The mod loads, but does not generate towns
-yet. See the [design brief](docs/design_brief.md) for the intended direction
+The mod currently builds one first walkable town on demand with
+`/towns_generate` (see below); natural generation, ordinary buildings and
+residents are later phases. See the [design brief](docs/design_brief.md) for the intended direction
 and the [engineering design](docs/engineering_design.md) for implementation phases.
 
 To add a building, see the [building workflow](docs/building_workflow.md),
 which covers capturing `.mts` schematics from a local world with WorldEdit.
 
+## Town command
+
+`/towns_generate [seed]` (needs the `server` privilege) searches near you
+for a site and builds a first walkable town there: a stepped boundary about
+96 nodes across, a cathedral and its parvis, a market square, a castle, and
+connected principal and secondary streets with empty blocks for later
+buildings. The cathedral and castle are temporary blockouts.
+
+> **WARNING: it OVERWRITES the chosen site immediately, with no preview and
+> no confirmation.** Use it only in disposable Creative worlds (such as
+> Testlandia). It flattens the town interior to the median surface height,
+> clears trees and terrain inside it, and does no edge smoothing.
+
+- Stand on solid ground, then run the command. It looks for a site within
+  about 160 nodes whose surface varies by at most 8 nodes and has no water.
+  The search runs in the background; you are told when it starts and when it
+  finishes. Only one search or build runs at a time on the server; a second
+  command is refused until it finishes.
+- `seed` is an integer from -1073741823 to 1073741823. If omitted, a seed is
+  generated and printed. The same seed at the same chosen centre reproduces
+  the same layout. Anything else (decimals, words, extra arguments, or a
+  larger number such as a 64-bit world seed) is rejected with the allowed
+  range and nothing is changed.
+- On success it reports and logs the seed, centre, ground level, exact
+  bounds, cathedral, parvis, market and castle coordinates and the number of
+  streets, blocks and frontage runs. If no site is suitable (water, an
+  uneven or unloaded surface) it says why and changes nothing. A failed
+  engine write is the one case that may leave a partly built site; the
+  message then says so and gives the bounds.
+
 ## Test command
+
+`/towns_test` (Phase 1) is unchanged:
 
 `/towns_test <building_id> <rotation>` (needs the `server` privilege;
 rotation is 0, 90, 180 or 270) places a catalog building eight nodes east of

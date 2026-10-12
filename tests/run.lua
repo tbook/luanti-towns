@@ -308,5 +308,9 @@ loadfile("tests/site_search_tests.lua")(eq, fails, placement, dofile("src/planne
 loadfile("tests/builder_tests.lua")(eq, fails, placement, dofile("src/planner.lua"),
 	dofile("src/site_search.lua"), dofile("src/builder.lua"))
 
+-- /towns_generate command logic (ticket #16): args, seeds, report, fakes.
+loadfile("tests/generate_tests.lua")(eq, fails, dofile("src/planner.lua"),
+	dofile("src/generate.lua"))
+
 print(("%d checks, %d failures"):format(count, failures))
 os.exit(failures == 0 and 0 or 1)
