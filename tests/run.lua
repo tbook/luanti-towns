@@ -304,5 +304,9 @@ loadfile("tests/streets_tests.lua")(eq, fails, dofile("src/planner.lua"))
 loadfile("tests/site_search_tests.lua")(eq, fails, placement, dofile("src/planner.lua"),
 	dofile("src/site_search.lua"))
 
+-- Town builder (ticket #15): blockouts, layout and the recording fake world.
+loadfile("tests/builder_tests.lua")(eq, fails, placement, dofile("src/planner.lua"),
+	dofile("src/site_search.lua"), dofile("src/builder.lua"))
+
 print(("%d checks, %d failures"):format(count, failures))
 os.exit(failures == 0 and 0 or 1)
