@@ -70,7 +70,7 @@ Reload the game after replacing schematics because Luanti caches them. Use
 `/towns_test weaver_house 90`. The catalog IDs are `tower`, `leather_worker`,
 `corner_house`, `jail`, `townhouses`, `weaver_house`, `scribe`, `gaboo_house`,
 `office_building`, `banker_house`, `butcher_shop`, `mason_yard`, and `chapel`.
-The separately captured `castle` and existing `demo_house` remain available.
+The `castle`, `cathedral` compound and existing `demo_house` are also available.
 
 The command reconstructs containers and decorations, restores inventory
 contents and door state, and creates their display entities. It does not
@@ -84,3 +84,29 @@ Raw Home captures and workshop placement records in `schematics/captures/`
 are historical references. They are never used to overwrite workshop edits.
 The full town generator still uses its existing blockouts; these templates
 are registered for the building catalog and test command.
+
+## Cleaned landmarks
+
+Re-export only the current cleaned castle and cathedral/monastery:
+
+```sh
+python3 tools/workshop_export/export.py \
+  --world "$HOME/Library/Application Support/minetest/worlds/TownsWorkshop" \
+  --only castle cathedral --validate
+```
+
+Landmarks use explicit `capture_min` / `capture_max` compound bounds and
+`ground_y` rather than the ordinary floor-level crop. The castle retains five
+foundation layers; the cathedral retains one. Their entrance heights may be
+above the outside ground because authored stairs remain in the box. Bounds
+checks inspect architecture above outside ground and fail if it escapes the
+chosen capture. Update these bounds if the user extends the compound.
+
+The active castle keeps its authored optional-mod furnishings; the previous
+core-only converted castle and older source captures remain historical files.
+Both landmarks require mcl_decor and Living Villages for authored furnishings.
+Foliage constructors that would recompute palette/flags are skipped, preserving
+saved colors while functional node initialization and inventories still run.
+
+Detailed records: `docs/castle_capture.md`,
+`docs/cathedral_monastery_capture.md`, and the generated template manifest.

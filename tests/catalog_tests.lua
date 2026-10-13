@@ -80,6 +80,17 @@ do
 	end, "/m")
 end
 
+-- Every real catalog entry (in-source and generated) passes validation.
+do
+	local inv = catalog.verify(function(path)
+		return {size = catalog.get(path:match("([^/]+)%.mts$")).size}
+	end, "/m")
+	local n = 0
+	for id, msg in pairs(inv) do n = n + 1; print("invalid: " .. id .. ": " .. msg) end
+	eq(n, 0, "no real catalog entry is invalid")
+	eq(#catalog.ids() >= 3, true, "real catalog has house, castle, cathedral")
+end
+
 -- Entrance height at all four rotations for the real entries.
 local ground = {x = 100, y = 20, z = 50}
 for _, rot in ipairs(geometry.ROTATIONS) do

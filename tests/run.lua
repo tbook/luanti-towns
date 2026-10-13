@@ -148,13 +148,13 @@ local saved_height = castle.entrance.y
 castle.entrance.y = castle.size.y
 bad = catalog.verify(read_known, "/mod")
 eq(bad.castle:find("entrance height outside", 1, true) ~= nil, true, "castle entrance y outside")
-eq(has_id_path(bad.castle, "castle", "/mod/schematics/castle.mts"), true, "castle entrance y id/path")
+eq(has_id_path(bad.castle, "castle", "/mod/schematics/templates/castle.mts"), true, "castle entrance y id/path")
 castle.entrance.y = saved_height
 local saved_ground_offset = castle.ground_offset
 castle.ground_offset = castle.size.y
 bad = catalog.verify(read_known, "/mod")
 eq(bad.castle:find("ground offset outside", 1, true) ~= nil, true, "castle ground offset outside")
-eq(has_id_path(bad.castle, "castle", "/mod/schematics/castle.mts"), true, "castle ground offset id/path")
+eq(has_id_path(bad.castle, "castle", "/mod/schematics/templates/castle.mts"), true, "castle ground offset id/path")
 castle.ground_offset = saved_ground_offset
 eq(next(catalog.verify(read_known, "/m")), nil, "verify ok after restoring entries")
 
@@ -222,10 +222,10 @@ end
 for _, id in ipairs(catalog.ids()) do
 	local e = catalog.get(id)
 	if e.data_path then
-		eq(e.entrance.y, 1, id .. " exported entrance height")
+		eq(e.entrance.y, (id == "castle" and 8) or (id == "cathedral" and 5) or 1, id .. " exported entrance height")
 		for _, r in ipairs(geometry.ROTATIONS) do
 			local p = placement.plan(e, {x = 0, y = 8, z = 0}, r)
-			eq(p.building.entrance.y, 9, id .. " rotated entrance Y " .. r)
+			eq(p.building.entrance.y, (id == "castle" and 11) or (id == "cathedral" and 12) or 9, id .. " rotated entrance Y " .. r)
 		end
 	end
 end
@@ -259,7 +259,7 @@ local ground = {x = 100, y = 20, z = 50}
 local castle_plan = placement.plan(castle, {x = 100, y = 8, z = 100}, 0)
 xyz(castle_plan.pos, 108, 3, 100, "castle origin below ground")
 xyz(castle_plan.bounds.min, 108, 3, 95, "castle full foundation emerged")
-xyz(castle_plan.bounds.max, 161, 42, 149, "castle full height")
+xyz(castle_plan.bounds.max, 161, 41, 149, "castle full height")
 xyz(castle_plan.building.entrance, 138, 11, 106, "castle gate height and offset")
 xz(castle_plan.building.front, 0, -1, "castle gate faces -Z")
 local function check_plan(rot_, maxx, maxz, entx, entz, smin, smax, bmin, bmax)

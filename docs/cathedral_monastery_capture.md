@@ -1,6 +1,6 @@
 # Cathedral and monastery captures
 
-## Edited working scan
+## Earlier edited working scan (2026-10-11)
 
 `schematics/cathedral_monastery_working.mts` captures the edited cathedral and
 monastery in `TownsWorkshop` as of 2026-10-11. Its inclusive workshop bounds
@@ -65,7 +65,33 @@ independent of optional mods.
 - `.mts` does not retain node metadata. The source crop had 36 nodes with
   inventory entries, including chests, barrels, item frames, and a jukebox;
   any desired contents or behavior must be recreated separately.
-- Do not register this raw schematic in the Towns catalog or substitute it for
+- Do not register the original raw schematic in the Towns catalog or substitute it for
   the Phase 2 landmark blockout yet. The final footprint, ground contact,
   entrance offset/orientation, and optional-node replacements need to be
   settled in the flat workspace first.
+
+## Current cleaned game template (2026-10-13)
+
+The active `cathedral` catalog entry now uses
+`schematics/templates/cathedral.mts` plus its `.lua` metadata sidecar. The
+cleaned cathedral and monastery are kept together. Current source bounds are
+**(100, 7, 96) through (158, 41, 150)**: **59 × 35 × 55** before rotation.
+The older working capture omitted the monastery wall at Z=97 and entry steps
+at Z=96. These two rows are included; only the empty Y=42 layer is removed.
+Within the older box, the current source differs at three name/param2 positions
+from the earlier working scan; this may include normal world updates.
+
+Rotate the compound 90 degrees so the main double doorway and its exterior
+steps face -Z. The canonical size is **55 × 35 × 59**. The selected door bottom
+is source **(150, 12, 131)**, canonical **(35, 5, 8)**; its adjacent door half
+and approach steps are preserved. The foundation is one layer below workshop
+ground, so on site ground Y=8 the origin is Y=7 and the door bottom is Y=12.
+The generated catalog records `ground_offset = 1` and role `cathedral`.
+
+This template preserves the current mcl_decor furniture, Living Villages
+pulpit, inventories and structural node state. It requires those mods and
+reports missing nodes before placement. Source claims, stale simulation data
+and source-coordinate formspecs are omitted, as for the other workshop assets.
+The raw/working captures above remain historical files. The game template and
+saved source definition replace their former unregistered-work-in-progress
+status; town-generation integration remains separate Phase 3 work.
