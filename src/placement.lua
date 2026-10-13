@@ -5,8 +5,8 @@
 -- Site layout
 -- -----------
 -- ground = node the player stands on. The building's rotated minimum corner
--- is OFFSET_X nodes east of it, at the same Y (the schematic's bottom layer,
--- its floor, is at ground level). A SQUARE x SQUARE paved square sits
+-- is OFFSET_X nodes east of it. Its Y is ground Y minus the catalog entry's
+-- ground_offset (zero for a foundation at ground level). A SQUARE x SQUARE paved square sits
 -- immediately outside the building edge that holds the entrance, centred on
 -- the entrance. The square is paved at ground level, flush with the floor.
 
@@ -50,7 +50,8 @@ end
 --   bounds     {min, max} inclusive combined volume; the only nodes the build
 --              may touch
 function M.plan(entry, ground, rotation)
-	local pos = {x = ground.x + M.OFFSET_X, y = ground.y, z = ground.z}
+	local pos = {x = ground.x + M.OFFSET_X,
+		y = ground.y - (entry.ground_offset or 0), z = ground.z}
 	local b = geometry.place(entry, pos, rotation)
 	local e, f, n = b.entrance, b.front, M.SQUARE
 	local half = (n - 1) / 2
@@ -77,7 +78,7 @@ function M.plan(entry, ground, rotation)
 	local bounds = {
 		min = {
 			x = math.min(b.min.x, smin.x),
-			y = ground.y - M.SUPPORT_DEPTH,
+			y = math.min(pos.y, ground.y - M.SUPPORT_DEPTH),
 			z = math.min(b.min.z, smin.z),
 		},
 		max = {

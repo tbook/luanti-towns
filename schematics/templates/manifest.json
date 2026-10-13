@@ -605,7 +605,7 @@
   "runtime_validation": {
     "inventory_slots": 3240,
     "mismatches": 0,
-    "nodes": 56248,
-    "placements": 40
+    "nodes": 490264,
+    "placements": 48
   }
 }

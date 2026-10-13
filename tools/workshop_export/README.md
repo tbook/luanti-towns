@@ -16,8 +16,8 @@ python3 tools/workshop_export/export.py \
 
 Use `--engine /path/to/luanti` on another system, or `--port 39488` if the
 validation port is in use. Luanti must have the same game and node mods as
-the workshop. The optional runtime validation expects this repository to be
-installed as the `towns` mod, as it is in the current setup.
+the workshop. Runtime validation installs an isolated copy of this checkout into the
+disposable snapshot, so it also works from a separate Git worktree.
 
 `buildings.json` records each editable source region, the finished floor
 height, chosen entrance node, and export rotation. The narrow-side entrance
@@ -40,13 +40,13 @@ Outputs in `schematics/templates/`:
 
 - `.mts`: engine-native schematics in canonical orientation, front toward -Z.
 - `.lua`: metadata, inventories, and required node names for runtime placement.
-- `catalog.lua`: generated dimensions and entrance offsets used by Towns.
+- `catalog.lua`: generated dimensions and entrance XYZ offsets used by Towns.
 - `manifest.json`: actual source bounds, orientation, dependencies, snapshot
   checksum, and verification results.
 
 The exporter verifies every schematic by placing it with the inverse rotation
 and comparing node names and param2 to the source. `--validate` additionally
-places all ten templates at all four rotations through the runtime helper,
+places the complete catalog (including the castle) at all four rotations through the runtime helper,
 checking nodes, orientations, entrance locations, fields, and inventories.
 Snapshot paths and logs are printed for inspection if a check fails.
 

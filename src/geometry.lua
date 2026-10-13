@@ -5,8 +5,8 @@
 -- -----------
 -- File orientation (shared with ticket #2): the schematic origin is its
 -- minimum X/Z corner and bottom Y; size = {x, y, z}; the main entrance is on
--- the -Z edge (the file's z = 0 row), at file-local offset
--- entrance = {x = ex, z = ez} (ez is 0 for a door flush with that edge).
+-- the -Z side, at file-local offset entrance = {x = ex, y = ey, z = ez}
+-- (ez is 0 for a door flush with that edge; ey is 0 if omitted).
 -- The entrance faces -Z in the file orientation.
 --
 -- World axes: +X east, +Z north, +Y up. So -Z is geographically SOUTH in
@@ -70,7 +70,7 @@ local function rotate_local(sx, sz, x, z, rotation)
 	end
 end
 
--- entry:    {size = {x=,y=,z=}, entrance = {x=, z=}} (extra fields ignored)
+-- entry:    {size = {x=,y=,z=}, entrance = {x=,y=,z=}} (extra fields ignored)
 -- pos:      minimum corner {x,y,z} of the rotated footprint, as passed to
 --           core.place_schematic
 -- rotation: 0, 90, 180, 270 (number or numeric string)
@@ -92,7 +92,7 @@ function M.place(entry, pos, rotation)
 
 	local lx, lz = rotate_local(sx, sz, entry.entrance.x, entry.entrance.z or 0, rotation)
 	local front = FRONT[rotation]
-	local entrance = {x = pos.x + lx, y = pos.y, z = pos.z + lz}
+	local entrance = {x = pos.x + lx, y = pos.y + (entry.entrance.y or 0), z = pos.z + lz}
 	return {
 		rotation = rotation,
 		size = {x = wx, y = sy, z = wz},
