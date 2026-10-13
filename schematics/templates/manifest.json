@@ -2,8 +2,7 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "castle",
-    "cathedral"
+    "gaboo_house"
   ],
   "buildings": [
     {
@@ -420,6 +419,7 @@
         "y": 1,
         "z": 4
       },
+      "entrance_kind": "door",
       "id": "gaboo_house",
       "label": "Gaboo house",
       "required_nodes": [
@@ -458,7 +458,6 @@
         "mcl_flowers:lilac",
         "mcl_flowers:lilac_top",
         "mcl_furnaces:furnace",
-        "mcl_jukebox:jukebox",
         "mcl_lanterns:lantern_ceiling",
         "mcl_nether:glowstone",
         "mcl_stairs:slab_wood_top",
@@ -493,7 +492,7 @@
         "z": 13
       },
       "verified_nodes": 1430,
-      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
@@ -1199,7 +1198,7 @@
     }
   ],
   "runtime_validation": {
-    "inventory_slots": 3824,
+    "inventory_slots": 3820,
     "mismatches": 0,
     "nodes": 945500,
     "placements": 64
