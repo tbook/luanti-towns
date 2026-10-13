@@ -101,7 +101,7 @@ function M.snapshot()
 			local e = entries[id]
 			snap[id] = {
 				size = {x = e.size.x, y = e.size.y, z = e.size.z},
-				entrance = {x = e.entrance.x, y = e.entrance.y, z = e.entrance.z or 0},
+				entrance = {x = e.entrance.x, y = e.entrance.y or 1, z = e.entrance.z or 0},
 				role = e.role,
 				path = e.path,
 			}
@@ -155,7 +155,7 @@ function M.verify(read, modpath)
 				msg = "invalid role '" .. tostring(e.role) .. "'"
 			elseif e.ground_offset and (type(e.ground_offset) ~= "number" or e.ground_offset < 0 or e.ground_offset >= e.size.y
 					or e.ground_offset ~= math.floor(e.ground_offset)) then
-				msg = "ground offset invalid"
+				msg = "ground offset outside the schematic"
 			end
 		end
 

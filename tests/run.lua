@@ -111,44 +111,91 @@ fails(function() catalog.get("nope") end, "unknown building id 'nope'", "unknown
 eq(catalog.get("demo_house").id, "demo_house", "demo_house registered")
 eq(catalog.get("castle").id, "castle", "castle registered")
 
--- verify(): ok, missing, mismatch with roles and entrance.y defaults.
+-- verify(): ok, missing, mismatch.
+local d = catalog.get("demo_house")
+local function reader(result) return function() return result end end
 local function read_known(path)
 	local id = path:match("([^/]+)%.mts$")
-	if id then return {size = catalog.get(id).size} end
-	return nil
+	return {size = catalog.get(id).size}
 end
-eq(next(catalog.verify(read_known, "/m")), nil, "verify ok with roles")
+eq(next(catalog.verify(read_known, "/m")), nil, "verify ok")
+local bad = catalog.verify(reader(nil), "/mod")
+eq(bad.demo_house ~= nil
+	and bad.demo_house:find("demo_house", 1, true) ~= nil
+	and bad.demo_house:find("/mod/schematics/demo_house.mts", 1, true) ~= nil,
+	true, "missing message has id and path")
+bad = catalog.verify(reader({size = {x = 1, y = 1, z = 1}}), "/mod")
+eq(bad.demo_house:find("size mismatch", 1, true) ~= nil, true, "mismatch message")
 
--- Synthetic test entries for structural validation (not in entries).
--- Invalid size: missing field.
+-- verify(): read raising, entrance outside the schematic.
+bad = catalog.verify(function() error("boom") end, "/mod")
+eq(bad.demo_house:find("read failed", 1, true) ~= nil, true, "read error reported")
+local function has_id_path(msg, id, path)
+	return msg ~= nil and msg:find(id, 1, true) ~= nil and msg:find(path, 1, true) ~= nil
+end
+local saved = d.entrance
+d.entrance = {x = d.size.x, z = 0}
+bad = catalog.verify(read_known, "/mod")
+eq(bad.demo_house:find("entrance offset outside", 1, true) ~= nil, true, "entrance outside")
+eq(has_id_path(bad.demo_house, "demo_house", "/mod/schematics/demo_house.mts"), true, "entrance outside id/path")
+d.entrance = {x = 0, z = d.size.z}
+bad = catalog.verify(read_known, "/mod")
+eq(bad.demo_house:find("entrance offset outside", 1, true) ~= nil, true, "entrance z outside")
+eq(has_id_path(bad.demo_house, "demo_house", "/mod/schematics/demo_house.mts"), true, "entrance z outside id/path")
+d.entrance = saved
+local castle = catalog.get("castle")
+local saved_height = castle.entrance.y
+castle.entrance.y = castle.size.y
+bad = catalog.verify(read_known, "/mod")
+eq(bad.castle:find("entrance height outside", 1, true) ~= nil, true, "castle entrance y outside")
+eq(has_id_path(bad.castle, "castle", "/mod/schematics/castle.mts"), true, "castle entrance y id/path")
+castle.entrance.y = saved_height
+local saved_ground_offset = castle.ground_offset
+castle.ground_offset = castle.size.y
+bad = catalog.verify(read_known, "/mod")
+eq(bad.castle:find("ground offset outside", 1, true) ~= nil, true, "castle ground offset outside")
+eq(has_id_path(bad.castle, "castle", "/mod/schematics/castle.mts"), true, "castle ground offset id/path")
+castle.ground_offset = saved_ground_offset
+eq(next(catalog.verify(read_known, "/m")), nil, "verify ok after restoring entries")
+
+-- Synthetic invalid entries (ticket #28): rejected with building id and path.
 do
-	local bad_entries = {}
-	local function test_bad_entry(entry, expect_msg_pattern, label)
-		-- Save current entries, add test entry, verify, then restore.
-		bad_entries.test_bad = entry
-		bad_entries.test_bad.id = "test_bad"
-		bad_entries.test_bad.path = "test.mts"
+	local function test_bad_entry(entry, expect, label)
+		entry.id = "test_bad"
+		entry.path = "schematics/test_bad.mts"
 		catalog.entries.test_bad = entry
-		local bad = catalog.verify(function() return {size = {x = 1, y = 1, z = 1}} end, "/mod")
-		eq(bad.test_bad:find(expect_msg_pattern, 1, true) ~= nil, true, label)
+		local res = catalog.verify(function() return {size = {x = 5, y = 5, z = 5}} end, "/mod")
 		catalog.entries.test_bad = nil
+		local msg = res.test_bad
+		eq(msg ~= nil and msg:find(expect, 1, true) ~= nil, true, label)
+		eq(has_id_path(msg, "test_bad", "/mod/schematics/test_bad.mts"), true, label .. " id/path")
 	end
-
 	test_bad_entry({size = {x = 5, y = 5}, entrance = {x = 2, z = 0}}, "size", "size incomplete")
-	test_bad_entry({size = {x = 5, y = 5, z = 5}, entrance = {z = 0}}, "entrance", "entrance missing x")
-	test_bad_entry({size = {x = 5, y = 5, z = 5}, entrance = {x = 2}, z = 0}, "entrance", "entrance missing z")
+	test_bad_entry({size = {x = 0, y = 5, z = 5}, entrance = {x = 2, z = 0}}, "size", "size zero")
+	test_bad_entry({size = {x = 5, y = 5, z = 5}, entrance = {z = 0}}, "entrance missing", "entrance missing x")
+	test_bad_entry({size = {x = 5, y = 5, z = 5}, entrance = {x = 2}}, "entrance missing", "entrance missing z")
 	test_bad_entry({size = {x = 5, y = 5, z = 5}, entrance = {x = 2, y = 5, z = 0}}, "entrance height outside", "entrance y at boundary")
 	test_bad_entry({size = {x = 5, y = 5, z = 5}, entrance = {x = 2, y = 0, z = 0}, role = "invalid"}, "invalid role", "invalid role rejected")
 end
-
--- verify() with entrance.y absent vs explicit.
+catalog.verify(read_known, "/m")
+-- Invalid entries are excluded from ids(), ids_for_role() and snapshot().
 do
-	local demo = catalog.get("demo_house")
-	local saved_y = demo.entrance.y
-	demo.entrance.y = nil  -- Test absent y (should default to 1)
-	local bad = catalog.verify(read_known, "/mod")
-	eq(bad.demo_house, nil, "entrance.y absent defaults to 1 and validates")
-	demo.entrance.y = saved_y
+	local inv = catalog.verify(function() return {size = {x = 9, y = 9, z = 9}} end, "/mod")
+	eq(inv.castle ~= nil, true, "castle invalid when file size differs")
+	local listed = false
+	for _, id in ipairs(catalog.ids()) do if id == "castle" then listed = true end end
+	eq(listed, false, "invalid entry not in ids()")
+	eq(#catalog.ids_for_role("castle"), 0, "invalid entry not in ids_for_role()")
+	eq(catalog.snapshot().castle, nil, "invalid entry not in snapshot()")
+	catalog.verify(read_known, "/m")
+end
+
+-- verify() with entrance.y absent defaults to 1.
+do
+	local saved_y = d.entrance.y
+	d.entrance.y = nil
+	eq(catalog.verify(read_known, "/mod").demo_house, nil, "entrance.y absent defaults to 1 and validates")
+	d.entrance.y = saved_y
 end
 
 -- Generated assets must remain in sync with their catalog and metadata.
@@ -182,54 +229,15 @@ for _, id in ipairs(catalog.ids()) do
 		end
 	end
 end
-local castle = catalog.get("castle")
 for _, r in ipairs(geometry.ROTATIONS) do
 	local p = placement.plan(castle, {x = 0, y = 8, z = 0}, r)
 	eq(p.pos.y, 3, "castle foundation Y " .. r)
 	eq(p.building.entrance.y, 11, "castle rotated gate Y " .. r)
 end
 
--- Role support (ticket #28): filtering and snapshot.
-eq(catalog.get("demo_house").role, "house", "demo_house has house role")
-eq(catalog.get("castle").role, "castle", "castle has castle role")
-eq(catalog.VALID_ROLES["house"], true, "house is a valid role")
-eq(catalog.VALID_ROLES["chapel"], true, "chapel is a valid role")
-eq(catalog.VALID_ROLES["jail"], true, "jail is a valid role")
-local house_ids = catalog.ids_for_role("house")
-eq(#house_ids > 0, true, "house filter has entries")
-for _, id in ipairs(house_ids) do
-	eq(catalog.get(id).role, "house", id .. " in house filter")
-end
-local snap = catalog.snapshot()
-eq(snap.demo_house ~= nil, true, "snapshot contains demo_house")
-eq(snap.demo_house.role, "house", "snapshot demo_house has role")
-eq(snap.demo_house.size.x, 9, "snapshot size preserved")
-
--- Non-square footprints with entrance height at all rotations.
--- 6x5 box (not square): entrance at (2,1,0) should rotate correctly and retain Y.
-local non_square = {size = {x = 6, y = 4, z = 5}, entrance = {x = 2, y = 1, z = 0}}
-for _, rot in ipairs(geometry.ROTATIONS) do
-	local p = geometry.place(non_square, {x = 0, y = 10, z = 0}, rot)
-	-- Entrance Y should always be 11 (10 + 1).
-	eq(p.entrance.y, 11, "non-square rot " .. rot .. " entrance Y")
-	-- Size should swap X/Z on 90/270.
-	if rot == 0 or rot == 180 then
-		eq(p.size.x, 6, "non-square rot " .. rot .. " size x")
-		eq(p.size.z, 5, "non-square rot " .. rot .. " size z")
-	else
-		eq(p.size.x, 5, "non-square rot " .. rot .. " size x")
-		eq(p.size.z, 6, "non-square rot " .. rot .. " size z")
-	end
-end
-
--- Touching boxes (adjacent, non-overlapping).
-local box1 = geometry.place({size = {x = 5, y = 3, z = 5}, entrance = {x = 2, z = 0}},
-	{x = 0, y = 0, z = 0}, 0)
-local box2 = geometry.place({size = {x = 5, y = 3, z = 5}, entrance = {x = 2, z = 0}},
-	{x = 5, y = 0, z = 0}, 0)  -- Adjacent in X
-eq(box1.max.x + 1, box2.min.x, "boxes touch in X without overlap")
-eq(box1.max.y, box2.max.y, "boxes same height")
-eq(box1.max.z, box2.max.z, "boxes same Z range")
+-- Role, snapshot, non-square and touching-box tests live in
+-- tests/catalog_tests.lua (ticket #28).
+loadfile("tests/catalog_tests.lua")(eq, fails, geometry, catalog, placement)
 
 -- placement.parse_args: valid, bad count, bad rotation.
 local id, rot = placement.parse_args("demo_house 90")
