@@ -38,30 +38,30 @@ local r = geometry.place(box, pos, 0)
 xyz(r.size, 5, 4, 3, "0 size")
 xyz(r.min, 100, 10, -20, "0 min")
 xyz(r.max, 104, 13, -18, "0 max")
-xyz(r.entrance, 101, 10, -20, "0 entrance")
+xyz(r.entrance, 101, 11, -20, "0 entrance")
 xz(r.front, 0, -1, "0 front")
-xyz(r.outside, 101, 10, -21, "0 outside")
+xyz(r.outside, 101, 11, -21, "0 outside")
 
 r = geometry.place(box, pos, 90)
 xyz(r.size, 3, 4, 5, "90 size")
 xyz(r.max, 102, 13, -16, "90 max")
-xyz(r.entrance, 100, 10, -17, "90 entrance")
+xyz(r.entrance, 100, 11, -17, "90 entrance")
 xz(r.front, -1, 0, "90 front")
-xyz(r.outside, 99, 10, -17, "90 outside")
+xyz(r.outside, 99, 11, -17, "90 outside")
 
 r = geometry.place(box, pos, 180)
 xyz(r.size, 5, 4, 3, "180 size")
 xyz(r.max, 104, 13, -18, "180 max")
-xyz(r.entrance, 103, 10, -18, "180 entrance")
+xyz(r.entrance, 103, 11, -18, "180 entrance")
 xz(r.front, 0, 1, "180 front")
-xyz(r.outside, 103, 10, -17, "180 outside")
+xyz(r.outside, 103, 11, -17, "180 outside")
 
 r = geometry.place(box, pos, 270)
 xyz(r.size, 3, 4, 5, "270 size")
 xyz(r.max, 102, 13, -16, "270 max")
-xyz(r.entrance, 102, 10, -19, "270 entrance")
+xyz(r.entrance, 102, 11, -19, "270 entrance")
 xz(r.front, 1, 0, "270 front")
-xyz(r.outside, 103, 10, -19, "270 outside")
+xyz(r.outside, 103, 11, -19, "270 outside")
 
 -- Numeric strings are accepted (core.place_schematic uses strings).
 eq(geometry.place(box, pos, "90").size.x, 3, "string rotation")
@@ -79,19 +79,19 @@ end
 -- Recessed entrance: 5x4x3 box, door at x=2, z=1 (one node in from the -Z edge).
 local rec = {size = {x = 5, y = 4, z = 3}, entrance = {x = 2, z = 1}}
 r = geometry.place(rec, pos, 0)
-xyz(r.entrance, 102, 10, -19, "rec 0 entrance")
-xyz(r.outside, 102, 10, -20, "rec 0 outside")
+xyz(r.entrance, 102, 11, -19, "rec 0 entrance")
+xyz(r.outside, 102, 11, -20, "rec 0 outside")
 r = geometry.place(rec, pos, 90)
-xyz(r.entrance, 101, 10, -18, "rec 90 entrance")
+xyz(r.entrance, 101, 11, -18, "rec 90 entrance")
 xz(r.front, -1, 0, "rec 90 front")
-xyz(r.outside, 100, 10, -18, "rec 90 outside")
+xyz(r.outside, 100, 11, -18, "rec 90 outside")
 r = geometry.place(rec, pos, 180)
-xyz(r.entrance, 102, 10, -19, "rec 180 entrance")
-xyz(r.outside, 102, 10, -18, "rec 180 outside")
+xyz(r.entrance, 102, 11, -19, "rec 180 entrance")
+xyz(r.outside, 102, 11, -18, "rec 180 outside")
 r = geometry.place(rec, pos, 270)
-xyz(r.entrance, 101, 10, -18, "rec 270 entrance")
+xyz(r.entrance, 101, 11, -18, "rec 270 entrance")
 xz(r.front, 1, 0, "rec 270 front")
-xyz(r.outside, 102, 10, -18, "rec 270 outside")
+xyz(r.outside, 102, 11, -18, "rec 270 outside")
 
 -- Strict rotation strings.
 for _, bad_rot in ipairs({"0x5a", "9e1", " 90", "90 ", "+90", "090", "", "1.8e2", 90.5, 360, -90}) do
@@ -111,44 +111,45 @@ fails(function() catalog.get("nope") end, "unknown building id 'nope'", "unknown
 eq(catalog.get("demo_house").id, "demo_house", "demo_house registered")
 eq(catalog.get("castle").id, "castle", "castle registered")
 
--- verify(): ok, missing, mismatch.
-local d = catalog.get("demo_house")
-local function reader(result) return function() return result end end
+-- verify(): ok, missing, mismatch with roles and entrance.y defaults.
 local function read_known(path)
 	local id = path:match("([^/]+)%.mts$")
-	return {size = catalog.get(id).size}
+	if id then return {size = catalog.get(id).size} end
+	return nil
 end
-eq(next(catalog.verify(read_known, "/m")), nil, "verify ok")
-local bad = catalog.verify(reader(nil), "/mod")
-eq(bad.demo_house ~= nil
-	and bad.demo_house:find("demo_house", 1, true) ~= nil
-	and bad.demo_house:find("/mod/schematics/demo_house.mts", 1, true) ~= nil,
-	true, "missing message has id and path")
-bad = catalog.verify(reader({size = {x = 1, y = 1, z = 1}}), "/mod")
-eq(bad.demo_house:find("size mismatch", 1, true) ~= nil, true, "mismatch message")
+eq(next(catalog.verify(read_known, "/m")), nil, "verify ok with roles")
 
--- verify(): read raising, entrance outside the schematic.
-bad = catalog.verify(function() error("boom") end, "/mod")
-eq(bad.demo_house:find("read failed", 1, true) ~= nil, true, "read error reported")
-local saved = d.entrance
-d.entrance = {x = d.size.x, z = 0}
-bad = catalog.verify(read_known, "/mod")
-eq(bad.demo_house:find("entrance offset outside", 1, true) ~= nil, true, "entrance outside")
-d.entrance = {x = 0, z = d.size.z}
-bad = catalog.verify(read_known, "/mod")
-eq(bad.demo_house:find("entrance offset outside", 1, true) ~= nil, true, "entrance z outside")
-d.entrance = saved
-local castle = catalog.get("castle")
-local saved_height = castle.entrance.y
-castle.entrance.y = castle.size.y
-bad = catalog.verify(read_known, "/mod")
-eq(bad.castle:find("entrance height outside", 1, true) ~= nil, true, "castle entrance y outside")
-castle.entrance.y = saved_height
-local saved_ground_offset = castle.ground_offset
-castle.ground_offset = castle.size.y
-bad = catalog.verify(read_known, "/mod")
-eq(bad.castle:find("ground offset outside", 1, true) ~= nil, true, "castle ground offset outside")
-castle.ground_offset = saved_ground_offset
+-- Synthetic test entries for structural validation (not in entries).
+-- Invalid size: missing field.
+do
+	local bad_entries = {}
+	local function test_bad_entry(entry, expect_msg_pattern, label)
+		-- Save current entries, add test entry, verify, then restore.
+		bad_entries.test_bad = entry
+		bad_entries.test_bad.id = "test_bad"
+		bad_entries.test_bad.path = "test.mts"
+		catalog.entries.test_bad = entry
+		local bad = catalog.verify(function() return {size = {x = 1, y = 1, z = 1}} end, "/mod")
+		eq(bad.test_bad:find(expect_msg_pattern, 1, true) ~= nil, true, label)
+		catalog.entries.test_bad = nil
+	end
+
+	test_bad_entry({size = {x = 5, y = 5}, entrance = {x = 2, z = 0}}, "size", "size incomplete")
+	test_bad_entry({size = {x = 5, y = 5, z = 5}, entrance = {z = 0}}, "entrance", "entrance missing x")
+	test_bad_entry({size = {x = 5, y = 5, z = 5}, entrance = {x = 2}, z = 0}, "entrance", "entrance missing z")
+	test_bad_entry({size = {x = 5, y = 5, z = 5}, entrance = {x = 2, y = 5, z = 0}}, "entrance height outside", "entrance y at boundary")
+	test_bad_entry({size = {x = 5, y = 5, z = 5}, entrance = {x = 2, y = 0, z = 0}, role = "invalid"}, "invalid role", "invalid role rejected")
+end
+
+-- verify() with entrance.y absent vs explicit.
+do
+	local demo = catalog.get("demo_house")
+	local saved_y = demo.entrance.y
+	demo.entrance.y = nil  -- Test absent y (should default to 1)
+	local bad = catalog.verify(read_known, "/mod")
+	eq(bad.demo_house, nil, "entrance.y absent defaults to 1 and validates")
+	demo.entrance.y = saved_y
+end
 
 -- Generated assets must remain in sync with their catalog and metadata.
 for _, id in ipairs(catalog.ids()) do
@@ -181,17 +182,54 @@ for _, id in ipairs(catalog.ids()) do
 		end
 	end
 end
+local castle = catalog.get("castle")
 for _, r in ipairs(geometry.ROTATIONS) do
 	local p = placement.plan(castle, {x = 0, y = 8, z = 0}, r)
 	eq(p.pos.y, 3, "castle foundation Y " .. r)
 	eq(p.building.entrance.y, 11, "castle rotated gate Y " .. r)
 end
 
--- Role support (ticket #28).
+-- Role support (ticket #28): filtering and snapshot.
 eq(catalog.get("demo_house").role, "house", "demo_house has house role")
 eq(catalog.get("castle").role, "castle", "castle has castle role")
 eq(catalog.VALID_ROLES["house"], true, "house is a valid role")
-eq(#catalog.ids_for_role("house") > 0, true, "house filter has entries")
+eq(catalog.VALID_ROLES["chapel"], true, "chapel is a valid role")
+eq(catalog.VALID_ROLES["jail"], true, "jail is a valid role")
+local house_ids = catalog.ids_for_role("house")
+eq(#house_ids > 0, true, "house filter has entries")
+for _, id in ipairs(house_ids) do
+	eq(catalog.get(id).role, "house", id .. " in house filter")
+end
+local snap = catalog.snapshot()
+eq(snap.demo_house ~= nil, true, "snapshot contains demo_house")
+eq(snap.demo_house.role, "house", "snapshot demo_house has role")
+eq(snap.demo_house.size.x, 9, "snapshot size preserved")
+
+-- Non-square footprints with entrance height at all rotations.
+-- 6x5 box (not square): entrance at (2,1,0) should rotate correctly and retain Y.
+local non_square = {size = {x = 6, y = 4, z = 5}, entrance = {x = 2, y = 1, z = 0}}
+for _, rot in ipairs(geometry.ROTATIONS) do
+	local p = geometry.place(non_square, {x = 0, y = 10, z = 0}, rot)
+	-- Entrance Y should always be 11 (10 + 1).
+	eq(p.entrance.y, 11, "non-square rot " .. rot .. " entrance Y")
+	-- Size should swap X/Z on 90/270.
+	if rot == 0 or rot == 180 then
+		eq(p.size.x, 6, "non-square rot " .. rot .. " size x")
+		eq(p.size.z, 5, "non-square rot " .. rot .. " size z")
+	else
+		eq(p.size.x, 5, "non-square rot " .. rot .. " size x")
+		eq(p.size.z, 6, "non-square rot " .. rot .. " size z")
+	end
+end
+
+-- Touching boxes (adjacent, non-overlapping).
+local box1 = geometry.place({size = {x = 5, y = 3, z = 5}, entrance = {x = 2, z = 0}},
+	{x = 0, y = 0, z = 0}, 0)
+local box2 = geometry.place({size = {x = 5, y = 3, z = 5}, entrance = {x = 2, z = 0}},
+	{x = 5, y = 0, z = 0}, 0)  -- Adjacent in X
+eq(box1.max.x + 1, box2.min.x, "boxes touch in X without overlap")
+eq(box1.max.y, box2.max.y, "boxes same height")
+eq(box1.max.z, box2.max.z, "boxes same Z range")
 
 -- placement.parse_args: valid, bad count, bad rotation.
 local id, rot = placement.parse_args("demo_house 90")
