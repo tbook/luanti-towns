@@ -239,6 +239,9 @@ end
 -- tests/catalog_tests.lua (ticket #28).
 loadfile("tests/catalog_tests.lua")(eq, fails, geometry, catalog, placement)
 
+-- Single-frontage packer (ticket #40).
+loadfile("tests/frontage_packer_tests.lua")(eq, fails, geometry)
+
 -- placement.parse_args: valid, bad count, bad rotation.
 local id, rot = placement.parse_args("demo_house 90")
 eq(id, "demo_house", "parse id")
