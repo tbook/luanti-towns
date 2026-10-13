@@ -72,7 +72,7 @@ verifies the result at all four rotations.
    | `id`, `label` | catalog ID and display label |
    | `scan_min`, `scan_max` | source world survey box; the build must not reach its edges |
    | `floor_y` | Y of the finished floor layer |
-   | `rotation` | 0/90/180/270: rotation that brings the source front to -Z |
+   | `rotation` | 0/90/180/270, by which source side is the front: front on -Z is 0, +X is 90, +Z is 180, -X is 270 |
    | `entrance` | **world** coordinates of the door bottom node (or walk-in opening node) in the source |
    | `entrance_kind` | optional, `"door"` (default) or `"opening"` |
    | `role` | optional here, but registration tickets must set it: `house`, `shop`, `workshop`, `tavern`, `well`, `cathedral`, `castle`, `city_hall`, `chapel`, `jail` |
@@ -109,8 +109,10 @@ verifies the result at all four rotations.
    ```
 
    The entrance offset is wherever the door really is: it is not centered, and
-   z is not necessarily 0 (real entries mostly have z = 1 or 2 for a recessed
-   front or a trimmed step). `entrance.y` is 1 for ordinary buildings
+   z is not necessarily 0 (real catalog values: 0 for `mason_yard`, 1 for most,
+   2 for `townhouses`, `scribe`, `banker_house`, `butcher_shop`, `chapel`, 4
+   for `gaboo_house`, 6 for `castle`, 8 for `cathedral`; x is off-centre, for
+   example 2 of 8 for `tower`, 8 of 11 for `jail`). `entrance.y` is 1 for ordinary buildings
    (defaults to 1 in the runtime catalog); landmarks may differ.
 3. **Regenerate with `--only`**, from the Towns mod directory:
 
@@ -232,17 +234,20 @@ print(("version %d, size x=%d y=%d z=%d"):format(u16(5), u16(7), u16(9), u16(11)
 
 Place the schematic with rotation 0 at a known position `P` and read the
 door's position: entrance offset = door position - `P`. In game, stand in the
-doorway and read the coordinates from the F5 debug screen. For the canonical
-orientation, the offset's z is 0 (front edge) and x is the building's center
-column.
+doorway and read the coordinates from the F5 debug screen. Read the entrance
+from the building; do not assume it is centered or flush with the edge (only
+`demo_house` and `mason_yard` have z = 0).
 
-### Four rotations
+### Four rotations (optional, legacy manual check)
 
-`//mtschemplace` loads from `<world>/schems/<id>.mts`, not from this repo.
+`export.py --validate` already checks all four rotations. This manual
+procedure is only for extra visual inspection or for files outside the
+exporter. `//mtschemplace` loads from `<world>/schems/<id>.mts`, not from this repo.
 First copy the repo file there:
 
 ```
-cp schematics/<id>.mts "<world>/schems/<id>.mts"
+cp schematics/templates/<id>.mts "<world>/schems/<id>.mts"
+# (demo_house lives at schematics/demo_house.mts)
 ```
 
 Luanti caches loaded schematics, so if an older version of `<id>.mts` was
