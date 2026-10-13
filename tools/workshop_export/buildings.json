@@ -1,0 +1,265 @@
+{
+  "world_name": "TownsWorkshop",
+  "buildings": [
+    {
+      "id": "tower",
+      "label": "Tower",
+      "scan_min": {
+        "x": 98,
+        "y": 8,
+        "z": 198
+      },
+      "scan_max": {
+        "x": 109,
+        "y": 62,
+        "z": 209
+      },
+      "floor_y": 8,
+      "rotation": 90,
+      "entrance": {
+        "x": 106,
+        "y": 9,
+        "z": 202
+      },
+      "label_position": {
+        "x": 104,
+        "y": 9,
+        "z": 197
+      }
+    },
+    {
+      "id": "leather_worker",
+      "label": "Leather worker",
+      "scan_min": {
+        "x": 133,
+        "y": 8,
+        "z": 198
+      },
+      "scan_max": {
+        "x": 145,
+        "y": 22,
+        "z": 212
+      },
+      "floor_y": 8,
+      "rotation": 180,
+      "entrance": {
+        "x": 137,
+        "y": 9,
+        "z": 208
+      },
+      "label_position": {
+        "x": 139,
+        "y": 9,
+        "z": 197
+      }
+    },
+    {
+      "id": "corner_house",
+      "label": "Corner house",
+      "scan_min": {
+        "x": 168,
+        "y": 9,
+        "z": 198
+      },
+      "scan_max": {
+        "x": 180,
+        "y": 22,
+        "z": 209
+      },
+      "floor_y": 9,
+      "rotation": 270,
+      "entrance": {
+        "x": 171,
+        "y": 10,
+        "z": 203
+      },
+      "label_position": {
+        "x": 174,
+        "y": 9,
+        "z": 197
+      }
+    },
+    {
+      "id": "jail",
+      "label": "Jail",
+      "scan_min": {
+        "x": 203,
+        "y": 8,
+        "z": 198
+      },
+      "scan_max": {
+        "x": 217,
+        "y": 18,
+        "z": 208
+      },
+      "floor_y": 8,
+      "rotation": 180,
+      "entrance": {
+        "x": 207,
+        "y": 9,
+        "z": 205
+      },
+      "label_position": {
+        "x": 210,
+        "y": 9,
+        "z": 197
+      }
+    },
+    {
+      "id": "townhouses",
+      "label": "Townhouses",
+      "scan_min": {
+        "x": 238,
+        "y": 9,
+        "z": 198
+      },
+      "scan_max": {
+        "x": 256,
+        "y": 24,
+        "z": 212
+      },
+      "floor_y": 9,
+      "rotation": 0,
+      "entrance": {
+        "x": 247,
+        "y": 10,
+        "z": 202
+      },
+      "label_position": {
+        "x": 247,
+        "y": 9,
+        "z": 197
+      }
+    },
+    {
+      "id": "weaver_house",
+      "label": "Weaver",
+      "scan_min": {
+        "x": 98,
+        "y": 9,
+        "z": 248
+      },
+      "scan_max": {
+        "x": 110,
+        "y": 20,
+        "z": 258
+      },
+      "floor_y": 9,
+      "rotation": 90,
+      "entrance": {
+        "x": 107,
+        "y": 10,
+        "z": 252
+      },
+      "label_position": {
+        "x": 104,
+        "y": 9,
+        "z": 247
+      }
+    },
+    {
+      "id": "scribe",
+      "label": "Scribe",
+      "scan_min": {
+        "x": 133,
+        "y": 8,
+        "z": 248
+      },
+      "scan_max": {
+        "x": 149,
+        "y": 24,
+        "z": 262
+      },
+      "floor_y": 8,
+      "rotation": 270,
+      "entrance": {
+        "x": 137,
+        "y": 9,
+        "z": 255
+      },
+      "label_position": {
+        "x": 141,
+        "y": 9,
+        "z": 247
+      }
+    },
+    {
+      "id": "gaboo_house",
+      "label": "Gaboo house",
+      "scan_min": {
+        "x": 168,
+        "y": 8,
+        "z": 248
+      },
+      "scan_max": {
+        "x": 182,
+        "y": 23,
+        "z": 264
+      },
+      "floor_y": 8,
+      "rotation": 0,
+      "entrance": {
+        "x": 174,
+        "y": 9,
+        "z": 254
+      },
+      "label_position": {
+        "x": 175,
+        "y": 9,
+        "z": 247
+      }
+    },
+    {
+      "id": "office_building",
+      "label": "Office building",
+      "scan_min": {
+        "x": 203,
+        "y": 8,
+        "z": 248
+      },
+      "scan_max": {
+        "x": 218,
+        "y": 30,
+        "z": 263
+      },
+      "floor_y": 8,
+      "rotation": 90,
+      "entrance": {
+        "x": 214,
+        "y": 9,
+        "z": 255
+      },
+      "label_position": {
+        "x": 211,
+        "y": 9,
+        "z": 247
+      }
+    },
+    {
+      "id": "banker_house",
+      "label": "Banker house",
+      "scan_min": {
+        "x": 238,
+        "y": 8,
+        "z": 248
+      },
+      "scan_max": {
+        "x": 253,
+        "y": 23,
+        "z": 262
+      },
+      "floor_y": 8,
+      "rotation": 270,
+      "entrance": {
+        "x": 242,
+        "y": 9,
+        "z": 255
+      },
+      "label_position": {
+        "x": 246,
+        "y": 9,
+        "z": 247
+      }
+    }
+  ]
+}

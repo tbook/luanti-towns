@@ -10,8 +10,8 @@ For a typical ticket:
 
 1. Understand the requested behavior and relevant existing code.
 2. Resolve small ambiguities yourself when the intent is clear.
-3. Decide whether the implementation should go to the `junior_dev` or
-   `senior_dev` agent.
+3. Decide whether the implementation should go to the `junior-developer` or
+   `senior-developer` agent.
 4. Delegate implementation to a fresh coding agent.
 5. When implementation is complete, delegate review to the `reviewer` agent.
 6. Evaluate review findings.
@@ -21,7 +21,7 @@ For a typical ticket:
 
 ## Choosing a developer
 
-Prefer the `junior_dev` for work that is well specified, localized,
+Prefer the `junior-developer` for work that is well specified, localized,
 and follows an existing pattern. Examples include:
 
 - Small bug fixes with a reasonably clear cause.
@@ -31,7 +31,7 @@ and follows an existing pattern. Examples include:
 - Straightforward refactors with an obvious existing pattern.
 - Small changes whose likely implementation can be identified quickly.
 
-Use the `senior_dev` when the work requires substantially more judgment
+Use the `senior-developer` when the work requires substantially more judgment
 or investigation. Examples include:
 
 - Ambiguous or difficult bugs.
@@ -39,7 +39,7 @@ or investigation. Examples include:
 - Concurrency, lifecycle, persistence, synchronization, or migration issues.
 - Work where the correct implementation approach is not obvious from nearby code.
 - Changes requiring careful reasoning about existing behavior or invariants.
-- Work escalated by the `junior_dev`.
+- Work escalated by the `junior-developer`.
 
 Complexity and uncertainty matter more than expected diff size. A tiny but
 subtle change may belong with the senior developer, while a large mechanical
@@ -53,7 +53,7 @@ When a junior developer escalates:
 
 1. Read the escalation report.
 2. Preserve useful investigation already performed.
-3. Delegate the ticket to a fresh `senior_dev` agent with the original
+3. Delegate the ticket to a fresh `senior-developer` agent with the original
    ticket plus the junior developer's findings.
 4. Do not send the junior developer back repeatedly to solve a problem it has
    already identified as beyond its scope.
@@ -69,8 +69,9 @@ Do not turn ordinary implementation decisions into architecture exercises.
 Where tickets are overly vague or have important product questions, ask the
 human product manager for decisions before starting work.
 
-Where there are major architectural questions, ask the human software architect
-for decisions before starting work.
+Where there are major architectural questions, delegate investigation and a
+recommendation to the `architect` agent before starting work. Ask the human
+product manager when a product decision is needed.
 
 If implementation exposes a genuinely cross-cutting design decision, stop and
 surface it for architectural consideration rather than inventing a large design.
@@ -80,6 +81,10 @@ ticket. They should not silently make significant product or architectural
 decisions.
 
 ## Review
+
+Use the `explorer` agent to locate code, call sites, tests, or configuration
+when that information is needed. It reports locations and excerpts rather
+than making design recommendations.
 
 After implementation, use the `reviewer` agent for routine code review.
 
@@ -93,7 +98,7 @@ preference, speculative cleanup, or unrelated refactoring.
 Normally send review fixes back to the developer that implemented the ticket.
 If review reveals that the problem is substantially more complicated than the
 junior developer originally understood, escalate the fixes to the
-`senior_dev`.
+`senior-developer`.
 
 Repeat review when fixes materially change the implementation or when doing so
 is necessary to establish confidence that the ticket is complete.

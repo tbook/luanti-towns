@@ -269,3 +269,10 @@ Luanti 5.17.0, WorldEdit from `~/Library/Application Support/minetest/mods/world
   `(4,1,0)` is `mcl_doors:wooden_door_b_1`.
 - **Rotations:** placed at 0/90/180/270 and measured as in the table above.
 - **Not covered:** a visual in-game inspection (the run was headless).
+
+## Edited TownsWorkshop templates
+
+The ten imported Home buildings now have game templates in
+`schematics/templates/`, generated catalog entries, and runtime decoration
+initialization. See [the repeatable workshop exporter](../tools/workshop_export/README.md)
+for source regions, trimming rules, re-export commands and validation.

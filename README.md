@@ -13,7 +13,10 @@ and the [engineering design](docs/engineering_design.md) for implementation phas
 
 To add a building, see the [building workflow](docs/building_workflow.md),
 which covers capturing `.mts` schematics from a local world with WorldEdit.
-The catalog currently includes `demo_house` and the edited workshop `castle`.
+The catalog includes `demo_house`, the edited workshop `castle`, and ten
+edited Home buildings. Workshop buildings can be
+[re-exported automatically](tools/workshop_export/README.md) with saved bounds,
+entrance choices, and inventory/decoration data.
 
 ## Town command
 
@@ -29,7 +32,11 @@ buildings. The cathedral and castle are temporary blockouts.
 > clears trees and terrain inside it, and does no edge smoothing.
 
 - Stand on solid ground, then run the command. It looks for a site within
-  about 160 nodes whose surface varies by at most 8 nodes and has no water.
+  about 320 nodes with no water. The middle 95% of surface heights must
+  span at most 16 nodes (up to 2.5% of columns at each extreme are ignored,
+  rounded down). Every column must be within 24 nodes of the median height,
+  limiting cutting and filling. Terrain is inspected within 48 nodes above
+  and below your ground level.
   The search runs in the background; you are told when it starts and when it
   finishes. Only one search or build runs at a time on the server; a second
   command is refused until it finishes.

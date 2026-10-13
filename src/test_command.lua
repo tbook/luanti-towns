@@ -75,8 +75,7 @@ local function build(plan, entry, fills)
 	core.bulk_set_node(air, {name = "air"})
 	if #fills > 0 then core.bulk_set_node(fills, {name = FILL}) end
 	core.bulk_set_node(paving, {name = PAVING})
-	local path = towns.modpath .. "/" .. entry.path
-	core.place_schematic(plan.pos, path, tostring(plan.rotation), nil, true)
+	return towns.schematic.place(entry, plan.pos, plan.rotation, towns.modpath)
 end
 
 -- Validates, emerges the combined volume, then inspects and (if suitable)
@@ -93,6 +92,8 @@ function towns.place_test(building_id, rotation, ground, done)
 	if towns.catalog.invalid[id] then
 		return done(false, "Building '" .. id .. "' is not usable: " .. towns.catalog.invalid[id])
 	end
+	local usable, problem = towns.schematic.validate(entry, towns.modpath)
+	if not usable then return done(false, problem) end
 	local n = (rot == 0 or rot == 90 or rot == 180 or rot == 270) and rot
 		or ((rot == "0" or rot == "90" or rot == "180" or rot == "270") and tonumber(rot))
 	if not n then
@@ -120,7 +121,8 @@ function towns.place_test(building_id, rotation, ground, done)
 			return done(false, string.format("Rejected %s rotation %d at %s: %s. Nothing was changed.",
 				id, plan.rotation, bounds_str, reason), plan)
 		end
-		build(plan, entry, fills)
+		local built, problem = build(plan, entry, fills)
+		if not built then return done(false, problem .. ". The site may be partially written.", plan) end
 		done(true, string.format("Placed %s rotation %d. Combined bounds: %s. Entrance at (%d,%d,%d) facing (%d,%d). Paved square %s.",
 			id, plan.rotation, bounds_str,
 			plan.building.entrance.x, plan.building.entrance.y, plan.building.entrance.z,

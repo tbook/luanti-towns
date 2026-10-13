@@ -115,11 +115,8 @@ eq(catalog.get("castle").id, "castle", "castle registered")
 local d = catalog.get("demo_house")
 local function reader(result) return function() return result end end
 local function read_known(path)
-	if path:find("/schematics/demo_house.mts", 1, true) then
-		return {size = {x = 9, y = 8, z = 7}}
-	elseif path:find("/schematics/castle.mts", 1, true) then
-		return {size = {x = 54, y = 40, z = 50}}
-	end
+	local id = path:match("([^/]+)%.mts$")
+	return {size = catalog.get(id).size}
 end
 eq(next(catalog.verify(read_known, "/m")), nil, "verify ok")
 local bad = catalog.verify(reader(nil), "/mod")
@@ -152,6 +149,43 @@ castle.ground_offset = castle.size.y
 bad = catalog.verify(read_known, "/mod")
 eq(bad.castle:find("ground offset outside", 1, true) ~= nil, true, "castle ground offset outside")
 castle.ground_offset = saved_ground_offset
+
+-- Generated assets must remain in sync with their catalog and metadata.
+for _, id in ipairs(catalog.ids()) do
+	local e = catalog.get(id)
+	local f = assert(io.open(e.path, "rb"))
+	local h = f:read(12); f:close()
+	eq(h:sub(1, 4), "MTSM", id .. " schematic signature")
+	local function u16(i) return h:byte(i) * 256 + h:byte(i + 1) end
+	eq(u16(7), e.size.x, id .. " file width")
+	eq(u16(9), e.size.y, id .. " file height")
+	eq(u16(11), e.size.z, id .. " file depth")
+	if e.data_path then
+		local data = dofile(e.data_path)
+		for _, m in ipairs(data.metadata or {}) do
+			local p = m.offset
+			eq(p.x >= 0 and p.x < e.size.x and p.y >= 0 and p.y < e.size.y
+				and p.z >= 0 and p.z < e.size.z, true, id .. " metadata inside file")
+		end
+	end
+end
+
+-- Every imported template retains its real door height through rotations.
+for _, id in ipairs(catalog.ids()) do
+	local e = catalog.get(id)
+	if e.data_path then
+		eq(e.entrance.y, 1, id .. " exported entrance height")
+		for _, r in ipairs(geometry.ROTATIONS) do
+			local p = placement.plan(e, {x = 0, y = 8, z = 0}, r)
+			eq(p.building.entrance.y, 9, id .. " rotated entrance Y " .. r)
+		end
+	end
+end
+for _, r in ipairs(geometry.ROTATIONS) do
+	local p = placement.plan(castle, {x = 0, y = 8, z = 0}, r)
+	eq(p.pos.y, 3, "castle foundation Y " .. r)
+	eq(p.building.entrance.y, 11, "castle rotated gate Y " .. r)
+end
 
 -- placement.parse_args: valid, bad count, bad rotation.
 local id, rot = placement.parse_args("demo_house 90")

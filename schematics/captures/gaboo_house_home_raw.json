@@ -1,0 +1,1487 @@
+{
+  "id": "gaboo_house_home_raw",
+  "stage": "raw capture, original orientation; not registered in catalog",
+  "capture_date": "2026-10-13",
+  "source_world": "Home",
+  "source_bounds": {
+    "min": {
+      "x": 258,
+      "y": 8,
+      "z": 211
+    },
+    "max": {
+      "x": 268,
+      "y": 19,
+      "z": 223
+    }
+  },
+  "size": {
+    "x": 11,
+    "y": 12,
+    "z": 13
+  },
+  "schematic_sha256": "2ea79069dfc6e3129b9430e93571ddc5a9a269fcaa31d2d15a961c775594cbff",
+  "validation": {
+    "id": "gaboo_house_home_raw",
+    "ignore_nodes": 0,
+    "name_param2_mismatches": 0,
+    "round_trip_nodes": 1716
+  },
+  "notes": "Minimum Z extended to 211 for the taller north section and its roof. Empty Y=20 trimmed. Supplied base Y=8 retained; a furnished room and connected underground tunnels continue below it and are excluded. Includes third-party mcl_decor and seasons nodes.",
+  "metadata": [
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 3,
+        "z": 0
+      },
+      "name": "mcl_signs:wall_sign_oak",
+      "meta": {
+        "fields": {
+          "utext": "return {65,76,69,88,32,32,65,78,68,10,10,67,72,65,82,76,73,69,32,32,10,65,78,68,32,32,68,65,68,65}"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 3,
+        "z": 0
+      },
+      "name": "seasons:oak_leaves_fall_red",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3608"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 3,
+        "z": 0
+      },
+      "name": "seasons:oak_leaves_fall_yellow",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3608"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 4,
+        "z": 0
+      },
+      "name": "seasons:oak_leaves_fall_yellow",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3609"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 4,
+        "z": 0
+      },
+      "name": "seasons:oak_leaves_fall_yellow",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3609"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 5,
+        "z": 0
+      },
+      "name": "seasons:oak_leaves_fall_red",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3608"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 1,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 1,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 3,
+        "z": 1
+      },
+      "name": "seasons:oak_leaves_fall_red",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3608"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 4,
+        "z": 1
+      },
+      "name": "seasons:oak_leaves_fall_yellow",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3608"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 2
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 1,
+        "z": 2
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 1,
+        "z": 2
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 1,
+        "z": 2
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 1,
+        "z": 2
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 2,
+        "z": 2
+      },
+      "name": "mcl_flowers:dandelion",
+      "meta": {
+        "fields": {
+          "seasons:flower_dormancy_epoch": "3589"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 2,
+        "z": 2
+      },
+      "name": "mcl_chests:chest_right",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "mcl_core:diorite 64",
+            "mcl_core:diorite 49",
+            "",
+            "mcl_walls:diorite 4",
+            "mcl_mobitems:bone 6",
+            "mcl_farming:potato_item",
+            "",
+            "",
+            "mcl_doors:wooden_door",
+            "",
+            "mcl_core:gravel 5",
+            "mcl_core:sand 6",
+            "mcl_farming:melon_seeds 13",
+            "mcl_mobitems:spider_eye 2",
+            "mcl_mobitems:rotten_flesh 45",
+            "mcl_farming:wheat_seeds 12",
+            "mcl_wool:white 12",
+            "mcl_core:ladder 7",
+            "mcl_core:stonebrickcarved 2",
+            "mcl_core:mossycobble 2",
+            "mcl_core:dirt 14",
+            "mcl_core:iron_nugget 5",
+            "",
+            "mcl_core:glass 26",
+            "",
+            "mcl_stairs:slab_wood 9",
+            "mcl_stairs:stair_wood 27"
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 2,
+        "z": 2
+      },
+      "name": "mcl_chests:chest_left",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "mcl_core:cobble 64",
+            "mcl_core:cobble 64",
+            "mcl_stairs:slab_cobble",
+            "mcl_stairs:stair_cobble 64",
+            "mcl_stairs:stair_cobble 16",
+            "mcl_walls:cobble 3",
+            "",
+            "",
+            "",
+            "mcl_core:granite 38",
+            "mcl_core:andesite 14",
+            "",
+            "mcl_core:granite_smooth 3",
+            "",
+            "mcl_mobitems:slimeball 34",
+            "mcl_core:slimeblock 8",
+            "",
+            "mcl_core:acaciasapling 5",
+            "mcl_core:andesite 64",
+            "",
+            "mcl_deepslate:deepslate_cobbled 64",
+            "mcl_deepslate:deepslate_cobbled 64",
+            "mcl_deepslate:deepslate_cobbled 64",
+            "",
+            "",
+            "mcl_mobitems:mutton 2",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 6,
+        "z": 2
+      },
+      "name": "mcl_chests:chest_small",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "mcl_core:apple 3",
+            "mcl_core:diamond",
+            "mcl_core:sugar 2",
+            "mcl_mobitems:gunpowder 6",
+            "mcl_books:writable_book",
+            "mcl_raw_ores:raw_gold 35",
+            "mcl_throwing:egg 2",
+            "mcl_throwing:ender_pearl",
+            "mcl_core:iron_ingot",
+            "mcl_mobitems:mutton 4",
+            "mcl_bows:crossbow",
+            "mcl_core:flint",
+            "mcl_mobitems:iron_horse_armor",
+            "mcl_mobitems:leather",
+            "mcl_farming:hoe_stone 1 6944",
+            "mcl_fishing:fishing_rod 1 17136",
+            "mcl_tools:sword_stone 1 50655 \"\\u0001description\\u0002\\u001b(T@mcl_tools)Stone Sword\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Damage: \\u001bF5\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Full punch interval: \\u001bF0.63\\u001bEs\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Mining speed: \\u001bF\\u001b(T@mcl_tt)Slow\\u001bE\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Durability: \\u001bF30/132\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Block breaking strength: \\u001bF3\\u001bE\\u001bE\\u001b(c@#fff)\\u0003\"",
+            "mcl_bows:bow",
+            "mesecons:wire_00000000_off 7",
+            "mesecons_torch:redstoneblock 23",
+            "mcl_core:coal_lump 64",
+            "mcl_core:coal_lump 54",
+            "mcl_copper:raw_copper 6",
+            "mcl_core:stick 64",
+            "mcl_mobitems:string 7",
+            "mcl_fishing:pufferfish_raw 2",
+            "mcl_mobitems:saddle"
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 3
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 1,
+        "z": 3
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 1,
+        "z": 3
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 1,
+        "z": 3
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 1,
+        "z": 3
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 1,
+        "z": 3
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 1,
+        "z": 4
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 1,
+        "z": 4
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 2,
+        "z": 4
+      },
+      "name": "mcl_doors:acacia_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 2,
+        "z": 4
+      },
+      "name": "mcl_doors:acacia_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 3,
+        "z": 4
+      },
+      "name": "mcl_doors:acacia_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 3,
+        "z": 4
+      },
+      "name": "mcl_doors:acacia_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 5
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 0,
+        "z": 5
+      },
+      "name": "mcl_signs:wall_sign_oak",
+      "meta": {
+        "fields": {
+          "utext": "return {84,111,32,65,108,101,120,39,115,10,85,110,100,101,114,103,114,111,117,110,100,10,84,114,101,101,104,111,117,115,101}"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 1,
+        "z": 5
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 1,
+        "z": 5
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 5,
+        "z": 5
+      },
+      "name": "mcl_doors:wooden_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 6,
+        "z": 5
+      },
+      "name": "mcl_doors:wooden_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 1,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 1,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 2,
+        "z": 6
+      },
+      "name": "mcl_jukebox:jukebox",
+      "meta": {
+        "fields": {
+          "villager": "c21f5772c87b05e17a6ae8e7d9ab640a"
+        },
+        "inventory": {
+          "main": [
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 2,
+        "z": 6
+      },
+      "name": "mcl_chests:chest_left",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 7
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 1,
+        "z": 7
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 1,
+        "z": 7
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 2,
+        "z": 7
+      },
+      "name": "mcl_chests:chest_right",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "mcl_core:greysand 5",
+            "mcl_fishing:clownfish_raw",
+            "mcl_core:dirt 49",
+            "",
+            "mcl_core:stonebrickcracked 2",
+            "mcl_core:andesite 44",
+            "mcl_fishing:fishing_rod 1 57844 \"\\u0001description\\u0002\\u001b(T@mcl_fishing)Fishing Rod\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_fishing)Catches fish in water\\u001bE\\u001b(c@#fff)\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Durability: \\u001bF\\u001b(T@mcl_tt)\\u001bF8/65\\u001bE uses\\u001bE\\u001bE\\u001bE\\u001b(c@#fff)\\u0003\"",
+            "mcl_deepslate:deepslate_cobbled 47",
+            "mcl_copper:block 7",
+            "mcl_amethyst:calcite 64",
+            "mcl_core:cobble 64",
+            "mcl_core:sand 13",
+            "mcl_core:diorite_smooth 22",
+            "mcl_core:granite_smooth 2",
+            "mcl_mobitems:mutton 2",
+            "mcl_mobitems:rotten_flesh 3",
+            "mcl_doors:jungle_door 3",
+            "mcl_stairs:stair_wood 8",
+            "mcl_flowers:tulip_red 3",
+            "mcl_farming:pumpkin_face 3",
+            "mcl_deepslate:deepslate_cobbled 10",
+            "mcl_core:andesite_smooth 8",
+            "vl_deepslate_tools:spear_deepslate 1 0 \"\\u0001description\\u0002\\u001b(T@vl_deepslate_tools)Deepslate Spear\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@vl_deepslate_tools)Reaches farther\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@vl_deepslate_tools)Can be thrown\\u001bE\\u001b(c@#fff)\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Damage: \\u001bF4\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Full punch interval: \\u001bF0.75\\u001bEs\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Mining speed: \\u001bF\\u001b(T@mcl_tt)Very slow\\u001bE\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Durability: \\u001bF150/150\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Block breaking strength: \\u001bF3\\u001bE\\u001bE\\u001b(c@#fff)\\u0003\"",
+            "farming:seed_cotton 15",
+            "mcl_core:dirt 23",
+            "mcl_mobitems:bone 5",
+            "mcl_throwing:egg 8"
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 2,
+        "z": 7
+      },
+      "name": "mcl_chests:chest_right",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "mcl_farming:wheat_seeds 64",
+            "mcl_farming:wheat_seeds 22",
+            "mcl_farming:carrot_item 40",
+            "",
+            "mcl_farming:wheat_item 62",
+            "mcl_tools:shovel_stone 1 46153 \"\\u0001description\\u0002\\u001b(T@mcl_tools)Stone Shovel\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Mining speed: \\u001bF\\u001b(T@mcl_tt)Slow\\u001bE\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Durability: \\u001bF39/132\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Block breaking strength: \\u001bF3\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Damage: \\u001bF3\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Full punch interval: \\u001bF1.00\\u001bEs\\u001bE\\u001b(c@#fff)\\u0003\"",
+            "",
+            "",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 5,
+        "z": 7
+      },
+      "name": "mcl_beds:bed_white_bottom",
+      "meta": {
+        "fields": {
+          "villages_last_birth": "1422"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 8
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 1,
+        "z": 8
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 1,
+        "z": 8
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 2,
+        "z": 8
+      },
+      "name": "mcl_chests:chest_left",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "mcl_copper:raw_copper",
+            "mcl_blackstone:basalt_polished 17",
+            "mcl_farming:hoe_stone 1 34720",
+            "mcl_farming:wheat_item 22",
+            "",
+            "mesecons:wire_00000000_off 64",
+            "mcl_core:bone_block 3",
+            "",
+            "mcl_core:sapling 10",
+            "mcl_fishing:pufferfish_raw 2",
+            "mesecons:wire_00000000_off 64",
+            "mcl_farming:bread 2",
+            "mesecons:wire_00000000_off 64",
+            "mcl_farming:wheat_seeds 2",
+            "vl_fireworks:rocket 9 0 \"\\u0001vl_fireworks:force\\u000210\\u0003description\\u0002\\u001b(T@vl_fireworks)Firework Rocket\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@vl_fireworks)Flight Duration:\\u001bE 2.2\\u001b(c@#fff)\\u0003vl_fireworks:duration\\u00022.2000000000000002\\u0003\"",
+            "mcl_fishing:salmon_cooked 6",
+            "mcl_dye:red",
+            "mcl_dye:grey",
+            "mcl_farming:wheat_seeds 21",
+            "mcl_fishing:fishing_rod 1 57456 \"\\u0001description\\u0002\\u001b(T@mcl_fishing)Fishing Rod\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_fishing)Catches fish in water\\u001bE\\u001b(c@#fff)\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Durability: \\u001bF\\u001b(T@mcl_tt)\\u001bF8/65\\u001bE uses\\u001bE\\u001bE\\u001bE\\u001b(c@#fff)\\u0003\"",
+            "",
+            "mcl_core:bowl",
+            "mcl_amethyst:calcite 64",
+            "mcl_tools:axe_stone 1 2480 \"\\u0001description\\u0002\\u001b(T@mcl_tools)Stone Axe\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Mining speed: \\u001bF\\u001b(T@mcl_tt)Slow\\u001bE\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Durability: \\u001bF127/132\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Block breaking strength: \\u001bF3\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Damage: \\u001bF9\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Full punch interval: \\u001bF1.25\\u001bEs\\u001bE\\u001b(c@#fff)\\u0003\"",
+            "mcl_amethyst:amethyst_shard 8",
+            "mcl_mushrooms:mushroom_red 3",
+            "mcl_crafting_table:crafting_table"
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 9
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 1,
+        "z": 9
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 1,
+        "z": 9
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 2,
+        "z": 9
+      },
+      "name": "mcl_beds:bed_white_top",
+      "meta": {
+        "fields": {
+          "player": "Edison"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 2,
+        "z": 9
+      },
+      "name": "mcl_cartography_table:cartography_table",
+      "meta": {
+        "fields": {
+          "villager": "dadbeb112e943ca8eec0fc6031cbc07e"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 5,
+        "z": 9
+      },
+      "name": "mcl_chests:chest_small",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "mesecons:wire_00000000_off 64",
+            "mesecons:wire_00000000_off 39",
+            "",
+            "mcl_core:sand 29",
+            "mcl_farming:pumpkin_seeds 4",
+            "mcl_core:apple 3",
+            "mcl_copper:raw_copper 2",
+            "mcl_tools:pick_iron 1 7047 \"\\u0001description\\u0002\\u001b(T@mcl_tools)Iron Pickaxe\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Mining speed: \\u001bF\\u001b(T@mcl_tt)Fast\\u001bE\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Durability: \\u001bF224/251\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Block breaking strength: \\u001bF4\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Damage: \\u001bF4\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Full punch interval: \\u001bF0.83\\u001bEs\\u001bE\\u001b(c@#fff)\\u0003\"",
+            "mcl_boats:boat_acacia",
+            "",
+            "mcl_core:cobble 64",
+            "mcl_core:cobble 64",
+            "mcl_mobitems:feather 3",
+            "mcl_tools:sword_iron 1 0 \"\\u0001description\\u0002\\u001b(T@mcl_tools)Iron Sword\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Damage: \\u001bF6\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Full punch interval: \\u001bF0.63\\u001bEs\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Mining speed: \\u001bF\\u001b(T@mcl_tt)Fast\\u001bE\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Durability: \\u001bF251/251\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Block breaking strength: \\u001bF4\\u001bE\\u001bE\\u001b(c@#fff)\\u0003\"",
+            "mcl_core:iron_ingot 8",
+            "mcl_tools:pick_stone 1 59075",
+            "mcl_core:flint 2",
+            "mcl_boats:boat",
+            "vl_weaponry:spear_stone 1 10912 \"\\u0001description\\u0002\\u001b(T@vl_weaponry)Stone Spear\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@vl_weaponry)Reaches farther\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@vl_weaponry)Can be thrown\\u001bE\\u001b(c@#fff)\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Damage: \\u001bF4\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Full punch interval: \\u001bF0.75\\u001bEs\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Mining speed: \\u001bF\\u001b(T@mcl_tt)Very slow\\u001bE\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Durability: \\u001bF110/132\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Block breaking strength: \\u001bF3\\u001bE\\u001bE\\u001b(c@#fff)\\u0003active\\u00020\\u0003\"",
+            "mcl_core:wood 4",
+            "mcl_core:cobble 64",
+            "mcl_farming:wheat_item 14",
+            "mcl_raw_ores:raw_iron 2",
+            "mcl_amethyst:amethyst_block 6",
+            "mcl_crafting_table:crafting_table",
+            "mcl_core:gravel 17",
+            "mcl_dye:black 3"
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 2,
+        "z": 10
+      },
+      "name": "mcl_furnaces:furnace",
+      "meta": {
+        "fields": {
+          "_t": "1442890",
+          "formspec": "formspec_version[4]size[11.75,10.425]label[0.375,0.375;\u001b(c@#313131)\u001b(T@mcl_furnaces)Furnace\u001bE\u001b(c@#fff)]image[3.45,0.7;1.1,1.1;mcl_formspec_itemslot.png]list[context;src;3.5,0.75;1,1;]image[3.5,2;1,1;default_furnace_fire_bg.png]image[3.45,3.2;1.1,1.1;mcl_formspec_itemslot.png]list[context;fuel;3.5,3.25;1,1;]image[5.25,2;1.5,1;gui_furnace_arrow_bg.png^[transformR270]image[7.675,1.8;1.4,1.4;mcl_formspec_itemslot.png]list[context;dst;7.875,2;1,1;]label[0.375,4.7;\u001b(c@#313131)\u001b(T@mcl_furnaces)Inventory\u001bE\u001b(c@#fff)]image[0.325,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[0.325,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[0.325,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,7.55;1.1,1.1;mcl_formspec_itemslot.png]list[current_player;main;0.375,5.1;9,3;9]image[0.325,9;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,9;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,9;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,9;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,9;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,9;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,9;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,9;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,9;1.1,1.1;mcl_formspec_itemslot.png]list[current_player;main;0.375,9.05;9,1;]image_button[0.325,1.95;1.1,1.1;craftguide_book.png;__mcl_craftguide;]tooltip[__mcl_craftguide;\u001b(T@mcl_furnaces)Recipe book\u001bE]listring[context;dst]listring[current_player;main]listring[context;distr]listring[context;src]listring[current_player;main]listring[context;fuel]listring[current_player;main]",
+          "fuel_time": "1",
+          "fuel_totaltime": "0",
+          "last_gametime": "1685565.3312922",
+          "src_item": "mcl_core:clay_lump",
+          "src_time": "0",
+          "xp": "0"
+        },
+        "inventory": {
+          "distr": [
+            ""
+          ],
+          "dst": [
+            ""
+          ],
+          "fuel": [
+            ""
+          ],
+          "src": [
+            "mcl_core:clay_lump 35"
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 2,
+        "z": 10
+      },
+      "name": "mcl_chests:chest_left",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "mcl_tools:axe_stone 1 29264",
+            "mcl_core:cobble 28",
+            "mcl_flowers:fern",
+            "mcl_stairs:stair_wood 2",
+            "mcl_core:andesite_smooth",
+            "mcl_farming:wheat_seeds 32",
+            "mcl_mobitems:slimeball 6",
+            "mcl_core:gold_nugget",
+            "mcl_stairs:slab_wood 9",
+            "mcl_core:paper 2",
+            "mcl_core:sand 7",
+            "mcl_flowers:dandelion 2",
+            "mcl_throwing:egg 2",
+            "mcl_flowers:tallgrass 34",
+            "mcl_minecarts:rail_v2 25",
+            "mcl_mobitems:rotten_flesh 5",
+            "mcl_flowers:tulip_orange 2",
+            "mcl_flowers:tulip_pink 2",
+            "mcl_mushrooms:mushroom_stew",
+            "mcl_mushrooms:mushroom_stew",
+            "mcl_mushrooms:mushroom_stew",
+            "mcl_mushrooms:mushroom_stew",
+            "mcl_tools:sword_iron 1 2538 \"\\u0001description\\u0002\\u001b(T@mcl_tools)Iron Sword\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Damage: \\u001bF6\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Full punch interval: \\u001bF0.63\\u001bEs\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Mining speed: \\u001bF\\u001b(T@mcl_tt)Fast\\u001bE\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Durability: \\u001bF241/251\\u001bE\\u001bE\\n\\u001b(c@#55FF55)\\u001b(T@mcl_tt)Block breaking strength: \\u001bF4\\u001bE\\u001bE\\u001b(c@#fff)\\u0003\"",
+            "mcl_mobitems:string",
+            "mcl_mushrooms:mushroom_stew",
+            "mcl_mushrooms:mushroom_stew",
+            "mcl_flowers:tulip_white"
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 2,
+        "z": 10
+      },
+      "name": "mcl_chests:chest_right",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "mcl_mushrooms:mushroom_stew",
+            "mcl_mushrooms:mushroom_stew",
+            "mcl_core:reeds 9",
+            "mcl_core:dirt 24",
+            "mcl_fishing:fish_raw 11",
+            "mcl_core:coal_lump 64",
+            "mcl_mobitems:beef 17",
+            "mcl_mobitems:spider_eye 2",
+            "mcl_flowers:rose_bush 7",
+            "mcl_farming:wheat_seeds 64",
+            "mcl_core:apple_gold 2",
+            "mcl_throwing:snowball 64",
+            "mcl_flowers:azure_bluet 5",
+            "mcl_farming:bread 7",
+            "mcl_tools:axe_stone 1 62552",
+            "mcl_core:vine 6",
+            "mcl_core:gold_ingot 7",
+            "mcl_core:dirt 50",
+            "mcl_tools:pick_stone",
+            "mcl_farming:carrot_item",
+            "mcl_fishing:salmon_raw 2",
+            "mcl_farming:carrot_item 18",
+            "mcl_throwing:snowball 64",
+            "mesecons_delayer:delayer_off_1",
+            "mcl_wool:black 3",
+            "mesecons:wire_00000000_off 34",
+            "mcl_doors:acacia_door"
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    }
+  ],
+  "node_counts": {
+    "mcl_core:dirt_with_grass": 45,
+    "mcl_core:grass_path": 4,
+    "mcl_signs:wall_sign_oak": 2,
+    "seasons:oak_leaves_fall_red": 3,
+    "seasons:oak_leaves_fall_yellow": 4,
+    "mcl_stairs:stair_wood_outer": 9,
+    "mcl_stairs:stair_wood": 81,
+    "mcl_core:dirt": 118,
+    "mcl_stairs:stair_cobble": 7,
+    "mcl_core:cobble": 172,
+    "mcl_core:vine": 13,
+    "mcl_core:glass": 8,
+    "mcl_core:wood": 18,
+    "mcl_core:stonebrickcracked": 1,
+    "mcl_core:stonebrick": 72,
+    "mcl_flowers:dandelion": 1,
+    "mcl_chests:chest_right": 4,
+    "mcl_chests:chest_left": 4,
+    "mcl_stairs:slab_wood_top": 32,
+    "mcl_beds:bed_white_top": 3,
+    "mcl_chests:chest_small": 2,
+    "mcl_nether:glowstone": 4,
+    "mcl_torches:torch_wall": 7,
+    "mcl_farming:soil_wet": 9,
+    "mcl_farming:sweet_berry_bush_3": 9,
+    "mcl_flowers:lilac": 2,
+    "mcl_flowers:lilac_top": 2,
+    "mcl_decor:doorbell": 1,
+    "mcl_core:ladder": 13,
+    "mcl_fences:fence": 5,
+    "mcl_beds:bed_white_bottom": 3,
+    "mcl_core:andesite_smooth": 15,
+    "mcl_core:andesite": 1,
+    "mcl_doors:acacia_door_b_1": 2,
+    "mcl_doors:acacia_door_t_1": 2,
+    "mcl_doors:wooden_door_b_1": 1,
+    "mcl_doors:wooden_door_t_1": 1,
+    "mcl_core:granite_smooth": 10,
+    "mcl_jukebox:jukebox": 1,
+    "mcl_books:bookshelf": 3,
+    "mcl_core:acaciawood": 1,
+    "mcl_wool:white_carpet": 4,
+    "mcl_torches:torch": 1,
+    "mcl_core:diorite_smooth": 2,
+    "mcl_doors:trapdoor": 2,
+    "mcl_lanterns:lantern_ceiling": 1,
+    "mesecons_pressureplates:pressure_plate_wood_off": 2,
+    "mcl_crafting_table:crafting_table": 2,
+    "mcl_cartography_table:cartography_table": 1,
+    "mcl_furnaces:furnace": 1,
+    "mcl_core:water_flowing": 2,
+    "xpanes:pane_natural_flat": 1,
+    "mcl_core:water_source": 2,
+    "mcl_stairs:stair_stonebrick": 1
+  }
+}

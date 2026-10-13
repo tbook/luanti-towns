@@ -1,0 +1,160 @@
+{
+  "world": "TownsWorkshop",
+  "validation": {
+    "buildings": 10,
+    "inventory_mismatches": 0,
+    "leaf_replacements": 7,
+    "metadata_nodes": 521,
+    "node_mismatches": 0,
+    "nodes": 15955
+  },
+  "placements": [
+    {
+      "id": "tower_home_raw",
+      "label": "Tower",
+      "origin": {
+        "x": 100,
+        "y": 7,
+        "z": 200
+      },
+      "size": {
+        "x": 8,
+        "y": 51,
+        "z": 8
+      }
+    },
+    {
+      "id": "leather_worker_home_raw",
+      "label": "Leather worker",
+      "origin": {
+        "x": 135,
+        "y": 8,
+        "z": 200
+      },
+      "size": {
+        "x": 9,
+        "y": 10,
+        "z": 11
+      }
+    },
+    {
+      "id": "corner_house_home_raw",
+      "label": "Corner house",
+      "origin": {
+        "x": 170,
+        "y": 8,
+        "z": 200
+      },
+      "size": {
+        "x": 9,
+        "y": 10,
+        "z": 8
+      }
+    },
+    {
+      "id": "jail_home_raw",
+      "label": "Jail",
+      "origin": {
+        "x": 205,
+        "y": 7,
+        "z": 200
+      },
+      "size": {
+        "x": 11,
+        "y": 7,
+        "z": 7
+      }
+    },
+    {
+      "id": "townhouses_home_raw",
+      "label": "Townhouses",
+      "origin": {
+        "x": 240,
+        "y": 8,
+        "z": 200
+      },
+      "size": {
+        "x": 15,
+        "y": 12,
+        "z": 11
+      }
+    },
+    {
+      "id": "weaver_house_home_raw",
+      "label": "Weaver",
+      "origin": {
+        "x": 100,
+        "y": 7,
+        "z": 250
+      },
+      "size": {
+        "x": 9,
+        "y": 9,
+        "z": 7
+      }
+    },
+    {
+      "id": "scribe_home_raw",
+      "label": "Scribe",
+      "origin": {
+        "x": 135,
+        "y": 7,
+        "z": 250
+      },
+      "size": {
+        "x": 13,
+        "y": 13,
+        "z": 11
+      }
+    },
+    {
+      "id": "gaboo_house_home_raw",
+      "label": "Gaboo house",
+      "origin": {
+        "x": 170,
+        "y": 7,
+        "z": 250
+      },
+      "size": {
+        "x": 11,
+        "y": 12,
+        "z": 13
+      }
+    },
+    {
+      "id": "office_building_home_raw",
+      "label": "Office building",
+      "origin": {
+        "x": 205,
+        "y": 7,
+        "z": 250
+      },
+      "size": {
+        "x": 12,
+        "y": 19,
+        "z": 12
+      }
+    },
+    {
+      "id": "banker_house_home_raw",
+      "label": "Banker house",
+      "origin": {
+        "x": 240,
+        "y": 7,
+        "z": 250
+      },
+      "size": {
+        "x": 12,
+        "y": 12,
+        "z": 11
+      }
+    }
+  ],
+  "height_adjustment": {
+    "buildings": 3,
+    "delta_y": 1,
+    "metadata_mismatches": 0,
+    "node_mismatches": 0,
+    "nodes": 3267
+  }
+}
