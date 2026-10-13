@@ -41,7 +41,16 @@ core.register_on_mods_loaded(function() core.after(0,function()
     assert(lo.x>j.scan_min.x and lo.z>j.scan_min.z and hi.x<j.scan_max.x and hi.z<j.scan_max.z and hi.y<j.scan_max.y,j.id..' reaches survey edge; enlarge scan bounds')
     local size=vector.add(vector.subtract(hi,lo),1)
     local entrance=offset(j.entrance,lo,size,j.rotation)
-    assert(core.get_node(j.entrance).name:find('_door_b_'),j.id..' entrance moved; update buildings.json')
+    local kind=j.entrance_kind or 'door'
+    assert(kind=='door' or kind=='opening',j.id..' invalid entrance kind')
+    if kind=='opening' then
+     assert(core.get_node(j.entrance).name=='air' and core.get_node(vector.add(j.entrance,{x=0,y=1,z=0})).name=='air',j.id..' walk-in entrance obstructed')
+     local floor=core.get_node(vector.add(j.entrance,{x=0,y=-1,z=0}))
+     local def=core.registered_nodes[floor.name]
+     assert(floor.name~='air' and def and def.walkable~=false,j.id..' entrance has no solid floor')
+    else
+     assert(core.get_node(j.entrance).name:find('_door_b_'),j.id..' entrance moved; update buildings.json')
+    end
     assert(entrance.y==1,j.id..' entrance must sit one node above floor')
     local raw=wp..'/'..j.id..'_source.mts';assert(core.create_schematic(lo,hi,nil,raw))
     local target={x=index*40,y=150,z=0};local rotated_size={x=size.x,y=size.y,z=size.z}
@@ -70,7 +79,7 @@ core.register_on_mods_loaded(function() core.after(0,function()
      local a=core.get_node(vector.add(lo,{x=x,y=y,z=z}));local b=core.get_node(vector.add(inverse,{x=x,y=y,z=z}));assert(a.name==b.name and a.param2==b.param2,j.id..' inverse rotation mismatch')
     end end end
     local names={} for name in pairs(dependencies) do names[#names+1]=name end table.sort(names)
-    local r={id=j.id,label=j.label,source_min=lo,source_max=hi,source_size=size,size=rotated_size,rotation=j.rotation,entrance=entrance,metadata=metadata,nodes=nodes,required_nodes=names,verified_nodes=count}
+    local r={id=j.id,label=j.label,source_min=lo,source_max=hi,source_size=size,size=rotated_size,rotation=j.rotation,entrance=entrance,entrance_kind=kind,metadata=metadata,nodes=nodes,required_nodes=names,verified_nodes=count}
     write_json(wp..'/export/'..j.id..'.json',r);results[#results+1]=r
    end
    write_json(wp..'/export/results.json',results)

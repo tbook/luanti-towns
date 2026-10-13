@@ -13,7 +13,7 @@ and the [engineering design](docs/engineering_design.md) for implementation phas
 
 To add a building, see the [building workflow](docs/building_workflow.md),
 which covers capturing `.mts` schematics from a local world with WorldEdit.
-The catalog includes `demo_house`, the edited workshop `castle`, and ten
+The catalog includes `demo_house`, the edited workshop `castle`, and thirteen
 edited Home buildings. Workshop buildings can be
 [re-exported automatically](tools/workshop_export/README.md) with saved bounds,
 entrance choices, and inventory/decoration data.

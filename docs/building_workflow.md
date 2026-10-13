@@ -272,7 +272,11 @@ Luanti 5.17.0, WorldEdit from `~/Library/Application Support/minetest/mods/world
 
 ## Edited TownsWorkshop templates
 
-The ten imported Home buildings now have game templates in
+The thirteen imported Home buildings now have game templates in
 `schematics/templates/`, generated catalog entries, and runtime decoration
 initialization. See [the repeatable workshop exporter](../tools/workshop_export/README.md)
 for source regions, trimming rules, re-export commands and validation.
+
+Open-front shops and yards may record a walk-in entrance instead of a door.
+The exporter checks two clear air nodes over a solid floor and records
+`entrance_kind = "opening"` alongside the usual XYZ entrance offset.

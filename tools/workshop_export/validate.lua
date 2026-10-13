@@ -32,10 +32,14 @@ core.register_on_mods_loaded(function() core.after(0,function()
      assert(n.name=='mcl_fences:fence_gate_open', 'castle gate opening mismatch: '..n.name)
      local plan=towns.placement.plan(entry,{x=0,y=8,z=0},rotation)
      assert(plan.pos.y==3 and plan.building.entrance.y==11, 'castle foundation/gate height mismatch')
+    elseif entry.entrance_kind=='opening' then
+     assert(core.get_node(entrance).name=='air' and core.get_node(vector.add(entrance,{x=0,y=1,z=0})).name=='air',id..' opening obstructed')
+     local floor=core.get_node(vector.add(entrance,{x=0,y=-1,z=0}))
+     assert(floor.name~='air' and core.registered_nodes[floor.name].walkable~=false,id..' opening has no floor')
     else
      assert(core.get_node(entrance).name:find('_door_b_'),id..' entrance mismatch')
     end
-    for _,saved in ipairs(data.metadata) do
+    for _,saved in ipairs(data.metadata or {}) do
      local p=vector.add(pos,place.rotate_offset(s.size,saved.offset,rotation));local meta=core.get_meta(p)
      for k,v in pairs(saved.fields or {}) do assert(meta:get_string(k)==v,id..' field mismatch') end
      local inv=meta:get_inventory()

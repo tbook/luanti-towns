@@ -24,6 +24,17 @@ height, chosen entrance node, and export rotation. The narrow-side entrance
 is used where available. Jail has one exterior entrance on its long side;
 the townhouses keep all three entrances along their shared front.
 
+To update only the three new templates while preserving other exported versions:
+
+```sh
+python3 tools/workshop_export/export.py \
+  --world "$HOME/Library/Application Support/minetest/worlds/TownsWorkshop" \
+  --only butcher_shop mason_yard chapel --validate
+```
+
+Each building keeps the checksum of its own source snapshot in the manifest.
+Runtime validation still checks the complete catalog after a selective export.
+
 On each export, bounds are recomputed from all non-air nodes above the
 finished floor, plus stairs on the floor layer. The entire floor/foundation
 layer within that footprint is retained. Loose terrain/paving outside the
@@ -33,7 +44,11 @@ excluded. Empty outside rows/columns and empty top layers are trimmed.
 If you enlarge, relocate, or raise a building, adjust its survey region,
 `floor_y`, or entrance in `buildings.json`. The export fails if the structure
 reaches a survey edge, or if the selected entrance is no longer a ground-floor
-door one node above the floor. More distant additions outside the survey box
+door one node above the floor. Open-front structures use
+`entrance_kind = "opening"`; their selected entrance must have two clear air
+nodes over a solid floor. The butcher shop uses its west storefront opening;
+the mason’s yard uses the opening in its south boundary. The chapel keeps its
+-Z-facing doorway. More distant additions outside the survey box
 must be included by enlarging that box manually.
 
 Outputs in `schematics/templates/`:
@@ -54,14 +69,16 @@ Reload the game after replacing schematics because Luanti caches them. Use
 `/towns_test <id> <rotation>` in a disposable world, for example
 `/towns_test weaver_house 90`. The catalog IDs are `tower`, `leather_worker`,
 `corner_house`, `jail`, `townhouses`, `weaver_house`, `scribe`, `gaboo_house`,
-`office_building`, and `banker_house`.
+`office_building`, `banker_house`, `butcher_shop`, `mason_yard`, and `chapel`.
+The separately captured `castle` and existing `demo_house` remain available.
 
 The command reconstructs containers and decorations, restores inventory
 contents and door state, and creates their display entities. It does not
 import source villagers, bed ownership, simulation timestamps or formspecs
 with old world coordinates. Villagers and other independent entities are
-not schematic contents. Gaboo and the townhouses require **mcl_decor**; the
-command reports unavailable nodes before changing the destination.
+not schematic contents. Gaboo and the townhouses require **mcl_decor**.
+The chapel requires **mcl_decor** for chairs and **living_villages** for its
+pulpit. The command reports unavailable nodes before changing the destination.
 
 Raw Home captures and workshop placement records in `schematics/captures/`
 are historical references. They are never used to overwrite workshop edits.
