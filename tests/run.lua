@@ -423,5 +423,8 @@ loadfile("tests/builder_tests.lua")(eq, fails, placement, dofile("src/planner.lu
 loadfile("tests/generate_tests.lua")(eq, fails, dofile("src/planner.lua"),
 	dofile("src/generate.lua"))
 
+-- Castle verification (ticket #30): dimensions, header parsing, placement at all rotations.
+loadfile("tests/castle_verification_tests.lua")(eq, fails, geometry)
+
 print(("%d checks, %d failures"):format(count, failures))
 os.exit(failures == 0 and 0 or 1)

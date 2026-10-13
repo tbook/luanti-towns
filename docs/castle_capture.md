@@ -92,3 +92,23 @@ The catalog role is `castle`. The old converted `schematics/castle.mts` and
 original capture files remain historical references; they do not supply the
 active catalog entry. Source bounds, ground datum, entrance and orientation
 are saved in `tools/workshop_export/buildings.json` for future re-export.
+
+## Verification (ticket #30)
+
+The cleaned castle template dimensions and catalog registration were verified
+against the file header and placement functions:
+
+- **MTS header:** magic `MTSM`, version 6, size 54×39×50 (matches catalog)
+- **Entrance coordinates:** x=30, y=8, z=6 (within bounds; x < 54, z < 50, y < 39)
+- **Ground offset:** 5 (within bounds; < 39)
+- **Placement at rotations 0, 90, 180, 270:** entrance always inside footprint,
+  outside node provides valid ground contact point (valid for recessed entrances)
+- **Entrance height preservation:** Y=11 at site ground Y=8 through all rotations
+
+### Historical source files
+
+- `schematics/castle_creative_raw.mts` — Original 54×39×50 raw capture from Creative world
+- `schematics/castle_creative_with_finials.mts` — Finials-inclusive 54×40×50 version
+- `schematics/castle_workshop_edited.mts` — Edited workshop version (54×40×50) with user changes
+- `schematics/castle.mts` — Legacy core-only converted version (54×40×50)
+- `schematics/templates/castle.mts` — Active cleaned template (54×39×50)
