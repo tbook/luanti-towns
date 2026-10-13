@@ -6,7 +6,8 @@
 -- File orientation (shared with ticket #2): the schematic origin is its
 -- minimum X/Z corner and bottom Y; size = {x, y, z}; the main entrance is on
 -- the -Z side, at file-local offset entrance = {x = ex, y = ey, z = ez}
--- (ez is 0 for a door flush with that edge; ey is 0 if omitted).
+-- (ez is 0 for a door flush with that edge; ey defaults to 1 in the catalog
+-- but defaults to 0 in geometry.place for backward compatibility).
 -- The entrance faces -Z in the file orientation.
 --
 -- World axes: +X east, +Z north, +Y up. So -Z is geographically SOUTH in

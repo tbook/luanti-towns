@@ -187,6 +187,12 @@ for _, r in ipairs(geometry.ROTATIONS) do
 	eq(p.building.entrance.y, 11, "castle rotated gate Y " .. r)
 end
 
+-- Role support (ticket #28).
+eq(catalog.get("demo_house").role, "house", "demo_house has house role")
+eq(catalog.get("castle").role, "castle", "castle has castle role")
+eq(catalog.VALID_ROLES["house"], true, "house is a valid role")
+eq(#catalog.ids_for_role("house") > 0, true, "house filter has entries")
+
 -- placement.parse_args: valid, bad count, bad rotation.
 local id, rot = placement.parse_args("demo_house 90")
 eq(id, "demo_house", "parse id")

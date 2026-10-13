@@ -4,10 +4,19 @@
 -- To add a building: capture it in the canonical orientation (origin at the
 -- min X/Z corner and bottom Y, entrance on the north/-Z edge), put the .mts
 -- in schematics/, and add one entry below.
--- entrance = file-local offset of the entrance node (z is 0 unless recessed).
+-- entrance = file-local offset of the entrance node (x and z are required;
+--            y is the door bottom height and defaults to 1).
 -- ground_offset = optional depth of the captured foundation below site ground.
+-- role = one of "house", "shop", "workshop", "tavern", "well", "cathedral",
+--        "castle", or "city_hall".
 
 local M = {}
+
+-- Valid role values for catalog entries.
+M.VALID_ROLES = {
+	house = true, shop = true, workshop = true, tavern = true,
+	well = true, cathedral = true, castle = true, city_hall = true,
+}
 
 local entries = {
 	demo_house = {
@@ -15,6 +24,7 @@ local entries = {
 		-- Dimensions and entrance match schematics/demo_house.mts (ticket #2).
 		size = {x = 9, y = 8, z = 7},
 		entrance = {x = 4, y = 1, z = 0},
+		role = "house",
 	},
 	castle = {
 		path = "schematics/castle.mts",
@@ -23,7 +33,7 @@ local entries = {
 		entrance = {x = 30, y = 8, z = 6},
 		-- The capture includes five foundation layers below the site's ground.
 		ground_offset = 5,
-		role = "landmark",
+		role = "castle",
 	},
 }
 
@@ -59,6 +69,19 @@ function M.ids()
 	return ids
 end
 
+-- Sorted list of ids matching a role, or all ids if role is nil.
+-- Returns an empty table if the role doesn't match any entries.
+function M.ids_for_role(role)
+	local ids = {}
+	for id in pairs(entries) do
+		if not role or entries[id].role == role then
+			ids[#ids + 1] = id
+		end
+	end
+	table.sort(ids)
+	return ids
+end
+
 -- Checks every entry's schematic against its declared size.
 --   read(path) -> {size = {x,y,z}} or nil   (wraps core.read_schematic)
 --   modpath    prefix for the repo-local paths
@@ -71,6 +94,7 @@ function M.verify(read, modpath)
 		local full = modpath .. "/" .. e.path
 		local ok, s = pcall(read, full)
 		local ez = e.entrance.z or 0
+		local ey = e.entrance.y or 1
 		local msg
 		if not ok then
 			msg = "schematic read failed: " .. tostring(s)
@@ -82,8 +106,10 @@ function M.verify(read, modpath)
 		elseif e.entrance.x < 0 or e.entrance.x >= e.size.x
 				or ez < 0 or ez >= e.size.z then
 			msg = "entrance offset outside the schematic"
-		elseif e.entrance.y and (e.entrance.y < 0 or e.entrance.y >= e.size.y) then
+		elseif ey < 0 or ey >= e.size.y then
 			msg = "entrance height outside the schematic"
+		elseif e.role and not M.VALID_ROLES[e.role] then
+			msg = "invalid role '" .. tostring(e.role) .. "'"
 		elseif e.ground_offset and (e.ground_offset < 0 or e.ground_offset >= e.size.y
 				or e.ground_offset ~= math.floor(e.ground_offset)) then
 			msg = "ground offset outside the schematic"
