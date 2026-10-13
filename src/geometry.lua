@@ -5,8 +5,8 @@
 -- -----------
 -- File orientation (shared with ticket #2): the schematic origin is its
 -- minimum X/Z corner and bottom Y; size = {x, y, z}; the main entrance is on
--- the -Z side, at file-local offset entrance = {x = ex, y = ey, z = ez}
--- (ez is 0 for a door flush with that edge; ey is 0 if omitted).
+-- the -Z edge, at file-local offset entrance = {x = ex, y = ey, z = ez}.
+-- ez is 0 for a door flush with the edge; ey defaults to 1.
 -- The entrance faces -Z in the file orientation.
 --
 -- World axes: +X east, +Z north, +Y up. So -Z is geographically SOUTH in
@@ -92,7 +92,7 @@ function M.place(entry, pos, rotation)
 
 	local lx, lz = rotate_local(sx, sz, entry.entrance.x, entry.entrance.z or 0, rotation)
 	local front = FRONT[rotation]
-	local entrance = {x = pos.x + lx, y = pos.y + (entry.entrance.y or 0), z = pos.z + lz}
+	local entrance = {x = pos.x + lx, y = pos.y + (entry.entrance.y or 1), z = pos.z + lz}
 	return {
 		rotation = rotation,
 		size = {x = wx, y = sy, z = wz},
