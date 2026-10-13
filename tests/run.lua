@@ -411,6 +411,10 @@ eq(placement.format_bounds(plan0.bounds), "(108,19,45) to (116,27,56)", "format_
 -- Planner (ticket #12): boundary and civic sites.
 loadfile("tests/planner_tests.lua")(eq, fails, dofile("src/planner.lua"))
 
+-- Landmark profile reservations (ticket #38).
+loadfile("tests/landmark_profile_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog,
+	geometry, dofile("src/site_search.lua")(placement, dofile("src/planner.lua")))
+
 -- Streets, blocks and frontage (ticket #13).
 loadfile("tests/streets_tests.lua")(eq, fails, dofile("src/planner.lua"))
 
