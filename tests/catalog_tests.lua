@@ -27,6 +27,27 @@ end
 -- Roles are optional for generated templates; assert only where present.
 eq(catalog.get("demo_house").role, "house", "demo_house role")
 eq(catalog.get("castle").role, "castle", "castle role")
+-- All 15 catalog entries must have a role
+local role_checks = {
+	tower = "city_hall",
+	leather_worker = "workshop",
+	corner_house = "house",
+	jail = "jail",
+	townhouses = "house",
+	weaver_house = "house",
+	scribe = "house",
+	gaboo_house = "house",
+	office_building = "shop",
+	banker_house = "house",
+	butcher_shop = "shop",
+	mason_yard = "workshop",
+	chapel = "chapel",
+	castle = "castle",
+	cathedral = "cathedral",
+}
+for id, expected_role in pairs(role_checks) do
+	eq(catalog.get(id).role, expected_role, id .. " role is " .. expected_role)
+end
 for _, id in ipairs(catalog.ids()) do
 	local role = catalog.get(id).role
 	if role ~= nil then
@@ -41,9 +62,16 @@ eq(catalog.VALID_ROLES.landmark, nil, "landmark is no longer a role")
 eq(catalog.VALID_ROLES.invalid_role, nil, "invalid_role is not a role")
 
 -- Role filtering over the real catalog.
-eq(table.concat(catalog.ids_for_role("house"), ","), "demo_house", "house filter")
+eq(table.concat(catalog.ids_for_role("house"), ","), "banker_house,corner_house,demo_house,gaboo_house,scribe,townhouses,weaver_house", "house filter")
+eq(table.concat(catalog.ids_for_role("shop"), ","), "butcher_shop,office_building", "shop filter")
+eq(table.concat(catalog.ids_for_role("workshop"), ","), "leather_worker,mason_yard", "workshop filter")
+eq(table.concat(catalog.ids_for_role("city_hall"), ","), "tower", "city_hall filter")
+eq(table.concat(catalog.ids_for_role("chapel"), ","), "chapel", "chapel filter")
+eq(table.concat(catalog.ids_for_role("jail"), ","), "jail", "jail filter")
 eq(table.concat(catalog.ids_for_role("castle"), ","), "castle", "castle filter")
+eq(table.concat(catalog.ids_for_role("cathedral"), ","), "cathedral", "cathedral filter")
 eq(#catalog.ids_for_role("tavern"), 0, "tavern filter empty")
+eq(#catalog.ids_for_role("well"), 0, "well filter empty")
 eq(#catalog.ids_for_role("not_a_role"), 0, "unknown role filter empty")
 for role in pairs(catalog.VALID_ROLES) do
 	local ids = catalog.ids_for_role(role)
@@ -125,6 +153,20 @@ end
 -- Entrance without y defaults to 1 in geometry.place.
 eq(geometry.place({size = {x = 3, y = 3, z = 3}, entrance = {x = 1, z = 0}}, origin, 0).entrance.y,
 	11, "geometry default entrance y")
+
+-- catalog.invalid should be empty after verification.
+do
+	local function read_known(path)
+		return {size = catalog.get(path:match("([^/]+)%.mts$")).size}
+	end
+	catalog.verify(read_known, ".")
+	local invalid_count = 0
+	for id in pairs(catalog.invalid) do
+		invalid_count = invalid_count + 1
+		print("Unexpected invalid entry: " .. id)
+	end
+	eq(invalid_count, 0, "catalog.invalid is empty")
+end
 
 -- Boxes may touch but not overlap (inclusive bounds); tested on plain geometry.
 local function overlaps(a, b)
