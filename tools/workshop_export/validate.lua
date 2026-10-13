@@ -23,11 +23,11 @@ core.register_on_mods_loaded(function() core.after(0,function()
      local expected=s.data[z*s.size.x*s.size.y+y*s.size.x+x+1]
      assert(core.get_node(p).name==expected.name,id..' node name mismatch')
      local have=core.get_node(p);local wanted=core.get_node(vector.add(p,{x=70,y=0,z=0}))
-     assert(have.name==wanted.name and have.param2==wanted.param2,id..' constructed node/orientation mismatch')
+     assert(have.name==wanted.name and have.param2==wanted.param2,id..' constructed node/orientation mismatch at '..core.pos_to_string(p)..' rotation '..rotation..' got '..have.name..':'..have.param2..' expected '..wanted.name..':'..wanted.param2)
      total=total+1
     end end end
     local entrance=shape.entrance
-    if id=='castle' then
+    if id=='castle' and not entry.data_path then
      local n=core.get_node(entrance)
      assert(n.name=='mcl_fences:fence_gate_open', 'castle gate opening mismatch: '..n.name)
      local plan=towns.placement.plan(entry,{x=0,y=8,z=0},rotation)

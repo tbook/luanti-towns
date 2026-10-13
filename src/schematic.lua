@@ -45,7 +45,11 @@ function M.place(entry, pos, rotation, modpath)
    positions[#positions + 1] = p
    local def = core.registered_nodes[node.name]
    -- Armor stand activation reads its inventory, so defer it until restoration.
-   if def and def.on_construct and node.name ~= 'mcl_armor_stand:armor_stand' then def.on_construct(p) end
+   -- Foliage construction recomputes biome colors/flags; keep the authored param2.
+   if def and def.on_construct and node.name ~= 'mcl_armor_stand:armor_stand'
+      and not node.name:find('^mcl_decor:hedge_')
+      and core.get_item_group(node.name, 'foliage_palette') == 0
+      and core.get_item_group(node.name, 'leaves') == 0 then def.on_construct(p) end
   end
  end end end
  for _, saved in ipairs(data(entry, modpath).metadata or {}) do

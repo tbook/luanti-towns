@@ -16,15 +16,6 @@ local entries = {
 		size = {x = 9, y = 8, z = 7},
 		entrance = {x = 4, y = 1, z = 0},
 	},
-	castle = {
-		path = "schematics/castle.mts",
-		size = {x = 54, y = 40, z = 50},
-		-- The gate is recessed six nodes from the file's -Z edge.
-		entrance = {x = 30, y = 8, z = 6},
-		-- The capture includes five foundation layers below the site's ground.
-		ground_offset = 5,
-		role = "landmark",
-	},
 }
 
 -- Workshop exports are generated separately so re-capturing a building does

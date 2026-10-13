@@ -38,7 +38,7 @@ added, preserving the existing castle. The new 5-column slice matched its
 source at all 10,000 positions. A copy of the workshop from before this
 extension is at `/private/tmp/TownsWorkshop-before-castle-x-extension`.
 
-## Edited castle for Towns
+## Earlier edited castle and legacy catalog conversion (2026-10-11)
 
 After the workshop cleanup, `schematics/castle_workshop_edited.mts` captured
 the live castle at `(245, 3, 100)` through `(298, 42, 149)` (54 × 40 × 50).
@@ -48,11 +48,11 @@ All 108,000 node names and `param2` values matched the workshop copy; there
 were no `ignore` nodes. This preserves the user's edits and the optional-mod
 furniture for future reference. The live workshop was not changed by capture.
 
-`schematics/castle.mts` is the Towns catalog version (54 × 40 × 50, SHA-256
+`schematics/castle.mts` is the earlier core-only catalog conversion (54 × 40 × 50, SHA-256
 `0dfe4fdecf31c84b9e06090c2eadad5f0d5749819148b2c69553742394b554de`).
 It is rotated 180 degrees so the apparent main gate faces -Z. The gate's
 file-local offset is `(30, 8, 6)`; the site ground is five nodes above the
-schematic bottom. The Towns catalog registers it as `castle` with role
+schematic bottom. The earlier Towns catalog registered it as `castle` with role
 `landmark` and `ground_offset = 5`.
 
 The catalog version uses VoxeLibre nodes only. It replaces `mcl_decor`
@@ -69,3 +69,26 @@ disabled, `/towns_test castle 0` placed the catalog schematic at a site with
 ground Y=8. Its foundation started at Y=3, the reported gate was at Y=11,
 and all 108,000 placed nodes matched the catalog file. The test placement
 was in a scratch world, not `TownsWorkshop`.
+
+## Current cleaned game template (2026-10-13)
+
+The active `castle` catalog entry now uses `schematics/templates/castle.mts`
+and its `.lua` metadata sidecar. It captures the current TownsWorkshop bounds
+**(245, 3, 100) through (298, 41, 149)**, retaining the full footprint and
+five foundation layers. Y=42 is empty, so the template is **54 × 39 × 50**.
+It is rotated 180 degrees to face -Z; the recessed walk-in approach is
+source **(268, 11, 143)**, canonical **(30, 8, 6)**. On site ground Y=8,
+the origin remains Y=3 and the entrance remains Y=11.
+
+The current source differs at 118 node-name/param2 positions from the earlier
+edited capture; this comparison does not distinguish author edits from normal
+world updates. This version preserves actual mcl_decor furnishings, hedges,
+plates, the Living Villages pulpit, and saved inventories instead of the
+legacy substitutions. Those mods are required to place this asset; missing
+nodes are reported before destination writes. Foliage placement retains the
+saved palette/flags rather than rerunning biome-color constructors.
+
+The catalog role is `castle`. The old converted `schematics/castle.mts` and
+original capture files remain historical references; they do not supply the
+active catalog entry. Source bounds, ground datum, entrance and orientation
+are saved in `tools/workshop_export/buildings.json` for future re-export.
