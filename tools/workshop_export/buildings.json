@@ -340,6 +340,73 @@
         "y": 9,
         "z": 297
       }
+    },
+    {
+      "id": "castle",
+      "label": "Castle",
+      "scan_min": {
+        "x": 243,
+        "y": 3,
+        "z": 98
+      },
+      "scan_max": {
+        "x": 301,
+        "y": 46,
+        "z": 153
+      },
+      "floor_y": 3,
+      "capture_min": {
+        "x": 245,
+        "y": 3,
+        "z": 100
+      },
+      "capture_max": {
+        "x": 298,
+        "y": 41,
+        "z": 149
+      },
+      "ground_y": 8,
+      "rotation": 180,
+      "entrance": {
+        "x": 268,
+        "y": 11,
+        "z": 143
+      },
+      "entrance_kind": "opening",
+      "role": "castle"
+    },
+    {
+      "id": "cathedral",
+      "label": "Cathedral and monastery",
+      "scan_min": {
+        "x": 97,
+        "y": 7,
+        "z": 95
+      },
+      "scan_max": {
+        "x": 162,
+        "y": 46,
+        "z": 153
+      },
+      "floor_y": 7,
+      "capture_min": {
+        "x": 100,
+        "y": 7,
+        "z": 96
+      },
+      "capture_max": {
+        "x": 158,
+        "y": 41,
+        "z": 150
+      },
+      "ground_y": 8,
+      "rotation": 90,
+      "entrance": {
+        "x": 150,
+        "y": 12,
+        "z": 131
+      },
+      "role": "cathedral"
     }
   ]
 }
