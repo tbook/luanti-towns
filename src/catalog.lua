@@ -18,6 +18,13 @@ local entries = {
 	},
 }
 
+-- Workshop exports are generated separately so re-capturing a building does
+-- not require hand-editing dimensions or entrance offsets here.
+local source = debug.getinfo(1, "S").source:sub(2)
+local modpath = source:match("^(.*)/src/catalog.lua$") or "."
+local imported = dofile(modpath .. "/schematics/templates/catalog.lua")
+for id, entry in pairs(imported) do entries[id] = entry end
+
 for id, e in pairs(entries) do
 	e.id = id
 end

@@ -1,0 +1,1310 @@
+{
+  "id": "townhouses_home_raw",
+  "stage": "raw capture, original orientation; not registered in catalog",
+  "capture_date": "2026-10-13",
+  "source_world": "Home",
+  "source_bounds": {
+    "min": {
+      "x": 224,
+      "y": 11,
+      "z": 241
+    },
+    "max": {
+      "x": 238,
+      "y": 22,
+      "z": 251
+    }
+  },
+  "size": {
+    "x": 15,
+    "y": 12,
+    "z": 11
+  },
+  "schematic_sha256": "5931774386a6e485c0b5f6127caa7cf3e6f1e53527c775e0fee768d008ccbba4",
+  "validation": {
+    "id": "townhouses_home_raw",
+    "ignore_nodes": 0,
+    "name_param2_mismatches": 0,
+    "round_trip_nodes": 1980
+  },
+  "notes": "Fractional base 11.4 treated as approximate: Y=11 retains groundwork beneath the Y=12 floor. Minimum Z extended to 241 to include all three entrance steps. Captured as one row of three homes. Contains mcl_decor furniture nodes.",
+  "metadata": [
+    {
+      "offset": {
+        "x": 1,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 12,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 13,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 12,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 13,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 14,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "name": "mcl_flowers:azure_bluet",
+      "meta": {
+        "fields": {
+          "seasons:flower_dormancy_epoch": "3588"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 2
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 14,
+        "y": 0,
+        "z": 2
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 2,
+        "z": 2
+      },
+      "name": "mcl_doors:wooden_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 2,
+        "z": 2
+      },
+      "name": "mcl_doors:wooden_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 2,
+        "z": 2
+      },
+      "name": "mcl_doors:wooden_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 3,
+        "z": 2
+      },
+      "name": "mcl_doors:wooden_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 3,
+        "z": 2
+      },
+      "name": "mcl_doors:wooden_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 3,
+        "z": 2
+      },
+      "name": "mcl_doors:wooden_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 3
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 14,
+        "y": 0,
+        "z": 3
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 2,
+        "z": 3
+      },
+      "name": "mcl_chests:chest_small",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 4
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 14,
+        "y": 0,
+        "z": 4
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 6,
+        "z": 4
+      },
+      "name": "mcl_beds:bed_light_blue_bottom",
+      "meta": {
+        "fields": {
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 6,
+        "z": 4
+      },
+      "name": "mcl_beds:bed_light_blue_bottom",
+      "meta": {
+        "fields": {
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 6,
+        "z": 4
+      },
+      "name": "mcl_beds:bed_light_blue_bottom",
+      "meta": {
+        "fields": {
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 6,
+        "z": 4
+      },
+      "name": "mcl_beds:bed_light_blue_bottom",
+      "meta": {
+        "fields": {
+          "villager": "a09542fc41adc3a92dcfe1ebc1b7ef8f",
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 6,
+        "z": 4
+      },
+      "name": "mcl_beds:bed_light_blue_bottom",
+      "meta": {
+        "fields": {
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 12,
+        "y": 6,
+        "z": 4
+      },
+      "name": "mcl_beds:bed_light_blue_bottom",
+      "meta": {
+        "fields": {
+          "villager": "e45f13d4d30c346a82d81f62abde8541",
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 5
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 14,
+        "y": 0,
+        "z": 5
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 14,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 2,
+        "z": 6
+      },
+      "name": "mcl_furnaces:furnace",
+      "meta": {
+        "fields": {
+          "formspec": "formspec_version[4]size[11.75,10.425]label[0.375,0.375;\u001b(c@#313131)\u001b(T@mcl_furnaces)Furnace\u001bE\u001b(c@#fff)]image[3.45,0.7;1.1,1.1;mcl_formspec_itemslot.png]list[context;src;3.5,0.75;1,1;]image[3.5,2;1,1;default_furnace_fire_bg.png]image[3.45,3.2;1.1,1.1;mcl_formspec_itemslot.png]list[context;fuel;3.5,3.25;1,1;]image[5.25,2;1.5,1;gui_furnace_arrow_bg.png^[transformR270]image[7.675,1.8;1.4,1.4;mcl_formspec_itemslot.png]list[context;dst;7.875,2;1,1;]label[0.375,4.7;\u001b(c@#313131)\u001b(T@mcl_furnaces)Inventory\u001bE\u001b(c@#fff)]image[0.325,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[0.325,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[0.325,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,7.55;1.1,1.1;mcl_formspec_itemslot.png]list[current_player;main;0.375,5.1;9,3;9]image[0.325,9;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,9;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,9;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,9;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,9;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,9;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,9;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,9;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,9;1.1,1.1;mcl_formspec_itemslot.png]list[current_player;main;0.375,9.05;9,1;]image_button[0.325,1.95;1.1,1.1;craftguide_book.png;__mcl_craftguide;]tooltip[__mcl_craftguide;\u001b(T@mcl_furnaces)Recipe book\u001bE]listring[context;dst]listring[current_player;main]listring[context;distr]listring[context;src]listring[current_player;main]listring[context;fuel]listring[current_player;main]"
+        },
+        "inventory": {
+          "distr": [
+            ""
+          ],
+          "dst": [
+            ""
+          ],
+          "fuel": [
+            ""
+          ],
+          "src": [
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 7
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 14,
+        "y": 0,
+        "z": 7
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 6,
+        "z": 7
+      },
+      "name": "mcl_beds:bed_light_blue_bottom",
+      "meta": {
+        "fields": {
+          "villager": "29eb6b114c033c2727d30456477c9a6e",
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 6,
+        "z": 7
+      },
+      "name": "mcl_beds:bed_light_blue_bottom",
+      "meta": {
+        "fields": {
+          "villager": "21c00764015f97369155176b663041d9",
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 12,
+        "y": 6,
+        "z": 7
+      },
+      "name": "mcl_beds:bed_light_blue_bottom",
+      "meta": {
+        "fields": {
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 8
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 14,
+        "y": 1,
+        "z": 8
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 2,
+        "z": 8
+      },
+      "name": "mcl_chests:chest_small",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 2,
+        "z": 8
+      },
+      "name": "mcl_furnaces:furnace",
+      "meta": {
+        "fields": {
+          "formspec": "formspec_version[4]size[11.75,10.425]label[0.375,0.375;\u001b(c@#313131)\u001b(T@mcl_furnaces)Furnace\u001bE\u001b(c@#fff)]image[3.45,0.7;1.1,1.1;mcl_formspec_itemslot.png]list[context;src;3.5,0.75;1,1;]image[3.5,2;1,1;default_furnace_fire_bg.png]image[3.45,3.2;1.1,1.1;mcl_formspec_itemslot.png]list[context;fuel;3.5,3.25;1,1;]image[5.25,2;1.5,1;gui_furnace_arrow_bg.png^[transformR270]image[7.675,1.8;1.4,1.4;mcl_formspec_itemslot.png]list[context;dst;7.875,2;1,1;]label[0.375,4.7;\u001b(c@#313131)\u001b(T@mcl_furnaces)Inventory\u001bE\u001b(c@#fff)]image[0.325,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[0.325,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[0.325,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,7.55;1.1,1.1;mcl_formspec_itemslot.png]list[current_player;main;0.375,5.1;9,3;9]image[0.325,9;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,9;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,9;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,9;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,9;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,9;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,9;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,9;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,9;1.1,1.1;mcl_formspec_itemslot.png]list[current_player;main;0.375,9.05;9,1;]image_button[0.325,1.95;1.1,1.1;craftguide_book.png;__mcl_craftguide;]tooltip[__mcl_craftguide;\u001b(T@mcl_furnaces)Recipe book\u001bE]listring[context;dst]listring[current_player;main]listring[context;distr]listring[context;src]listring[current_player;main]listring[context;fuel]listring[current_player;main]"
+        },
+        "inventory": {
+          "distr": [
+            ""
+          ],
+          "dst": [
+            ""
+          ],
+          "fuel": [
+            ""
+          ],
+          "src": [
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 2,
+        "z": 8
+      },
+      "name": "mcl_furnaces:furnace",
+      "meta": {
+        "fields": {
+          "formspec": "formspec_version[4]size[11.75,10.425]label[0.375,0.375;\u001b(c@#313131)\u001b(T@mcl_furnaces)Furnace\u001bE\u001b(c@#fff)]image[3.45,0.7;1.1,1.1;mcl_formspec_itemslot.png]list[context;src;3.5,0.75;1,1;]image[3.5,2;1,1;default_furnace_fire_bg.png]image[3.45,3.2;1.1,1.1;mcl_formspec_itemslot.png]list[context;fuel;3.5,3.25;1,1;]image[5.25,2;1.5,1;gui_furnace_arrow_bg.png^[transformR270]image[7.675,1.8;1.4,1.4;mcl_formspec_itemslot.png]list[context;dst;7.875,2;1,1;]label[0.375,4.7;\u001b(c@#313131)\u001b(T@mcl_furnaces)Inventory\u001bE\u001b(c@#fff)]image[0.325,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[0.325,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[0.325,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,7.55;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,5.05;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,6.3;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,7.55;1.1,1.1;mcl_formspec_itemslot.png]list[current_player;main;0.375,5.1;9,3;9]image[0.325,9;1.1,1.1;mcl_formspec_itemslot.png]image[1.575,9;1.1,1.1;mcl_formspec_itemslot.png]image[2.825,9;1.1,1.1;mcl_formspec_itemslot.png]image[4.075,9;1.1,1.1;mcl_formspec_itemslot.png]image[5.325,9;1.1,1.1;mcl_formspec_itemslot.png]image[6.575,9;1.1,1.1;mcl_formspec_itemslot.png]image[7.825,9;1.1,1.1;mcl_formspec_itemslot.png]image[9.075,9;1.1,1.1;mcl_formspec_itemslot.png]image[10.325,9;1.1,1.1;mcl_formspec_itemslot.png]list[current_player;main;0.375,9.05;9,1;]image_button[0.325,1.95;1.1,1.1;craftguide_book.png;__mcl_craftguide;]tooltip[__mcl_craftguide;\u001b(T@mcl_furnaces)Recipe book\u001bE]listring[context;dst]listring[current_player;main]listring[context;distr]listring[context;src]listring[current_player;main]listring[context;fuel]listring[current_player;main]"
+        },
+        "inventory": {
+          "distr": [
+            ""
+          ],
+          "dst": [
+            ""
+          ],
+          "fuel": [
+            ""
+          ],
+          "src": [
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 12,
+        "y": 2,
+        "z": 8
+      },
+      "name": "mcl_chests:chest_small",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 14,
+        "y": 1,
+        "z": 9
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 12,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 13,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 14,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 2,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 2,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 2,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 2,
+        "z": 10
+      },
+      "name": "mcl_flowers:dandelion",
+      "meta": {
+        "fields": {
+          "seasons:flower_dormancy_epoch": "3587"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 2,
+        "z": 10
+      },
+      "name": "mcl_flowers:tallgrass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 3,
+        "z": 10
+      },
+      "name": "mcl_flowers:double_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 4,
+        "z": 10
+      },
+      "name": "mcl_flowers:double_grass_top",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    }
+  ],
+  "node_counts": {
+    "mcl_core:grass_path": 13,
+    "mcl_core:dirt_with_grass": 48,
+    "mcl_stairs:stair_stonebrick_inner": 1,
+    "mcl_stairs:stair_stonebrick_outer": 6,
+    "mcl_stairs:stair_stonebrick": 9,
+    "mcl_core:dirt": 144,
+    "mcl_flowers:azure_bluet": 1,
+    "mcl_core:brick_block": 317,
+    "mcl_stairs:slab_deepslate_tiles_top": 88,
+    "mcl_stairs:stair_diorite": 1,
+    "mcl_doors:wooden_door_b_1": 3,
+    "mcl_doors:wooden_door_t_1": 3,
+    "mcl_core:stonebrick": 59,
+    "xpanes:pane_natural_flat": 52,
+    "mcl_stairs:slab_deepslate_tiles": 60,
+    "mcl_mud:mud_bricks": 55,
+    "mcl_chests:chest_small": 3,
+    "mcl_torches:torch_wall": 9,
+    "mcl_stairs:slab_wood_top": 96,
+    "mcl_beds:bed_light_blue_top": 9,
+    "mcl_decor:chair_wooden": 6,
+    "mcl_stairs:stair_wood": 18,
+    "mcl_beds:bed_light_blue_bottom": 9,
+    "mcl_decor:table_wooden": 3,
+    "mcl_core:wood": 3,
+    "mcl_decor:chair_dark_oak": 6,
+    "mcl_furnaces:furnace": 3,
+    "mcl_stairs:slab_deepslate_tiles_double": 2,
+    "mcl_core:diorite": 4,
+    "mcl_flowers:dandelion": 1,
+    "mcl_flowers:tallgrass": 1,
+    "mcl_flowers:double_grass": 1,
+    "mcl_flowers:double_grass_top": 1
+  }
+}

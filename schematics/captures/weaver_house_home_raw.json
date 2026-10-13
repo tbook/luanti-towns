@@ -1,0 +1,484 @@
+{
+  "id": "weaver_house_home_raw",
+  "stage": "raw capture, original orientation; not registered in catalog",
+  "capture_date": "2026-10-13",
+  "source_world": "Home",
+  "source_bounds": {
+    "min": {
+      "x": 213,
+      "y": 9,
+      "z": 225
+    },
+    "max": {
+      "x": 221,
+      "y": 17,
+      "z": 231
+    }
+  },
+  "size": {
+    "x": 9,
+    "y": 9,
+    "z": 7
+  },
+  "schematic_sha256": "78e507c2537323644468a19fd6a11841953d5375fd47f7149d36773310328af8",
+  "validation": {
+    "id": "weaver_house_home_raw",
+    "ignore_nodes": 0,
+    "name_param2_mismatches": 0,
+    "round_trip_nodes": 567
+  },
+  "notes": "Supplied bounds retained, including ground layers below the Y=11 floor. Roof fits the original X/Z bounds and reaches Y=17.",
+  "metadata": [
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 1,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 1,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 1,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 1,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 1,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 1,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 1,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 2
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 3,
+        "z": 2
+      },
+      "name": "mcl_doors:wooden_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 4,
+        "z": 2
+      },
+      "name": "mcl_doors:wooden_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 5,
+        "z": 2
+      },
+      "name": "mcl_itemframes:frame",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "main": [
+            "mcl_banners:banner_item_green"
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 3
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 3,
+        "z": 3
+      },
+      "name": "mcl_chests:trapped_chest_small",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "mcl_banners:banner_item_red",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "mcl_banners:banner_item_yellow",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "mcl_banners:banner_item_green",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 4
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 3,
+        "z": 4
+      },
+      "name": "mcl_beds:bed_white_bottom",
+      "meta": {
+        "fields": {
+          "villager": "e04caa5541583f865727fdb67b17cfea",
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 3,
+        "z": 4
+      },
+      "name": "mcl_loom:loom",
+      "meta": {
+        "fields": {
+          "villager": "688e25dd4e4e6668bcc4f26c9c2850c0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 5
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    }
+  ],
+  "node_counts": {
+    "mcl_core:dirt": 89,
+    "mcl_core:dirt_with_grass": 22,
+    "mcl_core:stone_smooth": 6,
+    "mcl_stairs:slab_deepslate_cobbled_top": 32,
+    "mcl_core:cobble": 41,
+    "mcl_core:tree": 38,
+    "mcl_core:wood": 18,
+    "xpanes:pane_silver_flat": 22,
+    "mcl_stairs:slab_deepslate_cobbled": 27,
+    "mcl_stairs:stair_cobble": 1,
+    "mcl_stairs:stair_wood": 2,
+    "mcl_doors:spruce_trapdoor": 1,
+    "mcl_doors:wooden_door_b_1": 1,
+    "mcl_doors:wooden_door_t_1": 1,
+    "mcl_itemframes:frame": 1,
+    "mcl_wool:white_carpet": 6,
+    "mcl_chests:trapped_chest_small": 1,
+    "mcl_lanterns:lantern_ceiling": 1,
+    "mcl_lanterns:chain": 1,
+    "mcl_beds:bed_white_top": 1,
+    "mcl_beds:bed_white_bottom": 1,
+    "mcl_loom:loom": 1,
+    "mcl_core:grass_path": 9
+  }
+}
