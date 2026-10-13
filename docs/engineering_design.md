@@ -2,6 +2,7 @@
 
 Status: working plan for implementation epics. Based on the [design brief](design_brief.md)
 and the locally installed VoxeLibre 0.92.3 and Living Villages code as of October 2026.
+Phase 3 and later describe agreed implementation targets, not completed features.
 
 ## Goal and approach
 
@@ -35,6 +36,11 @@ to isolate.
 
 ## Thin technical shape
 
+This is the target architecture. The current `/towns_generate` builds the
+Phase 2 layout with empty blocks and landmark blockouts. Authored catalog
+assets can be placed with `/towns_test`; populated-town planning, functional
+node initialization for whole towns, and residents remain Phase 3 work.
+
 The planner takes a site description, a deterministic seed, and a catalog of
 available buildings. It returns a plain Lua town plan without changing the
 world. A plan needs only the data used by the current builder: center, build
@@ -51,19 +57,23 @@ simple and visible in logs. Building placement must use actual rotated
 footprints and clearance around doors, not the `hsize` radius used by
 VoxeLibre villages.
 
-The building catalog should initially contain a stable ID, `.mts` path,
-dimensions, entrance side, and a short role such as `landmark`, `house`, or
-`tavern`. Add rules such as corner-only or abutting only after real buildings
-need them. Capture all buildings in one documented orientation; rotate at
-placement time. Schematics should carry normal VoxeLibre nodes, beds, and
-workstations rather than special Towns nodes where possible.
+The current building catalog records stable IDs, `.mts` paths, full dimensions
+and entrance XYZ offsets. Phase 3 will add the role classifications, role
+filtering and planner snapshots specified in [#28](https://github.com/tbook/luanti-towns/issues/28).
+The canonical front is the -Z axis; rotate
+at placement time. Each schematic box fully contains the building, including
+eaves and any deliberately captured side clearance. Boxes may touch with zero
+nodes between them but must never overlap, including their air. There is no
+separate plot model in Phase 3. Schematics should carry normal VoxeLibre nodes,
+beds, and workstations rather than special Towns nodes where possible.
 
 Add `mod.conf` dependencies only as they become real: `mcl_structures` for
 its placement helper, `mcl_mapgen_core` for natural generation, and the
-VoxeLibre mob/bed mods when Towns spawns residents. Living Villages should be
-an optional companion; Towns' generated buildings should still work as
-VoxeLibre buildings without it. Keep any bed-claim setup in one adapter: the
-current village spawner sets a villager's `_bed` and the bed metadata's
+VoxeLibre mob/bed mods when Towns spawns residents. By product decision,
+Living Villages will become a required dependency for populated Phase 3 towns
+under [#46](https://github.com/tbook/luanti-towns/issues/46); that requirement
+is not yet implemented in `mod.conf`. Keep bed-claim setup in one adapter:
+the current village spawner sets a villager's `_bed` and the bed metadata's
 `villager` ID, but that is implementation detail we must check in game.
 
 Use a local seeded random generator and stable iteration order for planning.
@@ -154,28 +164,127 @@ landmark sites without dead ends or accidental walls. A view from above shows
 a distinct center, streets, and blocks. A failed site explains why and
 changes nothing. At least two seeds were checked in a disposable world.
 
-### 3. Dense, usable town core
+### 3. First populated town
 
-**Result:** the empty blocks become convincing streets and the town begins
-to feel lived in.
+**Result:** the empty blocks become dense handmade street fronts, the existing
+cathedral and castle replace their blockouts, a city hall occupies part of the
+market square, and residents begin using the town with Living Villages enabled.
 
-- Populate street frontage with a small varied set of handmade houses, shops,
-  workshops, and taverns. Pack by actual width and depth, reserve door access,
-  and allow some buildings to touch. Leave manageable interiors; decorate a
-  few simply rather than modeling every lot.
-- Add wells and multiple taverns near residential groups. Keep entrances,
-  beds, workstations, jukeboxes, and well access usable by villagers. Start
-  with a modest resident count and raise it only after watching travel and
-  server performance.
-- Place the first real landmark schematics when ready. A cathedral and castle
-  are visual goals, but the planner should tolerate temporary blockouts so
-  layout work does not wait on those large builds.
-- Give the builder a narrow post-placement pass for node initialization and
-  spawn residents at valid beds, with no duplicate spawning when areas reload.
+Agreed scope:
 
-**Exit check:** the core has mostly continuous street fronts; several
-residents can sleep, work, and reach a nearby tavern or well. Play-test one
-day/night cycle and fix the biggest visual and navigation failures.
+- **User-authored library.** The user builds the initial houses, shop-houses,
+  workshops, taverns, wells and city hall in Creative. An agent captures and
+  registers each supplied structure, checking its full bounds, foundation,
+  entrance and rotations. Additional variants are separate content tasks;
+  code work can proceed with synthetic fixtures while buildings are authored.
+- **Existing landmarks and town scale.** Import the intended complete castle
+  and current cathedral from TownsWorkshop. The existing captures are roughly
+  54x50 for the castle and 64x53 for the cathedral’s raw capture in X/Z,
+  much larger than the Phase 2 reservations. The edited cathedral working
+  capture is 59x53; confirm its intended revision under #31 before registration.
+  Enlargement
+  of the town is authorized. Derive reservations and approaches from the
+  actual schematics, preserving the stepped boundary, parvis and connected
+  streets. Start engineering trials around a 192-node envelope and tune the
+  size for usable residential frontage and acceptable planning cost; this is
+  not a fixed product size. Keep the current terrain acceptance limits.
+- **Placement unit.** Pack the full schematic boxes, not separate lots. Their
+  fronts must face the street or square, with entrances accessible from the
+  pavement. Boxes can be immediately adjacent. Side windows, eaves and
+  setbacks are authored inside each box, not added by the planner. Never
+  stretch, crop, mirror or overlap a building to fill a run.
+- **Frontage and corners.** Use seeded, stable packing with shared occupancy
+  across all faces of a block. Leave space that no supplied building fits.
+  Corners may eventually use authored corner buildings; the initial fallback
+  leaves an open corner rather than intersecting buildings. Keep that space
+  as ordinary ground initially. Dedicated corner rules wait for real content.
+- **Alleys and access.** Redistribute spare frontage into one or two small
+  alleys reaching leftover block interior, preferring two-node width where
+  space allows. Reserve or repack whole ordinary buildings, never carve
+  schematics. Known passages through buildings may supplement access, but
+  guaranteed access initially uses free cells outside their boxes. Check
+  connected leftover interior areas, including touching block rectangles.
+  Leave interiors undecorated until Phase 3b.
+- **Simple services first.** Reserve taverns and wells before ordinary
+  buildings. Begin with tunable targets of three of each, selecting subsequent
+  fitting placements far from earlier services of the same type. Report
+  shortages rather than forcing overlaps. Wells include a usable apron and
+  must match Living Villages' recognition rules; taverns contain accessible
+  jukeboxes. No hard per-bed service coverage guarantee or optimizer yet.
+- **City hall.** Add one user-authored tower, including a larger base if
+  supplied, on the market square. Its entrance faces remaining market space.
+  Treat its box as an obstacle and preserve principal-width circulation and
+  all main routes. Choose a fitting square-edge location from simple rules.
+- **Residents.** Require Living Villages. Spawn one resident per valid,
+  complete, accessible bed inside placed buildings, including tavern and
+  landmark beds. Support the game's bed colors, count each pair once, and
+  claim beds through a narrow VoxeLibre adapter. No population cap, assigned
+  profession, workplace quota, bed/workplace balancing or automatic replacement
+  of dead residents in this phase.
+- **Construction.** Preflight selected assets, node names, placement geometry
+  and complete emerged bounds before terrain writes. Bounds include the true
+  schematic heights. Prepare ground and pavement, place schematics, initialize
+  only required functional nodes, then spawn/claim residents. Persistent
+  initialization records and existing claims prevent duplicate spawning on
+  repeat calls or reload. Log interrupted resident initialization for
+  inspection rather than blindly retrying it. Any failure after writes is
+  reported as partial construction, with bounds and the failing stage.
+- **Command.** Retain the privileged direct-build `/towns_generate [seed]`
+  flow for disposable Creative worlds, with no preview or confirmation.
+  Report actual bounds, selected catalog IDs, building/service/alley counts,
+  bed/resident counts and unmet targets. A fixed seed, center and catalog
+  profile reproduces the plan; changing the library may change packing.
+
+**Exit check:** inspect two fixed seeds with the actual initial library.
+Street fronts are mostly continuous, doors and leftover interiors are
+accessible, city hall leaves the market walkable, and the real landmarks fit
+without damaging routes. Observe one full day/night cycle: residents can
+sleep and use nearby services when their behavior triggers. Verify no duplicate
+initial residents after reload, and record construction cost and the largest
+navigation defects. Fix essential access/use failures; optimized service
+coverage, employment balance and decorated interiors are not exit requirements.
+
+Implementation is tracked in [Phase 3 epic #27](https://github.com/tbook/luanti-towns/issues/27).
+Its 24 child tickets specify dependencies, narrow changes and acceptance checks.
+Content variants should each use a separate capture ticket/PR. The work is split
+into catalog/capture conventions; individual building imports; landmark and
+city hall reservations; single-frontage packing; services; shared occupancy;
+interior-access validation; alleys; preflight/emergence; physical placement;
+node setup; bed enumeration; resident spawning; command reporting; and in-game
+validation. Pure geometry tickets can use synthetic fixtures while waiting
+for user-authored buildings.
+
+### 3b. Observe and tune the populated town
+
+**Result:** improve the first populated town using evidence from the actual
+buildings, leftover spaces and resident behavior. This is a bounded observation
+and tuning pass, separate from Phase 4's natural generation and world safety.
+
+- **Block interiors:** inspect their real shapes and access, then agree simple
+  yards, gardens or other treatments with the user. The placeholder ticket is
+  for design first, followed by small implementation tickets; do not build a
+  general decoration or lot framework in advance.
+- **Services:** assess tavern/well shortages, spacing, walking, visits and
+  congestion. Tune the simple counts and placement rules. Discuss any new hard
+  coverage guarantee or major service policy before implementation.
+- **Beds and workplaces:** count available beds and usable workstations and
+  observe employment/travel. Decide with the user whether to adjust authored
+  content, building mix or placement. One workplace per bed is not an agreed
+  requirement; one initial resident per valid bed remains the Phase 3 rule.
+- Refine gaps, corners and building variety where the first streets reveal
+  concrete problems. Additional content and any significant product changes
+  get explicit, small follow-up tickets.
+
+**Exit check:** record the observed issues and agreed changes, validate the
+chosen improvements on the saved seeds, and resolve major access or resident-use
+failures before natural generation. Perfect interiors, service optimization
+and a fixed employment ratio are not prerequisites for Phase 4.
+
+Deferred placeholders: [#51 — block interiors](https://github.com/tbook/luanti-towns/issues/51),
+[#52 — service tuning](https://github.com/tbook/luanti-towns/issues/52), and
+[#53 — bed/workplace assessment](https://github.com/tbook/luanti-towns/issues/53).
+These call for observation and agreed design before follow-up implementation,
+and are explicitly excluded from Phase 3 completion.
 
 ### 4. Natural generation and world safety
 
