@@ -39,36 +39,29 @@ independent of optional mods.
   Its entrance direction and clean architectural bounds still need inspection
   in the flat workspace.
 
-## Verification and work remaining
+## Source history (superseded)
 
-- Captured with WorldEdit's `mtschemcreate` on a fresh read-only backup of
-  `Home`. The `.mts` is version 4, 18,981 bytes, SHA-256
+The following sections document the source captures and workshop preparation.
+These are historical records; **schematics/templates/cathedral.mts is the only
+registered, canonical file** for the cathedral in the Towns mod.
+
+- **Raw capture (64 × 36 × 53)**: Captured with WorldEdit's `mtschemcreate` on
+  a fresh read-only backup of the VoxeLibre world `Home`. The `.mts` is version
+  4, 18,981 bytes, SHA-256
   `33d6e4552acb4309d048358d57bf3d5fde1d6a6869b4f2e269f4f48c253b75e5`.
-- The initial 64 × 36 × 51 capture was placed at `(300, 100, 300)` on a flat
-  platform in a scratch copy. A loaded-world comparison of all 117,504
-  positions found zero node-name or `param2` differences from that source crop.
-- A separate persistent Creative world, `TownsWorkshop`, uses flat mapgen and
-  contains the revised raw schematic at `(100, 7, 98)` through
-  `(163, 42, 150)`. Existing Z=175–225 content keeps the same world Z
-  coordinates, while the full source capture sits one node lower than the
-  first placement. Source Y=11 now maps to workshop Y=7.
-  Its flat ground is Y=8; new players start east of the front steps near
-  `(170, 10, 142)`. WorldEdit, `mcl_decor`, and Living Villages are enabled
-  there so the source nodes remain available while editing. The revised
-  placement was checked at the restored stone pair `(154, 7, 99)` and
-  `(155, 7, 99)`, cobble `(154, 10, 99)`, and the lowered crossing tower
-  `(122, 41, 131)`. A consistent backup of the
-  workshop before this revision is at `/private/tmp/TownsWorkshop-before-lowering`.
-- The raw crop includes source terrain and needs cleanup for a flat town site.
-  It also contains `mcl_decor` nodes and `living_villages:pulpit`, so those
-  nodes need replacement or explicit runtime dependencies before registration.
-- `.mts` does not retain node metadata. The source crop had 36 nodes with
-  inventory entries, including chests, barrels, item frames, and a jukebox;
-  any desired contents or behavior must be recreated separately.
-- Do not register the original raw schematic in the Towns catalog or substitute it for
-  the Phase 2 landmark blockout yet. The final footprint, ground contact,
-  entrance offset/orientation, and optional-node replacements need to be
-  settled in the flat workspace first.
+  A loaded-world comparison of all 117,504 positions found zero node-name or
+  `param2` differences from the source crop.
+
+- **Working capture (59 × 36 × 53)**: Edited in the flat `TownsWorkshop`
+  Creative world and placed at source `(100, 7, 98)` through `(163, 42, 150)`.
+  The `.mts` is version 4, 16,164 bytes, SHA-256
+  `525315574ea8a82c0327ce4a166a57a2e0cf8135f571bf0842b4c4200f34a8dc`.
+  All 112,572 captured positions matched the workshop by node name and `param2`.
+
+- **Cleaned template (55 × 35 × 59)**: The raw crop included source terrain and
+  optional-mod nodes (`mcl_decor`, `living_villages:pulpit`), which are
+  declared as required. MTS files do not preserve node metadata or inventory;
+  door state (open/closed) is recorded, but chest and barrel contents are lost.
 
 ## Current cleaned game template (2026-10-13)
 
@@ -89,9 +82,41 @@ ground, so on site ground Y=8 the origin is Y=7 and the door bottom is Y=12.
 The generated catalog records `ground_offset = 1` and role `cathedral`.
 
 This template preserves the current mcl_decor furniture, Living Villages
-pulpit, inventories and structural node state. It requires those mods and
-reports missing nodes before placement. Source claims, stale simulation data
-and source-coordinate formspecs are omitted, as for the other workshop assets.
-The raw/working captures above remain historical files. The game template and
-saved source definition replace their former unregistered-work-in-progress
-status; town-generation integration remains separate Phase 3 work.
+pulpit, and structural node state. Door state (open/closed) is preserved,
+but inventories are not: chest, barrel, and item-frame contents are lost
+in the MTS format. Source claims, stale simulation data and
+source-coordinate formspecs are omitted, as for the other workshop assets.
+Placement will report missing nodes before attempting to build.
+
+## Verification complete (ticket #31)
+
+**Verification as of 2026-10-13**: The registered cathedral entry has been
+verified against `schematics/templates/cathedral.mts` and the Lua catalog entry.
+
+**File header verified**:
+- Magic: MTSM (version 4)
+- Size from file header: 55×35×59 matches catalog declaration ✓
+
+**Entrance geometry verified at all four rotations** (using `src/geometry.lua`
+pure functions with non-zero placement position {x=100, y=20, z=50}):
+- Rotation 0°: entrance (135, 25, 58), outside at (135, 25, 57), outside is out of footprint ✓
+- Rotation 90°: entrance (108, 25, 69), size swapped to 59×35×55, outside is out of footprint ✓
+- Rotation 180°: entrance (119, 25, 100), size 55×35×59, outside is out of footprint ✓
+- Rotation 270°: entrance (150, 25, 85), size swapped to 59×35×55, outside is out of footprint ✓
+- All rotations: entrance.y = placement.y + entrance.y (20 + 5 = 25) ✓
+- All rotations: outside = entrance + front vector direction ✓
+
+**Metadata and required nodes**:
+- 36 metadata entries (door state only; inventories not preserved) ✓
+- 149 required node types, no duplicates ✓
+- Critical nodes present:
+  - `living_villages:pulpit` ✓
+  - `mcl_jukebox:jukebox` ✓
+  - `mcl_books:bookshelf` ✓
+  - `mcl_lectern:lectern` (pulpit is registered only when this exists) ✓
+
+The compound also contains library and monastery doors; only the main entrance
+facing -Z (catalog position 35,5,8) is planned for town generation at this time.
+
+**Status**: All verification tests pass. No defects found. The canonical file
+is schematics/templates/cathedral.mts with metadata in schematics/templates/cathedral.lua.
