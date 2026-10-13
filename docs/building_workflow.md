@@ -1,40 +1,35 @@
-# Building workflow: capturing schematics for Towns
+# Building workflow: capturing and registering buildings for Towns
 
-Towns buildings are Luanti schematics (`.mts`) stored in `schematics/`. They
-are captured from a Creative world with WorldEdit's `//mtschemcreate`, copied
-into this repository, and later registered in the building catalog (ticket
-#3). WorldEdit is a **capture-time tool only**; Towns must not depend on it at
-runtime.
+Towns buildings are Luanti schematics (`.mts`). The agent does all capture,
+export and registration work by running the commands below itself; the user is
+not asked to run anything. The primary path is the workshop exporter
+(`tools/workshop_export/`), which produces `schematics/templates/*.mts` and the
+generated `schematics/templates/catalog.lua`. See also
+[the exporter README](../tools/workshop_export/README.md).
 
-The user should not have to run any of this by hand. A request to an agent
-needs four inputs:
+Principles:
 
-1. the source world name or path (for example `Testlandia`, or
-   `~/Library/Application Support/minetest/worlds/Home`; paths in this guide
-   are macOS examples, so substitute your platform's Luanti user directory and
-   binary location);
-2. the building's rough location or exact bounding coordinates;
-3. the desired stable ID (becomes `schematics/<id>.mts`, for example
-   `demo_house`);
-4. which side is the main entrance (N/E/S/W, in world axes).
+- Capture only structures the user supplied. Do not procedurally invent the
+  building library.
+- WorldEdit is a capture-time tool (legacy raw captures only); Towns must not
+  depend on it at runtime.
+- The planner does not alter architecture or add clearance. Side windows,
+  eaves and setbacks must be designed inside the captured box so that
+  buildings work when placed next to each other.
+- Orientation is canonical: the front/entrance faces the **-Z** edge of the
+  file. Rotation (+X, -X, +Z, -Z facing) is applied only at placement time.
+  Compass labels are avoided here because they are ambiguous (+Z is north in
+  Luanti).
 
-## Canonical orientation
+## Inputs for a request
 
-Capture every building so that:
-
-- the **main entrance faces north (-Z)**, in the middle of the front (north)
-  edge;
-- the schematic includes its full foundation; if layers sit below site ground,
-  record their depth as `ground_offset` in the catalog;
-- the schematic's **minimum X, Y, Z corner is its placement origin**
-  (`//pos1` for `//mtschemplace`, `pos` for `minetest.place_schematic`);
-- everything is stored with the entrance north; rotation is applied only at
-  placement time.
-
-Towns' catalog is canonical-orientation-only: the entrance is always on the
--Z edge. A building whose entrance is on another side must be re-oriented
-before capture (for example, rotate it with WorldEdit `//rotate` in a copy of
-the world), so that the captured file is canonical.
+1. the source world name or path (for example `TownsWorkshop`,
+   `~/Library/Application Support/minetest/worlds/TownsWorkshop`; paths are
+   macOS examples);
+2. the building's rough location or exact bounding coordinates in that world;
+3. the stable ID (`lowercase_with_underscores`, becomes
+   `schematics/templates/<id>.mts`) and a `role` (see below);
+4. which side of the build is the front, in world axes (+X, -X, +Z or -Z).
 
 ## Reference: `demo_house`
 
@@ -43,130 +38,179 @@ nodes only, no third-party media).
 
 | Property | Value |
 | --- | --- |
-| Size (x, y, z) | **9 x 8 x 7** nodes (width x height x depth) |
-| Entrance (door bottom node), offset from min corner | **(4, 1, 0)**, door in the north wall, facing north (-Z); the door top is (4, 2, 0) |
-| Ground layer | y = 0 is the cobblestone foundation / plank floor (the door sits on y = 1, so the door sill is one node above the lowest layer) |
-| Rotation cue | stone-brick chimney on the **east** wall, rising to y = 7 at (8, y, 3); windows on the west, north and south walls but none on the east |
-| Contents | oak plank walls, oak log corners, stair roof (ridge along X), glass, a red bed (SW corner, nodes (1,1,5) and (1,1,4)), crafting table (6,1,5), furnace (7,1,3) |
+| Size (x, y, z) | **9 x 8 x 7** nodes |
+| Entrance (door bottom node), offset from min corner | **(4, 1, 0)**, door in the -Z wall, facing -Z; door top is (4, 2, 0) |
+| Ground layer | y = 0 is the cobblestone foundation / plank floor (door sits on y = 1) |
+| Rotation cue | stone-brick chimney on the +X wall, rising to y = 7 at (8, y, 3); windows on the -X, -Z and +Z walls but none on the +X wall |
+| Contents | oak plank walls, oak log corners, stair roof (ridge along X), glass, a red bed at (1,1,5) and (1,1,4) (the -X/+Z corner), crafting table (6,1,5), furnace (7,1,3) |
 | Metadata | none needed (the furnace is empty) |
 
-Rotations as measured by placing the repo file at a position `P` with
-`minetest.place_schematic` (a rotated schematic always keeps its bounding-box
-minimum corner at `P`):
+Measured by placing the repo file at `P` with `minetest.place_schematic` (a
+rotated schematic keeps its bounding-box minimum corner at `P`):
 
 | Rotation | Footprint x by z | Door (bottom node) offset from `P` | Chimney top offset from `P` | Entrance faces |
 | --- | --- | --- | --- | --- |
-| 0 | 9 x 7 | (4, 1, 0) | (8, 7, 3) | north (-Z) |
-| 90 | 7 x 9 | (0, 1, 4) | (3, 7, 0) | west (-X) |
-| 180 | 9 x 7 | (4, 1, 6) | (0, 7, 3) | south (+Z) |
-| 270 | 7 x 9 | (6, 1, 4) | (3, 7, 8) | east (+X) |
+| 0 | 9 x 7 | (4, 1, 0) | (8, 7, 3) | -Z |
+| 90 | 7 x 9 | (0, 1, 4) | (3, 7, 0) | -X |
+| 180 | 9 x 7 | (4, 1, 6) | (0, 7, 3) | +Z |
+| 270 | 7 x 9 | (6, 1, 4) | (3, 7, 8) | +X |
 
-The table above is the measured ground truth for `demo_house`; ticket #3
-should derive the general rotation formula and test it against these four
-rows.
+## Registering a building (exporter path)
 
-## Capturing a building
+The exporter does not use WorldEdit or `//mtschemcreate`. It snapshots the
+source world's `map.sqlite`, scans each building's region in a disposable
+copy, writes the `.mts`, a `.lua` metadata file and `catalog.lua`, and
+verifies the result at all four rotations.
 
-### 1. Pick a source world
+1. **Work on a copy** of any valuable world; the exporter itself never writes
+   to the source world, but you should still build/edit in a copy.
+2. **Add or edit the entry** in `tools/workshop_export/buildings.json`
+   (`role` goes at the top level of the building object). Fields:
 
-- **New Creative world:** create it in Luanti with the VoxeLibre game
-  (`mineclone2`), Creative mode, and build the structure. Add
-  WorldEdit to `world.mt` (below).
-- **Existing world:** the capture does not modify terrain, but loading a world
-  with an extra mod writes to it (map, mod storage). **Work on a copy** of any
-  valuable world (`cp -R <world> <scratch>/<world>_copy`) and capture from the
-  copy.
+   | Field | Meaning |
+   | --- | --- |
+   | `id`, `label` | catalog ID and display label |
+   | `scan_min`, `scan_max` | source world survey box; the build must not reach its edges |
+   | `floor_y` | Y of the finished floor layer |
+   | `rotation` | 0/90/180/270: rotation that brings the source front to -Z |
+   | `entrance` | **world** coordinates of the door bottom node (or walk-in opening node) in the source |
+   | `entrance_kind` | optional, `"door"` (default) or `"opening"` |
+   | `role` | optional here, but registration tickets must set it: `house`, `shop`, `workshop`, `tavern`, `well`, `cathedral`, `castle`, `city_hall`, `chapel`, `jail` |
+   | `label_position` | optional world position of a workshop label sign to exclude from the capture |
+   | `capture_min`, `capture_max`, `ground_y` | optional fixed capture box (see clearance below) |
 
-Enable WorldEdit for the world by adding these lines to its `world.mt` if
-they are not already there (macOS example: WorldEdit lives in
-`~/Library/Application Support/minetest/mods/worldedit/`):
+   Example (source front already faces -Z, so `rotation` is 0):
 
-```
-load_mod_worldedit = mods/worldedit/worldedit
-load_mod_worldedit_commands = mods/worldedit/worldedit_commands
-load_mod_worldedit_shortcommands = mods/worldedit/worldedit_shortcommands
-```
+   ```json
+   {
+     "id": "example_house",
+     "label": "Example house",
+     "scan_min": {"x": 96, "y": 8, "z": 96},
+     "scan_max": {"x": 112, "y": 24, "z": 110},
+     "floor_y": 8,
+     "rotation": 0,
+     "entrance": {"x": 104, "y": 9, "z": 101},
+     "label_position": {"x": 100, "y": 9, "z": 95},
+     "role": "house"
+   }
+   ```
 
-(An `ERROR ... worldedit_gui requires a supported gui management mod` line at
-startup is harmless when `worldedit_gui` is not loaded or has no GUI mod.)
-
-### 2. Choose exact bounds
-
-Find the smallest axis-aligned box that holds the whole building **plus its
-ground-level floor/foundation layer** and nothing else you do not want
-(surrounding terrain, trees, neighbours). Record it as two corners
-`pos1 = (minX, minY, minZ)` and `pos2 = (maxX, maxY, maxZ)`. For the
-canonical orientation:
-
-- `minZ` is the front (north) wall's outer face; the entrance is centered
-  along X in that wall;
-- `minY` is the foundation layer.
-
-Record the entrance's file-local `(x, y, z)` position. A recessed entrance may
-have `z > 0`. The catalog uses `ground_offset` to place the bottom layer below
-the site's surface; it defaults to zero.
-
-To find bounds in a world that the user has not described precisely, an agent
-can read the map directly (for example by running a small throwaway world mod
-that scans a region with `minetest.get_node`, or by asking the user for the
-coordinates of two opposite corners shown in the F5 debug screen).
-
-### 3. Select and capture
-
-In game, with the `worldedit` privilege, run these WorldEdit chat commands.
-Select the corners either by standing on each corner node and running
-`//pos1` and `//pos2`, or by coordinates with `//fixedpos`:
-
-```
-//fixedpos set1 <minX> <minY> <minZ>
-//fixedpos set2 <maxX> <maxY> <maxZ>
-//mtschemcreate <id>
-```
-
-Without a player in game, an agent can drive the same code headlessly. This
-is exactly what was done for `demo_house`:
-
-1. Create a throwaway world mod at `<world>/worldmods/<helper>/` with
-   `mod.conf` (`name = ...`, `depends = worldedit_commands`) and an
-   `init.lua` that, after the server starts (`minetest.register_on_mods_loaded`
-   plus `minetest.after(1, ...)`), emerges the area, then:
+   Suppose the non-air nodes span x 100..108, y 8..17, z 100..106. The
+   exported size is 9 x 10 x 7 and the entrance, relative to the min corner
+   after rotation, is `(104-100, 9-8, 101-100) = (4, 1, 1)`. The generated
+   catalog entry is:
 
    ```lua
-   worldedit.pos1["capture_agent"] = vector.new(x1, y1, z1)  -- min corner
-   worldedit.pos2["capture_agent"] = vector.new(x2, y2, z2)  -- max corner
-   minetest.registered_chatcommands["/mtschemcreate"].func("capture_agent", "<id>")
-   minetest.after(1, minetest.request_shutdown)
+   ["example_house"]={["path"]="schematics/templates/example_house.mts",
+     ["size"]={["x"]=9,["y"]=10,["z"]=7},
+     ["entrance"]={["x"]=4,["y"]=1,["z"]=1},["entrance_kind"]="door",
+     ["data_path"]="schematics/templates/example_house.lua",
+     ["role"]="house"}
    ```
 
-   Important: the area must be **loaded** (`minetest.emerge_area`) before the
-   capture, otherwise unloaded blocks are saved as `ignore`/air.
-2. Start the world headless with its own port and log (the binary path is
-   the macOS example; use your platform's `luanti` executable):
+   The entrance offset is wherever the door really is: it is not centered, and
+   z is not necessarily 0 (real entries mostly have z = 1 or 2 for a recessed
+   front or a trimmed step). `entrance.y` is 1 for ordinary buildings
+   (defaults to 1 in the runtime catalog); landmarks may differ.
+3. **Regenerate with `--only`**, from the Towns mod directory:
 
+   ```sh
+   python3 tools/workshop_export/export.py \
+     --world "$HOME/Library/Application Support/minetest/worlds/TownsWorkshop" \
+     --only <id> --validate
    ```
-   /Applications/luanti.app/Contents/MacOS/luanti --server \
-     --world "<world path>" --gameid mineclone2 --port 30141 --logfile <log>
-   ```
 
-   The helper shuts the server down when finished. No game session may have
-   the world open at the same time. (Do not use this on a world with a client
-   attached, and use a free `--port`; other agents may be running servers.)
-3. The result is `<world>/schems/<id>.mts` (the command itself prints nothing
-   to the console, so check the file exists).
+   Always pass `--only <id> [<id> ...]`. An unfiltered run re-exports every
+   building in `buildings.json` from whatever world you point it at; if that
+   world is not the one the other buildings were authored in, their templates
+   would be overwritten with wrong or empty content. With `--only`, other
+   buildings' templates, catalog entries and manifest records are left
+   unchanged.
+4. **Commit** `buildings.json` and the regenerated files in
+   `schematics/templates/`. Generated files are never hand-edited.
 
-Filenames allowed by WorldEdit are letters, digits, spaces and a few
-punctuation characters; use `lowercase_with_underscores` for IDs.
+### What an unattended export requires
 
-### 4. Copy and register
+- Luanti at the default engine path
+  (`/Applications/luanti.app/Contents/MacOS/luanti`; otherwise `--engine`),
+  with the same game (`mineclone2`) and node mods as the source world.
+- Port 39487 free (`--port` to change).
+- The source world saved and closed first, so `map.sqlite` holds the latest
+  edits. The exporter reads a read-only snapshot of `map.sqlite`; it never
+  installs anything in or writes to the source world.
+- Both engine runs (export, then `--validate`) have a 180 second timeout.
 
-```
-cp "<world>/schems/<id>.mts" schematics/<id>.mts
-```
+### What the exporter keeps and trims
 
-Commit the `.mts` (it is a small binary). Registration in the catalog is
-done by ticket #3's mechanism; until it exists, record the ID, size and
-entrance offset in the PR description. Remove any throwaway helper mod from
-the world afterwards.
+Bounds are recomputed from non-air nodes above the finished floor (plus
+stairs on the floor layer); the floor layer under that footprint is kept, and
+workshop labels, loose terrain outside the footprint and buried layers are
+dropped. **Empty outside rows/columns and empty top layers are trimmed**, so
+intended side clearance, eaves or setbacks survive only if they contain
+non-air nodes or the entry sets a fixed box with `capture_min` /
+`capture_max` and `ground_y` (see the castle and cathedral entries in
+`buildings.json`). Use a fixed box when empty clearance must be preserved; the
+build must fit inside it or the export fails.
+
+`ground_offset` is derived, not authored: `(ground_y or floor_y) - min Y of
+the capture`. Ordinary buildings get 0 (omitted from the catalog); it is
+non-zero only for fixed-box landmarks with `ground_y` above the capture's
+bottom (castle 5, cathedral 1).
+
+### Role in the generated catalog
+
+The 13 existing workshop templates currently have **no `role`** in the
+generated catalog; only `castle` and `cathedral` do. A registration ticket
+adds `role` to the building's `buildings.json` entry and re-exports it with
+`--only`.
+
+### Direct entries in `src/catalog.lua`
+
+Hand entries are the exception, used for the `demo_house` reference only.
+Template entries with the same ID override a hand entry. Do not use this for
+new captures.
+
+## Non-destructive front normalization
+
+If the source front is not on -Z, set `rotation` in `buildings.json` so the
+exported file has the front on -Z. Never `//rotate` the source build.
+
+## Per-building checklist
+
+- [ ] Source build is in a copy of the world; saved and closed.
+- [ ] Front/entrance side is known in axes (+X, -X, +Z, -Z); `rotation`
+      brings it to -Z.
+- [ ] `scan_min`/`scan_max` hold the whole building with margin; `floor_y` is
+      the finished floor layer.
+- [ ] Intended side clearance/eaves kept: non-air nodes, or `capture_min` /
+      `capture_max` / `ground_y` set.
+- [ ] `entrance` (world coords) is the door bottom node (or the opening
+      node, with `entrance_kind: "opening"`).
+- [ ] `role` set at the building object's top level.
+- [ ] Record exact size, entrance XYZ (file-local), source coordinates, beds,
+      and service nodes (chests, furnaces, signs; metadata is not in `.mts`)
+      and any initialization needs; "none" if self-contained.
+- [ ] Export with `--only <id> --validate`.
+- [ ] Check all four rotations (0/90/180/270) in a disposable destination:
+      footprint swaps X/Z at 90/270, min corner stays at `P`, entrance faces
+      -Z, -X, +Z, +X, asymmetric cues rotate with it.
+- [ ] Place two copies adjacent in a disposable destination and check walls,
+      windows, doors and eaves do not collide or look misaligned.
+- [ ] Commit `buildings.json` and regenerated `schematics/templates/` files.
+
+## Legacy raw capture (WorldEdit)
+
+Only for structures outside the workshop pipeline (historical raw captures in
+`schematics/captures/`, and `demo_house`). Enable WorldEdit in the world copy's
+`world.mt` (`load_mod_worldedit`, `load_mod_worldedit_commands`,
+`load_mod_worldedit_shortcommands`, with paths under your Luanti `mods/`),
+select the box with `//fixedpos set1/set2` (or `//pos1`/`//pos2`), run
+`//mtschemcreate <id>`, and copy `<world>/schems/<id>.mts` to `schematics/`.
+The area must be loaded (emerged) first or unloaded blocks capture as air.
+Headless capture can be driven from a throwaway world mod that calls the
+registered `/mtschemcreate` command after `minetest.emerge_area`; use its own
+`--port` and `--logfile`, and remove the helper afterwards. Raw captures are
+historical references and are never used to overwrite workshop edits.
 
 ## Inspecting a schematic
 
@@ -215,10 +259,9 @@ rotation):
 
 or programmatically `minetest.place_schematic(P, path, "90")` for each
 rotation. Check, for each: (a) the footprint swaps x and z at 90/270, (b) the
-bounding-box minimum corner stays at `P`, (c) the entrance faces west at 90,
-south at 180, east at 270, and (d) the asymmetric cue moves with it (for
-`demo_house` the chimney is on the east side at 0, north at 90, west at 180,
-south at 270).
+bounding-box minimum corner stays at `P`, (c) the entrance faces -X at 90, +Z at 180 and +X at 270, and (d) the
+asymmetric cue moves with it (for `demo_house` the chimney is on the +X side
+at 0, -Z at 90, -X at 180, +Z at 270).
 
 Place in a clear, loaded area: `place_schematic` is synchronous only for
 loaded blocks. Placement overwrites everything in the (rotated) box including
@@ -231,171 +274,6 @@ registered building and its paved square next to where you stand, and prints
 the building ID, rotation and exact combined bounds. **It overwrites the site
 immediately, with no preview or confirmation**: only use it in a disposable
 Creative world such as Testlandia.
-
-## Building capture workflow: two paths
-
-Buildings reach the Towns catalog through two paths:
-
-1. **Newly authored in Creative.** The user builds a new structure in a Creative
-   world, and an agent captures it directly using WorldEdit (as described above)
-   and registers it in the catalog by adding an entry to
-   `tools/workshop_export/buildings.json` with the role field set, then
-   regenerating the exported templates. This path applies to houses, shops,
-   workshops, taverns, wells, chapel, city hall, and jail.
-2. **Already-captured and edited.** Buildings originally captured from the Home
-   world were stored as raw schematics in `schematics/captures/`. When a
-   building is refined—cleaned up, resized, refurnished, or re-oriented—the
-   exporter tool (`tools/workshop_export/export.py`) takes over from that point.
-   The exporter reads a live source region from the TownsWorkshop world,
-   re-exports it as a cleaned template to `schematics/templates/`, and updates
-   the generated catalog. The castle and cathedral follow this path.
-
-### Raw captures vs. cleaned templates
-
-The repository distinguishes between two forms of schematics:
-
-- **Raw captures** (`schematics/captures/`): point-in-time binary captures of
-  structures as they existed in the source world. These are historical records,
-  never used at runtime after a cleaned template is available. Used early in
-  development before the automated export pipeline existed.
-- **Cleaned templates** (`schematics/templates/`): refined, edited versions
-  produced by the exporter from the live TownsWorkshop source and accompanying
-  metadata. These are the canonical versions used by Towns at runtime. All are
-  regenerated together by the exporter and must never be hand-edited.
-
-### Registration and the generated catalog
-
-`schematics/templates/catalog.lua` is **generated by the export tool and must
-not be hand-edited**. It contains the exact dimensions, entrance offsets, and
-metadata for all active templates. To register a newly captured building or
-update an existing one:
-
-1. Add or update its entry in `tools/workshop_export/buildings.json` with the
-   `role` field set to one of: `house`, `shop`, `workshop`, `tavern`, `well`,
-   `cathedral`, `castle`, `city_hall`, `chapel`, `jail`.
-2. Run the exporter to regenerate all catalogs and template files:
-
-   ```sh
-   python3 tools/workshop_export/export.py \
-     --world "$HOME/Library/Application Support/minetest/worlds/TownsWorkshop" \
-     --validate
-   ```
-
-   Or, to update a single building while preserving others:
-
-   ```sh
-   python3 tools/workshop_export/export.py \
-     --world "$HOME/Library/Application Support/minetest/worlds/TownsWorkshop" \
-     --only <id1> <id2> <id3> --validate
-   ```
-
-3. Commit the changes to the `tools/workshop_export/buildings.json` source file
-   and all regenerated catalog files.
-
-Handmade buildings (not exported through TownsWorkshop) can also be registered
-directly: add an entry to `src/catalog.lua` with the building's exact dimensions
-and entrance offset. The `demo_house` example shows this approach. This is
-appropriate for reference structures or buildings authored outside the workshop.
-
-## Per-building capture checklist
-
-When capturing a new user-authored building in Creative, verify:
-
-- [ ] **Source bounds:** Building is in a Creative world with a clean copy of
-      any valuable base world (use `cp -R <world> <copy>` if needed).
-- [ ] **WorldEdit enabled:** Add the three `load_mod_*` lines to `world.mt`
-      (see the "Pick a source world" section above).
-- [ ] **Exact bounds:** Box includes the full building, foundation, intended
-      side clearance (eaves, setbacks), and no surrounding terrain. Record as
-      `pos1 = (minX, minY, minZ)` and `pos2 = (maxX, maxY, maxZ)`.
-- [ ] **Canonical front:** Main entrance faces north (-Z) in the captured file,
-      in the middle of the front edge. Re-orient the structure with `//rotate`
-      if needed so the captured file has north-facing entrance.
-- [ ] **Ground layer:** Minimum Y is the foundation / floor layer (one node
-      above any basement). Record `ground_offset` if layers sit below site
-      surface.
-- [ ] **Entrance offset:** Measure file-local (x, y, z) position of the entrance
-      node (door bottom or walk-in opening). For canonical orientation, z is 0
-      unless recessed, x is centered along the front.
-- [ ] **Metadata and nodes:** List any nodes with metadata (chests, furnaces,
-      signs, beds, spawners, etc.) that must be initialized after placement.
-      Record their world-local positions and required metadata. If the building
-      is self-contained and needs no initialization, note "none".
-- [ ] **Capture command:** Run `//mtschemcreate <id>` to create
-      `<world>/schems/<id>.mts`.
-- [ ] **Copy to repo:** `cp "<world>/schems/<id>.mts" schematics/<id>.mts`
-      (for handmade buildings not using the exporter).
-- [ ] **Four rotations:** Place the repository file at four different positions
-      in a clear area and verify all rotations (0, 90, 180, 270):
-      - Footprint swaps X and Z at 90 and 270 degrees.
-      - Bounding-box minimum corner stays at placement position P.
-      - Entrance faces north (0°), west (90°), south (180°), east (270°).
-      - Any asymmetric architectural cue (chimney, color, window pattern)
-        moves with the rotation.
-- [ ] **Two adjacent placements:** Place two copies of the building side by side
-      (for example, at the same Y and Z but X offsets separated by the X size)
-      in a disposable destination to verify walls, windows, doors and eaves fit
-      correctly without overlaps or visual misalignment.
-- [ ] **Window and eaves design:** Confirm that side windows and eaves are
-      designed within the captured box; the planner will not alter the
-      architecture or provide extra clearance. Buildings should be self-contained
-      and work when placed immediately adjacent.
-
-## Metadata example matching the catalog
-
-The `tools/workshop_export/buildings.json` entry for a building includes:
-
-```json
-{
-  "id": "example_house",
-  "label": "Example house",
-  "scan_min": {"x": 100, "y": 8, "z": 100},
-  "scan_max": {"x": 112, "y": 20, "z": 112},
-  "floor_y": 8,
-  "rotation": 0,
-  "entrance": {"x": 106, "y": 9, "z": 108},
-  "role": "house"
-}
-```
-
-After exporter generation, the runtime catalog entry in `schematics/templates/catalog.lua`
-becomes:
-
-```lua
-["example_house"] = {
-  ["path"] = "schematics/templates/example_house.mts",
-  ["size"] = {["x"] = 9, ["y"] = 10, ["z"] = 9},
-  ["entrance"] = {["x"] = 4, ["y"] = 1, ["z"] = 0},
-  ["entrance_kind"] = "door",
-  ["data_path"] = "schematics/templates/example_house.lua",
-  ["role"] = "house"
-}
-```
-
-Or with a castle-like structure that has deeper foundation:
-
-```lua
-["castle"] = {
-  ["path"] = "schematics/templates/castle.mts",
-  ["size"] = {["x"] = 54, ["y"] = 39, ["z"] = 50},
-  ["entrance"] = {["x"] = 30, ["y"] = 8, ["z"] = 6},
-  ["entrance_kind"] = "opening",
-  ["data_path"] = "schematics/templates/castle.lua",
-  ["ground_offset"] = 5,
-  ["role"] = "castle"
-}
-```
-
-- `role`: one of `house`, `shop`, `workshop`, `tavern`, `well`, `cathedral`,
-  `castle`, `city_hall`, `chapel`, `jail`. Used by the planner to select
-  appropriate buildings for neighborhoods and services.
-- `entrance_kind`: either `"door"` (a door node requiring a door state) or
-  `"opening"` (a walk-in opening). Open-front shops and the castle use
-  `"opening"`.
-- `ground_offset`: optional depth of foundation layers below the site ground.
-  Omitted if zero. The castle has five foundation layers; the cathedral has one.
-- `data_path`: points to a `.lua` file with node metadata and inventories for
-  runtime initialization (generated and managed by the exporter).
 
 ## Caveats
 
@@ -414,7 +292,7 @@ Or with a castle-like structure that has deeper foundation:
   rotated result in game (ticket #4) rather than assuming.
 - **Generated files are authoritative.** `schematics/templates/catalog.lua`,
   `.mts` files, and `.lua` metadata are all produced by the exporter and
-  regenerated on each export run. Do not hand-edit them; edit the source
+  regenerated for the exported buildings on each run. Do not hand-edit them; edit the source
   `tools/workshop_export/buildings.json` or the TownsWorkshop world instead,
   then re-export.
 
