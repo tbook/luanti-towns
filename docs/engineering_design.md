@@ -119,7 +119,11 @@ sketch):
   are left empty with recorded buildable frontage. One or two coherent
   paving materials.
 - **Site search.** Search outward from the command player for a site whose
-  surface varies by at most 8 nodes, with no water and fully loaded terrain.
+  middle 95% of surface heights span at most 16 nodes, with no water and
+  fully loaded terrain. Exclude up to 2.5% of columns from each height tail,
+  rounded down; every column must be within 24 nodes of the median. Search
+  within 320 nodes and inspect heights within 48 nodes above and below the
+  player’s ground level. Actual surface extremes determine the build bounds.
   The search is read-only and asynchronous (it emerges what it inspects).
 - **Flattening.** The accepted town interior is cut and filled to the median
   surface height of its columns, with the natural surface node kept at the

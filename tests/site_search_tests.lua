@@ -9,7 +9,7 @@ local SEED = 20260101
 ------------------------------------------------------------------------
 -- Pure helpers
 ------------------------------------------------------------------------
-local offs = ss.candidate_offsets(16, 160)
+local offs = ss.candidate_offsets(16, 320)
 eq(offs[1].dx, 0, "offsets first dx")
 eq(offs[1].dz, 0, "offsets first dz")
 -- Distance 16 ties are ordered by dz then dx.
@@ -20,21 +20,21 @@ eq(offs[5].dx .. "," .. offs[5].dz, "0,16", "offsets 5th")
 local sorted, within, mult = true, true, true
 for i, o in ipairs(offs) do
 	if i > 1 and o.d2 < offs[i - 1].d2 then sorted = false end
-	if o.d2 > 160 * 160 then within = false end
+	if o.d2 > 320 * 320 then within = false end
 	if o.dx % 16 ~= 0 or o.dz % 16 ~= 0 then mult = false end
 end
 eq(sorted, true, "offsets nearest first")
 eq(within, true, "offsets within radius")
 eq(mult, true, "offsets multiples of step")
-eq(#offs, 317, "offsets count (lattice points in radius 160)")
-local offs2 = ss.candidate_offsets(16, 160)
+eq(#offs, 1257, "offsets count (lattice points in radius 320)")
+local offs2 = ss.candidate_offsets(16, 320)
 eq(#offs2, #offs, "offsets deterministic count")
 local same = true
 for i, o in ipairs(offs) do
 	if offs2[i].dx ~= o.dx or offs2[i].dz ~= o.dz then same = false end
 end
 eq(same, true, "offsets deterministic order")
-eq(offs[#offs].d2 <= 160 * 160, true, "offsets last within radius")
+eq(offs[#offs].d2 <= 320 * 320, true, "offsets last within radius")
 
 eq(ss.median({5}), 5, "median single")
 eq(ss.median({9, 1, 5}), 5, "median odd")
@@ -72,6 +72,34 @@ eq(none, nil, "range 9 rejected")
 eq(code, "too_uneven", "range 9 code")
 _, code = ss.inspect_columns(columns, reader({[1] = 20, [2] = 100}), 100, 8)
 eq(code, "too_high", "surface at window top")
+
+-- Small pits and piles may be trimmed, but their actual heights are retained.
+local terrain_cols, terrain_heights = {}, {}
+for i = 1, 100 do
+	terrain_cols[i] = {x = i, z = 0}
+	terrain_heights[i] = 20
+end
+local function inspect_terrain()
+	return ss.inspect_columns(terrain_cols, reader(terrain_heights), 100, 16, 5, 24)
+end
+terrain_heights[1], terrain_heights[2] = -4, -4
+terrain_heights[99], terrain_heights[100] = 44, 44
+local terrain = inspect_terrain()
+eq(terrain ~= nil, true, "outliers: small pits and piles accepted at cut/fill cap")
+eq(terrain.ground_y, 20, "outliers: median unchanged")
+eq(terrain.min_height, -4, "outliers: actual minimum retained")
+eq(terrain.max_height, 44, "outliers: actual maximum retained")
+eq(terrain.heights[1][0], -4, "outliers: pit height retained for filling")
+terrain_heights[3] = -4
+local rejected, reason = inspect_terrain()
+eq(rejected, nil, "outliers: more than 2.5 percent in one tail rejected")
+eq(reason, "too_uneven", "outliers: excessive tail reason")
+terrain_heights[3], terrain_heights[1] = 20, -5
+rejected, reason = inspect_terrain()
+eq(rejected, nil, "outliers: pit beyond cut/fill cap rejected")
+eq(reason, "too_uneven", "outliers: deep pit reason")
+terrain_heights[1], terrain_heights[100] = -4, 45
+eq(inspect_terrain(), nil, "outliers: pile beyond cut/fill cap rejected")
 
 ------------------------------------------------------------------------
 -- Mock world
@@ -150,7 +178,7 @@ local SMALL = {max_radius = 64}               -- keep failure runs quick
 -- computed independently from the search.
 local function expected_first_clear(opts)
 	opts = opts or {}
-	local list = ss.candidate_offsets(opts.step or 16, opts.max_radius or 160)
+	local list = ss.candidate_offsets(opts.step or 16, opts.max_radius or 320)
 	local base = planner.plan({x = 0, z = 0}, SEED)
 	for i, o in ipairs(list) do
 		-- (translation only; the test of the real plan is the final check)
@@ -262,20 +290,20 @@ eq(r.build_bounds.max.y, 20 + 44, "median: top is ground + clearance")
 r = run(new_world({surface = function() return 30 end}), {x = 0, y = 31, z = 0}, nil)
 eq(r.ground_y, 30, "relative to the player's level")
 
--- Range of exactly 8 is accepted, 9 rejected everywhere.
+-- Range of exactly 16 is accepted, 17 rejected everywhere.
 local function striped(delta)
 	return function(x) return x % 2 == 0 and 20 or 20 + delta end
 end
-r = run(new_world({surface = striped(8)}), PLAYER, nil)
-eq(r ~= nil, true, "range 8 accepted")
-local fw = new_world({surface = striped(9)})
+r = run(new_world({surface = striped(16)}), PLAYER, nil)
+eq(r ~= nil, true, "range 16 accepted")
+local fw = new_world({surface = striped(17)})
 local r9, s9, d9, c9 = run(fw, PLAYER, SMALL)
-eq(r9, nil, "range 9: rejected")
-eq(c9, 1, "range 9: done once")
-eq(d9.rejections.too_uneven ~= nil and d9.rejections.too_uneven > 0, true, "range 9: too_uneven counted")
-eq(s9:find("too_uneven", 1, true) ~= nil, true, "range 9: summary names the reason")
-eq(s9:find("Nothing was changed", 1, true) ~= nil, true, "range 9: summary says nothing changed")
-eq(#fw.writes, 0, "range 9: no writes")
+eq(r9, nil, "range 17: rejected")
+eq(c9, 1, "range 17: done once")
+eq(d9.rejections.too_uneven ~= nil and d9.rejections.too_uneven > 0, true, "range 17: too_uneven counted")
+eq(s9:find("too_uneven", 1, true) ~= nil, true, "range 17: summary names the reason")
+eq(s9:find("Nothing was changed", 1, true) ~= nil, true, "range 17: summary says nothing changed")
+eq(#fw.writes, 0, "range 17: no writes")
 
 -- A 20-node cliff through every candidate.
 local cw = new_world({surface = function(x) return x % 2 == 0 and 20 or 40 end})
@@ -362,7 +390,7 @@ r9, s9, d9, c9 = run(xw, PLAYER, nil)
 eq(r9, nil, "exhaustion: no site")
 eq(c9, 1, "exhaustion: done once")
 eq(d9.candidates_tried, #offs, "exhaustion: full order tried (default radius)")
-eq(s9:find("within 160 nodes", 1, true) ~= nil, true, "exhaustion: summary names the radius")
+eq(s9:find("within 320 nodes", 1, true) ~= nil, true, "exhaustion: summary names the radius")
 eq(#xw.writes, 0, "exhaustion: no writes")
 
 ------------------------------------------------------------------------
@@ -526,7 +554,7 @@ end
 -- Candidates beyond the planner's centre limit are skipped, not thrown.
 for _, px in ipairs({30900, -30900}) do
 	local big = {x = px, y = 21, z = 0}
-	-- With radius 160 candidates reach |x| = 31060.
+	-- With radius 320 candidates reach |x| = 31220.
 	local ok, rr, ss_, dd, cc = pcall(run, new_world({surface = striped(30)}), big, nil)
 	eq(ok, true, "near limit full radius " .. px .. ": no raise")
 	eq(cc, 1, "near limit " .. px .. ": done once")
@@ -572,8 +600,8 @@ end
 
 -- Second (build volume) emerge failing rejects the candidate.
 do
-	local limit = 20 + ss.CONSTANTS.SCAN_UP + 1
-	local bw = new_world({emerge_ok = function(minp, maxp) return maxp.y <= limit end})
+	local inspection_bottom = 20 - ss.CONSTANTS.SCAN_DOWN
+	local bw = new_world({emerge_ok = function(minp) return minp.y == inspection_bottom end})
 	local rr, ss_, dd, cc = run(bw, PLAYER, SMALL)
 	eq(rr, nil, "build emerge failure: not accepted")
 	eq(cc, 1, "build emerge failure: done once")
@@ -581,7 +609,7 @@ do
 	eq(#bw.emerges >= 2, true, "build emerge failure: second emerge attempted")
 end
 
--- Window edges: surface exactly ref+24 / ref-24 accepted, one more rejected.
+-- Window edges: surface exactly ref+48 / ref-48 accepted, one more rejected.
 do
 	local function edge(s)
 		return new_world({surface = function(x, z)
@@ -590,15 +618,15 @@ do
 		end})
 	end
 	local rr = run(edge(20 + ss.CONSTANTS.SCAN_UP), PLAYER, SMALL)
-	eq(rr ~= nil and rr.ground_y, 44, "window: surface at ref+24 accepted")
+	eq(rr ~= nil and rr.ground_y, 68, "window: surface at ref+48 accepted")
 	local r_, _, dd = run(edge(20 + ss.CONSTANTS.SCAN_UP + 1), PLAYER, SMALL)
-	eq(r_, nil, "window: surface at ref+25 rejected")
-	eq(dd.rejections.too_high ~= nil, true, "window: ref+25 is too_high")
+	eq(r_, nil, "window: surface at ref+49 rejected")
+	eq(dd.rejections.too_high ~= nil, true, "window: ref+49 is too_high")
 	rr = run(edge(20 - ss.CONSTANTS.SCAN_DOWN), PLAYER, SMALL)
-	eq(rr ~= nil and rr.ground_y, -4, "window: surface at ref-24 accepted")
+	eq(rr ~= nil and rr.ground_y, -28, "window: surface at ref-48 accepted")
 	r_, _, dd = run(edge(20 - ss.CONSTANTS.SCAN_DOWN - 1), PLAYER, SMALL)
-	eq(r_, nil, "window: surface at ref-25 rejected")
-	eq(dd.rejections.no_ground ~= nil, true, "window: ref-25 is no_ground")
+	eq(r_, nil, "window: surface at ref-49 rejected")
+	eq(dd.rejections.no_ground ~= nil, true, "window: ref-49 is no_ground")
 end
 
 -- A bad cell anywhere in a rect (not only at the bbox) rejects; bbox cells
