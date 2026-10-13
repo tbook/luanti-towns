@@ -1,6 +1,11 @@
 {
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
-  "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482",
+  "snapshot_sha256": "be9cc64aa4a4733aae5b5ef40d50ffb3d3b0b41ae1b33c77ba8d0d876d5c61f7",
+  "last_export_buildings": [
+    "butcher_shop",
+    "mason_yard",
+    "chapel"
+  ],
   "buildings": [
     {
       "entrance": {
@@ -48,7 +53,8 @@
         "y": 50,
         "z": 8
       },
-      "verified_nodes": 3200
+      "verified_nodes": 3200,
+      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
     },
     {
       "entrance": {
@@ -102,7 +108,8 @@
         "y": 10,
         "z": 9
       },
-      "verified_nodes": 720
+      "verified_nodes": 720,
+      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
     },
     {
       "entrance": {
@@ -158,7 +165,8 @@
         "y": 9,
         "z": 8
       },
-      "verified_nodes": 648
+      "verified_nodes": 648,
+      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
     },
     {
       "entrance": {
@@ -209,7 +217,8 @@
         "y": 6,
         "z": 7
       },
-      "verified_nodes": 462
+      "verified_nodes": 462,
+      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
     },
     {
       "entrance": {
@@ -269,7 +278,8 @@
         "y": 11,
         "z": 11
       },
-      "verified_nodes": 1815
+      "verified_nodes": 1815,
+      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
     },
     {
       "entrance": {
@@ -321,7 +331,8 @@
         "y": 7,
         "z": 7
       },
-      "verified_nodes": 441
+      "verified_nodes": 441,
+      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
     },
     {
       "entrance": {
@@ -401,7 +412,8 @@
         "y": 12,
         "z": 11
       },
-      "verified_nodes": 1716
+      "verified_nodes": 1716,
+      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
     },
     {
       "entrance": {
@@ -481,7 +493,8 @@
         "y": 11,
         "z": 13
       },
-      "verified_nodes": 1430
+      "verified_nodes": 1430,
+      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
     },
     {
       "entrance": {
@@ -535,7 +548,8 @@
         "y": 18,
         "z": 11
       },
-      "verified_nodes": 2178
+      "verified_nodes": 2178,
+      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
     },
     {
       "entrance": {
@@ -599,13 +613,172 @@
         "y": 11,
         "z": 11
       },
-      "verified_nodes": 1452
+      "verified_nodes": 1452,
+      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
+    },
+    {
+      "entrance": {
+        "x": 3,
+        "y": 1,
+        "z": 2
+      },
+      "entrance_kind": "opening",
+      "id": "butcher_shop",
+      "label": "Butcher shop",
+      "required_nodes": [
+        "mcl_barrels:barrel_closed",
+        "mcl_colorblocks:hardened_clay",
+        "mcl_colorblocks:hardened_clay_orange",
+        "mcl_colorblocks:hardened_clay_red",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:stripped_acacia",
+        "mcl_crafting_table:crafting_table",
+        "mcl_doors:acacia_trapdoor_open",
+        "mcl_fences:acacia_fence",
+        "mcl_itemframes:frame",
+        "mcl_mud:mud_bricks",
+        "mcl_mud:packed_mud",
+        "mcl_smoker:smoker",
+        "mcl_stairs:slab_acaciawood",
+        "mcl_stairs:slab_acaciawood_double",
+        "mcl_stairs:slab_acaciawood_top",
+        "mcl_torches:torch_wall"
+      ],
+      "rotation": 270,
+      "size": {
+        "x": 9,
+        "y": 7,
+        "z": 9
+      },
+      "source_max": {
+        "x": 108,
+        "y": 14,
+        "z": 308
+      },
+      "source_min": {
+        "x": 100,
+        "y": 8,
+        "z": 300
+      },
+      "source_size": {
+        "x": 9,
+        "y": 7,
+        "z": 9
+      },
+      "verified_nodes": 567,
+      "snapshot_sha256": "be9cc64aa4a4733aae5b5ef40d50ffb3d3b0b41ae1b33c77ba8d0d876d5c61f7"
+    },
+    {
+      "entrance": {
+        "x": 3,
+        "y": 1,
+        "z": 0
+      },
+      "entrance_kind": "opening",
+      "id": "mason_yard",
+      "label": "Mason's yard",
+      "required_nodes": [
+        "mcl_colorblocks:hardened_clay_grey",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:gravel",
+        "mcl_core:stonebrick",
+        "mcl_mud:mud_bricks",
+        "mcl_stairs:slab_darktree_bark",
+        "mcl_stairs:slab_darktree_bark_top",
+        "mcl_stairs:slab_wood_top",
+        "mcl_stonecutter:stonecutter",
+        "mcl_walls:stonebrick_0"
+      ],
+      "rotation": 180,
+      "size": {
+        "x": 7,
+        "y": 6,
+        "z": 9
+      },
+      "source_max": {
+        "x": 141,
+        "y": 13,
+        "z": 308
+      },
+      "source_min": {
+        "x": 135,
+        "y": 8,
+        "z": 300
+      },
+      "source_size": {
+        "x": 7,
+        "y": 6,
+        "z": 9
+      },
+      "verified_nodes": 378,
+      "snapshot_sha256": "be9cc64aa4a4733aae5b5ef40d50ffb3d3b0b41ae1b33c77ba8d0d876d5c61f7"
+    },
+    {
+      "entrance": {
+        "x": 4,
+        "y": 1,
+        "z": 2
+      },
+      "entrance_kind": "door",
+      "id": "chapel",
+      "label": "Chapel",
+      "required_nodes": [
+        "living_villages:pulpit",
+        "mcl_core:andesite_smooth",
+        "mcl_core:diorite_smooth",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:granite_smooth",
+        "mcl_core:sprucewood",
+        "mcl_decor:chair_spruce",
+        "mcl_doors:spruce_door_b_1",
+        "mcl_doors:spruce_door_t_1",
+        "mcl_flowers:tallgrass",
+        "mcl_lanterns:chain",
+        "mcl_lanterns:lantern_ceiling",
+        "mcl_stairs:slab_andesite_smooth",
+        "mcl_stairs:stair_andesite_smooth",
+        "mcl_stairs:stair_diorite_smooth",
+        "mcl_stairs:stair_diorite_smooth_outer",
+        "mcl_stairs:stair_sprucewood",
+        "mcl_torches:torch",
+        "mcl_walls:cobble_3",
+        "mcl_walls:cobble_6",
+        "mcl_walls:diorite_0",
+        "xpanes:pane_blue_flat",
+        "xpanes:pane_red_flat"
+      ],
+      "rotation": 0,
+      "size": {
+        "x": 9,
+        "y": 13,
+        "z": 17
+      },
+      "source_max": {
+        "x": 179,
+        "y": 21,
+        "z": 317
+      },
+      "source_min": {
+        "x": 171,
+        "y": 9,
+        "z": 301
+      },
+      "source_size": {
+        "x": 9,
+        "y": 13,
+        "z": 17
+      },
+      "verified_nodes": 1989,
+      "snapshot_sha256": "be9cc64aa4a4733aae5b5ef40d50ffb3d3b0b41ae1b33c77ba8d0d876d5c61f7"
     }
   ],
   "runtime_validation": {
-    "inventory_slots": 3240,
+    "inventory_slots": 3604,
     "mismatches": 0,
-    "nodes": 490264,
-    "placements": 48
+    "nodes": 502000,
+    "placements": 60
   }
 }

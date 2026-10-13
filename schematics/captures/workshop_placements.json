@@ -148,6 +148,54 @@
         "y": 12,
         "z": 11
       }
+    },
+    {
+      "id": "butcher_shop_home_raw",
+      "label": "Butcher shop",
+      "origin": {
+        "x": 100,
+        "y": 7,
+        "z": 300
+      },
+      "size": {
+        "x": 9,
+        "y": 8,
+        "z": 9
+      },
+      "stage": "edited and exported as a game template",
+      "template_id": "butcher_shop"
+    },
+    {
+      "id": "mason_yard_home_raw",
+      "label": "Mason's yard",
+      "origin": {
+        "x": 135,
+        "y": 8,
+        "z": 300
+      },
+      "size": {
+        "x": 7,
+        "y": 6,
+        "z": 9
+      },
+      "stage": "edited and exported as a game template",
+      "template_id": "mason_yard"
+    },
+    {
+      "id": "chapel_home_raw",
+      "label": "Chapel",
+      "origin": {
+        "x": 170,
+        "y": 8,
+        "z": 300
+      },
+      "size": {
+        "x": 10,
+        "y": 14,
+        "z": 19
+      },
+      "stage": "edited and exported as a game template",
+      "template_id": "chapel"
     }
   ],
   "height_adjustment": {
@@ -156,5 +204,20 @@
     "metadata_mismatches": 0,
     "node_mismatches": 0,
     "nodes": 3267
+  },
+  "third_row_validation": {
+    "buildings": 3,
+    "inventory_mismatches": 0,
+    "metadata_nodes": 58,
+    "node_mismatches": 0,
+    "node_replacements": 3,
+    "nodes": 3686
+  },
+  "chapel_height_adjustment": {
+    "buildings": 1,
+    "delta_y": 1,
+    "metadata_mismatches": 0,
+    "node_mismatches": 0,
+    "nodes": 2660
   }
 }

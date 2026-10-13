@@ -260,6 +260,86 @@
         "y": 9,
         "z": 247
       }
+    },
+    {
+      "id": "butcher_shop",
+      "label": "Butcher shop",
+      "scan_min": {
+        "x": 97,
+        "y": 8,
+        "z": 298
+      },
+      "scan_max": {
+        "x": 112,
+        "y": 19,
+        "z": 312
+      },
+      "floor_y": 8,
+      "rotation": 270,
+      "entrance": {
+        "x": 102,
+        "y": 9,
+        "z": 305
+      },
+      "entrance_kind": "opening",
+      "label_position": {
+        "x": 104,
+        "y": 9,
+        "z": 297
+      }
+    },
+    {
+      "id": "mason_yard",
+      "label": "Mason's yard",
+      "scan_min": {
+        "x": 132,
+        "y": 8,
+        "z": 298
+      },
+      "scan_max": {
+        "x": 145,
+        "y": 18,
+        "z": 312
+      },
+      "floor_y": 8,
+      "rotation": 180,
+      "entrance": {
+        "x": 138,
+        "y": 9,
+        "z": 308
+      },
+      "entrance_kind": "opening",
+      "label_position": {
+        "x": 138,
+        "y": 9,
+        "z": 297
+      }
+    },
+    {
+      "id": "chapel",
+      "label": "Chapel",
+      "scan_min": {
+        "x": 167,
+        "y": 9,
+        "z": 298
+      },
+      "scan_max": {
+        "x": 183,
+        "y": 26,
+        "z": 322
+      },
+      "floor_y": 9,
+      "rotation": 0,
+      "entrance": {
+        "x": 175,
+        "y": 10,
+        "z": 303
+      },
+      "label_position": {
+        "x": 175,
+        "y": 9,
+        "z": 297
+      }
     }
   ]
 }
