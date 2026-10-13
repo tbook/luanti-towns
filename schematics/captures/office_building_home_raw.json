@@ -1,0 +1,834 @@
+{
+  "id": "office_building_home_raw",
+  "stage": "raw capture, original orientation; not registered in catalog",
+  "capture_date": "2026-10-13",
+  "source_world": "Home",
+  "source_bounds": {
+    "min": {
+      "x": 256,
+      "y": 5,
+      "z": 176
+    },
+    "max": {
+      "x": 267,
+      "y": 23,
+      "z": 187
+    }
+  },
+  "size": {
+    "x": 12,
+    "y": 19,
+    "z": 12
+  },
+  "schematic_sha256": "e07090fb4790f5c012d9b9d9ae3d8bca2f5b28d872624114a2e66f1358e87ebd",
+  "validation": {
+    "id": "office_building_home_raw",
+    "ignore_nodes": 0,
+    "name_param2_mismatches": 0,
+    "round_trip_nodes": 2736
+  },
+  "notes": "Supplied base Y=5 and Z bounds retained. Maximum X extended to 267 for entrance steps. Empty Y=24 trimmed; the top torch is at Y=23. Some surrounding terrain and farm-edge nodes remain for cleanup.",
+  "metadata": [
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_flowers:tallgrass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 1
+      },
+      "name": "mcl_flowers:oxeye_daisy",
+      "meta": {
+        "fields": {
+          "seasons:flower_dormancy_epoch": "3611",
+          "seasons:flower_epoch": "3611",
+          "seasons:flower_managed": "1"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 2
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 3
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 0,
+        "z": 3
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 0,
+        "z": 4
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 0,
+        "z": 4
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 4
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 5
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 0,
+        "z": 5
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 5
+      },
+      "name": "mcl_farming:soil_wet",
+      "meta": {
+        "fields": {
+          "wet": "7"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 2,
+        "z": 5
+      },
+      "name": "mcl_doors:wooden_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 3,
+        "z": 5
+      },
+      "name": "mcl_doors:wooden_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 12,
+        "z": 5
+      },
+      "name": "mcl_chests:chest_small",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 6
+      },
+      "name": "mcl_farming:soil_wet",
+      "meta": {
+        "fields": {
+          "wet": "7"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 7
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 0,
+        "z": 7
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 7
+      },
+      "name": "mcl_farming:soil_wet",
+      "meta": {
+        "fields": {
+          "wet": "7"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 2,
+        "z": 7
+      },
+      "name": "mcl_doors:wooden_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 3,
+        "z": 7
+      },
+      "name": "mcl_doors:wooden_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 8
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 0,
+        "z": 8
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 0,
+        "z": 8
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 8
+      },
+      "name": "mcl_farming:soil_wet",
+      "meta": {
+        "fields": {
+          "wet": "7"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 0,
+        "z": 9
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 0,
+        "z": 9
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 1,
+        "z": 10
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 1,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 1,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 1,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 1,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 1,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 1,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 1,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 1,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 9,
+        "y": 1,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 10,
+        "y": 1,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 11,
+        "y": 1,
+        "z": 11
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 2,
+        "z": 11
+      },
+      "name": "mcl_flowers:oxeye_daisy",
+      "meta": {
+        "fields": {
+          "seasons:flower_dormancy_epoch": "3587"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 2,
+        "z": 11
+      },
+      "name": "mcl_flowers:tallgrass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    }
+  ],
+  "node_counts": {
+    "mcl_core:dirt_with_grass": 40,
+    "mcl_flowers:tallgrass": 2,
+    "mcl_flowers:oxeye_daisy": 2,
+    "mcl_stairs:stair_cobble_outer": 20,
+    "mcl_stairs:stair_cobble": 101,
+    "mcl_core:dirt": 96,
+    "mcl_core:stone": 134,
+    "mcl_core:tree": 40,
+    "mcl_core:wood": 318,
+    "mcl_core:glass": 55,
+    "mcl_stairs:stair_wood": 17,
+    "mcl_torches:torch_wall": 4,
+    "mcl_stairs:slab_wood_top": 46,
+    "mcl_torches:torch": 4,
+    "mcl_stairs:stair_stone_rough": 6,
+    "mcl_core:ladder": 7,
+    "mcl_farming:soil_wet": 4,
+    "mcl_farming:wheat": 4,
+    "mcl_doors:wooden_door_b_1": 2,
+    "mcl_doors:wooden_door_t_1": 2,
+    "mcl_chests:chest_small": 1,
+    "mcl_core:cobble": 3,
+    "mcl_crafting_table:crafting_table": 1,
+    "mcl_core:water_source": 2
+  }
+}

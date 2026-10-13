@@ -113,7 +113,10 @@ eq(catalog.get("demo_house").id, "demo_house", "demo_house registered")
 -- verify(): ok, missing, mismatch.
 local d = catalog.get("demo_house")
 local function reader(result) return function() return result end end
-eq(next(catalog.verify(reader({size = d.size}), "/m")), nil, "verify ok")
+eq(next(catalog.verify(function(path)
+	local id = path:match("([^/]+)%.mts$")
+	return {size = catalog.get(id).size}
+end, "/m")), nil, "verify ok")
 local bad = catalog.verify(reader(nil), "/mod")
 eq(bad.demo_house ~= nil
 	and bad.demo_house:find("demo_house", 1, true) ~= nil
@@ -133,6 +136,26 @@ d.entrance = {x = 0, z = d.size.z}
 bad = catalog.verify(reader({size = d.size}), "/mod")
 eq(bad.demo_house:find("entrance offset outside", 1, true) ~= nil, true, "entrance z outside")
 d.entrance = saved
+
+-- Generated assets must remain in sync with their catalog and metadata.
+for _, id in ipairs(catalog.ids()) do
+	local e = catalog.get(id)
+	local f = assert(io.open(e.path, "rb"))
+	local h = f:read(12); f:close()
+	eq(h:sub(1, 4), "MTSM", id .. " schematic signature")
+	local function u16(i) return h:byte(i) * 256 + h:byte(i + 1) end
+	eq(u16(7), e.size.x, id .. " file width")
+	eq(u16(9), e.size.y, id .. " file height")
+	eq(u16(11), e.size.z, id .. " file depth")
+	if e.data_path then
+		local data = dofile(e.data_path)
+		for _, m in ipairs(data.metadata or {}) do
+			local p = m.offset
+			eq(p.x >= 0 and p.x < e.size.x and p.y >= 0 and p.y < e.size.y
+				and p.z >= 0 and p.z < e.size.z, true, id .. " metadata inside file")
+		end
+	end
+end
 
 -- placement.parse_args: valid, bad count, bad rotation.
 local id, rot = placement.parse_args("demo_house 90")

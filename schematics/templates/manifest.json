@@ -1,0 +1,611 @@
+{
+  "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
+  "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482",
+  "buildings": [
+    {
+      "entrance": {
+        "x": 2,
+        "y": 1,
+        "z": 1
+      },
+      "id": "tower",
+      "label": "Tower",
+      "required_nodes": [
+        "mcl_chests:chest_small",
+        "mcl_colorblocks:hardened_clay_cyan",
+        "mcl_core:cobble",
+        "mcl_core:diorite",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_doors:acacia_door_b_1",
+        "mcl_doors:acacia_door_t_1",
+        "mcl_flowers:dandelion",
+        "mcl_nether:glowstone",
+        "mcl_stairs:slab_diorite",
+        "mcl_stairs:stair_cobble",
+        "mcl_stairs:stair_diorite",
+        "mcl_torches:torch_wall",
+        "mcl_walls:diorite_0"
+      ],
+      "rotation": 90,
+      "size": {
+        "x": 8,
+        "y": 50,
+        "z": 8
+      },
+      "source_max": {
+        "x": 107,
+        "y": 57,
+        "z": 207
+      },
+      "source_min": {
+        "x": 100,
+        "y": 8,
+        "z": 200
+      },
+      "source_size": {
+        "x": 8,
+        "y": 50,
+        "z": 8
+      },
+      "verified_nodes": 3200
+    },
+    {
+      "entrance": {
+        "x": 5,
+        "y": 1,
+        "z": 1
+      },
+      "id": "leather_worker",
+      "label": "Leather worker",
+      "required_nodes": [
+        "mcl_armor_stand:armor_stand",
+        "mcl_beds:bed_brown_bottom",
+        "mcl_beds:bed_brown_top",
+        "mcl_cauldrons:cauldron_3",
+        "mcl_colorblocks:hardened_clay_white",
+        "mcl_core:cobble",
+        "mcl_core:dirt",
+        "mcl_core:mossycobble",
+        "mcl_core:tree",
+        "mcl_core:wood",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_flowerpots:flower_pot_dandelion",
+        "mcl_itemframes:frame",
+        "mcl_lanterns:lantern_ceiling",
+        "mcl_stairs:slab_wood",
+        "mcl_stairs:slab_wood_top",
+        "mcl_stairs:stair_wood",
+        "mcl_wool:red_carpet",
+        "mcl_wool:silver_carpet",
+        "xpanes:pane_natural_flat"
+      ],
+      "rotation": 180,
+      "size": {
+        "x": 8,
+        "y": 10,
+        "z": 9
+      },
+      "source_max": {
+        "x": 142,
+        "y": 17,
+        "z": 209
+      },
+      "source_min": {
+        "x": 135,
+        "y": 8,
+        "z": 201
+      },
+      "source_size": {
+        "x": 8,
+        "y": 10,
+        "z": 9
+      },
+      "verified_nodes": 720
+    },
+    {
+      "entrance": {
+        "x": 4,
+        "y": 1,
+        "z": 1
+      },
+      "id": "corner_house",
+      "label": "Corner house",
+      "required_nodes": [
+        "mcl_beds:bed_silver_bottom",
+        "mcl_beds:bed_silver_top",
+        "mcl_chests:chest_small",
+        "mcl_colorblocks:hardened_clay_grey",
+        "mcl_colorblocks:hardened_clay_silver",
+        "mcl_core:sandstonesmooth2",
+        "mcl_core:stone_smooth",
+        "mcl_core:wood",
+        "mcl_doors:spruce_trapdoor",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_fences:fence",
+        "mcl_flowers:fern",
+        "mcl_lanterns:lantern_ceiling",
+        "mcl_lanterns:lantern_floor",
+        "mcl_stairs:slab_tree_bark_top",
+        "mcl_stairs:slab_wood",
+        "mcl_stairs:slab_wood_top",
+        "mcl_stairs:stair_sandstonesmooth2",
+        "mcl_stairs:stair_stone_rough",
+        "mcl_stairs:stair_wood",
+        "mesecons_pressureplates:pressure_plate_wood_off",
+        "xpanes:pane_natural_flat"
+      ],
+      "rotation": 270,
+      "size": {
+        "x": 8,
+        "y": 9,
+        "z": 9
+      },
+      "source_max": {
+        "x": 178,
+        "y": 17,
+        "z": 207
+      },
+      "source_min": {
+        "x": 170,
+        "y": 9,
+        "z": 200
+      },
+      "source_size": {
+        "x": 9,
+        "y": 9,
+        "z": 8
+      },
+      "verified_nodes": 648
+    },
+    {
+      "entrance": {
+        "x": 8,
+        "y": 1,
+        "z": 1
+      },
+      "id": "jail",
+      "label": "Jail",
+      "required_nodes": [
+        "mcl_chests:trapped_chest_small",
+        "mcl_core:cobble",
+        "mcl_core:mossycobble",
+        "mcl_core:stone_smooth",
+        "mcl_doors:iron_door_b_1",
+        "mcl_doors:iron_door_t_1",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_itemframes:frame",
+        "mcl_stairs:slab_andesite",
+        "mcl_stairs:slab_andesite_double",
+        "mcl_stairs:slab_andesite_top",
+        "mcl_stairs:slab_diorite_smooth_top",
+        "mcl_stairs:stair_sprucewood",
+        "mcl_torches:torch_wall",
+        "mcl_villages:stonebrickcarved",
+        "mesecons_walllever:wall_lever_off",
+        "xpanes:bar_flat"
+      ],
+      "rotation": 180,
+      "size": {
+        "x": 11,
+        "y": 6,
+        "z": 7
+      },
+      "source_max": {
+        "x": 215,
+        "y": 13,
+        "z": 206
+      },
+      "source_min": {
+        "x": 205,
+        "y": 8,
+        "z": 200
+      },
+      "source_size": {
+        "x": 11,
+        "y": 6,
+        "z": 7
+      },
+      "verified_nodes": 462
+    },
+    {
+      "entrance": {
+        "x": 7,
+        "y": 1,
+        "z": 2
+      },
+      "id": "townhouses",
+      "label": "Townhouses",
+      "required_nodes": [
+        "mcl_beds:bed_light_blue_bottom",
+        "mcl_beds:bed_light_blue_top",
+        "mcl_chests:chest_small",
+        "mcl_core:brick_block",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:stonebrick",
+        "mcl_core:wood",
+        "mcl_decor:chair_dark_oak",
+        "mcl_decor:chair_wooden",
+        "mcl_decor:table_wooden",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_flowers:azure_bluet",
+        "mcl_flowers:dandelion",
+        "mcl_flowers:tallgrass",
+        "mcl_furnaces:furnace",
+        "mcl_mud:mud_bricks",
+        "mcl_stairs:slab_deepslate_tiles",
+        "mcl_stairs:slab_deepslate_tiles_double",
+        "mcl_stairs:slab_deepslate_tiles_top",
+        "mcl_stairs:slab_wood_top",
+        "mcl_stairs:stair_stonebrick",
+        "mcl_stairs:stair_stonebrick_outer",
+        "mcl_stairs:stair_wood",
+        "mcl_torches:torch_wall",
+        "xpanes:pane_natural_flat"
+      ],
+      "rotation": 0,
+      "size": {
+        "x": 15,
+        "y": 11,
+        "z": 11
+      },
+      "source_max": {
+        "x": 254,
+        "y": 19,
+        "z": 210
+      },
+      "source_min": {
+        "x": 240,
+        "y": 9,
+        "z": 200
+      },
+      "source_size": {
+        "x": 15,
+        "y": 11,
+        "z": 11
+      },
+      "verified_nodes": 1815
+    },
+    {
+      "entrance": {
+        "x": 2,
+        "y": 1,
+        "z": 1
+      },
+      "id": "weaver_house",
+      "label": "Weaver",
+      "required_nodes": [
+        "mcl_beds:bed_white_bottom",
+        "mcl_beds:bed_white_top",
+        "mcl_chests:trapped_chest_small",
+        "mcl_core:cobble",
+        "mcl_core:tree",
+        "mcl_core:wood",
+        "mcl_doors:spruce_trapdoor",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_itemframes:frame",
+        "mcl_lanterns:chain",
+        "mcl_lanterns:lantern_ceiling",
+        "mcl_loom:loom",
+        "mcl_stairs:slab_deepslate_cobbled",
+        "mcl_stairs:slab_deepslate_cobbled_top",
+        "mcl_stairs:stair_cobble",
+        "mcl_stairs:stair_wood",
+        "mcl_wool:white_carpet",
+        "xpanes:pane_silver_flat"
+      ],
+      "rotation": 90,
+      "size": {
+        "x": 7,
+        "y": 7,
+        "z": 9
+      },
+      "source_max": {
+        "x": 108,
+        "y": 15,
+        "z": 256
+      },
+      "source_min": {
+        "x": 100,
+        "y": 9,
+        "z": 250
+      },
+      "source_size": {
+        "x": 9,
+        "y": 7,
+        "z": 7
+      },
+      "verified_nodes": 441
+    },
+    {
+      "entrance": {
+        "x": 5,
+        "y": 1,
+        "z": 2
+      },
+      "id": "scribe",
+      "label": "Scribe",
+      "required_nodes": [
+        "mcl_beds:bed_blue_bottom",
+        "mcl_beds:bed_blue_top",
+        "mcl_chests:chest_left",
+        "mcl_chests:chest_right",
+        "mcl_chests:chest_small",
+        "mcl_colorblocks:glazed_terracotta_magenta",
+        "mcl_core:acaciatree_bark",
+        "mcl_core:acaciawood",
+        "mcl_core:andesite_smooth",
+        "mcl_core:birchwood",
+        "mcl_core:cobble",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:junglewood",
+        "mcl_core:ladder",
+        "mcl_core:mossycobble",
+        "mcl_core:stripped_birch",
+        "mcl_core:stripped_jungle",
+        "mcl_core:wood",
+        "mcl_deepslate:deepslate_polished",
+        "mcl_dispensers:dispenser",
+        "mcl_doors:birch_door_b_1",
+        "mcl_doors:birch_door_b_2",
+        "mcl_doors:birch_door_t_1",
+        "mcl_doors:birch_door_t_2",
+        "mcl_doors:birch_trapdoor_open",
+        "mcl_fences:birch_fence",
+        "mcl_flowerpots:flower_pot_blue_orchid",
+        "mcl_flowerpots:flower_pot_fern",
+        "mcl_itemframes:frame",
+        "mcl_lanterns:lantern_ceiling",
+        "mcl_smoker:smoker",
+        "mcl_stairs:slab_acaciatree_bark",
+        "mcl_stairs:slab_acaciatree_bark_double",
+        "mcl_stairs:slab_acaciatree_bark_top",
+        "mcl_stairs:slab_birchwood_top",
+        "mcl_stairs:slab_junglewood_double",
+        "mcl_stairs:stair_birchwood",
+        "mcl_stairs:stair_deepslate_polished",
+        "mcl_wool:cyan_carpet",
+        "mcl_wool:green_carpet",
+        "mcl_wool:light_blue_carpet",
+        "mcl_wool:purple_carpet",
+        "mcl_wool:red_carpet",
+        "mcl_wool:white_carpet",
+        "xpanes:pane_natural",
+        "xpanes:pane_natural_flat"
+      ],
+      "rotation": 270,
+      "size": {
+        "x": 11,
+        "y": 12,
+        "z": 13
+      },
+      "source_max": {
+        "x": 147,
+        "y": 19,
+        "z": 260
+      },
+      "source_min": {
+        "x": 135,
+        "y": 8,
+        "z": 250
+      },
+      "source_size": {
+        "x": 13,
+        "y": 12,
+        "z": 11
+      },
+      "verified_nodes": 1716
+    },
+    {
+      "entrance": {
+        "x": 4,
+        "y": 1,
+        "z": 4
+      },
+      "id": "gaboo_house",
+      "label": "Gaboo house",
+      "required_nodes": [
+        "mcl_beds:bed_white_bottom",
+        "mcl_beds:bed_white_top",
+        "mcl_books:bookshelf",
+        "mcl_cartography_table:cartography_table",
+        "mcl_chests:chest_left",
+        "mcl_chests:chest_right",
+        "mcl_chests:chest_small",
+        "mcl_core:acaciawood",
+        "mcl_core:andesite",
+        "mcl_core:andesite_smooth",
+        "mcl_core:cobble",
+        "mcl_core:diorite_smooth",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:glass",
+        "mcl_core:granite_smooth",
+        "mcl_core:ladder",
+        "mcl_core:stonebrick",
+        "mcl_core:stonebrickcracked",
+        "mcl_core:vine",
+        "mcl_core:wood",
+        "mcl_crafting_table:crafting_table",
+        "mcl_decor:doorbell",
+        "mcl_doors:acacia_door_b_1",
+        "mcl_doors:acacia_door_t_1",
+        "mcl_doors:trapdoor",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_farming:soil",
+        "mcl_farming:sweet_berry_bush_3",
+        "mcl_fences:fence",
+        "mcl_flowers:dandelion",
+        "mcl_flowers:lilac",
+        "mcl_flowers:lilac_top",
+        "mcl_furnaces:furnace",
+        "mcl_jukebox:jukebox",
+        "mcl_lanterns:lantern_ceiling",
+        "mcl_nether:glowstone",
+        "mcl_stairs:slab_wood_top",
+        "mcl_stairs:stair_cobble",
+        "mcl_stairs:stair_wood",
+        "mcl_stairs:stair_wood_outer",
+        "mcl_torches:torch",
+        "mcl_torches:torch_wall",
+        "mcl_wool:white_carpet",
+        "mesecons_pressureplates:pressure_plate_wood_off",
+        "xpanes:pane_natural_flat"
+      ],
+      "rotation": 0,
+      "size": {
+        "x": 10,
+        "y": 11,
+        "z": 13
+      },
+      "source_max": {
+        "x": 179,
+        "y": 18,
+        "z": 262
+      },
+      "source_min": {
+        "x": 170,
+        "y": 8,
+        "z": 250
+      },
+      "source_size": {
+        "x": 10,
+        "y": 11,
+        "z": 13
+      },
+      "verified_nodes": 1430
+    },
+    {
+      "entrance": {
+        "x": 4,
+        "y": 1,
+        "z": 1
+      },
+      "id": "office_building",
+      "label": "Office building",
+      "required_nodes": [
+        "mcl_chests:chest_small",
+        "mcl_core:cobble",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:glass",
+        "mcl_core:ladder",
+        "mcl_core:stone",
+        "mcl_core:tree",
+        "mcl_core:wood",
+        "mcl_crafting_table:crafting_table",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_flowers:oxeye_daisy",
+        "mcl_flowers:tallgrass",
+        "mcl_stairs:slab_wood_top",
+        "mcl_stairs:stair_cobble",
+        "mcl_stairs:stair_cobble_outer",
+        "mcl_stairs:stair_stone_rough",
+        "mcl_stairs:stair_wood",
+        "mcl_torches:torch",
+        "mcl_torches:torch_wall"
+      ],
+      "rotation": 90,
+      "size": {
+        "x": 11,
+        "y": 18,
+        "z": 11
+      },
+      "source_max": {
+        "x": 215,
+        "y": 25,
+        "z": 261
+      },
+      "source_min": {
+        "x": 205,
+        "y": 8,
+        "z": 251
+      },
+      "source_size": {
+        "x": 11,
+        "y": 18,
+        "z": 11
+      },
+      "verified_nodes": 2178
+    },
+    {
+      "entrance": {
+        "x": 5,
+        "y": 1,
+        "z": 2
+      },
+      "id": "banker_house",
+      "label": "Banker house",
+      "required_nodes": [
+        "mcl_amethyst:calcite",
+        "mcl_beds:bed_purple_bottom",
+        "mcl_beds:bed_purple_top",
+        "mcl_chests:black_shulker_box_small",
+        "mcl_chests:chest_left",
+        "mcl_chests:chest_right",
+        "mcl_colorblocks:hardened_clay_silver",
+        "mcl_core:cobble",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:stonebrick",
+        "mcl_core:stripped_jungle_bark",
+        "mcl_core:stripped_spruce",
+        "mcl_doors:acacia_door_b_2",
+        "mcl_doors:acacia_door_t_2",
+        "mcl_doors:spruce_trapdoor",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_fences:acacia_fence",
+        "mcl_itemframes:frame",
+        "mcl_lanterns:lantern_floor",
+        "mcl_stairs:slab_goldblock_top",
+        "mcl_stairs:slab_lapisblock_top",
+        "mcl_stairs:slab_prismarine_top",
+        "mcl_stairs:slab_purpur_block_top",
+        "mcl_stairs:slab_sandstonesmooth2_top",
+        "mcl_stairs:slab_stonebrick_top",
+        "mcl_stairs:stair_stonebrick",
+        "mcl_torches:torch_wall",
+        "xpanes:bar_flat",
+        "xpanes:pane_light_blue_flat"
+      ],
+      "rotation": 270,
+      "size": {
+        "x": 11,
+        "y": 11,
+        "z": 12
+      },
+      "source_max": {
+        "x": 251,
+        "y": 18,
+        "z": 260
+      },
+      "source_min": {
+        "x": 240,
+        "y": 8,
+        "z": 250
+      },
+      "source_size": {
+        "x": 12,
+        "y": 11,
+        "z": 11
+      },
+      "verified_nodes": 1452
+    }
+  ],
+  "runtime_validation": {
+    "inventory_slots": 3240,
+    "mismatches": 0,
+    "nodes": 56248,
+    "placements": 40
+  }
+}

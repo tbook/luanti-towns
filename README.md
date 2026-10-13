@@ -13,6 +13,8 @@ and the [engineering design](docs/engineering_design.md) for implementation phas
 
 To add a building, see the [building workflow](docs/building_workflow.md),
 which covers capturing `.mts` schematics from a local world with WorldEdit.
+Edited workshop buildings can be [re-exported automatically](tools/workshop_export/README.md)
+with saved bounds, entrance choices, and inventory/decoration data.
 
 ## Town command
 

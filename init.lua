@@ -5,6 +5,7 @@ towns = {
 	modpath = modpath,
 	catalog = dofile(modpath .. "/src/catalog.lua"),
 	geometry = dofile(modpath .. "/src/geometry.lua"),
+	schematic = dofile(modpath .. "/src/schematic.lua"),
 }
 towns.placement = dofile(modpath .. "/src/placement.lua")(towns.geometry)
 -- Pure town planner (boundary + civic sites); no world access.

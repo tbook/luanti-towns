@@ -1,0 +1,860 @@
+{
+  "id": "corner_house_home_raw",
+  "stage": "raw capture, original orientation; not registered in catalog",
+  "capture_date": "2026-10-13",
+  "source_world": "Home",
+  "source_bounds": {
+    "min": {
+      "x": 225,
+      "y": 8,
+      "z": 217
+    },
+    "max": {
+      "x": 233,
+      "y": 17,
+      "z": 224
+    }
+  },
+  "size": {
+    "x": 9,
+    "y": 10,
+    "z": 8
+  },
+  "schematic_sha256": "6c499c786f7de754a9e5bb6edf55e969aa3169adaac6eaef2cf60862a3534003",
+  "validation": {
+    "id": "corner_house_home_raw",
+    "ignore_nodes": 0,
+    "name_param2_mismatches": 0,
+    "round_trip_nodes": 720
+  },
+  "notes": "Base Y=8 retains the groundwork. Top extended to Y=17 for roof ridge slabs; Z extended to 224 for the rear balcony and exterior stairs.",
+  "metadata": [
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 0,
+        "z": 0
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 1,
+        "z": 0
+      },
+      "name": "mcl_flowers:fern",
+      "meta": {
+        "fields": {
+          "seasons:flower_dormancy_epoch": "3587"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 1,
+        "z": 0
+      },
+      "name": "mcl_flowers:fern",
+      "meta": {
+        "fields": {
+          "seasons:flower_dormancy_epoch": "3587"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 1,
+        "z": 0
+      },
+      "name": "mcl_flowers:fern",
+      "meta": {
+        "fields": {
+          "seasons:flower_dormancy_epoch": "3587"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 0,
+        "z": 1
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 2,
+        "z": 1
+      },
+      "name": "mcl_doors:wooden_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 3,
+        "z": 1
+      },
+      "name": "mcl_doors:wooden_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 5,
+        "z": 1
+      },
+      "name": "mcl_doors:wooden_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 6,
+        "z": 1
+      },
+      "name": "mcl_doors:wooden_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 0,
+        "z": 2
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 2,
+        "z": 2
+      },
+      "name": "mcl_chests:chest_small",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 5,
+        "z": 2
+      },
+      "name": "mcl_chests:chest_small",
+      "meta": {
+        "fields": null,
+        "inventory": {
+          "input": [
+            ""
+          ],
+          "main": [
+            "mcl_mobitems:leather 5",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "mcl_mobitems:chicken 14",
+            "mcl_mobitems:feather 11",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "mcl_farming:wheat_seeds 17",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "mcl_mobitems:mutton"
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 5,
+        "z": 2
+      },
+      "name": "mcl_beds:bed_silver_bottom",
+      "meta": {
+        "fields": {
+          "villager": "688e25dd4e4e6668bcc4f26c9c2850c0",
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 1,
+        "z": 3
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 2,
+        "z": 3
+      },
+      "name": "mcl_doors:wooden_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 3,
+        "z": 3
+      },
+      "name": "mcl_doors:wooden_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 5,
+        "z": 3
+      },
+      "name": "mcl_beds:bed_silver_bottom",
+      "meta": {
+        "fields": {
+          "villager": "6f39d974389e829135fc5c690c61ae4e",
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 1,
+        "z": 4
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 5,
+        "z": 4
+      },
+      "name": "mcl_beds:bed_silver_bottom",
+      "meta": {
+        "fields": {
+          "villager": "353984bfd5c7d41a1cbe362f4fa6ca88",
+          "villages_last_birth": "1443"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 5
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 1,
+        "z": 5
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 5,
+        "z": 5
+      },
+      "name": "mcl_doors:wooden_door_b_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 6,
+        "z": 5
+      },
+      "name": "mcl_doors:wooden_door_t_1",
+      "meta": {
+        "fields": {
+          "is_open": "0"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 0,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 1,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 1,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 1,
+        "z": 6
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 1,
+        "z": 6
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 1,
+        "z": 6
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 2,
+        "z": 6
+      },
+      "name": "mcl_barrels:barrel_closed",
+      "meta": {
+        "fields": {
+          "villager": "353984bfd5c7d41a1cbe362f4fa6ca88"
+        },
+        "inventory": {
+          "main": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 2,
+        "z": 6
+      },
+      "name": "mcl_barrels:barrel_closed",
+      "meta": {
+        "fields": {
+          "villager": "8364c191c77c599099e0b12da7fcc970"
+        },
+        "inventory": {
+          "main": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "offset": {
+        "x": 0,
+        "y": 1,
+        "z": 7
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 1,
+        "y": 1,
+        "z": 7
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 2,
+        "y": 1,
+        "z": 7
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 3,
+        "y": 1,
+        "z": 7
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 4,
+        "y": 1,
+        "z": 7
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3318"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 5,
+        "y": 1,
+        "z": 7
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 6,
+        "y": 1,
+        "z": 7
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 7,
+        "y": 1,
+        "z": 7
+      },
+      "name": "mcl_core:grass_path",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    },
+    {
+      "offset": {
+        "x": 8,
+        "y": 1,
+        "z": 7
+      },
+      "name": "mcl_core:dirt_with_grass",
+      "meta": {
+        "fields": {
+          "seasons:leaf_epoch": "3590"
+        },
+        "inventory": null
+      }
+    }
+  ],
+  "node_counts": {
+    "mcl_core:dirt_with_grass": 23,
+    "mcl_core:grass_path": 14,
+    "mcl_stairs:stair_stone_rough": 4,
+    "mcl_flowers:fern": 3,
+    "mcl_colorblocks:hardened_clay_grey": 88,
+    "mcl_fences:fence": 8,
+    "mcl_stairs:slab_wood_top": 40,
+    "mcl_core:dirt": 58,
+    "mcl_core:stone_smooth": 12,
+    "mcl_colorblocks:hardened_clay_silver": 44,
+    "mcl_doors:wooden_door_b_1": 4,
+    "xpanes:pane_natural_flat": 13,
+    "mcl_doors:wooden_door_t_1": 4,
+    "mcl_stairs:slab_wood": 23,
+    "mcl_chests:chest_small": 2,
+    "mcl_core:wood": 2,
+    "mcl_lanterns:lantern_floor": 1,
+    "mcl_stairs:slab_tree_bark_top": 15,
+    "mcl_beds:bed_silver_bottom": 3,
+    "mcl_beds:bed_silver_top": 3,
+    "mcl_lanterns:lantern_ceiling": 1,
+    "mcl_stairs:stair_wood": 2,
+    "mcl_doors:spruce_trapdoor": 2,
+    "mesecons_pressureplates:pressure_plate_wood_off": 1,
+    "mcl_core:coarse_dirt": 1,
+    "mcl_stairs:stair_sandstonesmooth2": 3,
+    "mcl_core:sandstonesmooth2": 1,
+    "mcl_barrels:barrel_closed": 2
+  }
+}
