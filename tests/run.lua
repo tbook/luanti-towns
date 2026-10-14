@@ -472,6 +472,9 @@ loadfile("tests/city_hall_tests.lua")(eq, fails, dofile("src/planner.lua"), cata
 -- Jail reservation on street frontage (ticket #69).
 loadfile("tests/jail_reservation_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
+-- Service reservations: taverns, wells, chapels (ticket #41).
+loadfile("tests/service_reservation_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry)
+
 -- Streets, blocks and frontage (ticket #13).
 loadfile("tests/streets_tests.lua")(eq, fails, dofile("src/planner.lua"))
 

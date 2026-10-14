@@ -1,0 +1,153 @@
+-- Towns: reserve distributed taverns, wells and chapels (ticket #41).
+-- Pure Lua 5.1: no core.* calls. Runs on a finished plan after the
+-- landmarks, city hall and jail and before any ordinary building.
+--
+--   local svc = dofile(".../service_reservation.lua")(packer, occupied_rects)
+--   local placements, shortages, counts = svc.reserve(plan, services, opts)
+--
+--   plan      planner plan (blocks, frontage, sites, reservations)
+--   services  {tavern = entry, well = entry, chapel = entry}; entry is
+--             {id, size, entrance}. A missing role is simply not reserved.
+--             A well's box includes its apron.
+--   opts      {seed = integer (default plan.seed),
+--              targets = {tavern = n, well = n, chapel = n},
+--              chapel_min_cathedral = nodes, chapel_min_between = nodes,
+--              occupied = extra rects to avoid}
+--   occupied_rects(plan, extra) -> list of rects (sites, jail, earlier
+--             reservations); see jail_reservation.occupied_rects.
+--
+-- Roles are processed in the fixed order tavern, well, chapel; each box is
+-- added to the shared occupancy before the next is chosen, so nothing ever
+-- overlaps a landmark, the hall, the jail or another service. Candidates come
+-- from the frontage packer over every ordinary street frontage run (never a
+-- market or parvis face), in frontage order. The first pick of a role with no
+-- existing instance is a seeded draw over the candidates; later picks take
+-- the candidate whose entrance has the greatest minimum squared X/Z distance
+-- to the entrances already chosen for that role, the first in frontage order
+-- winning ties. Chapels additionally start from the cathedral entrance as an
+-- existing church and must be at least chapel_min_cathedral from it and
+-- chapel_min_between from every other chapel (hard filters).
+--
+-- Returns placements (list in role order), shortages (list of
+-- {role, wanted, placed, reason} for unmet targets), counts
+-- ({[role] = {wanted, placed}}).
+
+return function(packer, occupied_rects)
+
+local M = {}
+
+M.ROLES = {"tavern", "well", "chapel"}
+M.TARGETS = {tavern = 3, well = 3, chapel = 2}
+M.CHAPEL_MIN_FROM_CATHEDRAL = 40
+M.CHAPEL_MIN_BETWEEN = 70
+
+local MOD = 2147483647
+
+local function draw(seed, n)
+	local s = seed % MOD
+	for _ = 1, 8 do s = (s * 48271 + 1013904223) % MOD end
+	s = (s * 48271 + 1013904223) % MOD
+	return 1 + math.floor(s * n / MOD)
+end
+
+local function d2(a, b)
+	local dx, dz = a.x - b.x, a.z - b.z
+	return dx * dx + dz * dz
+end
+
+function M.reserve(plan, services, opts)
+	assert(type(plan) == "table" and type(plan.sites) == "table", "service: plan required")
+	assert(type(services) == "table", "service: services required")
+	opts = opts or {}
+	local seed = opts.seed or plan.seed
+	local targets = opts.targets or M.TARGETS
+	local min_cath = opts.chapel_min_cathedral or M.CHAPEL_MIN_FROM_CATHEDRAL
+	local min_between = opts.chapel_min_between or M.CHAPEL_MIN_BETWEEN
+
+	local occupied = occupied_rects(plan, opts.occupied)
+	local cathedral = plan.sites.cathedral and plan.sites.cathedral.entrance
+
+	local placements, shortages, counts = {}, {}, {}
+	for ri, role in ipairs(M.ROLES) do
+		local entry = services[role]
+		local wanted = targets[role] or 0
+		if entry and wanted > 0 then
+			local id = entry.id or role
+			local pe = {size = entry.size, entrance = entry.entrance}
+			local chosen = {} -- placements of this role
+			local reason
+			while #chosen < wanted do
+				local cands, runs = {}, 0
+				for _, run in ipairs(plan.frontage) do
+					if run.street ~= nil then
+						runs = runs + 1
+						local res = packer.pack{
+							run = {id = run.id, facing = run.facing, rect = run.rect},
+							block = plan.blocks[run.block], entries = {[id] = pe},
+							seed = seed, occupied = occupied,
+						}
+						for _, p in ipairs(res.placements) do cands[#cands + 1] = p end
+					end
+				end
+				if runs == 0 then reason = "no ordinary street frontage"; break end
+				if #cands == 0 then
+					reason = "no street frontage run has room for the " .. role
+						.. " box (" .. entry.size.x .. "x" .. entry.size.z .. ")"
+					break
+				end
+				if role == "chapel" then
+					local kept = {}
+					for _, p in ipairs(cands) do
+						local ok = cathedral == nil or d2(p.entrance, cathedral) >= min_cath * min_cath
+						for _, c in ipairs(chosen) do
+							if d2(p.entrance, c.entrance) < min_between * min_between then ok = false end
+						end
+						if ok then kept[#kept + 1] = p end
+					end
+					if #kept == 0 then
+						reason = "no fitting chapel is at least " .. min_cath
+							.. " nodes from the cathedral entrance and " .. min_between
+							.. " from another chapel"
+						break
+					end
+					cands = kept
+				end
+				local refs = {}
+				for _, c in ipairs(chosen) do refs[#refs + 1] = c.entrance end
+				if role == "chapel" and cathedral then refs[#refs + 1] = cathedral end
+				local pick
+				if #refs == 0 then
+					pick = cands[draw(seed + ri * 7919, #cands)]
+				else
+					local best
+					for _, p in ipairs(cands) do
+						local m
+						for _, r in ipairs(refs) do
+							local d = d2(p.entrance, r)
+							if m == nil or d < m then m = d end
+						end
+						if best == nil or m > best then best, pick = m, p end
+					end
+				end
+				local out = {
+					building_id = id, role = role, block = pick.block,
+					frontage = pick.frontage, rect = pick.rect,
+					rotation = pick.rotation, entrance = pick.entrance,
+				}
+				chosen[#chosen + 1] = out
+				placements[#placements + 1] = out
+				occupied[#occupied + 1] = out.rect
+			end
+			counts[role] = {wanted = wanted, placed = #chosen}
+			if #chosen < wanted then
+				shortages[#shortages + 1] = {role = role, wanted = wanted,
+					placed = #chosen, reason = reason}
+			end
+		end
+	end
+	return placements, shortages, counts
+end
+
+return M
+
+end
