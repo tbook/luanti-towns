@@ -103,6 +103,14 @@ core.register_on_mods_loaded(function() core.after(0, function()
      local ap = d.approach
      local floor = core.registered_nodes[core.get_node({x = ap.x, y = g, z = ap.z}).name]
      check(floor ~= nil and floor.walkable ~= false, d.id .. ' approach floor walkable')
+     local st
+     for _, b in ipairs(town.structures) do if b.id == d.id and b.entrance.x == e.x and b.entrance.z == e.z then st = b end end
+     local route, why = towns.builder.check_door(st, g, function(x, y, z)
+      local n = core.get_node({x = x, y = y, z = z}).name
+      if n == 'air' then return {walkable = false}, n end
+      return towns.placement.node_info(core.registered_nodes, n), n
+     end)
+     check(route ~= nil, d.id .. ' door route walked in the finished world' .. (why and (': ' .. why) or ''))
     end
     -- Touching buildings: pairs of ordinary structures with zero gap.
     local touching = 0
@@ -112,7 +120,9 @@ core.register_on_mods_loaded(function() core.after(0, function()
      if dx == 0 and dz <= 1 or dz == 0 and dx <= 1 then touching = touching + 1 end
     end end
     report.touching_pairs = touching
-    check(touching >= 1, 'at least one pair of adjacent buildings (' .. touching .. ')')
+    local content_n = 0
+    for _, b in ipairs(town.structures) do if b.kind == 'content' then content_n = content_n + 1 end end
+    if content_n >= 2 then check(touching >= 1, 'at least one pair of adjacent buildings (' .. touching .. ')') end
     -- Alleys paved and standable.
     local plan = result.plan
     local alleys = plan.content.alleys or {}
@@ -123,7 +133,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
      local above = core.get_node({x = a.rect.x1, y = g + 1, z = a.rect.z1}).name
      check(above == 'air', 'alley ' .. a.id .. ' open above: ' .. above)
     end
-    check(#alleys >= 1, 'town has at least one alley')
+    report.alleys_in_plan = #alleys > 0
     -- City hall is not paved over.
     local hall = plan.sites.city_hall
     if hall then

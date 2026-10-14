@@ -319,3 +319,62 @@ do
 	eq(r2, nil, "missing step is unreachable")
 	eq(type(why2), "string", "reason given")
 end
+
+------------------------------------------------------------------------
+-- Real schematics: door routes judged on the actual castle/cathedral nodes
+------------------------------------------------------------------------
+do
+	local read_mts = dofile("tests/mts_reader.lua")
+	local geometry = dofile("src/geometry.lua")
+	local schem = dofile("src/schematic.lua")
+	local function info_of(name)
+		if name == "air" then return {walkable = false, liquid = false} end
+		local nonwalk = name:find("torch", 1, true) or name:find("_open", 1, true)
+			or name:find("flower", 1, true) or name:find("lantern", 1, true)
+			or name:find("sign", 1, true) or name:find("banner", 1, true)
+			or name:find("rail", 1, true) or name:find("button", 1, true)
+			or name:find("plate", 1, true) or name:find("ladder", 1, true)
+		local i = placement.node_info({[name] = {walkable = not nonwalk}}, name)
+		return i
+	end
+	local function route(id, rotation, entrance_override)
+		local entry = entries[id]
+		local s = read_mts("schematics/" .. entry.path:gsub("^schematics/", ""))
+		local g = 40
+		local pos = {x = 100, y = g - (entry.ground_offset or 0), z = 100}
+		local e = entrance_override or entry.entrance
+		local b = geometry.place({size = entry.size, entrance = e}, pos, rotation)
+		local box = {rect = {x1 = b.min.x, z1 = b.min.z, x2 = b.max.x, z2 = b.max.z},
+			rotation = b.rotation, min = b.min, max = b.max, entrance = b.entrance}
+		-- Inverse of schematic.rotate_offset: world cell -> file cell.
+		local inv = {}
+		for z = 0, s.size.z - 1 do
+			for x = 0, s.size.x - 1 do
+				local o = schem.rotate_offset(s.size, {x = x, y = 0, z = z}, rotation)
+				inv[(pos.x + o.x) .. "," .. (pos.z + o.z)] = {x, z}
+			end
+		end
+		local function node(x, y, z)
+			local f = inv[x .. "," .. z]
+			local name
+			if f and y >= pos.y and y <= b.max.y then
+				name = s.at(f[1], y - pos.y, f[2])
+			elseif y <= g then
+				name = "mcl_core:stonebrick"
+			else
+				name = "air"
+			end
+			return info_of(name), name
+		end
+		return builder.check_door(box, g, node)
+	end
+	for _, rot in ipairs({0, 90, 180, 270}) do
+		local r, why = route("cathedral", rot)
+		eq(r ~= nil, true, "real cathedral door reachable at rotation " .. rot .. ": " .. tostring(why))
+		local c = route("castle", rot)
+		-- Known defect, pending the user's choice of the real gate cell: the
+		-- catalog entrance (30,8,6) is the air above a fence post inside a
+		-- two-thick wall and cannot be reached on foot.
+		eq(c, nil, "real castle catalog entrance is not walkable at rotation " .. rot)
+	end
+end

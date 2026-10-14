@@ -142,7 +142,7 @@ function M.format_report(summary, command)
 		if not site then return end
 		local e = site.entrance
 		add("%s: %s; %s at (%d,%d,%d) facing %s.", label, rect_str(site.rect), door,
-			e.x, g + 1, e.z, SIDE_NAME[site.side] or tostring(site.side))
+			e.x, site.entrance_y or (g + 1), e.z, SIDE_NAME[site.side] or tostring(site.side))
 	end
 	local function square(label, key)
 		local site = s.sites[key]

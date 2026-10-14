@@ -193,9 +193,20 @@ end
 local function solid(i)
 	return i ~= nil and i.walkable and not i.liquid and not i.door
 end
+-- Nodes that are walkable but 1.5 high (fences, walls, panes, bars): never
+-- a 1-node step and never ground to stand on; a closed route obstacle.
+local function tall(name)
+	if name:find("gate", 1, true) then return false end
+	return name:find("^mcl_fences:") ~= nil or name:find("^mcl_walls:") ~= nil
+		or name:find("_pane", 1, true) ~= nil or name:find("_bars", 1, true) ~= nil
+end
+-- Half-height walkable nodes on which the feet are half a node up. Double
+-- slabs and top slabs are full-height supports instead.
 local function partial(name)
-	return name:find("stair", 1, true) ~= nil or name:find("slab", 1, true) ~= nil
-		or name:find("carpet", 1, true) ~= nil
+	if name:find("slab", 1, true) then
+		return name:find("_double", 1, true) == nil and name:find("_top", 1, true) == nil
+	end
+	return name:find("stair", 1, true) ~= nil or name:find("carpet", 1, true) ~= nil
 end
 local FRONTS = {[0] = {0, -1}, [90] = {-1, 0}, [180] = {0, 1}, [270] = {1, 0}}
 function M.check_door(st, g, node)
@@ -222,12 +233,13 @@ function M.check_door(st, g, node)
 	-- cell (x, y, z), or nil when it is not a standing cell.
 	local function stand(x, y, z)
 		local c = at(x, y, z)
-		if partial(c.name) and solid(c.info) then
+		if partial(c.name) and solid(c.info) and not tall(c.name) then
 			if free(x, y + 1, z) and free(x, y + 2, z) then return 0.5 end
 			return nil
 		end
-		if passable(c.info) and free(x, y + 1, z) and solid(at(x, y - 1, z).info)
-				and not partial(at(x, y - 1, z).name) then
+		local below = at(x, y - 1, z)
+		if passable(c.info) and free(x, y + 1, z) and solid(below.info)
+				and not partial(below.name) and not tall(below.name) then
 			return 0
 		end
 		return nil
@@ -561,6 +573,10 @@ local function build_impl(result, opts, env, st)
 			bounds = town_info.bounds,
 		}
 		summary.write_bounds = town_info.bounds
+		-- The real door height (recessed landmark doors sit above ground).
+		for _, b in ipairs(town_info.structures) do
+			if summary.sites[b.kind] then summary.sites[b.kind].entrance_y = b.entrance.y end
+		end
 	end
 	log("action", ("towns builder: done seed=%s center=(%d,%d) ground_y=%d bounds=%s streets=%d blocks=%d frontage=%d nodes=%d")
 		:format(tostring(plan.seed), plan.center.x, plan.center.z, g, fmt_bounds(bb),
