@@ -169,15 +169,24 @@ core.register_on_mods_loaded(function() core.after(0, function()
      ['mcl_blast_furnace:blast_furnace'] = true, ['mcl_brewing:stand_000'] = true,
      ['mcl_dispensers:dispenser'] = true, ['mcl_grindstone:grindstone'] = true}
     local counts, bad, snapshots = {}, 0, {}
+    -- Canonical text form: core.serialize numbers shared references in
+    -- pairs() order, which differs between identical tables.
     local function signature(meta)
      local t = meta:to_table()
-     local inv = {}
-     for list, items in pairs(t.inventory) do
+     local parts = {}
+     local keys = {}
+     for k in pairs(t.fields) do keys[#keys + 1] = k end
+     table.sort(keys)
+     for _, k in ipairs(keys) do parts[#parts + 1] = 'f:' .. k .. '=' .. tostring(t.fields[k]) end
+     local lists = {}
+     for l in pairs(t.inventory) do lists[#lists + 1] = l end
+     table.sort(lists)
+     for _, l in ipairs(lists) do
       local strs = {}
-      for i, st in ipairs(items) do strs[i] = st:to_string() end
-      inv[list] = strs
+      for i, st in ipairs(t.inventory[l]) do strs[i] = st:to_string() end
+      parts[#parts + 1] = 'l:' .. l .. '=[' .. table.concat(strs, '|') .. ']'
      end
-     return core.serialize({fields = t.fields, inventory = inv})
+     return table.concat(parts, '\n')
     end
     local names = {}
     for n in pairs(EXPECT) do names[#names + 1] = n end
