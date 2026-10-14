@@ -15,8 +15,9 @@
 --
 -- Method
 -- ------
--- 1. Principal streets are 6 wide. A route is a shortest path (Dijkstra with
---    a turn penalty and seeded per-window noise as tie-breaker) of 6x6
+-- 1. Principal streets are STREET_WIDTH (5) wide. A route is a shortest path
+--    (Dijkstra with a turn penalty and seeded per-window noise as
+--    tie-breaker) of STREET_WIDTH-square
 --    windows that lie wholly inside the boundary and clear of the cathedral
 --    and castle footprints; the union of the windows is a rectilinear
 --    corridor of full street width. Straight runs become street rectangles.
@@ -506,7 +507,15 @@ function M.fill(plan, rng, C)
 			added = added + 1
 			dist = nil
 		else
-			skip[idx(c[1], c[2])] = true
+			-- A cell with no strip means its neighbours have none either
+			-- (same free lines, no road at their ends): skip a square so
+			-- the bounded tries are not spent one cell at a time.
+			local k = C.SECONDARY_FAIL_SKIP or 0
+			for zz = math.max(0, c[2] - k), math.min(n - 1, c[2] + k) do
+				for xx = math.max(0, c[1] - k), math.min(n - 1, c[1] + k) do
+					skip[idx(xx, zz)] = true
+				end
+			end
 		end
 	end
 

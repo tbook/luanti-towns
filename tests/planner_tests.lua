@@ -118,7 +118,7 @@ local function set_size(t) local n = 0 for _ in pairs(t) do n = n + 1 end return
 
 
 -- Independent route check (does not use planner internals): chains of free
--- 6x6 windows, cathedral and castle footprints as obstacles, squares open.
+-- STREET_WIDTH-square windows, cathedral and castle footprints as obstacles, squares open.
 -- Returns a table of reached window top-left keys, given a start window.
 local function route_reach(plan, set, start)
 	local function blocked(x, z)
@@ -134,8 +134,8 @@ local function route_reach(plan, set, start)
 		local v = memo[k]
 		if v == nil then
 			v = true
-			for zz = z, z + 5 do
-				for xx = x, x + 5 do
+			for zz = z, z + planner.CONSTANTS.STREET_WIDTH - 1 do
+				for xx = x, x + planner.CONSTANTS.STREET_WIDTH - 1 do
 					if not set[key(xx, zz)] or blocked(xx, zz) then v = false end
 				end
 			end
@@ -163,8 +163,9 @@ local function route_reach(plan, set, start)
 end
 
 local function covered(seen, pos)
-	for z = pos.z - 5, pos.z do
-		for x = pos.x - 5, pos.x do
+	local sw = planner.CONSTANTS.STREET_WIDTH
+	for z = pos.z - sw + 1, pos.z do
+		for x = pos.x - sw + 1, pos.x do
 			if seen[key(x, z)] then return true end
 		end
 	end
@@ -174,11 +175,11 @@ end
 local function check_routes(plan, set, label)
 	local a1, a2 = plan.approaches[1], plan.approaches[2]
 	local function window(a)
-		local e = a.edge
-		if a.side == "-z" then return {x1 = e.x1, z1 = e.z1, x2 = e.x2, z2 = e.z1 + 5} end
-		if a.side == "+z" then return {x1 = e.x1, z1 = e.z2 - 5, x2 = e.x2, z2 = e.z2} end
-		if a.side == "-x" then return {x1 = e.x1, z1 = e.z1, x2 = e.x1 + 5, z2 = e.z2} end
-		return {x1 = e.x2 - 5, z1 = e.z1, x2 = e.x2, z2 = e.z2}
+		local e, k = a.edge, planner.CONSTANTS.STREET_WIDTH - 1
+		if a.side == "-z" then return {x1 = e.x1, z1 = e.z1, x2 = e.x2, z2 = e.z1 + k} end
+		if a.side == "+z" then return {x1 = e.x1, z1 = e.z2 - k, x2 = e.x2, z2 = e.z2} end
+		if a.side == "-x" then return {x1 = e.x1, z1 = e.z1, x2 = e.x1 + k, z2 = e.z2} end
+		return {x1 = e.x2 - k, z1 = e.z1, x2 = e.x2, z2 = e.z2}
 	end
 	local w1, w2 = window(a1), window(a2)
 	eq(w1.x2 < w2.x1 or w2.x2 < w1.x1 or w1.z2 < w2.z1 or w2.z2 < w1.z1, true,
@@ -278,7 +279,7 @@ for ci, c in ipairs(centers) do
 					if names[i] == "cathedral" and names[j] == "parvis" then
 						eq(g, 0, label .. " cathedral/parvis touch")
 					else
-						eq(g >= 6, true, label .. " " .. names[i] .. "/" .. names[j] .. " gap")
+						eq(g >= planner.CONSTANTS.STREET_WIDTH, true, label .. " " .. names[i] .. "/" .. names[j] .. " gap")
 					end
 				end
 			end
@@ -341,7 +342,7 @@ for ci, c in ipairs(centers) do
 			for _, a in ipairs(plan.approaches) do
 				eq(rect_inside(set, a.edge), true, label .. " approach on boundary")
 				local ex, ez = a.edge.x2 - a.edge.x1 + 1, a.edge.z2 - a.edge.z1 + 1
-				eq(math.max(ex, ez), 6, label .. " approach width")
+				eq(math.max(ex, ez), planner.CONSTANTS.STREET_WIDTH, label .. " approach width")
 				eq(math.min(ex, ez), 1, label .. " approach depth")
 				for _, name in ipairs(names) do
 					eq(rgap(a.edge, plan.sites[name].rect) >= 0, true,
@@ -548,8 +549,8 @@ do
 					{outer_side = "-z", edge_gap = 0}),
 			},
 			approaches = {
-				{name = "approach_1", side = "-x", edge = R(20, 44, 20, 49), pos = {x = 20, z = 46}},
-				{name = "approach_2", side = "+x", edge = R(79, 44, 79, 49), pos = {x = 79, z = 46}},
+				{name = "approach_1", side = "-x", edge = R(20, 44, 20, 43 + planner.CONSTANTS.STREET_WIDTH), pos = {x = 20, z = 46}},
+				{name = "approach_2", side = "+x", edge = R(79, 44, 79, 43 + planner.CONSTANTS.STREET_WIDTH), pos = {x = 79, z = 46}},
 			},
 			streets = {}, blocks = {}, frontage = {},
 		}

@@ -20,9 +20,10 @@
 --                  ticket #38). Cathedral and castle reservations are then
 --                  the complete rotated schematic boxes with their real,
 --                  possibly off-centre and recessed doors, and the envelope
---                  defaults to planner.LANDMARK_ENVELOPE (192) with
+--                  defaults to planner.LANDMARK_ENVELOPE (208) with
 --                  MIN_LONG_SPAN, MIN_SHORT_SPAN, CENTER_JITTER, MAX_SECONDARY
---                  and MAX_BLOCK_SCAN scaled with it (planner.resolve_constants).
+--                  and MAX_BLOCK_SCAN scaled with it, and the LANDMARK_TUNING
+--                  block constants applied (planner.resolve_constants).
 --                  Without it the Phase 2 nominal footprints and the 96-node
 --                  envelope are used. A profile that cannot fit the envelope
 --                  returns nil, reason, {code = "unsupported_fit"} at once.
@@ -123,7 +124,7 @@
 -- market and parvis squares are open to routing from any side that is not the
 -- cathedral; their approach is a preferred attachment point only.
 --
--- Boundary approaches: `edge` is a 6-wide, 1-deep rect of boundary nodes on
+-- Boundary approaches: `edge` is a STREET_WIDTH (5) wide, 1-deep rect of boundary nodes on
 -- an outer edge, `pos` a node of it (x1 + 2 or z1 + 2: NOT centred, two
 -- nodes lie on one side and three on the other), `side` the outward
 -- direction. The two approaches are on different sides and their 6x6
@@ -138,7 +139,7 @@
 -- street = {
 --   id       = integer (index in plan.streets; principal streets come first),
 --   kind     = "principal" | "secondary",
---   width    = 6 | 4,                     -- equals the rect's short side
+--   width    = 5 | 4,                     -- equals the rect's short side
 --   rect     = rect,                      -- full-width straight run
 --   axis     = "x" | "z",                 -- long axis ("x" for a 6x6 corner)
 --   material = "mcl_core:stonebrick" (principal) | "mcl_core:cobble",
@@ -195,7 +196,7 @@
 -- landmark overlap; no dead-end principal streets (each end joins a street,
 -- square, landmark, or the town entrance / a door node); both approaches
 -- connected by pavement (and by principal streets alone) to the market and
--- parvis; fully paved 6-wide windows reachable from both approaches that
+-- parvis; fully paved STREET_WIDTH-wide windows reachable from both approaches that
 -- cover the castle and cathedral approach.pos (so the castle route reaches
 -- the door, not merely the approach edge); blocks off the pavement, at least
 -- MIN_BLOCK_SIDE with frontage; frontage runs on their block's edge facing
@@ -234,7 +235,7 @@ M.CONSTANTS = {
 	MAX_FILL = 0.90,
 	RECT_COUNT_MIN = 3,       -- target broad overlapping rectangles per boundary
 	RECT_COUNT_MAX = 5,       --   (extras are skipped if they would not overlap)
-	STREET_WIDTH = 6,         -- principal street width / route clearance
+	STREET_WIDTH = 5,         -- principal street width / route clearance (#88)
 	CATHEDRAL_LONG = 32,      -- footprint, long axis (entrance on short end)
 	CATHEDRAL_SHORT = 20,
 	PARVIS_DEPTH = 12,        -- perpendicular to the entrance side
@@ -251,6 +252,7 @@ M.CONSTANTS = {
 	MAX_BLOCK_DEPTH = 12,     -- free cells farther than this from any road
 	                          --  trigger a secondary street
 	MIN_SECONDARY_LEN = 12,
+	SECONDARY_FAIL_SKIP = 0,  -- cells round a failed candidate also skipped
 	MAX_SECONDARY = 8,
 	MIN_BLOCK_SIDE = 8,
 	MAX_BLOCK_SCAN = 64,
@@ -262,7 +264,7 @@ M.CONSTANTS = {
 	SECONDARY_MATERIAL = "mcl_core:cobble",
 	SQUARE_MATERIAL = "mcl_core:stonebrick",
 	-- City hall reservation (profile planning only, ticket #39)
-	CITY_HALL_MARGIN = 6,     -- free market pavement kept round the hall box
+	CITY_HALL_MARGIN = 5,     -- free market pavement kept round the hall box
 	                          --  (principal street width); the market grows
 	                          --  to hall box + 2 * margin when smaller
 	-- Jail reservation (profile planning only, ticket #69)
@@ -283,10 +285,29 @@ M.CONSTANTS = {
 -- catalog-derived profile instead (see M.landmark_profile): the cathedral and
 -- castle reservations are then the complete rotated schematic boxes, doors
 -- sit at their real (possibly off-centre, recessed) offsets, and the envelope
--- grows to LANDMARK_ENVELOPE with the dimensions that depend on it. The 192
+-- grows to LANDMARK_ENVELOPE with the dimensions that depend on it. The 208
 -- is an engineering trial value, not a product size: tune it here only.
 M.LEGACY_ENVELOPE = 96
-M.LANDMARK_ENVELOPE = 192
+M.LANDMARK_ENVELOPE = 208
+
+-- Block tuning for profile plans (tickets #86, #89): fewer, wider-spaced
+-- streets and no sliver rows. Applied with the envelope-derived set when
+-- opts.landmarks is given (explicit opts.constants still win); the legacy
+-- 96-node constants are untouched. The validator only needs lower bounds, so
+-- it accepts these plans with the defaults.
+M.LANDMARK_TUNING = {
+	MAX_BLOCK_DEPTH = 24,     -- farthest free cell from a road before a
+	                          --  secondary street is added (default 12)
+	SECONDARY_FAIL_SKIP = 5,  -- after a candidate cell yields no street, skip
+	                          --  the (2k+1)-square round it (default 0: just
+	                          --  the cell) so far, hopeless cells do not
+	                          --  exhaust the bounded tries
+	MIN_BLOCK_SIDE = 12,      -- no block thinner than this: a thinner strip
+	                          --  between a road and the boundary (or a
+	                          --  landmark) fits only the smallest house and
+	                          --  is left open instead (default 8). The walls
+	                          --  ticket (#95) may claim such a gap.
+}
 
 -- Dimensions that scale with the envelope. Reference values are the Phase 2
 -- constants at LEGACY_ENVELOPE; explicit opts.constants still override them.
@@ -313,6 +334,7 @@ function M.resolve_constants(opts)
 	if opts.landmarks ~= nil then
 		local env = (type(explicit) == "table" and explicit.ENVELOPE) or M.LANDMARK_ENVELOPE
 		for k, v in pairs(envelope_derived(env)) do C[k] = v end
+		for k, v in pairs(M.LANDMARK_TUNING) do C[k] = v end
 	end
 	if type(explicit) == "table" then
 		for k, v in pairs(explicit) do C[k] = v end

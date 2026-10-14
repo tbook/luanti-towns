@@ -149,11 +149,19 @@ do
 		eq(plan.sites.castle.door.rise, 3, "synthetic castle rise")
 		eq(plan.sites.castle.door.recess ~= nil, true, "synthetic castle recess")
 	end
-	local C192 = planner.resolve_constants({landmarks = small})
-	eq(C192.ENVELOPE, planner.LANDMARK_ENVELOPE, "profile envelope default")
-	eq(C192.MIN_LONG_SPAN, 160, "derived long span at 192")
-	eq(C192.MIN_SHORT_SPAN, 120, "derived short span at 192")
-	eq(C192.CENTER_JITTER, 16, "derived jitter at 192")
+	local CL = planner.resolve_constants({landmarks = small})
+	eq(CL.ENVELOPE, planner.LANDMARK_ENVELOPE, "profile envelope default")
+	eq(planner.LANDMARK_ENVELOPE, 208, "landmark envelope (#89)")
+	eq(CL.MIN_LONG_SPAN, 173, "derived long span at 208")
+	eq(CL.MIN_SHORT_SPAN, 130, "derived short span at 208")
+	eq(CL.CENTER_JITTER, 17, "derived jitter at 208")
+	-- Block tuning (#86, #89) applies to profile plans only.
+	eq(CL.MAX_BLOCK_DEPTH, 24, "profile max block depth")
+	eq(CL.MIN_BLOCK_SIDE, 12, "profile min block side")
+	eq(planner.resolve_constants().MAX_BLOCK_DEPTH, 12, "legacy max block depth")
+	eq(planner.resolve_constants().MIN_BLOCK_SIDE, 8, "legacy min block side")
+	eq(planner.CONSTANTS.STREET_WIDTH, 5, "principal street width (#88)")
+	eq(planner.CONSTANTS.CITY_HALL_MARGIN, 5, "hall margin follows the street width")
 	eq(planner.resolve_constants().ENVELOPE, 96, "legacy envelope default")
 end
 
