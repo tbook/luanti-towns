@@ -487,5 +487,8 @@ loadfile("tests/generate_tests.lua")(eq, fails, dofile("src/planner.lua"),
 -- Castle verification (ticket #30): dimensions, header parsing, placement at all rotations.
 loadfile("tests/castle_verification_tests.lua")(eq, fails, geometry)
 
+-- Stock village tavern and well templates (tickets #35, #36).
+loadfile("tests/stock_templates_tests.lua")(eq, catalog)
+
 print(("%d checks, %d failures"):format(count, failures))
 os.exit(failures == 0 and 0 or 1)

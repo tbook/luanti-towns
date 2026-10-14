@@ -74,6 +74,11 @@ def main():
         record.setdefault('snapshot_sha256', previous.get('snapshot_sha256'))
     manifest = {'world': str(source), 'snapshot_sha256': snapshot_sha,
                 'last_export_buildings': [r['id'] for r in results], 'buildings': []}
+    if args.only and previous.get('world'):
+        # A selective export (possibly from a scratch world) must not rewrite
+        # the top-level provenance; each building record keeps its own hash.
+        manifest['world'] = previous['world']
+        manifest['snapshot_sha256'] = previous['snapshot_sha256']
     for result in results:
         name = result['id']
         shutil.copy2(work / 'export' / (name + '.mts'), output / (name + '.mts'))

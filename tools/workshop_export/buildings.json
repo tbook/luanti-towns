@@ -420,6 +420,73 @@
         "z": 131
       },
       "role": "cathedral"
+    },
+    {
+      "id": "tavern",
+      "label": "Stock village tavern",
+      "scan_min": {
+        "x": 96,
+        "y": 8,
+        "z": 96
+      },
+      "scan_max": {
+        "x": 116,
+        "y": 24,
+        "z": 114
+      },
+      "floor_y": 8,
+      "capture_min": {
+        "x": 100,
+        "y": 8,
+        "z": 100
+      },
+      "capture_max": {
+        "x": 111,
+        "y": 19,
+        "z": 109
+      },
+      "ground_y": 8,
+      "rotation": 270,
+      "entrance": {
+        "x": 103,
+        "y": 9,
+        "z": 105
+      },
+      "role": "tavern"
+    },
+    {
+      "id": "well",
+      "label": "Stock village well",
+      "scan_min": {
+        "x": 136,
+        "y": 7,
+        "z": 96
+      },
+      "scan_max": {
+        "x": 150,
+        "y": 20,
+        "z": 112
+      },
+      "floor_y": 7,
+      "capture_min": {
+        "x": 140,
+        "y": 7,
+        "z": 100
+      },
+      "capture_max": {
+        "x": 145,
+        "y": 13,
+        "z": 107
+      },
+      "ground_y": 7,
+      "rotation": 0,
+      "entrance": {
+        "x": 142,
+        "y": 8,
+        "z": 100
+      },
+      "entrance_kind": "opening",
+      "role": "well"
     }
   ]
 }

@@ -2,19 +2,8 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "tower",
-    "leather_worker",
-    "corner_house",
-    "jail",
-    "townhouses",
-    "weaver_house",
-    "scribe",
-    "gaboo_house",
-    "office_building",
-    "banker_house",
-    "butcher_shop",
-    "mason_yard",
-    "chapel"
+    "tavern",
+    "well"
   ],
   "buildings": [
     {
@@ -1242,12 +1231,127 @@
       },
       "verified_nodes": 113575,
       "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+    },
+    {
+      "entrance": {
+        "x": 4,
+        "y": 1,
+        "z": 3
+      },
+      "entrance_kind": "door",
+      "ground_offset": 0,
+      "id": "tavern",
+      "label": "Stock village tavern",
+      "required_nodes": [
+        "mcl_barrels:barrel_closed",
+        "mcl_chests:chest_small",
+        "mcl_core:cobble",
+        "mcl_core:glass",
+        "mcl_core:stonebrick",
+        "mcl_core:stonebrickcarved",
+        "mcl_core:tree",
+        "mcl_core:wood",
+        "mcl_decor:chair_wooden",
+        "mcl_decor:table_wooden",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_fences:fence",
+        "mcl_fences:fence_gate",
+        "mcl_itemframes:frame",
+        "mcl_itemframes:plate",
+        "mcl_jukebox:jukebox",
+        "mcl_stairs:slab_wood_top",
+        "mcl_stairs:stair_cobble",
+        "mcl_stairs:stair_cobble_outer",
+        "mcl_stairs:stair_wood",
+        "mcl_stairs:stair_wood_outer",
+        "mcl_torches:torch",
+        "mcl_walls:cobble_12",
+        "mcl_walls:cobble_6",
+        "mcl_walls:stonebrick_1",
+        "mesecons_pressureplates:pressure_plate_wood_off",
+        "xpanes:pane_natural_flat"
+      ],
+      "role": "tavern",
+      "rotation": 270,
+      "size": {
+        "x": 10,
+        "y": 12,
+        "z": 12
+      },
+      "source_max": {
+        "x": 111,
+        "y": 19,
+        "z": 109
+      },
+      "source_min": {
+        "x": 100,
+        "y": 8,
+        "z": 100
+      },
+      "source_size": {
+        "x": 12,
+        "y": 12,
+        "z": 10
+      },
+      "verified_nodes": 1440,
+      "snapshot_sha256": "c60054391558bb84f218840992fab79cf2795dd2670f52d24142f524c9640d12"
+    },
+    {
+      "entrance": {
+        "x": 2,
+        "y": 1,
+        "z": 0
+      },
+      "entrance_kind": "opening",
+      "ground_offset": 0,
+      "id": "well",
+      "label": "Stock village well",
+      "required_nodes": [
+        "mcl_core:cobble",
+        "mcl_core:dirt",
+        "mcl_core:stonebrick",
+        "mcl_core:water_source",
+        "mcl_stairs:slab_wood",
+        "mcl_stairs:slab_wood_top",
+        "mcl_stairs:stair_stonebrick",
+        "mcl_stairs:stair_stonebrickcracked",
+        "mcl_walls:stonebrick_0",
+        "mcl_walls:stonebrick_12",
+        "mcl_walls:stonebrick_3",
+        "mcl_walls:stonebrick_6",
+        "mcl_walls:stonebrick_9"
+      ],
+      "role": "well",
+      "rotation": 0,
+      "size": {
+        "x": 6,
+        "y": 7,
+        "z": 8
+      },
+      "source_max": {
+        "x": 145,
+        "y": 13,
+        "z": 107
+      },
+      "source_min": {
+        "x": 140,
+        "y": 7,
+        "z": 100
+      },
+      "source_size": {
+        "x": 6,
+        "y": 7,
+        "z": 8
+      },
+      "verified_nodes": 336,
+      "snapshot_sha256": "c60054391558bb84f218840992fab79cf2795dd2670f52d24142f524c9640d12"
     }
   ],
   "runtime_validation": {
-    "inventory_slots": 3820,
+    "inventory_slots": 4080,
     "mismatches": 0,
-    "nodes": 945500,
-    "placements": 64
+    "nodes": 952604,
+    "placements": 72
   }
 }
