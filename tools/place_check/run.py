@@ -22,7 +22,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--engine', default='/Applications/luanti.app/Contents/MacOS/luanti')
     ap.add_argument('--port', type=int, default=39489)
-    ap.add_argument('--seed', type=int, default=6)
+    ap.add_argument('--seed', type=int, default=5)
     ap.add_argument('--settings-from', type=Path, default=DEFAULT_SOURCE,
                     help='world whose world.mt / map_meta.txt (game, mods, flat mapgen) are copied; its map is NOT used')
     ap.add_argument('--timeout', type=int, default=900)

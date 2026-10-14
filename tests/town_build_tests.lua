@@ -13,7 +13,7 @@ local GROUND_Y = 40
 
 local entries = catalog.entries
 local profile = assert(planner.landmark_profile(catalog.snapshot()))
-local plan = assert(planner.plan({x = 0, z = 0}, 6, {landmarks = profile}))
+local plan = assert(planner.plan({x = 0, z = 0}, 5, {landmarks = profile}))
 eq(#plan.content.alleys >= 1, true, "fixture plan has an alley")
 eq(#plan.content.buildings >= 2, true, "fixture plan has buildings")
 eq(plan.sites.city_hall ~= nil, true, "fixture plan has a city hall")
@@ -371,10 +371,9 @@ do
 	for _, rot in ipairs({0, 90, 180, 270}) do
 		local r, why = route("cathedral", rot)
 		eq(r ~= nil, true, "real cathedral door reachable at rotation " .. rot .. ": " .. tostring(why))
-		local c = route("castle", rot)
-		-- Known defect, pending the user's choice of the real gate cell: the
-		-- catalog entrance (30,8,6) is the air above a fence post inside a
-		-- two-thick wall and cannot be reached on foot.
-		eq(c, nil, "real castle catalog entrance is not walkable at rotation " .. rot)
+		-- The castle gate (the user's gate at source (295,9,124), canonical
+		-- (24,6,3)) is a 6-wide, 5-high opening with half-step stairs.
+		local c, cwhy = route("castle", rot)
+		eq(c ~= nil, true, "real castle gate reachable at rotation " .. rot .. ": " .. tostring(cwhy))
 	end
 end

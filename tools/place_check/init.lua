@@ -3,7 +3,7 @@
 -- flat scratch world, builds a town with real schematics through the
 -- production code (towns.place_town) and re-reads the world to verify the
 -- result independently of the builder's own checks.
-local seed = tonumber(core.settings:get('towns_place_check_seed')) or 6
+local seed = tonumber(core.settings:get('towns_place_check_seed')) or 5
 local report = {seed = seed, checks = {}, failures = {}}
 local function check(ok, label)
  report.checks[#report.checks + 1] = {ok = ok and true or false, label = label}

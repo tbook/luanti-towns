@@ -36,10 +36,10 @@ eq(profile.cathedral.size.x, 55, "cathedral size x")
 eq(profile.cathedral.size.z, 59, "cathedral size z")
 eq(profile.cathedral.entrance.x, 35, "cathedral entrance x")
 eq(profile.cathedral.entrance.z, 8, "cathedral entrance z")
-eq(profile.castle.size.x, 54, "castle size x")
-eq(profile.castle.size.z, 50, "castle size z")
-eq(profile.castle.entrance.x, 30, "castle entrance x")
-eq(profile.castle.entrance.z, 6, "castle entrance z")
+eq(profile.castle.size.x, 50, "castle size x")
+eq(profile.castle.size.z, 54, "castle size z")
+eq(profile.castle.entrance.x, 24, "castle entrance x")
+eq(profile.castle.entrance.z, 3, "castle entrance z")
 eq(profile.castle.ground_offset, 5, "castle ground offset")
 
 do
@@ -89,8 +89,8 @@ local function check_plan(plan, prof, label)
 		eq(in_rect(site.rect, site.door.outside.x, site.door.outside.z), true,
 			tag .. " outside-door cell inside box")
 	end
-	eq(plan.sites.castle.door.recess, 6, label .. " castle recess")
-	eq(plan.sites.castle.door.rise, 3, label .. " castle rise")
+	eq(plan.sites.castle.door.recess, 3, label .. " castle recess")
+	eq(plan.sites.castle.door.rise, 1, label .. " castle rise")
 	eq(plan.sites.cathedral.door.recess, 8, label .. " cathedral recess")
 	eq(plan.sites.cathedral.door.rise, 4, label .. " cathedral rise")
 	-- The parvis is adjacent on the entrance side and spans the whole front,

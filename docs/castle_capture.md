@@ -135,3 +135,17 @@ active catalog:
 - `schematics/castle_creative_with_finials.mts` — Finials-inclusive 54×40×50 version
 - `schematics/castle_workshop_edited.mts` — Edited workshop version (54×40×50) with user changes
 - `schematics/castle.mts` — Legacy core-only converted version (54×40×50)
+
+## Gate re-selected by walking the placed castle (ticket #45)
+
+The earlier entrance (source (268,11,143), canonical (30,8,6)) is the air above
+a fence post inside a two-thick wall and cannot be walked to. The user named the
+real gate in TownsWorkshop: its middle is at source (295, 8.5, 124), a 6-wide
+(z 122..127), 6-high opening in the east wall (x=298) over a stone floor at
+y=8, with two stair nodes at (288..289, 9) leading up to the terrace floor at
+y=9. The castle is therefore exported with `rotation` 90 (source +X becomes the
+canonical -Z front) and entrance source (295, 9, 124): canonical (24, 6, 3) in a
+50 x 39 x 54 template, three nodes recessed and flush with ground (rise 1,
+`ground_offset` 5). Planner profile, tests and the interior-access pins were
+updated; the castle route is verified on the real nodes in
+`tests/town_build_tests.lua` and in `tools/place_check/run.py`.

@@ -222,17 +222,17 @@ end
 for _, id in ipairs(catalog.ids()) do
 	local e = catalog.get(id)
 	if e.data_path then
-		eq(e.entrance.y, (id == "castle" and 8) or (id == "cathedral" and 5) or 1, id .. " exported entrance height")
+		eq(e.entrance.y, (id == "castle" and 6) or (id == "cathedral" and 5) or 1, id .. " exported entrance height")
 		for _, r in ipairs(geometry.ROTATIONS) do
 			local p = placement.plan(e, {x = 0, y = 8, z = 0}, r)
-			eq(p.building.entrance.y, (id == "castle" and 11) or (id == "cathedral" and 12) or 9, id .. " rotated entrance Y " .. r)
+			eq(p.building.entrance.y, (id == "castle" and 9) or (id == "cathedral" and 12) or 9, id .. " rotated entrance Y " .. r)
 		end
 	end
 end
 for _, r in ipairs(geometry.ROTATIONS) do
 	local p = placement.plan(castle, {x = 0, y = 8, z = 0}, r)
 	eq(p.pos.y, 3, "castle foundation Y " .. r)
-	eq(p.building.entrance.y, 11, "castle rotated gate Y " .. r)
+	eq(p.building.entrance.y, 9, "castle rotated gate Y " .. r)
 end
 
 -- Cathedral verification (ticket #31): file header, entrance at all rotations, required nodes.
@@ -313,8 +313,8 @@ local ground = {x = 100, y = 20, z = 50}
 local castle_plan = placement.plan(castle, {x = 100, y = 8, z = 100}, 0)
 xyz(castle_plan.pos, 108, 3, 100, "castle origin below ground")
 xyz(castle_plan.bounds.min, 108, 3, 95, "castle full foundation emerged")
-xyz(castle_plan.bounds.max, 161, 41, 149, "castle full height")
-xyz(castle_plan.building.entrance, 138, 11, 106, "castle gate height and offset")
+xyz(castle_plan.bounds.max, 157, 41, 153, "castle full height")
+xyz(castle_plan.building.entrance, 132, 9, 103, "castle gate height and offset")
 xz(castle_plan.building.front, 0, -1, "castle gate faces -Z")
 local function check_plan(rot_, maxx, maxz, entx, entz, smin, smax, bmin, bmax)
 	local p = placement.plan(demo, ground, rot_)

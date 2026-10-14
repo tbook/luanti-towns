@@ -124,7 +124,7 @@ local ground = {x = 100, y = 20, z = 50}
 for _, rot in ipairs(geometry.ROTATIONS) do
 	eq(placement.plan(catalog.get("demo_house"), ground, rot).building.entrance.y, 21,
 		"demo_house entrance Y at " .. rot)
-	eq(placement.plan(catalog.get("castle"), {x = 0, y = 8, z = 0}, rot).building.entrance.y, 11,
+	eq(placement.plan(catalog.get("castle"), {x = 0, y = 8, z = 0}, rot).building.entrance.y, 9,
 		"castle entrance Y (ground offset) at " .. rot)
 end
 

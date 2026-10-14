@@ -136,8 +136,9 @@ do
 	eq(access.check(fixture(), {max_cells = 10}), nil, "oversized grid refused")
 end
 
--- Stock catalog: pinned results, deterministic, plan unchanged. Seeds 5, 6
--- and 8 are sealed (32, 68 and 18 cells) when the content is planned without
+-- Stock catalog: pinned results, deterministic, plan unchanged. Seeds 3, 4, 5,
+-- 7 and 12 are sealed (16, 6, 10, 15 and 18 cells; re-pinned in #45 when the
+-- castle's gate and orientation changed) when the content is planned without
 -- the alley pass (#43), which the planner now runs by default.
 do
 	local geometry = dofile("src/geometry.lua")
@@ -146,8 +147,8 @@ do
 	local content = dofile("src/content_planner.lua")(geometry, packer,
 		jailmod.occupied_rects, access)
 	local base = assert(planner.landmark_profile(catalog.snapshot()))
-	local pinned = {[1] = 0, [2] = 0, [3] = 0, [4] = 0, [5] = 32, [6] = 68,
-		[7] = 0, [8] = 18, [9] = 0, [10] = 0, [11] = 0, [12] = 0}
+	local pinned = {[1] = 0, [2] = 0, [3] = 16, [4] = 6, [5] = 10, [6] = 0,
+		[7] = 15, [8] = 0, [9] = 0, [10] = 0, [11] = 0, [12] = 18}
 	local function inside(r, x, z)
 		return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2
 	end
