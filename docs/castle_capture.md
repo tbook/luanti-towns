@@ -151,3 +151,36 @@ canonical -Z front) and entrance source (295, 9, 124): canonical (24, 6, 3) in a
 `ground_offset` 5). Planner profile, tests and the interior-access pins were
 updated; the castle route is verified on the real nodes in
 `tests/town_build_tests.lua` and in `tools/place_check/run.py`.
+
+## Re-import: moat removed (ticket #90, 2026-10-14)
+
+The user removed the moat in TownsWorkshop (it broke when the castle stood in
+the middle of a village). `castle` was re-exported with the unchanged fixed
+box in `tools/workshop_export/buildings.json` (survey box, `capture_min/max`
+(245,3,100)..(298,41,149), `ground_y` 8, rotation 90, entrance source
+(295, 9, 124)); no `buildings.json` change was needed because the castle's
+above-ground structure still spans the whole box (canonical x 0..49, z 1..52,
+y 6..38), so size (50 x 39 x 54), entrance (24, 6, 3), `ground_offset` 5 and
+the planner profile are unchanged.
+
+Node-by-node comparison of the new template with the previous one (same size,
+2,907 positions differ, non-air 25,121 -> 26,811):
+
+- **Moat removed:** the trench voids (air in the ground rows y 0..5, mostly
+  along the west margin canonical x 0..8, and a north band z 0..13) are
+  filled: 1,651 air -> dirt and 25 air -> grass. About 1,100 stone, andesite,
+  granite, diorite, clay, ore, sand and gravel positions in y 0..4 under
+  and around it were also replaced with dirt, so the ground rows are now
+  dirt with a grass top at y=5 (air count in y 0..5 fell from about 1,800 to
+  139). The 41 water nodes are unchanged, so they are not the moat.
+- **West side:** where the moat was crossed, a small stone-brick stair
+  landing now exists at canonical x 2..4, z 30..37 (stonebrick at y 6..7, 2
+  stair nodes at (2..3, 6, 34) and (2..3, 7, 35)) leading to the spruce door
+  at (4, 8, 36). Also stonebrick at (34..39, 6, 6).
+- **Unrelated cleanup picked up:** a buried column of four cyan end rods at
+  (32, 1..4, 12) became dirt and one deepslate brick at (32, 5, 2) became grass.
+- **Metadata:** the spruce door at (4, 8..9, 36) now records `is_open=0`
+  (41 metadata entries, was 39).
+
+`tools/place_check/run.py --seed 5` and `--seed 11` pass with the castle door
+route walked.
