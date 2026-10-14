@@ -491,6 +491,10 @@ loadfile("tests/streets_tests.lua")(eq, fails, dofile("src/planner.lua"))
 loadfile("tests/site_search_tests.lua")(eq, fails, placement, dofile("src/planner.lua"),
 	dofile("src/site_search.lua"))
 
+-- Preflight and build-volume emergence (ticket #44).
+loadfile("tests/preflight_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry,
+	dofile("src/site_search.lua"))
+
 -- Town builder (ticket #15): blockouts, layout and the recording fake world.
 loadfile("tests/builder_tests.lua")(eq, fails, placement, dofile("src/planner.lua"),
 	dofile("src/site_search.lua"), dofile("src/builder.lua"))

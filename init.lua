@@ -11,6 +11,9 @@ towns.placement = dofile(modpath .. "/src/placement.lua")(towns.geometry)
 -- Pure town planner (boundary + civic sites); no world access.
 towns.planner = dofile(modpath .. "/src/planner.lua")
 
+-- Pure composition + preflight of a complete town build (no writes).
+towns.preflight = dofile(modpath .. "/src/preflight.lua")
+
 -- Read-only nearby site search and terrain inspection (no world writes).
 towns.site_search = dofile(modpath .. "/src/site_search.lua")(towns.placement, towns.planner)
 
