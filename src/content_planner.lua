@@ -181,9 +181,32 @@ function M.plan(plan, entries, opts)
 							building_id = p.building_id, reason = why}
 					end
 				end
-				for _, u in ipairs(res.unused) do
-					result.unused[#result.unused + 1] = {frontage = run.id,
-						block = run.block, rect = u.rect, length = u.length}
+				-- Recompute unused from the kept buildings only: the packer
+				-- counts a rejected pick as covered, but it is not placed.
+				local rr = run.rect
+				local along_x = run.facing.z ~= 0
+				local lo = along_x and rr.x1 or rr.z1
+				local hi = along_x and rr.x2 or rr.z2
+				local covered = {}
+				for _, b in ipairs(result.buildings) do
+					if b.frontage == run.id then
+						local a1 = along_x and b.rect.x1 or b.rect.z1
+						local a2 = along_x and b.rect.x2 or b.rect.z2
+						for c = math.max(a1, lo), math.min(a2, hi) do covered[c] = true end
+					end
+				end
+				local gap
+				for c = lo, hi + 1 do
+					if c <= hi and not covered[c] then
+						gap = gap or c
+					elseif gap then
+						local rect = along_x
+							and {x1 = gap, x2 = c - 1, z1 = rr.z1, z2 = rr.z2}
+							or {x1 = rr.x1, x2 = rr.x2, z1 = gap, z2 = c - 1}
+						result.unused[#result.unused + 1] = {frontage = run.id,
+							block = run.block, rect = rect, length = c - gap}
+						gap = nil
+					end
 				end
 			else
 				result.unused[#result.unused + 1] = {frontage = run.id,
@@ -212,6 +235,9 @@ function M.validate(plan, result, entries)
 		end
 		local a, why = check_building(b, entry, run, block, others, paved)
 		if not a then return nil, "building " .. i .. ": " .. why end
+		if not b.approach or b.approach.x ~= a.x or b.approach.z ~= a.z then
+			return nil, "building " .. i .. ": stored approach differs from the door"
+		end
 	end
 	return true
 end

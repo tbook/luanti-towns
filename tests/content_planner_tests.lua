@@ -153,6 +153,38 @@ for _, seed in ipairs({1, 2, 3, 4, 5, 6, 7, 8}) do
 	end
 end
 
+-- Rejection path: picks whose door approach is not on pavement are dropped
+-- and the frontage they would have covered is reported as unused.
+do
+	local plan = square_fixture()
+	plan.streets = {}
+	local entries = {h = entry("house", 6, 5, 2)}
+	local r = content.plan(plan, entries, {seed = 3})
+	eq(#r.buildings, 0, "rejected: no buildings")
+	eq(#r.rejected > 0, true, "rejected: recorded")
+	eq(next(r.counts), nil, "rejected: no counts")
+	eq(#r.empty_runs, 4, "rejected: empty runs")
+	local total = 0
+	for _, u in ipairs(r.unused) do total = total + u.length end
+	eq(total, 80, "rejected: whole frontage unused")
+end
+
+-- opts.landmarks.content is validated.
+do
+	local function with(c)
+		return function()
+			planner.plan({x = 0, z = 0}, 2, {landmarks = {cathedral = base.cathedral,
+				castle = base.castle, content = c}})
+		end
+	end
+	fails(with(5), "content must be a table", "content non-table")
+	fails(with({h = {role = "tavern", size = {x = 5, y = 5, z = 5}, entrance = {x = 0, z = 0}}}),
+		"role must be house", "content bad role")
+	fails(with({h = {role = "house", size = {x = 5, y = 5, z = 5}, entrance = {x = 9, z = 0}}}),
+		"entrance lies outside", "content bad entrance")
+	fails(with({h = 3}), "not a table", "content bad entry")
+end
+
 -- Profiles without content (and legacy plans) carry no content field.
 do
 	local plan = assert(planner.plan({x = 0, z = 0}, 2, {landmarks = civic}))
