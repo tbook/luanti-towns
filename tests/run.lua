@@ -514,6 +514,9 @@ loadfile("tests/town_build_tests.lua")(eq, fails, dofile("src/planner.lua"), cat
 -- Functional node initialization adapter (ticket #46).
 loadfile("tests/node_setup_tests.lua")(eq, fails, catalog, dofile("src/node_setup.lua"))
 
+-- Bed enumeration adapter (ticket #47).
+loadfile("tests/residents_tests.lua")(eq, fails, catalog, dofile("src/residents.lua"))
+
 -- /towns_generate command logic (ticket #16): args, seeds, report, fakes.
 loadfile("tests/generate_tests.lua")(eq, fails, dofile("src/planner.lua"),
 	dofile("src/generate.lua"))

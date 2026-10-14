@@ -12,6 +12,7 @@
 -- Flow: search with structure bounds (real landmark profile) -> preflight
 -- check (files, node registration) -> builder.build_town, which also
 -- initializes the placed functional nodes (ticket #46, src/node_setup.lua).
+-- Valid beds in the placed boxes are enumerated and reported (ticket #47).
 -- No residents (ticket #48) are spawned here.
 
 local towns = ...  -- the global table built by init.lua
@@ -50,7 +51,21 @@ local function build(result)
 		node_setup = towns.node_setup,
 		globals = {itemframes = rawget(_G, "mcl_itemframes"), chests = rawget(_G, "mcl_chests")},
 	})
-	return towns.builder.build_town(result, {entries = towns.catalog.entries}, env)
+	local summary, bmsg, bcode, extra = towns.builder.build_town(
+		result, {entries = towns.catalog.entries}, env)
+	if summary and summary.town then
+		-- Ticket #47: read-only bed enumeration inside the placed boxes. It
+		-- never fails the build; a problem is reported instead of the count.
+		local ok, rep = pcall(towns.residents.enumerate, summary.town.structures,
+			towns.residents.core_env(core))
+		if ok then
+			summary.town.beds = rep
+		else
+			core.log("warning", "towns: bed enumeration failed: " .. tostring(rep))
+			summary.town.beds_error = tostring(rep)
+		end
+	end
+	return summary, bmsg, bcode, extra
 end
 towns.place_town = {search = search, build = build}
 

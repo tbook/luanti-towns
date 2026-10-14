@@ -18,6 +18,42 @@ HELPER = Path(__file__).resolve().parent
 DEFAULT_SOURCE = Path.home() / 'Library/Application Support/minetest/worlds/TownsWorkshop'
 
 
+def manual_bed_counts(report):
+    """Complete-pair bed counts per template path, read straight from the
+    template .mts files with tests/mts_reader.lua (plain Lua, no engine)."""
+    rows = report.get('beds', {}).get('per_structure')
+    if not rows:
+        return None
+    paths = sorted({r['path'] for r in rows})
+    script = '''
+local read = dofile("tests/mts_reader.lua")
+local DIR = {[0]={0,1},[1]={1,0},[2]={0,-1},[3]={-1,0}}
+for path in ("%s"):gmatch("[^,]+") do
+  do
+    local s = read(path)
+    local n = 0
+    for z = 0, s.size.z - 1 do for y = 0, s.size.y - 1 do for x = 0, s.size.x - 1 do
+      local name, p2 = s.at(x, y, z)
+      if name:find("^mcl_beds:.*_bottom$") then
+        local d = DIR[p2 %% 4]
+        local tx, tz = x + d[1], z + d[2]
+        if tx >= 0 and tx < s.size.x and tz >= 0 and tz < s.size.z then
+          local n2, q = s.at(tx, y, tz)
+          if n2 == name:gsub("_bottom$", "_top") and q == p2 then n = n + 1 end
+        end
+      end
+    end end end
+    print(path, n)
+  end
+end
+''' % ','.join(paths)
+    out = subprocess.run(['lua5.1', '-e', script], cwd=ROOT, capture_output=True, text=True)
+    if out.returncode != 0:
+        print('manual bed count failed:', out.stderr)
+        return None
+    return {line.split()[0]: int(line.split()[1]) for line in out.stdout.splitlines() if line.strip()}
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--engine', default='/Applications/luanti.app/Contents/MacOS/luanti')
@@ -61,6 +97,19 @@ def main():
         raise SystemExit('No report written (engine exit %s); inspect %s' % (process.returncode, work / 'engine.log'))
     report = json.loads(report_file.read_text())
     print(json.dumps({k: v for k, v in report.items() if k != 'checks'}, indent=2))
+    manual = manual_bed_counts(report)
+    if manual is not None:
+        print('Bed counts per building (valid/skipped/schematic, manual from .mts via tests/mts_reader.lua):')
+        agree = True
+        for row in report.get('beds', {}).get('per_structure', []):
+            m = manual.get(row['path'])
+            ok = m == row['schematic_beds']
+            agree = agree and ok
+            print('  %-18s %3d valid %2d skipped  schematic %2d  manual %s %s' % (
+                row['id'], row['valid'], row['skipped'], row['schematic_beds'], m, 'ok' if ok else 'MISMATCH'))
+        if not agree:
+            report['ok'] = False
+            print('FAIL manual .mts bed counts disagree with the engine report')
     for c in report['checks']:
         print('PASS' if c['ok'] else 'FAIL', c['label'])
     if not args.keep and report.get('ok'):

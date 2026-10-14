@@ -172,6 +172,16 @@ function M.format_report(summary, command)
 					table.concat(u.structures, ", "))
 			end
 		end
+		local beds = s.town.beds
+		if beds then
+			add("Beds: %d valid, %d skipped.", beds.count, #beds.skipped)
+			for _, k in ipairs(beds.skipped) do
+				add("Skipped bed (%s, %s) at (%d,%d,%d) in %s.", k.category, k.reason,
+					k.pos.x, k.pos.y, k.pos.z, tostring(k.id))
+			end
+		elseif s.town.beds_error then
+			add("Bed enumeration failed: %s.", s.town.beds_error)
+		end
 	end
 	return lines
 end

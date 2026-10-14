@@ -258,6 +258,57 @@ core.register_on_mods_loaded(function() core.after(0, function()
      report.repeat_changed_nodes = changed
      check(changed == 0, 'second node setup call preserves metadata (' .. changed .. ' nodes changed)')
     end
+    -- Bed enumeration (ticket #47): the summary's report, re-derived from
+    -- the schematics' own bed nodes, plus Living Villages' view of the bed.
+    do
+     local beds = town.beds
+     check(beds ~= nil, 'bed enumeration report present' .. (town.beds_error and (': ' .. town.beds_error) or ''))
+     if beds then
+      local per, expected_pairs, mismatch = {}, 0, 0
+      for i, b in ipairs(town.structures) do
+       local entry = towns.catalog.entries[b.id]
+       local s = assert(core.read_schematic(root .. '/' .. entry.path, {}))
+       local n = 0
+       for _, node in ipairs(s.data) do
+        if node.name:find('^mcl_beds:.*_bottom$') then n = n + 1 end
+       end
+       local sum = beds.by_structure[i]
+       local row = {id = b.id, kind = b.kind, path = entry.path, schematic_beds = n, valid = sum.valid, skipped = sum.skipped}
+       per[#per + 1] = row
+       expected_pairs = expected_pairs + n
+       if sum.valid + sum.skipped ~= n then
+        mismatch = mismatch + 1
+        check(false, 'bed count for ' .. b.id .. ' matches its schematic: ' .. sum.valid .. '+' .. sum.skipped .. ' vs ' .. n)
+       end
+      end
+      report.beds = {valid = beds.count, skipped = #beds.skipped, schematic_beds = expected_pairs,
+       by_color = beds.by_color, per_structure = per}
+      report.bed_skips = {}
+      for _, k in ipairs(beds.skipped) do
+       report.bed_skips[#report.bed_skips + 1] = k.id .. ' ' .. k.name .. ' ' .. core.pos_to_string(k.pos) .. ' ' .. k.reason
+      end
+      check(mismatch == 0, 'every building bed count matches its schematic')
+      check(beds.count + #beds.skipped == expected_pairs, 'valid + skipped beds equal the schematic pairs (' .. beds.count .. '+' .. #beds.skipped .. ' vs ' .. expected_pairs .. ')')
+      -- Every valid bed: bottom and top nodes as reported, spawn cell standable.
+      local bad = 0
+      for i, bed in ipairs(beds.beds) do
+       if i > 1 then
+        local a, c = beds.beds[i - 1].pos, bed.pos
+        if not (a.x < c.x or (a.x == c.x and (a.y < c.y or (a.y == c.y and a.z < c.z)))) then bad = bad + 1 end
+       end
+       local nb, nt = core.get_node(bed.pos), core.get_node(bed.top)
+       local d = core.facedir_to_dir(nb.param2)
+       if core.get_item_group(nb.name, 'bed') ~= 1 or core.get_item_group(nt.name, 'bed') ~= 2
+         or nt.param2 ~= nb.param2 or not vector.equals(bed.top, vector.add(bed.pos, d))
+         or not (core.registered_nodes[core.get_node(bed.spawn).name].walkable == false or core.get_item_group(core.get_node(bed.spawn).name, 'carpet') > 0) then
+        bad = bad + 1
+       end
+       -- mcl_beds' own top-lookup agrees with the reported top.
+       if mcl_beds and mcl_beds.get_bed_top and not vector.equals(mcl_beds.get_bed_top(bed.pos), bed.top) then bad = bad + 1 end
+      end
+      check(bad == 0, 'reported beds are sorted, paired and have a free spawn cell (' .. bad .. ' bad)')
+     end
+    end
     -- Living Villages recognizes the tavern jukebox (its own keeper.lua claim
     -- logic) and the well (its own well.lua examine), by calling its modules.
     do
