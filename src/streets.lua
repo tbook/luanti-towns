@@ -145,6 +145,10 @@ function M.fill(plan, rng, C)
 	local castle = lrect(plan.sites.castle.rect)
 	set_rect(F, n, cathedral, 0)
 	set_rect(F, n, castle, 0)
+	-- City hall (profile plans): an obstacle on the market, neither free
+	-- ground nor pavement, so no route or paving crosses its foundation.
+	local hall = plan.sites.city_hall and lrect(plan.sites.city_hall.rect)
+	if hall then set_rect(F, n, hall, 0) end
 	local fcount = make_count(F, n)
 
 	local market = lrect(plan.sites.market.rect)
@@ -156,6 +160,7 @@ function M.fill(plan, rng, C)
 	-- R: pavement connected to the network so far (market, then streets).
 	local R = new_layer(n, 0)
 	set_rect(R, n, market, 1)
+	if hall then set_rect(R, n, hall, 0) end
 	local rcount = make_count(R, n)
 
 	local streets = {}
@@ -557,6 +562,11 @@ function M.fill(plan, rng, C)
 		end
 	end
 	claim(market, "market")
+	if hall then
+		for z = hall.z1, hall.z2 do
+			for x = hall.x1, hall.x2 do owner[idx(x, z)] = nil end
+		end
+	end
 	claim(parvis, "parvis")
 	for _, s in ipairs(streets) do claim(lrect(s.rect), s.id) end
 
@@ -726,6 +736,8 @@ function M.validate(plan, C)
 	local reserved = new_layer(n, 0)
 	set_rect(reserved, n, shift(sites.cathedral.rect, -ox, -oz), 1)
 	set_rect(reserved, n, shift(sites.castle.rect, -ox, -oz), 1)
+	local hall = sites.city_hall and shift(sites.city_hall.rect, -ox, -oz)
+	if hall then set_rect(reserved, n, hall, 1) end
 
 	-- owner[i]: "market" | "parvis" | street id (squares first, then streets
 	-- in id order); mats[owner] is its material.
@@ -740,8 +752,13 @@ function M.validate(plan, C)
 		for z = r.z1, r.z2 do
 			for x = r.x1, r.x2 do
 				local i = z * n + x + 1
-				road[i], principal[i] = 1, 1
-				if owner[i] == nil then owner[i] = name end
+				-- The city hall foundation is not pavement.
+				if not (hall and name == "market"
+						and x >= hall.x1 and x <= hall.x2
+						and z >= hall.z1 and z <= hall.z2) then
+					road[i], principal[i] = 1, 1
+					if owner[i] == nil then owner[i] = name end
+				end
 			end
 		end
 	end

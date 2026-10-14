@@ -466,6 +466,9 @@ loadfile("tests/planner_tests.lua")(eq, fails, dofile("src/planner.lua"))
 loadfile("tests/landmark_profile_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog,
 	geometry, dofile("src/site_search.lua")(placement, dofile("src/planner.lua")))
 
+-- City hall reservation on the market (ticket #39).
+loadfile("tests/city_hall_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry)
+
 -- Streets, blocks and frontage (ticket #13).
 loadfile("tests/streets_tests.lua")(eq, fails, dofile("src/planner.lua"))
 
