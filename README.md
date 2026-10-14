@@ -18,6 +18,21 @@ edited Home buildings. Workshop buildings can be
 [re-exported automatically](tools/workshop_export/README.md) with saved bounds,
 entrance choices, and inventory/decoration data.
 
+## Experimental town placement (ticket #45)
+
+Setting `towns_enable_place_town = true` registers `/towns_place_town [seed]`
+(needs the `server` privilege). It is **not** the production command: it
+does what `/towns_generate` does but uses the real cathedral and castle
+instead of blockouts, places the city hall, jail, services and ordinary
+buildings from the plan at their planned rotations, and paves access alleys
+with the secondary street material. It overwrites the site immediately, with
+no preview; use it only in disposable Creative worlds. Afterwards every
+door's approach route is walked in the placed world; any failure is reported
+as a partial construction with the actual bounds and the failing building.
+
+`python3 tools/place_check/run.py` repeats that placement headlessly in a
+scratch superflat world and re-reads it (see the script's header).
+
 ## Town command
 
 `/towns_generate [seed]` (needs the `server` privilege) searches near you

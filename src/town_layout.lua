@@ -8,6 +8,10 @@
 --                default TL.DEFAULT_SURFACE),
 --     max_y    = integer, top of the build volume (build_bounds.max.y),
 --     max_height = LANDMARK_BLOCKOUT_HEIGHT (default blockouts.MAX_HEIGHT),
+--     real     = {cathedral = true, castle = true}: landmarks that are real
+--                schematics (ticket #45); no temporary blockout is built
+--                for them and L.openings has no entry,
+--     alleys, holes = see TL.pavement_map,
 --   })
 --
 -- L describes the finished town for every column of the boundary union:
@@ -60,10 +64,35 @@ local function in_rect(r, x, z)
 end
 
 -- Pavement map {[x] = {[z] = material}} from the plan's squares and streets.
-function TL.pavement_map(plan)
+-- `extra` (optional, town placement, ticket #45):
+--   extra.alleys  list of {rect}: planned access alleys, paved last (after
+--                 every street) in TL.alley_material(plan)
+--   extra.holes   list of rects that are never paved (the footprints of the
+--                 placed schematics: a building owns its own floor)
+function TL.alley_material(plan)
+	for _, s in ipairs(plan.streets) do
+		if s.kind == "secondary" and type(s.material) == "string" then return s.material end
+	end
+	for _, s in ipairs(plan.streets) do
+		if type(s.material) == "string" then return s.material end
+	end
+	error("town layout: no street material for the alleys", 2)
+end
+
+function TL.pavement_map(plan, extra)
+	extra = extra or {}
 	local map, rank = {}, {}
 	-- City hall foundation (profile plans): a hole in the market pavement.
+	local holes = {}
 	local hall = plan.sites.city_hall and plan.sites.city_hall.rect
+	if hall then holes[#holes + 1] = hall end
+	for _, h in ipairs(extra.holes or {}) do holes[#holes + 1] = h end
+	local function is_hole(x, z)
+		for _, h in ipairs(holes) do
+			if x >= h.x1 and x <= h.x2 and z >= h.z1 and z <= h.z2 then return true end
+		end
+		return false
+	end
 	local function claim(rect, material, order)
 		if type(material) ~= "string" then
 			error("town layout: pavement without a material name", 3)
@@ -72,9 +101,7 @@ function TL.pavement_map(plan)
 			local col = map[x]
 			if not col then col = {}; map[x] = col; rank[x] = {} end
 			for z = rect.z1, rect.z2 do
-				local held = hall and x >= hall.x1 and x <= hall.x2
-					and z >= hall.z1 and z <= hall.z2
-				if col[z] == nil and not held then
+				if col[z] == nil and not is_hole(x, z) then
 					col[z] = material
 					rank[x][z] = order
 				end
@@ -89,6 +116,10 @@ function TL.pavement_map(plan)
 		for _, s in ipairs(plan.streets) do
 			if s.kind == kind then claim(s.rect, s.material, kind == "principal" and 1 or 2) end
 		end
+	end
+	if extra.alleys and #extra.alleys > 0 then
+		local material = TL.alley_material(plan)
+		for _, a in ipairs(extra.alleys) do claim(a.rect, material, 3) end
 	end
 	return map
 end
@@ -129,31 +160,34 @@ function TL.new(plan, ground_y, opts)
 	local g = ground_y
 
 	local set, columns = boundary(plan)
-	local pave = TL.pavement_map(plan)
+	local pave = TL.pavement_map(plan, {alleys = opts.alleys, holes = opts.holes})
 
 	-- Landmarks: merged sparse columns, kept only inside the boundary.
 	local landmark, max_dy, openings = {}, 0, {}
 	local lm_names = {}
+	local real = opts.real or {}
 	for _, spec in ipairs({{"cathedral", blockouts.cathedral}, {"castle", blockouts.castle}}) do
-		local site = plan.sites[spec[1]]
-		local blk = spec[2](site)
-		openings[spec[1]] = blk.opening
-		if blk.max_dy > max_height then
-			error(("town layout: %s blockout is %d high, limit %d"):format(spec[1], blk.max_dy, max_height))
-		end
-		if blk.max_dy > max_dy then max_dy = blk.max_dy end
-		for _, n in ipairs(blk.names) do lm_names[n] = true end
-		for x, col in pairs(blk.cols) do
-			for z, cell in pairs(col) do
-				if not (set[x] and set[x][z]) then
-					error(("town layout: %s blockout leaves the boundary at (%d,%d)"):format(spec[1], x, z))
+		if not real[spec[1]] then
+			local site = plan.sites[spec[1]]
+			local blk = spec[2](site)
+			openings[spec[1]] = blk.opening
+			if blk.max_dy > max_height then
+				error(("town layout: %s blockout is %d high, limit %d"):format(spec[1], blk.max_dy, max_height))
+			end
+			if blk.max_dy > max_dy then max_dy = blk.max_dy end
+			for _, n in ipairs(blk.names) do lm_names[n] = true end
+			for x, col in pairs(blk.cols) do
+				for z, cell in pairs(col) do
+					if not (set[x] and set[x][z]) then
+						error(("town layout: %s blockout leaves the boundary at (%d,%d)"):format(spec[1], x, z))
+					end
+					local lc = landmark[x]
+					if not lc then lc = {}; landmark[x] = lc end
+					if lc[z] then
+						error(("town layout: blockouts overlap at (%d,%d)"):format(x, z))
+					end
+					lc[z] = cell
 				end
-				local lc = landmark[x]
-				if not lc then lc = {}; landmark[x] = lc end
-				if lc[z] then
-					error(("town layout: blockouts overlap at (%d,%d)"):format(x, z))
-				end
-				lc[z] = cell
 			end
 		end
 	end

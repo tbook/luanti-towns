@@ -499,6 +499,10 @@ loadfile("tests/preflight_tests.lua")(eq, fails, dofile("src/planner.lua"), cata
 loadfile("tests/builder_tests.lua")(eq, fails, placement, dofile("src/planner.lua"),
 	dofile("src/site_search.lua"), dofile("src/builder.lua"))
 
+-- Town placement (ticket #45): schematics, alleys, door routes, failures.
+loadfile("tests/town_build_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, placement,
+	dofile("src/site_search.lua"), dofile("src/builder.lua"))
+
 -- /towns_generate command logic (ticket #16): args, seeds, report, fakes.
 loadfile("tests/generate_tests.lua")(eq, fails, dofile("src/planner.lua"),
 	dofile("src/generate.lua"))

@@ -145,6 +145,9 @@ function M.node_info(registered_nodes, name)
 		clearable = clearable and true or false,
 		ice = ice,
 		falling = g.falling_node and true or false,
+		-- Doors and gates can be walked through (opened), even when closed.
+		door = (g.door ~= nil or g.fence_gate ~= nil or name:find("_door_", 1, true) ~= nil
+			or name:find("fence_gate", 1, true) ~= nil) and true or false,
 	}
 end
 

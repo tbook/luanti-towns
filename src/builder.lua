@@ -77,8 +77,10 @@ local function load_sibling(name)
 end
 local blockouts = load_sibling("blockouts.lua")
 local TL = load_sibling("town_layout.lua")(blockouts)
+local preflight = load_sibling("preflight.lua")
 M.blockouts = blockouts
 M.layout = TL
+M.preflight = preflight
 
 local function is_int(v)
 	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
@@ -135,6 +137,139 @@ local function is_ground(info)
 		and not info.ice
 end
 
+local AIR_INFO = {walkable = false, liquid = false}
+
+local function rects_overlap(a, b)
+	return a.x1 <= b.x2 and b.x1 <= a.x2 and a.z1 <= b.z2 and b.z1 <= a.z2
+end
+
+-- Town mode setup (ticket #45): composes every structure box, decides which
+-- landmarks are real (no blockout) and collects alleys and unpaved holes.
+-- Fills `town` {comp, real, alleys, holes}; returns true or nil, message.
+function M.prepare_town(town, plan, g, bb)
+	local comp, why = preflight.compose(plan, town.entries, g)
+	if not comp then return nil, "town content: " .. tostring(why) end
+	if #comp.structures == 0 then return nil, "the plan has no buildings to place" end
+	town.comp, town.real, town.alleys, town.holes = comp, {}, {}, {}
+	for _, b in ipairs(comp.structures) do
+		if b.min.x < bb.min.x or b.max.x > bb.max.x or b.min.y < bb.min.y
+				or b.max.y > bb.max.y or b.min.z < bb.min.z or b.max.z > bb.max.z then
+			return nil, ("%s '%s' lies outside the build bounds"):format(b.kind, b.id)
+		end
+		if b.kind == "cathedral" or b.kind == "castle" then town.real[b.kind] = true end
+		town.holes[#town.holes + 1] = b.rect
+		local e = town.entries[b.id]
+		if type(e) ~= "table" or type(e.path) ~= "string" then
+			return nil, ("'%s' has no schematic path"):format(tostring(b.id))
+		end
+	end
+	for _, a in ipairs(type(plan.content) == "table" and plan.content.alleys or {}) do
+		for _, b in ipairs(comp.structures) do
+			if rects_overlap(a.rect, b.rect) then
+				return nil, ("alley %s overlaps %s '%s'"):format(tostring(a.id), b.kind, b.id)
+			end
+		end
+		town.alleys[#town.alleys + 1] = a
+	end
+	return true
+end
+
+-- Walkability of the way from the door's approach node to the door.
+--   st      composed structure (entrance world node, rotation, rect, box)
+--   g       finished ground level (the approach is paved street at g)
+--   node(x, y, z) -> info, name   info as env.node_info (nil = unknown)
+-- The approach is the first node outside the box along the door's front, as
+-- in the content planner. The walk is a 4-neighbour search over the box plus
+-- a one-node apron (so authored stairs, ramps and gate passages count, not
+-- just a straight line) over standing cells:
+--   free cell   passable feet and head node and a solid node below
+--   step cell   a stair, slab or carpet node itself (feet half a node up),
+--               with two free nodes above
+-- Doors and gates count as passable. A step may rise one node (jump) or
+-- drop three. Returns {approach = {x, z}, steps = n} or nil, reason.
+local function passable(i)
+	return i ~= nil and not i.liquid and (not i.walkable or i.door)
+end
+local function solid(i)
+	return i ~= nil and i.walkable and not i.liquid and not i.door
+end
+local function partial(name)
+	return name:find("stair", 1, true) ~= nil or name:find("slab", 1, true) ~= nil
+		or name:find("carpet", 1, true) ~= nil
+end
+local FRONTS = {[0] = {0, -1}, [90] = {-1, 0}, [180] = {0, 1}, [270] = {1, 0}}
+function M.check_door(st, g, node)
+	local r, e = st.rect, st.entrance
+	local f = FRONTS[st.rotation]
+	local ax, az = e.x, e.z
+	for _ = 1, 1000 do
+		ax, az = ax + f[1], az + f[2]
+		if ax < r.x1 or ax > r.x2 or az < r.z1 or az > r.z2 then break end
+	end
+	local cache = {}
+	local function at(x, y, z)
+		local k = x .. "," .. y .. "," .. z
+		local v = cache[k]
+		if v == nil then
+			local info, name = node(x, y, z)
+			v = {info = info, name = name or ""}
+			cache[k] = v
+		end
+		return v
+	end
+	local function free(x, y, z) return passable(at(x, y, z).info) end
+	-- Height of the feet (in nodes above cell y's bottom) when standing in
+	-- cell (x, y, z), or nil when it is not a standing cell.
+	local function stand(x, y, z)
+		local c = at(x, y, z)
+		if partial(c.name) and solid(c.info) then
+			if free(x, y + 1, z) and free(x, y + 2, z) then return 0.5 end
+			return nil
+		end
+		if passable(c.info) and free(x, y + 1, z) and solid(at(x, y - 1, z).info)
+				and not partial(at(x, y - 1, z).name) then
+			return 0
+		end
+		return nil
+	end
+	local ylo, yhi = math.min(st.min.y, g) - 1, math.max(st.max.y, g) + 1
+	local function inside(x, z, y)
+		return x >= r.x1 - 1 and x <= r.x2 + 1 and z >= r.z1 - 1 and z <= r.z2 + 1
+			and y >= ylo and y <= yhi
+	end
+	if stand(ax, g + 1, az) == nil then
+		return nil, ("the approach node (%d,%d) at y=%d is not standable"):format(ax, az, g + 1)
+	end
+	local seen, queue, head = {}, {{ax, g + 1, az, 0, 0}}, 1
+	seen[ax .. "," .. (g + 1) .. "," .. az] = true
+	while head <= #queue do
+		local c = queue[head]
+		head = head + 1
+		if c[1] == e.x and c[3] == e.z and c[2] == e.y then
+			return {approach = {x = ax, z = az}, steps = c[4]}
+		end
+		for _, d in ipairs({{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) do
+			local nx, nz = c[1] + d[1], c[3] + d[2]
+			for dy = 1, -3, -1 do
+				local ny = c[2] + dy
+				local k = nx .. "," .. ny .. "," .. nz
+				if not seen[k] and inside(nx, nz, ny) then
+					local h = stand(nx, ny, nz)
+					if h ~= nil then
+						local rise = (ny + h) - (c[2] + c[5])
+						if rise <= 1 and (c[2] + c[5]) - (ny + h) <= 3 then
+							seen[k] = true
+							queue[#queue + 1] = {nx, ny, nz, c[4] + 1, h}
+						end
+					end
+				end
+			end
+		end
+	end
+	return nil, ("no walkable route from the approach (%d,%d) to the door (%d,%d,%d)"):format(
+		ax, az, e.x, e.y, e.z)
+end
+
 local function build_impl(result, opts, env, st)
 	opts = opts or {}
 	env = env or M.core_env(core)
@@ -159,13 +294,21 @@ local function build_impl(result, opts, env, st)
 	if type(plan.seed) ~= "number" or type(plan.center) ~= "table" then
 		return fail("invalid_plan", "plan has no seed or centre")
 	end
+	if st.town then
+		local ok2, why2 = M.prepare_town(st.town, plan, g, bb)
+		if not ok2 then return fail("invalid_plan", why2) end
+	end
 	log("action", ("towns builder: seed=%s center=(%d,%d) ground_y=%d bounds=%s"):format(
 		tostring(plan.seed), plan.center.x, plan.center.z, g, fmt_bounds(bb)))
 	log("action", "towns builder: [1/6] plan validated")
 
 	-- 3. Static palette (landmarks, pavement, fill) before reading anything.
 	local static = {TL.FILL_DIRT, TL.FILL_DEEP, TL.DEFAULT_SURFACE}
-	for _, n in ipairs(blockouts.names()) do static[#static + 1] = n end
+	-- A town build places real schematics: no temporary blockout is needed
+	-- for a landmark that has one.
+	if not st.town then
+		for _, n in ipairs(blockouts.names()) do static[#static + 1] = n end
+	end
 	for _, name in ipairs({"market", "parvis"}) do static[#static + 1] = plan.sites[name].material end
 	for _, s in ipairs(plan.streets) do static[#static + 1] = s.material end
 	for _, n in ipairs(static) do
@@ -228,11 +371,15 @@ local function build_impl(result, opts, env, st)
 		end
 
 		-- The intended layout.
-		local lok, L = pcall(TL.new, plan, g, {
+		local lopts = {
 			heights = function(x, z) return result.heights[x][z] end,
 			surface = function(x, z) return surf[x][z] end,
 			max_y = bb.max.y,
-		})
+		}
+		if st.town then
+			lopts.real, lopts.alleys, lopts.holes = st.town.real, st.town.alleys, st.town.holes
+		end
+		local lok, L = pcall(TL.new, plan, g, lopts)
 		if not lok then
 			return fail("invalid_plan", (tostring(L):gsub("^[^\n]-:%d+: ", "")))
 		end
@@ -320,7 +467,62 @@ local function build_impl(result, opts, env, st)
 			return nil, msg, "write_failed", {bounds = wbounds, planned = n_changed}
 		end
 	end
-	log("action", "towns builder: [6/6] committed; construction complete")
+	log("action", "towns builder: [6/6] committed")
+
+	-- 7b. Town mode: place the schematics, then verify the doors.
+	local town_info
+	if st.town then
+		local t = st.town
+		st.writing = true -- schematic writes may leave a partial town
+		st.planned = (st.planned or 0) + #t.comp.structures
+		local placed = {}
+		local bounds = {min = {x = wbounds.min.x, y = wbounds.min.y, z = wbounds.min.z},
+			max = {x = wbounds.max.x, y = wbounds.max.y, z = wbounds.max.z}}
+		st.wbounds = bounds
+		local function grow(b)
+			for _, a in ipairs({"x", "y", "z"}) do
+				if b.min[a] < bounds.min[a] then bounds.min[a] = b.min[a] end
+				if b.max[a] > bounds.max[a] then bounds.max[a] = b.max[a] end
+			end
+		end
+		local total = #t.comp.structures
+		local function partial(building, reason, why)
+			local msg = ("write failed: %s '%s' (%s): %s. %d of %d buildings were placed; "
+				.. "the area %s may be partially written"):format(
+				building.kind, tostring(building.id), reason, why, #placed, total, fmt_bounds(bounds))
+			log("error", "towns builder: " .. msg)
+			return nil, msg, "write_failed", {bounds = bounds, planned = n_changed,
+				reason = reason, building = {id = building.id, kind = building.kind,
+				role = building.role, rect = building.rect, min = building.min, max = building.max},
+				placed = #placed, total = total}
+		end
+		for _, b in ipairs(t.comp.structures) do
+			local entry = t.entries[b.id]
+			-- The box is attempted (and so may be partly written) from here.
+			grow(b)
+			local pok, r1, r2 = pcall(env.place_structure, b, entry)
+			if not pok then return partial(b, "engine_error", tostring(r1)) end
+			if not r1 then return partial(b, "placement_failed", tostring(r2 or "placement failed")) end
+			placed[#placed + 1] = b.id
+		end
+		log("action", ("towns builder: [6b/6] placed %d schematics"):format(#placed))
+		-- Door approach routes (recessed doors lie inside the box).
+		local doors = {}
+		for _, b in ipairs(t.comp.structures) do
+			local dok, route, why = pcall(M.check_door, b, g, function(x, y, z)
+				local name = env.get_node(x, y, z)
+				if name == "air" then return AIR_INFO, name end
+				return env.node_info(name), name
+			end)
+			if not dok then return partial(b, "door_check_error", tostring(route)) end
+			if not route then return partial(b, "door_unreachable", tostring(why)) end
+			doors[#doors + 1] = {id = b.id, kind = b.kind, approach = route.approach,
+				entrance = b.entrance, steps = route.steps}
+		end
+		town_info = {structures = t.comp.structures, bounds = bounds, doors = doors,
+			alleys = t.alleys, placed = #placed}
+	end
+	log("action", "towns builder: construction complete")
 
 	-- 8. Summary.
 	local sites = {}
@@ -351,6 +553,15 @@ local function build_impl(result, opts, env, st)
 		nodes = {examined = examined, changed = n_changed, by_kind = by_kind, by_name = by_name},
 		palette = palette,
 	}
+	if town_info then
+		summary.town = {
+			complete = true,
+			structures = town_info.structures, placed = town_info.placed,
+			doors = town_info.doors, alleys = #town_info.alleys,
+			bounds = town_info.bounds,
+		}
+		summary.write_bounds = town_info.bounds
+	end
 	log("action", ("towns builder: done seed=%s center=(%d,%d) ground_y=%d bounds=%s streets=%d blocks=%d frontage=%d nodes=%d")
 		:format(tostring(plan.seed), plan.center.x, plan.center.z, g, fmt_bounds(bb),
 			#plan.streets, #plan.blocks, #plan.frontage, n_changed))
@@ -360,8 +571,7 @@ end
 -- Never raises. Anything unexpected before the first write is a failed
 -- inspection (zero writes); anything that throws after writing began is
 -- write_failed.
-function M.build(result, opts, env)
-	local st = {}
+local function run(result, opts, env, st)
 	local function unwrap(ok, ...)
 		if ok then return ... end
 		if st.writing then
@@ -375,11 +585,70 @@ function M.build(result, opts, env)
 	return unwrap(pcall(build_impl, result, opts, env, st))
 end
 
+-- builder.build(result, opts, env): the Phase 2 flat town with blockouts.
+function M.build(result, opts, env)
+	return run(result, opts, env, {})
+end
+
+-- builder.build_town(result, opts, env): ticket #45. Everything build() does
+-- except that real cathedral and castle schematics replace the blockouts,
+-- planned alleys are paved, and then every composed structure is placed in
+-- stable order (preflight.compose order: cathedral, castle, city hall, jail,
+-- services, ordinary buildings) with its explicit rotation at its minimum
+-- corner. Afterwards each door's approach route is checked.
+--   opts.entries  id -> catalog entry {size, entrance, ground_offset, path}
+--                 (catalog.entries); required.
+--   env additionally provides
+--     env.place_structure(structure, entry) -> true | nil, reason
+--                 places one composed structure (box = structure.min..max,
+--                 rotation = structure.rotation) and must write nothing
+--                 outside that box
+--     env.get_node(x, y, z) -> node name ("ignore" when not loaded)
+-- Failure codes are those of build(); everything after the terrain commit is
+-- reported as write_failed with extra {bounds = actual attempted bounds,
+-- building = {id, kind, rect, min, max}, placed, total, reason} where reason
+-- is placement_failed, engine_error, door_unreachable or door_check_error.
+-- Success: the build() summary plus summary.town {complete = true, structures,
+-- placed, doors, alleys, bounds}; write_bounds then covers every structure.
+-- The caller runs preflight.check first (files, node registration, emerge).
+function M.build_town(result, opts, env)
+	opts = opts or {}
+	if type(opts.entries) ~= "table" then
+		return nil, "builder.build_town needs opts.entries", "bad_result"
+	end
+	env = env or M.core_env(core)
+	if type(env.place_structure) ~= "function" or type(env.get_node) ~= "function" then
+		return nil, "env cannot place schematics (place_structure/get_node)", "bad_result"
+	end
+	return run(result, opts, env, {town = {entries = opts.entries}})
+end
+
 ------------------------------------------------------------------------
 -- core.* adapter (the only part that touches the engine)
 ------------------------------------------------------------------------
-function M.core_env(c)
+-- extras (town placement): {schematic = towns.schematic, modpath = string}
+function M.core_env(c, extras)
+	extras = extras or {}
 	return {
+		get_node = function(x, y, z)
+			return c.get_node({x = x, y = y, z = z}).name
+		end,
+		-- Places one composed structure through the towns schematic helper
+		-- (decoration and inventory restoration included). The schematic
+		-- file must have exactly the validated size, so no air is written
+		-- outside the structure's box.
+		place_structure = function(b, entry)
+			if not extras.schematic then return nil, "no schematic helper" end
+			local path = extras.modpath .. "/" .. entry.path
+			local sc = c.read_schematic(path, {})
+			if not sc or not sc.size then return nil, "schematic " .. entry.path .. " unreadable" end
+			local sx, sz = sc.size.x, sc.size.z
+			if b.rotation == 90 or b.rotation == 270 then sx, sz = sz, sx end
+			if sx ~= b.size.x or sc.size.y ~= b.size.y or sz ~= b.size.z then
+				return nil, "schematic " .. entry.path .. " does not have the validated size"
+			end
+			return extras.schematic.place(entry, b.min, b.rotation, extras.modpath)
+		end,
 		node_info = function(name)
 			return placement.node_info(c.registered_nodes, name)
 		end,
