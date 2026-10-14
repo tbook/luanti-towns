@@ -32,6 +32,12 @@
 --                  CITY_HALL_MARGIN of pavement all round and its door facing
 --                  into the remaining market. The market grows to fit it; the
 --                  hall is an obstacle for streets, routing and pavement.
+--                  A profile may also carry jail (ticket #69): the finished
+--                  plan then has plan.reservations.jail (src/jail_reservation.lua:
+--                  one box on ordinary street frontage, entrance farthest from
+--                  the market centre) or, when nothing fits, plan.shortages =
+--                  {{role = "jail", wanted = 1, placed = 0, reason}}. Plans
+--                  without a jail profile carry neither field.
 --
 -- Determinism
 -- -----------
@@ -197,6 +203,8 @@ local function load_sibling(name)
 end
 local streets = load_sibling("streets.lua")
 local geometry = load_sibling("geometry.lua")
+local jail_reservation = load_sibling("jail_reservation.lua")(
+	load_sibling("frontage_packer.lua")(geometry))
 
 M.CONSTANTS = {
 	ENVELOPE = 96,            -- town envelope, nodes per side
@@ -240,6 +248,9 @@ M.CONSTANTS = {
 	CITY_HALL_MARGIN = 6,     -- free market pavement kept round the hall box
 	                          --  (principal street width); the market grows
 	                          --  to hall box + 2 * margin when smaller
+	-- Jail reservation (profile planning only, ticket #69)
+	JAIL_MARKET_BIAS = 1,     -- 1: jail entrance farthest from the market
+	                          --  centre, -1: nearest
 }
 
 -- Landmark profile (ticket #38)
@@ -424,6 +435,26 @@ function M.landmark_profile(snapshot, ids)
 			entrance = e.entrance, ground_offset = e.ground_offset})
 		if not L then return nil, why end
 		profile.city_hall = L
+	end
+	-- The jail (ticket #69) is optional the same way.
+	local jid = ids and ids.jail
+	if jid == nil then
+		local list = {}
+		for k, e in pairs(snapshot) do
+			if type(e) == "table" and e.role == "jail" then list[#list + 1] = k end
+		end
+		table.sort(list)
+		jid = list[1]
+	end
+	if jid ~= nil then
+		local e = snapshot[jid]
+		if type(e) ~= "table" then
+			return nil, "catalog has no entry '" .. tostring(jid) .. "' for the jail"
+		end
+		local L, why = check_landmark("jail", {id = jid, size = e.size,
+			entrance = e.entrance, ground_offset = e.ground_offset})
+		if not L then return nil, why end
+		profile.jail = L
 	end
 	return profile
 end
@@ -1623,7 +1654,8 @@ function M.plan(center, seed, opts)
 			end
 			profile = {}
 			local names = {"cathedral", "castle"}
-			if lm.city_hall ~= nil then names[3] = "city_hall" end
+			if lm.city_hall ~= nil then names[#names + 1] = "city_hall" end
+			if lm.jail ~= nil then names[#names + 1] = "jail" end
 			for _, name in ipairs(names) do
 				local L, why = check_landmark(name, lm[name] and {
 					id = lm[name].id, size = lm[name].size, entrance = lm[name].entrance,
@@ -1663,7 +1695,17 @@ function M.plan(center, seed, opts)
 				local full, swhy = streets.fill(world, rng, C)
 				if full then
 					ok, vwhy = M.validate(full, C)
-					if ok then return full end
+					if ok then
+						-- Jail (ticket #69): reserved after the landmarks and
+						-- hall, best effort; a shortage never fails the plan.
+						if profile and profile.jail then
+							local placed, short = jail_reservation.reserve(full,
+								profile.jail, {seed = seed, bias = C.JAIL_MARKET_BIAS})
+							full.reservations = {jail = placed}
+							full.shortages = short and {short} or {}
+						end
+						return full
+					end
 					stage, why = "validate", vwhy
 				else
 					stage, why = "streets", swhy
