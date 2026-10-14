@@ -14,7 +14,9 @@
 --     opts        optional table overriding any ss.CONSTANTS entry by its
 --                 name in lower case (step, max_radius, player_margin,
 --                 max_range, ...) and `planner_opts` (forwarded to
---                 planner.plan).
+--                 planner.plan). When planner_opts selects a larger envelope
+--                 (a landmark profile), the default max_radius grows by
+--                 half the extra envelope; terrain limits never change.
 --     done        called exactly once: done(result, nil, details) on
 --                 success or done(nil, summary, details) on failure.
 --     env         defaults to ss.core_env(core): {emerge, get_node_name,
@@ -127,6 +129,32 @@ local function constants(opts)
 	end
 	if C.OUTLIER_PERCENT >= 100 then
 		error("towns site_search: opts.outlier_percent must be < 100", 3)
+	end
+	-- Envelope-derived dimensions (ticket #38). The town centre must be
+	-- farther from the player the larger the town is, so MAX_RADIUS (the
+	-- reach beyond the Phase 2 town edge) grows by the extra half-envelope;
+	-- an explicit opts.max_radius is taken as given. Terrain limits
+	-- (MAX_RANGE, MAX_CUT_FILL, SCAN_*) are never scaled. A landmark profile
+	-- also raises the clearance above ground to the tallest real landmark.
+	local popts = type(opts) == "table" and opts.planner_opts or nil
+	if type(popts) == "table" then
+		local PC = planner.resolve_constants(popts)
+		local growth = math.floor((PC.ENVELOPE - planner.LEGACY_ENVELOPE) / 2)
+		local explicit = false
+		for k in pairs(opts) do
+			if type(k) == "string" and k:upper() == "MAX_RADIUS" then explicit = true end
+		end
+		if growth > 0 and not explicit then C.MAX_RADIUS = C.MAX_RADIUS + growth end
+		if type(popts.landmarks) == "table" then
+			for _, name in ipairs({"cathedral", "castle"}) do
+				local L = popts.landmarks[name]
+				if type(L) == "table" and type(L.size) == "table"
+						and type(L.size.y) == "number" then
+					local h = L.size.y - (L.ground_offset or 0)
+					if h > C.LANDMARK_BLOCKOUT_HEIGHT then C.LANDMARK_BLOCKOUT_HEIGHT = h end
+				end
+			end
+		end
 	end
 	C.BLOCKOUT_CLEARANCE = C.LANDMARK_BLOCKOUT_HEIGHT + C.BLOCKOUT_MARGIN
 	return C
