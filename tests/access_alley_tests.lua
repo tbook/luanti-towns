@@ -68,6 +68,58 @@ do
 	eq(covered, false, "alley: cells are not reported unused")
 end
 
+-- Width-1 alley: wall boxes (opts.occupied, fixed) leave one house column as
+-- the only way into the pocket below it, so only a one-node alley fits.
+do
+	local plan = square()
+	plan.blocks[1].rect = R(0, 0, 8, 8)
+	plan.streets = {{rect = R(-4, -4, 12, -1)}}
+	plan.frontage = {{id = 1, block = 1, street = 1, facing = {x = 0, z = -1},
+		rect = R(0, 0, 8, 0)}}
+	local walls = {R(0, 0, 3, 2), R(5, 0, 8, 2), R(0, 3, 2, 6), R(6, 3, 8, 6),
+		R(0, 5, 8, 8)}
+	local entries = {h = {role = "house", size = {x = 1, y = 5, z = 3},
+		entrance = {x = 0, y = 1, z = 0}}}
+	local off = content.plan(plan, entries, {seed = 1, occupied = walls, alleys = false})
+	eq(#off.buildings, 1, "width1: one house")
+	local r = content.plan(plan, entries, {seed = 1, occupied = walls})
+	eq(#r.alleys, 1, "width1: one alley")
+	eq(r.alleys[1].width, 1, "width1: one node wide")
+	eq(r.alleys[1].rect.x1, 4, "width1: column")
+	eq(#r.buildings, 0, "width1: house removed")
+	plan.content = r
+	eq(assert(access.check(plan, {occupied = walls})).sealed_cells, 0, "width1: opened")
+end
+
+-- Whole-building removal fallback: with no alleys allowed the buildings that
+-- border the sealed component are dropped instead.
+do
+	local entries = {h = entry(5, 5)}
+	local cap = content.MAX_ALLEYS_PER_AREA
+	content.MAX_ALLEYS_PER_AREA = 0
+	local plan = square()
+	local r = content.plan(plan, entries, {seed = 3})
+	content.MAX_ALLEYS_PER_AREA = cap
+	eq(#r.alleys, 0, "fallback: no alley")
+	eq(#r.removed >= 1, true, "fallback: buildings removed")
+	eq(r.removed[1].reason, "sealed", "fallback: reason")
+	eq(sealed(plan, r), 0, "fallback: opened")
+	eq(content.validate(plan, r, entries), true, "fallback validates")
+end
+
+-- Per-area cap: with one alley allowed, a courtyard needing more is finished
+-- by the removal fallback and the cap is never exceeded.
+do
+	local entries = {h = entry(5, 5)}
+	local cap = content.MAX_ALLEYS_PER_AREA
+	content.MAX_ALLEYS_PER_AREA = 1
+	local plan = square()
+	local r = content.plan(plan, entries, {seed = 3})
+	content.MAX_ALLEYS_PER_AREA = cap
+	eq(#r.alleys <= 1, true, "cap: at most one alley")
+	eq(sealed(plan, r), 0, "cap: opened")
+end
+
 -- Already accessible interior: identical to the pass being disabled.
 do
 	local entries = {h = entry(6, 6)}

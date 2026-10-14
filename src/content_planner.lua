@@ -45,6 +45,8 @@
 -- rejected (no buildings, `reason` set). Extra result fields:
 --   alleys   list of {id, block, area, rect, width, length, side}
 --   removed  list of {building_id, frontage, rect, reason = alley|sealed}
+--   access_error  text only when the validator itself failed (e.g. grid too
+--                 large); the pass is then skipped
 -- `unused` also treats alley cells as covered.
 -- content.validate(plan, result, entries) re-checks full-box containment,
 -- facing, door approach, non-overlap and reserved-site clearance; returns
