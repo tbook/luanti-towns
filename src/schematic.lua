@@ -21,6 +21,28 @@ local function data(entry, modpath)
  return cache[path]
 end
 
+-- The node names the entry's schematic contains: the exporter's saved list
+-- when there is one, otherwise read from the .mts itself (hand-captured
+-- entries such as demo_house have no data file).
+local names_cache = {}
+function M.required_nodes(entry, modpath)
+ if entry.data_path then return data(entry, modpath).required_nodes end
+ local path = modpath .. '/' .. entry.path
+ if not names_cache[path] then
+  local s = assert(core.read_schematic(path, {}))
+  local seen, list = {}, {}
+  for _, node in ipairs(s.data) do
+   if node.name ~= 'air' and node.name ~= 'ignore' and not seen[node.name] then
+    seen[node.name] = true
+    list[#list + 1] = node.name
+   end
+  end
+  table.sort(list)
+  names_cache[path] = list
+ end
+ return names_cache[path]
+end
+
 function M.validate(entry, modpath)
  for _, name in ipairs(data(entry, modpath).required_nodes) do
   if not core.registered_nodes[name] then
@@ -30,7 +52,12 @@ function M.validate(entry, modpath)
  return true
 end
 
-function M.place(entry, pos, rotation, modpath)
+-- opts.initialize = false: write the nodes and restore saved metadata and
+-- inventories only. The caller runs the node setup adapter (node_setup.lua,
+-- ticket #46) afterwards instead of the blanket constructors and displays
+-- below. The default keeps /towns_test's behaviour.
+function M.place(entry, pos, rotation, modpath, opts)
+ local initialize = not (opts and opts.initialize == false)
  local ok, reason = M.validate(entry, modpath)
  if not ok then return nil, reason end
  local s = assert(core.read_schematic(modpath .. '/' .. entry.path, {}))
@@ -46,7 +73,7 @@ function M.place(entry, pos, rotation, modpath)
    local def = core.registered_nodes[node.name]
    -- Armor stand activation reads its inventory, so defer it until restoration.
    -- Foliage construction recomputes biome colors/flags; keep the authored param2.
-   if def and def.on_construct and node.name ~= 'mcl_armor_stand:armor_stand'
+   if initialize and def and def.on_construct and node.name ~= 'mcl_armor_stand:armor_stand'
       and not node.name:find('^mcl_decor:hedge_')
       and core.get_item_group(node.name, 'foliage_palette') == 0
       and core.get_item_group(node.name, 'leaves') == 0 then def.on_construct(p) end
@@ -62,7 +89,7 @@ function M.place(entry, pos, rotation, modpath)
    inv:set_list(name, items)
   end
  end
- for _, p in ipairs(positions) do
+ for _, p in ipairs(initialize and positions or {}) do
   local node = core.get_node(p)
   if node.name == 'mcl_armor_stand:armor_stand' then core.registered_nodes[node.name].on_construct(p)
   elseif mcl_itemframes and node.name:find('^mcl_itemframes:') then mcl_itemframes.update_entity(p)

@@ -280,6 +280,36 @@ the building ID, rotation and exact combined bounds. **It overwrites the site
 immediately, with no preview or confirmation**: only use it in a disposable
 Creative world such as Testlandia.
 
+## Placed node initialization (ticket #46)
+
+`core.place_schematic` runs no node callbacks, so the town placement path
+(`/towns_place_town`, `builder.build_town`) places every schematic without
+constructors and then, once all schematics and door routes succeeded, runs
+`src/node_setup.lua` inside the placed boxes only. It initializes just the
+functional nodes present in the registered templates:
+
+| Nodes | Initialization |
+|-------|----------------|
+| `mcl_jukebox:jukebox`, `mcl_barrels:barrel_closed`, `mcl_furnaces:furnace`, `mcl_smoker:smoker`, `mcl_blast_furnace:blast_furnace`, `mcl_brewing:stand_000`, `mcl_books:bookshelf`, `mcl_composters:composter`, `mcl_grindstone:grindstone`, `mcl_campfires:campfire_lit`, `mcl_chests:black_shulker_box_small` | `on_construct` (inventory lists, formspec, particles) |
+| `mcl_itemframes:frame`, `glow_frame`, `invisible_frame`, `plate` | `on_construct`, then item display refresh |
+| `mcl_fences:fence_gate`, `mcl_crimson:warped_fence_gate` | `on_construct` (state meta) |
+| `mesecons_pressureplates:pressure_plate_wood_off` | `on_construct` (starts the node timer) |
+| `mcl_dispensers:dispenser` | `after_place_node` without a placer (inventory, formspec) |
+| `mcl_chests:chest_small/left/right`, `trapped_chest_small/left/right` | inventory lists `main` 27 and `input` 1 if absent, chest entity refresh (the chest constructor also merges neighbouring chests, so it is not called) |
+| `mcl_armor_stand:armor_stand` | entity spawned if none is there |
+
+Saved metadata and inventories are snapshotted before and restored after every
+callback, so bed claims, `villager` fields and stocked inventories survive and
+repeated calls are harmless (completion is recorded per placement and node).
+Beds, doors, bells, lecterns, looms, the pulpit and similar nodes have no
+registered initialization and are left alone. A required node that has an
+`on_construct` or is a container and is neither supported nor listed in
+`node_setup.NOT_REQUIRED` is reported as `unhandled` in the build summary and
+log. No loot, guest policy, bed enumeration or villagers happen here (#47,
+#48). Adding a template that uses a new functional node requires extending
+`node_setup.SUPPORTED`; `tests/node_setup_tests.lua` fails until it is either
+supported or listed as not required.
+
 ## Caveats
 
 - **Caching.** Luanti caches schematics once loaded. After replacing a `.mts`

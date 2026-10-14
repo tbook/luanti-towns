@@ -2,7 +2,9 @@
 -- scratch world by tools/place_check/run.py. It searches for a site in the
 -- flat scratch world, builds a town with real schematics through the
 -- production code (towns.place_town) and re-reads the world to verify the
--- result independently of the builder's own checks.
+-- result independently of the builder's own checks. Ticket #46 additions:
+-- functional node initialization, idempotence and Living Villages
+-- recognition of the tavern jukebox and the well.
 local seed = tonumber(core.settings:get('towns_place_check_seed')) or 5
 local report = {seed = seed, checks = {}, failures = {}}
 local function check(ok, label)
@@ -140,6 +142,136 @@ core.register_on_mods_loaded(function() core.after(0, function()
      local n = core.get_node({x = hall.rect.x1, y = g, z = hall.rect.z1}).name
      report.hall_corner = n
      check(n ~= 'mcl_core:stonebrick' and n ~= 'mcl_core:cobble', 'city hall corner not pavement: ' .. n)
+    end
+    -- Functional node initialization (ticket #46), verified in the engine.
+    local setup = town.setup
+    check(setup ~= nil, 'node setup report present')
+    if setup then
+     report.node_setup = {initialized = setup.initialized, by_name = setup.by_name,
+      failed = #setup.failed, unregistered = #setup.unregistered, unhandled = setup.unhandled}
+     check(#setup.failed == 0 and #setup.unregistered == 0, 'node setup: no failed or unregistered nodes')
+     check(#setup.unhandled == 0, 'node setup: no unhandled required initialization (' .. #setup.unhandled .. ')')
+     check(setup.initialized > 0, 'node setup initialized nodes: ' .. setup.initialized)
+    end
+    -- Containers and devices carry the lists their constructors define.
+    local EXPECT = {
+     ['mcl_jukebox:jukebox'] = {main = 1}, ['mcl_barrels:barrel_closed'] = {main = 27},
+     ['mcl_furnaces:furnace'] = {src = 1, fuel = 1, dst = 1}, ['mcl_smoker:smoker'] = {src = 1, fuel = 1, dst = 1},
+     ['mcl_blast_furnace:blast_furnace'] = {src = 1, fuel = 1, dst = 1},
+     ['mcl_chests:chest_small'] = {main = 27}, ['mcl_chests:chest_left'] = {main = 27},
+     ['mcl_chests:chest_right'] = {main = 27}, ['mcl_chests:trapped_chest_small'] = {main = 27},
+     ['mcl_chests:trapped_chest_left'] = {main = 27}, ['mcl_chests:trapped_chest_right'] = {main = 27},
+     ['mcl_itemframes:frame'] = {main = 1}, ['mcl_itemframes:plate'] = {main = 1},
+     ['mcl_books:bookshelf'] = {main = 27}, ['mcl_brewing:stand_000'] = {input = 1, fuel = 1, stand = 3},
+     ['mcl_composters:composter'] = {src = 1, dst = 1}, ['mcl_dispensers:dispenser'] = {main = 9},
+    }
+    local FORMSPEC = {['mcl_furnaces:furnace'] = true, ['mcl_smoker:smoker'] = true,
+     ['mcl_blast_furnace:blast_furnace'] = true, ['mcl_brewing:stand_000'] = true,
+     ['mcl_dispensers:dispenser'] = true, ['mcl_grindstone:grindstone'] = true}
+    local counts, bad, snapshots = {}, 0, {}
+    local function signature(meta)
+     local t = meta:to_table()
+     local inv = {}
+     for list, items in pairs(t.inventory) do
+      local strs = {}
+      for i, st in ipairs(items) do strs[i] = st:to_string() end
+      inv[list] = strs
+     end
+     return core.serialize({fields = t.fields, inventory = inv})
+    end
+    local names = {}
+    for n in pairs(EXPECT) do names[#names + 1] = n end
+    for n in pairs(FORMSPEC) do if not EXPECT[n] then names[#names + 1] = n end end
+    names[#names + 1] = 'mcl_fences:fence_gate'
+    for _, b in ipairs(town.structures) do
+     for _, p in ipairs(core.find_nodes_in_area(b.min, b.max, names)) do
+      local n = core.get_node(p).name
+      counts[n] = (counts[n] or 0) + 1
+      local meta = core.get_meta(p)
+      local inv = meta:get_inventory()
+      for list, size in pairs(EXPECT[n] or {}) do
+       if inv:get_size(list) < size then bad = bad + 1; check(false, b.id .. ' ' .. n .. ' list ' .. list .. ' at ' .. core.pos_to_string(p) .. ' has size ' .. inv:get_size(list)) end
+      end
+      if FORMSPEC[n] and meta:get_string('formspec') == '' then bad = bad + 1; check(false, n .. ' has no formspec at ' .. core.pos_to_string(p)) end
+      if n == 'mcl_fences:fence_gate' and meta:get_string('state') == '' then bad = bad + 1; check(false, 'fence gate state unset at ' .. core.pos_to_string(p)) end
+      snapshots[core.pos_to_string(p)] = signature(meta)
+     end
+    end
+    report.functional_nodes = counts
+    check(bad == 0, 'functional nodes carry their inventories and formspecs')
+    -- Every chest has its entity.
+    local chests, missing_entity = 0, 0
+    for _, b in ipairs(town.structures) do
+     for _, p in ipairs(core.find_nodes_in_area(b.min, b.max, {'group:chest_entity'})) do
+      chests = chests + 1
+      local found = false
+      for _, o in ipairs(core.get_objects_inside_radius(p, 0.6)) do
+       local le = o:get_luaentity()
+       if le and le.name and le.name:find('^mcl_chests:') then found = true end
+      end
+      if not found then missing_entity = missing_entity + 1 end
+     end
+    end
+    report.chest_entities = {chests = chests, missing = missing_entity}
+    check(missing_entity == 0, 'every chest has its entity (' .. missing_entity .. ' of ' .. chests .. ' missing)')
+    -- Idempotence: a second adapter call on a fresh state changes no metadata.
+    do
+     local env = towns.node_setup.core_env(core, {itemframes = rawget(_G, 'mcl_itemframes'), chests = rawget(_G, 'mcl_chests')},
+      function(b) local e = towns.catalog.entries[b.id]; return e and towns.schematic.required_nodes(e, towns.modpath) end)
+     local again = towns.node_setup.initialize(town.structures, env, {})
+     check(#again.failed == 0, 'second node setup call has no failures')
+     local changed = 0
+     for key, before in pairs(snapshots) do
+      local x, y, z = key:match('%((-?%d+),(-?%d+),(-?%d+)%)')
+      local p = {x = tonumber(x), y = tonumber(y), z = tonumber(z)}
+      if signature(core.get_meta(p)) ~= before then changed = changed + 1 end
+     end
+     report.repeat_changed_nodes = changed
+     check(changed == 0, 'second node setup call preserves metadata (' .. changed .. ' nodes changed)')
+    end
+    -- Living Villages recognizes the tavern jukebox (its own keeper.lua claim
+    -- logic) and the well (its own well.lua examine), by calling its modules.
+    do
+     local lv = core.get_modpath('living_villages')
+     check(lv ~= nil, 'living_villages is loaded')
+     if lv then
+      local keeper = dofile(lv .. '/keeper.lua')
+      local well_mod = dofile(lv .. '/well.lua')
+      local taverns, jukeboxes, claimed, wells, recognized_wells = 0, 0, 0, 0, 0
+      for _, b in ipairs(town.structures) do
+       if b.id == 'tavern' then
+        taverns = taverns + 1
+        for _, p in ipairs(core.find_nodes_in_area(b.min, b.max, {'mcl_jukebox:jukebox'})) do
+         jukeboxes = jukeboxes + 1
+         local meta = core.get_meta(p)
+         local before = meta:get_string('villager')
+         local villager = {_id = 'towns-place-check', _profession = 'unemployed', child = false}
+         if before == '' and keeper.employ(villager, p) and meta:get_string('villager') == 'towns-place-check'
+           and villager._villages_keeper == true and keeper.claimed_jukebox(villager) ~= nil then
+          claimed = claimed + 1
+         end
+         meta:set_string('villager', before)
+        end
+       elseif b.id == 'well' then
+        wells = wells + 1
+        local found = false
+        for _, p in ipairs(core.find_nodes_in_area(b.min, b.max, {'mcl_core:water_source'})) do
+         if not found and core.get_node({x = p.x + 1, y = p.y, z = p.z}).name == 'mcl_core:water_source'
+          and core.get_node({x = p.x, y = p.y, z = p.z + 1}).name == 'mcl_core:water_source'
+          and core.get_node({x = p.x + 1, y = p.y, z = p.z + 1}).name == 'mcl_core:water_source' then
+          local w = well_mod.examine(p)
+          if w then found = true; recognized_wells = recognized_wells + 1; report.well_at = p end
+         end
+        end
+       end
+      end
+      report.living_villages = {taverns = taverns, jukeboxes = jukeboxes, claimable_jukeboxes = claimed,
+       wells = wells, recognized_wells = recognized_wells}
+      check(taverns >= 1, 'the town contains a tavern (' .. taverns .. ')')
+      check(jukeboxes >= 1 and claimed == jukeboxes, 'every tavern jukebox is claimable by a Living Villages keeper (' .. claimed .. ' of ' .. jukeboxes .. ')')
+      check(wells >= 1, 'the town contains a well (' .. wells .. ')')
+      check(wells >= 1 and recognized_wells == wells, 'every well is recognized by Living Villages well.lua (' .. recognized_wells .. ' of ' .. wells .. ')')
+     end
     end
     finish()
    end)

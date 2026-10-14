@@ -10,8 +10,9 @@
 -- with no preview and no confirmation. Disposable Creative worlds only.
 --
 -- Flow: search with structure bounds (real landmark profile) -> preflight
--- check (files, node registration) -> builder.build_town. No node setup
--- (ticket #46) and no residents (ticket #48) happen here.
+-- check (files, node registration) -> builder.build_town, which also
+-- initializes the placed functional nodes (ticket #46, src/node_setup.lua).
+-- No residents (ticket #48) are spawned here.
 
 local towns = ...  -- the global table built by init.lua
 
@@ -46,6 +47,8 @@ local function build(result)
 	end
 	local env = towns.builder.core_env(core, {
 		schematic = towns.schematic, modpath = towns.modpath,
+		node_setup = towns.node_setup,
+		globals = {itemframes = rawget(_G, "mcl_itemframes"), chests = rawget(_G, "mcl_chests")},
 	})
 	return towns.builder.build_town(result, {entries = towns.catalog.entries}, env)
 end
