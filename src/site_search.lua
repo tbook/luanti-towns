@@ -17,6 +17,16 @@
 --                 planner.plan). When planner_opts selects a larger envelope
 --                 (a landmark profile), the default max_radius grows by
 --                 half the extra envelope; terrain limits never change.
+--                 opts.structure_bounds = true (ticket #44, needs a landmark
+--                 profile in planner_opts): build_bounds then come from the
+--                 selected structures instead of the 40-node blockout
+--                 clearance: Y runs from the lowest of surface, ground and
+--                 every foundation (ground - ground_offset) up to the top
+--                 node of the tallest placed structure (or the highest
+--                 surface), result.structures lists the composed boxes
+--                 (src/preflight.lua), and an uncomposable plan ends the
+--                 search with a failure. Default false: legacy bounds.
+--                 Flattening and every cut/fill limit are unchanged.
 --     done        called exactly once: done(result, nil, details) on
 --                 success or done(nil, summary, details) on failure.
 --     env         defaults to ss.core_env(core): {emerge, get_node_name,
@@ -81,6 +91,15 @@ return function(placement, planner)
 
 local M = {}
 
+local function load_sibling(name)
+	local c = rawget(_G, "core")
+	if c and c.get_modpath and c.get_current_modname then
+		return dofile(c.get_modpath(c.get_current_modname()) .. "/src/" .. name)
+	end
+	return dofile("src/" .. name)
+end
+local preflight = load_sibling("preflight.lua")
+
 -- Largest seed accepted by planner.plan (alias of planner.SEED_LIMIT).
 M.MAX_SEED = planner.SEED_LIMIT
 
@@ -107,7 +126,12 @@ local function constants(opts)
 	if opts then
 		for k, v in pairs(opts) do
 			local key = type(k) == "string" and k:upper() or nil
-			if key and M.CONSTANTS[key] ~= nil then
+			if k == "structure_bounds" then
+				if type(v) ~= "boolean" then
+					error("towns site_search: opts.structure_bounds must be a boolean", 3)
+				end
+				C.STRUCTURE_BOUNDS = v
+			elseif key and M.CONSTANTS[key] ~= nil then
 				if type(v) ~= "number" or v ~= v or v < 0 or v == math.huge then
 					error("towns site_search: opts." .. k .. " must be a finite number >= 0, got "
 						.. tostring(v), 3)
@@ -254,15 +278,23 @@ function M.build_volume(build_bounds, C)
 	}
 end
 
--- Exact build bounds for an accepted site (see header).
-function M.build_bounds(plan_bounds, ground_y, min_h, max_h, C)
+-- Exact build bounds for an accepted site (see header). `comp` (optional,
+-- preflight.compose result, opts.structure_bounds) replaces the blockout
+-- clearance: Y then runs from the lowest of the surface, ground and every
+-- structure foundation up to the top of the tallest selected structure (or
+-- the highest surface).
+function M.build_bounds(plan_bounds, ground_y, min_h, max_h, C, comp)
+	local lo = math.min(min_h, ground_y)
+	local hi
+	if comp then
+		hi = math.max(max_h, comp.max_y or ground_y)
+		if comp.min_y then lo = math.min(lo, comp.min_y) end
+	else
+		hi = math.max(max_h, ground_y + C.BLOCKOUT_CLEARANCE)
+	end
 	return {
-		min = {x = plan_bounds.x1, y = math.min(min_h, ground_y), z = plan_bounds.z1},
-		max = {
-			x = plan_bounds.x2,
-			y = math.max(max_h, ground_y + C.BLOCKOUT_CLEARANCE),
-			z = plan_bounds.z2,
-		},
+		min = {x = plan_bounds.x1, y = lo, z = plan_bounds.z1},
+		max = {x = plan_bounds.x2, y = hi, z = plan_bounds.z2},
 	}
 end
 
@@ -536,7 +568,29 @@ function M.search(player_pos, seed, opts, done, env)
 			end
 
 			local ground = info.ground_y
-			local bb = M.build_bounds(bounds, ground, info.min_height, info.max_height, C)
+			local comp
+			if C.STRUCTURE_BOUNDS then
+				local lm = type(opts.planner_opts) == "table" and opts.planner_opts.landmarks
+				local entries = {}
+				if type(lm) == "table" then
+					for _, n in ipairs({"cathedral", "castle", "city_hall", "jail"}) do
+						if lm[n] then entries[lm[n].id] = lm[n] end
+					end
+					for _, sv in pairs(lm.services or {}) do entries[sv.id] = sv end
+					for id, e in pairs(lm.content or {}) do entries[id] = e end
+				end
+				local cwhy
+				comp, cwhy = preflight.compose(plan, entries, ground)
+				if not comp then
+					return finish(nil, "Town content is invalid: " .. tostring(cwhy)
+						.. ". Nothing was changed.")
+				end
+				if comp.max_y and comp.max_y + C.CUT_FILL_MARGIN > C.CENTER_LIMIT then
+					return reject("out_of_range", ("structures reach y=%d beyond +/-%d"):format(
+						comp.max_y, C.CENTER_LIMIT))
+				end
+			end
+			local bb = M.build_bounds(bounds, ground, info.min_height, info.max_height, C, comp)
 			local bvol = M.build_volume(bb, C)
 			emerge_step(bvol.min, bvol.max, function(status2)
 				if emerge_bad(status2, center) then return end
@@ -549,6 +603,7 @@ function M.search(player_pos, seed, opts, done, env)
 					min_height = info.min_height,
 					max_height = info.max_height,
 					build_bounds = bb,
+					structures = comp and comp.structures or nil,
 					inspection_volume = volume,
 					build_volume = bvol,
 					candidate = {index = i, dx = off.dx, dz = off.dz},
