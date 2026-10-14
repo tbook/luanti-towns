@@ -43,6 +43,26 @@ local function shortage(reason)
 	return nil, {role = "jail", wanted = 1, placed = 0, reason = reason}
 end
 
+-- Every rect later reservations must avoid: all sites, the jail and any
+-- reserved services, plus `extra`. A set, so pairs order cannot leak.
+function M.occupied_rects(plan, extra)
+	local occupied = {}
+	for _, s in pairs(plan.sites) do
+		if type(s) == "table" and s.rect then occupied[#occupied + 1] = s.rect end
+	end
+	local res = plan.reservations
+	if type(res) == "table" then
+		if type(res.jail) == "table" and res.jail.rect then
+			occupied[#occupied + 1] = res.jail.rect
+		end
+		for _, p in ipairs(res.services or {}) do
+			if p.rect then occupied[#occupied + 1] = p.rect end
+		end
+	end
+	for _, r in ipairs(extra or {}) do occupied[#occupied + 1] = r end
+	return occupied
+end
+
 function M.reserve(plan, entry, opts)
 	assert(type(plan) == "table" and type(plan.sites) == "table", "jail: plan required")
 	assert(type(entry) == "table" and type(entry.size) == "table", "jail: catalog entry required")
@@ -51,12 +71,7 @@ function M.reserve(plan, entry, opts)
 	local bias = opts.bias or M.JAIL_MARKET_BIAS
 	local id = entry.id or "jail"
 
-	-- Occupancy is a set, so pairs order cannot leak into the result.
-	local occupied = {}
-	for _, s in pairs(plan.sites) do
-		if type(s) == "table" and s.rect then occupied[#occupied + 1] = s.rect end
-	end
-	for _, r in ipairs(opts.occupied or {}) do occupied[#occupied + 1] = r end
+	local occupied = M.occupied_rects(plan, opts.occupied)
 
 	local market = plan.sites.market and plan.sites.market.rect
 	if not market then return shortage("plan has no market square") end

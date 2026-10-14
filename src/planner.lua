@@ -38,6 +38,11 @@
 --                  the market centre) or, when nothing fits, plan.shortages =
 --                  {{role = "jail", wanted = 1, placed = 0, reason}}. Plans
 --                  without a jail profile carry neither field.
+--                  A profile may also carry services = {tavern, well, chapel}
+--                  (ticket #41, src/service_reservation.lua): after the jail the
+--                  plan gets plan.reservations.services (list of placements),
+--                  plan.reservations.service_counts and unmet targets appended
+--                  to plan.shortages. Plans without services carry none of it.
 --
 -- Determinism
 -- -----------
@@ -203,8 +208,10 @@ local function load_sibling(name)
 end
 local streets = load_sibling("streets.lua")
 local geometry = load_sibling("geometry.lua")
-local jail_reservation = load_sibling("jail_reservation.lua")(
-	load_sibling("frontage_packer.lua")(geometry))
+local frontage_packer = load_sibling("frontage_packer.lua")(geometry)
+local jail_reservation = load_sibling("jail_reservation.lua")(frontage_packer)
+local service_reservation = load_sibling("service_reservation.lua")(
+	frontage_packer, jail_reservation.occupied_rects)
 
 M.CONSTANTS = {
 	ENVELOPE = 96,            -- town envelope, nodes per side
@@ -251,6 +258,12 @@ M.CONSTANTS = {
 	-- Jail reservation (profile planning only, ticket #69)
 	JAIL_MARKET_BIAS = 1,     -- 1: jail entrance farthest from the market
 	                          --  centre, -1: nearest
+	-- Service reservations (profile planning only, ticket #41)
+	SERVICE_TAVERNS = 3,      -- target counts
+	SERVICE_WELLS = 3,
+	SERVICE_CHAPELS = 2,
+	CHAPEL_MIN_FROM_CATHEDRAL = 40, -- entrance to cathedral entrance, nodes
+	CHAPEL_MIN_BETWEEN = 70,        -- entrance to another chapel's entrance
 }
 
 -- Landmark profile (ticket #38)
@@ -455,6 +468,27 @@ function M.landmark_profile(snapshot, ids)
 			entrance = e.entrance, ground_offset = e.ground_offset})
 		if not L then return nil, why end
 		profile.jail = L
+	end
+	-- Distributed services (ticket #41): tavern, well and chapel, each
+	-- optional; the first id of each role in sorted order.
+	for _, role in ipairs(service_reservation.ROLES) do
+		local list = {}
+		for k, e in pairs(snapshot) do
+			if type(e) == "table" and e.role == role then list[#list + 1] = k end
+		end
+		table.sort(list)
+		local sid = (ids and ids[role]) or list[1]
+		if sid ~= nil then
+			local e = snapshot[sid]
+			if type(e) ~= "table" then
+				return nil, "catalog has no entry '" .. tostring(sid) .. "' for the " .. role
+			end
+			local L, why = check_landmark(role, {id = sid, size = e.size,
+				entrance = e.entrance, ground_offset = e.ground_offset})
+			if not L then return nil, why end
+			profile.services = profile.services or {}
+			profile.services[role] = L
+		end
 	end
 	return profile
 end
@@ -1665,6 +1699,23 @@ function M.plan(center, seed, opts)
 				end
 				profile[name] = L
 			end
+			if lm.services ~= nil then
+				if type(lm.services) ~= "table" then
+					error("towns planner: opts.landmarks.services must be a table", 2)
+				end
+				profile.services = {}
+				for _, role in ipairs(service_reservation.ROLES) do
+					local sv = lm.services[role]
+					if sv ~= nil then
+						local L, why = check_landmark(role, {id = sv.id, size = sv.size,
+							entrance = sv.entrance, ground_offset = sv.ground_offset})
+						if not L then
+							error("towns planner: opts.landmarks.services: " .. tostring(why), 2)
+						end
+						profile.services[role] = L
+					end
+				end
+			end
 		end
 		if opts.max_attempts ~= nil then
 			if not is_int(opts.max_attempts) or opts.max_attempts < 0 then
@@ -1698,11 +1749,28 @@ function M.plan(center, seed, opts)
 					if ok then
 						-- Jail (ticket #69): reserved after the landmarks and
 						-- hall, best effort; a shortage never fails the plan.
-						if profile and profile.jail then
-							local placed, short = jail_reservation.reserve(full,
-								profile.jail, {seed = seed, bias = C.JAIL_MARKET_BIAS})
-							full.reservations = {jail = placed}
-							full.shortages = short and {short} or {}
+						if profile and (profile.jail or profile.services) then
+							full.reservations = {}
+							full.shortages = {}
+							if profile.jail then
+								local placed, short = jail_reservation.reserve(full,
+									profile.jail, {seed = seed, bias = C.JAIL_MARKET_BIAS})
+								full.reservations.jail = placed
+								if short then full.shortages[1] = short end
+							end
+							if profile.services then
+								local placed, shorts, counts = service_reservation.reserve(
+									full, profile.services, {seed = seed,
+										targets = {tavern = C.SERVICE_TAVERNS,
+											well = C.SERVICE_WELLS, chapel = C.SERVICE_CHAPELS},
+										chapel_min_cathedral = C.CHAPEL_MIN_FROM_CATHEDRAL,
+										chapel_min_between = C.CHAPEL_MIN_BETWEEN})
+								full.reservations.services = placed
+								full.reservations.service_counts = counts
+								for _, sh in ipairs(shorts) do
+									full.shortages[#full.shortages + 1] = sh
+								end
+							end
 						end
 						return full
 					end
