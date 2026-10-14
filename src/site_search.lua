@@ -180,6 +180,11 @@ local function constants(opts)
 			end
 		end
 	end
+	if C.STRUCTURE_BOUNDS and not (type(popts) == "table"
+			and type(popts.landmarks) == "table") then
+		error("towns site_search: opts.structure_bounds requires opts.planner_opts.landmarks "
+			.. "(a landmark profile)", 3)
+	end
 	C.BLOCKOUT_CLEARANCE = C.LANDMARK_BLOCKOUT_HEIGHT + C.BLOCKOUT_MARGIN
 	return C
 end
@@ -585,13 +590,13 @@ function M.search(player_pos, seed, opts, done, env)
 					return finish(nil, "Town content is invalid: " .. tostring(cwhy)
 						.. ". Nothing was changed.")
 				end
-				if comp.max_y and comp.max_y + C.CUT_FILL_MARGIN > C.CENTER_LIMIT then
-					return reject("out_of_range", ("structures reach y=%d beyond +/-%d"):format(
-						comp.max_y, C.CENTER_LIMIT))
-				end
 			end
 			local bb = M.build_bounds(bounds, ground, info.min_height, info.max_height, C, comp)
 			local bvol = M.build_volume(bb, C)
+			if comp and (bb.max.y > C.CENTER_LIMIT or bvol.min.y < -C.CENTER_LIMIT) then
+				return reject("out_of_range", ("build volume y=%d..%d extends beyond +/-%d"):format(
+					bvol.min.y, bvol.max.y, C.CENTER_LIMIT))
+			end
 			emerge_step(bvol.min, bvol.max, function(status2)
 				if emerge_bad(status2, center) then return end
 				finish({

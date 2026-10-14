@@ -7,13 +7,18 @@
 --   local preflight = dofile(".../preflight.lua")
 --
 --   preflight.compose(plan, entries, ground_y)
---       -> comp | nil, message
+--       -> comp | nil, message, reason  (reason: bad_input, missing_entry,
+--       geometry or out_of_bounds, as in check)
 --   preflight.run(params, env, done)         asynchronous; done is called
 --       exactly once: done(report) or done(nil, message, "inspection_failed",
 --       {reason = <code>}). run() itself does not raise for bad input.
 --   preflight.check(params, env) -> report | nil, message, reason
 --       everything run() does except the emerge (pure given env reads).
 --   preflight.core_env(core) -> env
+--
+-- Wiring into builder / /towns_generate is deliberately NOT done here: the
+-- whole path is opt-in today and is left to tickets #45 and #49. Nothing in
+-- the legacy command calls this module.
 --
 -- compose: every civic and content placement of a finished plan resolved to
 -- an exact XYZ box. Sources, in this deterministic order: plan.sites
@@ -98,27 +103,27 @@ local function resolve(entries, ground_y, bounds, id, kind, role, rotation, rect
 	local label = ("%s '%s'"):format(kind, tostring(id))
 	local e = entries[id]
 	if type(e) ~= "table" or type(e.size) ~= "table" or type(e.entrance) ~= "table" then
-		return nil, label .. " has no catalog entry"
+		return nil, label .. " has no catalog entry", "missing_entry"
 	end
 	local s = e.size
 	if not (is_int(s.x) and is_int(s.y) and is_int(s.z) and s.x > 0 and s.y > 0 and s.z > 0) then
-		return nil, label .. " has no valid schematic size"
+		return nil, label .. " has no valid schematic size", "geometry"
 	end
 	local go = e.ground_offset or 0
 	if not is_int(go) or go < 0 or go >= s.y then
-		return nil, label .. " has an invalid ground_offset"
+		return nil, label .. " has an invalid ground_offset", "geometry"
 	end
-	if not valid_rect(rect) then return nil, label .. " has no valid planned rect" end
+	if not valid_rect(rect) then return nil, label .. " has no valid planned rect", "geometry" end
 	local ok, g = pcall(geometry.place, {size = s, entrance = {x = e.entrance.x or 0,
 		y = e.entrance.y or 1, z = e.entrance.z or 0}},
 		{x = rect.x1, y = ground_y - go, z = rect.z1}, rotation)
-	if not ok then return nil, label .. ": " .. tostring(g) end
+	if not ok then return nil, label .. ": " .. tostring(g), "geometry" end
 	if g.max.x ~= rect.x2 or g.max.z ~= rect.z2 then
 		return nil, ("%s: planned rect (%s) is not its rotated %dx%d footprint at rotation %s"):format(
-			label, fmt_rect(rect), g.size.x, g.size.z, tostring(rotation))
+			label, fmt_rect(rect), g.size.x, g.size.z, tostring(rotation)), "geometry"
 	end
 	if rect.x1 < bounds.x1 or rect.x2 > bounds.x2 or rect.z1 < bounds.z1 or rect.z2 > bounds.z2 then
-		return nil, label .. " lies outside the town bounds (" .. fmt_rect(rect) .. ")"
+		return nil, label .. " lies outside the town bounds (" .. fmt_rect(rect) .. ")", "out_of_bounds"
 	end
 	return {
 		id = id, kind = kind, role = role or kind, rotation = g.rotation,
@@ -130,19 +135,19 @@ end
 
 function M.compose(plan, entries, ground_y)
 	if type(plan) ~= "table" or type(plan.sites) ~= "table" or type(plan.bounds) ~= "table" then
-		return nil, "plan is not a town plan"
+		return nil, "plan is not a town plan", "bad_input"
 	end
-	if type(entries) ~= "table" then return nil, "no catalog entries" end
-	if not is_int(ground_y) then return nil, "ground_y must be an integer" end
-	local list, err = {}, nil
+	if type(entries) ~= "table" then return nil, "no catalog entries", "bad_input" end
+	if not is_int(ground_y) then return nil, "ground_y must be an integer", "bad_input" end
+	local list, err, code = {}, nil, nil
 	local function add(id, kind, role, rotation, rect)
 		if err then return end
 		if id == nil then
-			err = kind .. " has no catalog id"
+			err, code = kind .. " has no catalog id", "missing_entry"
 			return
 		end
-		local st, why = resolve(entries, ground_y, plan.bounds, id, kind, role, rotation, rect)
-		if not st then err = why else list[#list + 1] = st end
+		local st, why, wcode = resolve(entries, ground_y, plan.bounds, id, kind, role, rotation, rect)
+		if not st then err, code = why, wcode else list[#list + 1] = st end
 	end
 	for _, name in ipairs(M.SITE_NAMES) do
 		local s = plan.sites[name]
@@ -165,12 +170,12 @@ function M.compose(plan, entries, ground_y)
 			add(b.building_id, "content", b.role, b.rotation, b.rect)
 		end
 	end
-	if err then return nil, err end
+	if err then return nil, err, code end
 	for i = 1, #list do
 		for j = i + 1, #list do
 			if overlap(list[i].rect, list[j].rect) then
 				return nil, ("%s '%s' and %s '%s' overlap"):format(list[i].kind, list[i].id,
-					list[j].kind, list[j].id)
+					list[j].kind, list[j].id), "geometry"
 			end
 		end
 	end
@@ -220,15 +225,9 @@ function M.check(params, env)
 		end
 	end
 
-	local comp, why = M.compose(params.plan, params.entries, params.ground_y)
+	local comp, why, reason = M.compose(params.plan, params.entries, params.ground_y)
 	if not comp then
-		local reason = "geometry"
-		if why:find("no catalog entry", 1, true) or why:find("no catalog id", 1, true) then
-			reason = "missing_entry"
-		elseif why:find("outside the town bounds", 1, true) then
-			reason = "out_of_bounds"
-		end
-		return fail(reason, "Invalid town content: " .. why .. ".")
+		return fail(reason or "geometry", "Invalid town content: " .. why .. ".")
 	end
 	if #comp.structures == 0 then
 		return fail("no_structures", "The plan has no buildings to construct.")

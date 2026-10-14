@@ -40,7 +40,8 @@ local function new_env(entries, spec)
 	end
 	env.emerge = function(minp, maxp, cb)
 		w.emerges[#w.emerges + 1] = {min = minp, max = maxp}
-		if spec.hang then return end
+		if spec.emerge_raises then error("engine exploded") end
+		if spec.hang then w.cbs = w.cbs or {}; w.cbs[#w.cbs + 1] = cb; return end
 		cb(not (spec.emerge_ok == false))
 	end
 	env.after = function(seconds, fn) w.timers[#w.timers + 1] = {seconds = seconds, fn = fn} end
@@ -217,6 +218,30 @@ do
 	eq(e2.reason, "emerge_timeout", "timeout: reason")
 	w.timers[1].fn()
 	eq(calls2, 1, "timeout: late settle ignored")
+	w.cbs[1](true)
+	eq(calls2, 1, "timeout: late emerge callback ignored")
+	eq(rep2, nil, "timeout: no report from late callback")
+
+	-- Emerge raising.
+	w = new_env(entries, {emerge_raises = true})
+	report, msg, code, extra, calls = run(params, w)
+	eq(calls, 1, "emerge raises: done once")
+	eq(report, nil, "emerge raises: no report")
+	eq(extra.reason, "emerge_failed", "emerge raises: reason")
+
+	-- Right size, wrong for rotation 270 (and right for it when swapped).
+	local p3 = copy(plan)
+	p3.content.buildings[1].rotation = 270
+	p3.content.buildings[1].rect = {x1 = 10, z1 = 10, x2 = 19, z2 = 13}
+	local c3, why3, code3 = preflight.compose(p3, entries, 20)
+	eq(c3, nil, "270: unswapped rect rejected")
+	eq(code3, "geometry", "270: reason code from compose")
+	p3.content.buildings[1].rect = {x1 = 10, z1 = 10, x2 = 13, z2 = 19}
+	eq(preflight.compose(p3, entries, 20) ~= nil, true, "270: swapped rect accepted")
+	local _, _, code4 = preflight.compose({sites = {}, bounds = plan.bounds,
+		content = {buildings = {{building_id = "x", role = "house", rotation = 0,
+			rect = {x1 = 0, z1 = 0, x2 = 1, z2 = 1}}}}}, entries, 20)
+	eq(code4, "missing_entry", "compose reports missing_entry code")
 
 	-- Player inside the footprint (or its margin).
 	pr = copy(params)
@@ -227,9 +252,18 @@ do
 	pr.player = {x = -3, y = 21, z = 30}
 	report, msg, code, extra = run(pr, new_env(entries))
 	eq(extra.reason, "player_inside", "player in margin: reason")
+	pr.player = {x = -4, y = 21, z = 30}
+	report, msg, code, extra = run(pr, new_env(entries))
+	eq(extra.reason, "player_inside", "player exactly at margin: reason")
+	pr.player = {x = 63, y = 21, z = 30}
+	report, msg, code, extra = run(pr, new_env(entries))
+	eq(extra.reason, "player_inside", "player at far margin: reason")
 	pr.player = {x = -5, y = 21, z = 30}
 	report = run(pr, new_env(entries))
-	eq(report ~= nil, true, "player outside margin accepted")
+	eq(report ~= nil, true, "player at margin+1 accepted")
+	pr.player = {x = 64, y = 21, z = 30}
+	report = run(pr, new_env(entries))
+	eq(report ~= nil, true, "player at far margin+1 accepted")
 
 	-- Beyond the world limit.
 	pr = copy(params)
@@ -245,22 +279,24 @@ local snapshot = catalog.snapshot()
 local profile = assert(planner.landmark_profile(snapshot))
 local SEED = 1
 
-local function flat_env()
+local function flat_env(top)
+	top = top or 20
 	local env = {emerges = 0}
 	local names = {["default:stone"] = {walkable = true}}
 	env.node_info = function(name) return names[name] end
-	env.get_node_name = function(_, y) return y <= 20 and "default:stone" or "air" end
+	env.get_node_name = function(_, y) return y <= top and "default:stone" or "air" end
 	env.after = function() end
 	env.emerge = function(_, _, cb) env.emerges = env.emerges + 1; cb(true) end
 	return env
 end
 
 local ss = site_search(dofile("src/placement.lua")(geometry), planner)
-local function search(planner_opts, structure_bounds)
+local function search(planner_opts, structure_bounds, top, radius, search_ss)
 	local result, summary
-	ss.search({x = 0.4, y = 21, z = 0.4}, SEED, {planner_opts = planner_opts,
-		structure_bounds = structure_bounds, max_radius = 160}, function(r, s) result, summary = r, s end,
-		flat_env())
+	top = top or 20
+	;(search_ss or ss).search({x = 0.4, y = top + 1, z = 0.4}, SEED, {planner_opts = planner_opts,
+		structure_bounds = structure_bounds, max_radius = radius or 160},
+		function(r, s) result, summary = r, s end, flat_env(top))
 	return result, summary
 end
 
@@ -283,8 +319,17 @@ do
 		eq(g.max.z, st.max.z, "box max z " .. st.id)
 	end
 	eq(r.build_bounds.max.y, math.max(r.max_height, tallest), "top is the tallest structure")
-	eq(r.build_bounds.max.y < legacy.build_bounds.max.y or tallest >= legacy.build_bounds.max.y,
-		true, "bounds no longer carry the blockout margin")
+	local expect_top, legacy_h = 0, ss.CONSTANTS.LANDMARK_BLOCKOUT_HEIGHT
+	for _, st in ipairs(comp.structures) do
+		local e = catalog.entries[st.id]
+		expect_top = math.max(expect_top, e.size.y - (e.ground_offset or 0))
+	end
+	for _, n in ipairs({"cathedral", "castle"}) do
+		legacy_h = math.max(legacy_h, profile[n].size.y - (profile[n].ground_offset or 0))
+	end
+	eq(r.build_bounds.max.y, r.ground_y + expect_top - 1, "exact top of tallest structure")
+	eq(legacy.build_bounds.max.y, legacy.ground_y + legacy_h + ss.CONSTANTS.BLOCKOUT_MARGIN,
+		"legacy top keeps the blockout clearance exactly")
 	eq(r.build_bounds.min.y <= r.ground_y - 5, true, "bounds include the castle foundation")
 	eq(r.build_volume.max.y, r.build_bounds.max.y, "volume covers the top")
 	eq(legacy.structures, nil, "legacy result has no structures")
@@ -313,3 +358,41 @@ end
 -- Unknown option values and bad profiles.
 fails(function() search({landmarks = profile}, "yes") end, "structure_bounds must be a boolean",
 	"structure_bounds type")
+
+-- Option errors and site_search failure paths.
+fails(function() search(nil, true) end, "requires opts.planner_opts.landmarks",
+	"structure_bounds without a profile")
+
+do
+	local wrapped = setmetatable({plan = function(...)
+		local p, a, b = planner.plan(...)
+		if p and p.content and p.content.buildings[1] then
+			p.content.buildings[1].building_id = "ghost"
+		end
+		return p, a, b
+	end}, {__index = planner})
+	local wss = site_search(dofile("src/placement.lua")(geometry), wrapped)
+	local r, why = search({landmarks = profile}, true, 20, 160, wss)
+	eq(r, nil, "invalid content: no result")
+	eq(tostring(why):find("Town content is invalid", 1, true) ~= nil, true,
+		"invalid content: message " .. tostring(why))
+	eq(tostring(why):find("Nothing was changed", 1, true) ~= nil, true, "invalid content: nothing changed")
+end
+
+do
+	local tall = copy(profile)
+	tall.cathedral.size.y = 31500
+	local r, why = search({landmarks = tall}, true, 20, 110)
+	eq(r, nil, "top beyond the limit: no result")
+	eq(tostring(why):find("out_of_range", 1, true) ~= nil, true,
+		"top beyond the limit: out_of_range " .. tostring(why))
+	-- Bottom: the cut/fill margin below the foundation passes -31000.
+	r, why = search({landmarks = profile}, true, -30990, 110)
+	eq(r, nil, "bottom beyond the limit: no result")
+	eq(tostring(why):find("out_of_range", 1, true) ~= nil, true,
+		"bottom beyond the limit: out_of_range " .. tostring(why))
+	-- Exactly at the limit is accepted: foundation -30995 - margin 8 = -31003 fails,
+	-- so raise the surface by 3.
+	r, why = search({landmarks = profile}, true, -30987, 110)
+	eq(r ~= nil, true, "bottom exactly at the limit accepted " .. tostring(why))
+end
