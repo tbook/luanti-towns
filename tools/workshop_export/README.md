@@ -110,3 +110,42 @@ saved colors while functional node initialization and inventories still run.
 
 Detailed records: `docs/castle_capture.md`,
 `docs/cathedral_monastery_capture.md`, and the generated template manifest.
+
+## Stock village templates (tavern, well)
+
+`tavern` (role `tavern`) and `well` (role `well`) are the stock VoxeLibre
+village buildings, not TownsWorkshop builds, so their source is a scratch
+world seeded from the installed game schematics:
+
+- Source files: `<game>/mods/MAPGEN/mcl_villages/schematics/tavern.mts`
+  (12 x 13 x 10, MTS v4) and `well.mts` (6 x 7 x 8, MTS v4), VoxeLibre
+  0.92.3 (`game.conf` release 38585) as installed at
+  `games/mineclone2`.
+- Licence: the `mcl_villages` README credits "Completely new schematics for
+  VoxeLibre: MysticTempest - CC-BY-SA 4.0" (mod code is GNU GPLv3,
+  (c) Rochambeau 2018, from "settlements"/"ruins" by BlockMen). The two
+  templates are verbatim copies of those schematics (the tavern with the
+  Living Villages furnishing below) and carry CC-BY-SA 4.0 with that
+  attribution.
+- Regenerate: create a scratch world with `mg_name = singlenode`, a
+  `world.mt` enabling `mcl_decor` and `living_villages` (as TownsWorkshop
+  does), copy `tools/workshop_export/stock_seed/` to
+  `<world>/worldmods/stock_seed/`, run the server once (it places both
+  schematics and shuts down), then:
+
+  ```sh
+  python3 tools/workshop_export/export.py --world <scratch world> \
+    --only tavern well --validate
+  ```
+
+  The seeder places the tavern at (100,7,100) and the well at (140,7,100)
+  and applies the Living Villages `tavern_schematic.lua` furnishing (two
+  fence-and-plate tables become four tables with eight chairs and four
+  plates). Keep the change list in `stock_seed/init.lua` equivalent to that
+  file.
+- Both entries use fixed capture boxes so the stock footprint and apron are
+  kept. The tavern drops only the buried dirt layer (stock y 0), so its floor
+  layer is the template ground layer: 12 x 12 x 10 as authored (door on the
+  -X side, `rotation` 270), which is 10 x 12 x 12 in the canonical -Z-front
+  file. The well keeps its dirt layer, because its standing apron is air at
+  stock y 1 over that dirt: 6 x 7 x 8, front already on -Z.
