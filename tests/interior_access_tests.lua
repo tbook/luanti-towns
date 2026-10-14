@@ -136,8 +136,15 @@ do
 	eq(access.check(fixture(), {max_cells = 10}), nil, "oversized grid refused")
 end
 
--- Stock catalog: pinned results, deterministic, plan unchanged.
+-- Stock catalog: pinned results, deterministic, plan unchanged. Seeds 5, 6
+-- and 8 are sealed (32, 68 and 18 cells) when the content is planned without
+-- the alley pass (#43), which the planner now runs by default.
 do
+	local geometry = dofile("src/geometry.lua")
+	local packer = dofile("src/frontage_packer.lua")(geometry)
+	local jailmod = dofile("src/jail_reservation.lua")(packer)
+	local content = dofile("src/content_planner.lua")(geometry, packer,
+		jailmod.occupied_rects, access)
 	local base = assert(planner.landmark_profile(catalog.snapshot()))
 	local pinned = {[1] = 0, [2] = 0, [3] = 0, [4] = 0, [5] = 32, [6] = 68,
 		[7] = 0, [8] = 18, [9] = 0, [10] = 0, [11] = 0, [12] = 0}
@@ -147,6 +154,7 @@ do
 	for seed = 1, 12 do
 		local label = "access seed " .. seed
 		local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
+		plan.content = content.plan(plan, base.content, {seed = seed, alleys = false})
 		local nb = #plan.content.buildings
 		local a = assert(access.check(plan))
 		local b = assert(access.check(plan))
