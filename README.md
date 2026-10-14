@@ -78,12 +78,21 @@ the node you stand on, with a 5x5 paved square outside its entrance. It
 use it only in disposable Creative worlds (such as Testlandia). Unsuitable
 sites (water, or a surface that varies by more than one node) are rejected
 without changing anything. The site surface must also be within one node of
-your ground level. It needs neither WorldEdit nor Living Villages.
+your ground level. It needs no WorldEdit.
 
 ## Installation
 
 Place this repository in a directory named `towns` under Luanti's `mods`
 directory or a world's `worldmods` directory. Enable it for a VoxeLibre world.
+
+**Required mods** (`mod.conf`): [Living Villages](https://github.com/tbook/luanti-villages)
+(`living_villages`, which itself needs `mobs_mc`, `mcl_beds`, `mcl_villages`,
+`mcl_decor`, `mcl_itemframes`, `mcl_lectern` and `mcl_wool`), plus the VoxeLibre
+mods Towns calls directly: `mcl_core`, `mcl_chests` and `mcl_itemframes`.
+Living Villages supplies the pulpit node used by the cathedral and chapel
+templates and recognizes the tavern jukebox and the well by node and shape;
+the Towns node setup (`src/node_setup.lua`, run by `/towns_place_town`) only
+prepares those nodes and never reimplements villager behaviour.
 
 ## Tests
 

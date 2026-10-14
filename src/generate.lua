@@ -163,6 +163,15 @@ function M.format_report(summary, command)
 	if s.town then
 		add("Placed %d buildings (%d alleys paved); all %d door approach routes are walkable.",
 			s.town.placed, s.town.alleys, #s.town.doors)
+		local st = s.town.setup
+		if st then
+			add("Node setup: %d functional nodes initialized (%d placements, %d unhandled).",
+				st.initialized, st.placements, #st.unhandled)
+			for _, u in ipairs(st.unhandled) do
+				add("Unhandled initialization: %s (%s) in %s.", u.name, u.reason,
+					table.concat(u.structures, ", "))
+			end
+		end
 	end
 	return lines
 end

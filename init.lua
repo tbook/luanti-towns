@@ -17,6 +17,10 @@ towns.preflight = dofile(modpath .. "/src/preflight.lua")
 -- Read-only nearby site search and terrain inspection (no world writes).
 towns.site_search = dofile(modpath .. "/src/site_search.lua")(towns.placement, towns.planner)
 
+-- Post-placement initialization of functional nodes (#46); used by the
+-- opt-in /towns_place_town path only.
+towns.node_setup = dofile(modpath .. "/src/node_setup.lua")
+
 -- Flat-town builder: one validated plan + inspected site -> nodes (#15).
 towns.builder = dofile(modpath .. "/src/builder.lua")(towns.placement, towns.planner)
 

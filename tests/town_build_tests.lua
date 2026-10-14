@@ -377,3 +377,64 @@ do
 		eq(c ~= nil, true, "real castle gate reachable at rotation " .. rot .. ": " .. tostring(cwhy))
 	end
 end
+
+------------------------------------------------------------------------
+-- Node setup (ticket #46): once, after every placement and door check
+------------------------------------------------------------------------
+do
+	local function report(over)
+		local r = {ok = true, placements = #comp.structures, already_done = 0, initialized = 3,
+			by_name = {}, failed = {}, unregistered = {}, unhandled = {}}
+		for k, v in pairs(over or {}) do r[k] = v end
+		return r
+	end
+	local w = new_world()
+	local calls = 0
+	w.env.setup_nodes = function(structs, ents)
+		calls = calls + 1
+		w.log[#w.log + 1] = "setup"
+		eq(#structs, #comp.structures, "setup gets every structure")
+		eq(ents ~= nil, true, "setup gets the entries")
+		return report()
+	end
+	local s, msg, code = builder.build_town(make_result(), {entries = entries, log = false}, w.env)
+	eq(s ~= nil, true, "build with setup succeeds: " .. tostring(msg) .. " " .. tostring(code))
+	eq(calls, 1, "setup called once")
+	eq(w.log[#w.log], "setup", "setup runs after the last placement")
+	eq(w.log[#w.log - 1], "place:" .. comp.structures[#comp.structures].id, "last placement precedes setup")
+	eq(s and s.town.setup and s.town.setup.initialized, 3, "summary carries the setup report")
+
+	-- Unhandled nodes are reported, not fatal.
+	local w2 = new_world()
+	w2.env.setup_nodes = function()
+		return report({ok = false, unhandled = {{name = "fake:gizmo", structures = {"a"}, reason = "has on_construct"}}})
+	end
+	local s2 = builder.build_town(make_result(), {entries = entries, log = false}, w2.env)
+	eq(s2 ~= nil and s2.town.setup.unhandled[1].name, "fake:gizmo", "unhandled node reported in the summary")
+
+	-- A failed initialization is a write failure with the reason.
+	local w3 = new_world()
+	w3.env.setup_nodes = function()
+		return report({ok = false, failed = {{id = "tavern", name = "mcl_furnaces:furnace",
+			pos = {x = 1, y = 2, z = 3}, message = "boom"}}})
+	end
+	local s3, m3, c3, x3 = builder.build_town(make_result(), {entries = entries, log = false}, w3.env)
+	eq(s3, nil, "setup failure: no summary")
+	eq(c3, "write_failed", "setup failure code")
+	eq(x3 and x3.reason, "node_setup_failed", "setup failure reason")
+	eq(x3 and x3.setup.failed[1].name, "mcl_furnaces:furnace", "setup failure carries the report")
+	eq(tostring(m3):find("boom", 1, true) ~= nil, true, "setup failure message names the error")
+
+	-- An exception in the adapter is also a write failure.
+	local w4 = new_world()
+	w4.env.setup_nodes = function() error("adapter exploded") end
+	local s4, _, c4, x4 = builder.build_town(make_result(), {entries = entries, log = false}, w4.env)
+	eq(s4 == nil and c4 == "write_failed" and x4.reason == "node_setup_error", true, "setup exception")
+
+	-- Not run when a placement fails first.
+	local w5 = new_world({fail = comp.structures[2].id})
+	local ran = false
+	w5.env.setup_nodes = function() ran = true; return report() end
+	builder.build_town(make_result(), {entries = entries, log = false}, w5.env)
+	eq(ran, false, "no setup after a failed placement")
+end

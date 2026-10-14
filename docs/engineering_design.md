@@ -70,9 +70,9 @@ beds, and workstations rather than special Towns nodes where possible.
 Add `mod.conf` dependencies only as they become real: `mcl_structures` for
 its placement helper, `mcl_mapgen_core` for natural generation, and the
 VoxeLibre mob/bed mods when Towns spawns residents. By product decision,
-Living Villages will become a required dependency for populated Phase 3 towns
-under [#46](https://github.com/tbook/luanti-towns/issues/46); that requirement
-is not yet implemented in `mod.conf`. Keep bed-claim setup in one adapter:
+Living Villages is a required dependency for populated Phase 3 towns
+([#46](https://github.com/tbook/luanti-towns/issues/46)); `mod.conf` lists
+`living_villages`, `mcl_core`, `mcl_chests` and `mcl_itemframes`. Keep bed-claim setup in one adapter:
 the current village spawner sets a villager's `_bed` and the bed metadata's
 `villager` ID, but that is implementation detail we must check in game.
 

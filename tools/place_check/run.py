@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Disposable-world check for town schematic placement (ticket #45).
+"""Disposable-world check for town schematic placement (#45) and node setup (#46).
 
 Creates a scratch superflat world (never touching any real world), installs
 this checkout as a world mod, runs the Luanti server headlessly, searches for

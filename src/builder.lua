@@ -531,8 +531,38 @@ local function build_impl(result, opts, env, st)
 			doors[#doors + 1] = {id = b.id, kind = b.kind, approach = route.approach,
 				entrance = b.entrance, steps = route.steps}
 		end
+		-- Functional node initialization (ticket #46): only inside the placed
+		-- boxes, only after every schematic and door check succeeded.
+		local setup
+		if env.setup_nodes then
+			local sok, rep = pcall(env.setup_nodes, t.comp.structures, t.entries)
+			if not sok then
+				local msg = ("write failed: node setup raised: %s. %d buildings were placed; "
+					.. "the area %s may be partially initialized"):format(tostring(rep), #placed, fmt_bounds(bounds))
+				log("error", "towns builder: " .. msg)
+				return nil, msg, "write_failed", {bounds = bounds, planned = n_changed,
+					reason = "node_setup_error", placed = #placed, total = total}
+			end
+			setup = rep
+			if #rep.failed > 0 or #rep.unregistered > 0 then
+				local first = rep.failed[1] or rep.unregistered[1]
+				local msg = ("write failed: node setup of %d nodes failed (first: %s at (%d,%d,%d) in '%s'%s). "
+					.. "%d buildings were placed; the area %s is built but not fully initialized"):format(
+					#rep.failed + #rep.unregistered, first.name, first.pos.x, first.pos.y, first.pos.z,
+					tostring(first.id), first.message and (": " .. first.message) or ", not registered",
+					#placed, fmt_bounds(bounds))
+				log("error", "towns builder: " .. msg)
+				return nil, msg, "write_failed", {bounds = bounds, planned = n_changed,
+					reason = "node_setup_failed", setup = rep, placed = #placed, total = total}
+			end
+			for _, u in ipairs(rep.unhandled) do
+				log("warning", ("towns builder: node '%s' (%s) in %s needs initialization this adapter does not support"):format(
+					u.name, u.reason, table.concat(u.structures, ", ")))
+			end
+			log("action", "towns builder: [6c/6] node setup: " .. (env.format_setup and env.format_setup(rep) or "done"))
+		end
 		town_info = {structures = t.comp.structures, bounds = bounds, doors = doors,
-			alleys = t.alleys, placed = #placed}
+			alleys = t.alleys, placed = #placed, setup = setup}
 	end
 	log("action", "towns builder: construction complete")
 
@@ -571,6 +601,7 @@ local function build_impl(result, opts, env, st)
 			structures = town_info.structures, placed = town_info.placed,
 			doors = town_info.doors, alleys = #town_info.alleys,
 			bounds = town_info.bounds,
+			setup = town_info.setup,
 		}
 		summary.write_bounds = town_info.bounds
 		-- The real door height (recessed landmark doors sit above ground).
@@ -620,10 +651,17 @@ end
 --                 rotation = structure.rotation) and must write nothing
 --                 outside that box
 --     env.get_node(x, y, z) -> node name ("ignore" when not loaded)
+--     env.setup_nodes(structures, entries) -> report   (optional, ticket #46)
+--                 initializes functional nodes inside the placed boxes once
+--                 every schematic and door check succeeded (node_setup.lua);
+--                 report.failed/unregistered entries fail the build as
+--                 write_failed (reason node_setup_failed); report.unhandled
+--                 is logged and returned in summary.town.setup
 -- Failure codes are those of build(); everything after the terrain commit is
 -- reported as write_failed with extra {bounds = actual attempted bounds,
 -- building = {id, kind, rect, min, max}, placed, total, reason} where reason
--- is placement_failed, engine_error, door_unreachable or door_check_error.
+-- is placement_failed, engine_error, door_unreachable, door_check_error,
+-- node_setup_failed or node_setup_error.
 -- Success: the build() summary plus summary.town {complete = true, structures,
 -- placed, doors, alleys, bounds}; write_bounds then covers every structure.
 -- The caller runs preflight.check first (files, node registration, emerge).
@@ -645,7 +683,8 @@ end
 -- extras (town placement): {schematic = towns.schematic, modpath = string}
 function M.core_env(c, extras)
 	extras = extras or {}
-	return {
+	local env
+	env = {
 		get_node = function(x, y, z)
 			return c.get_node({x = x, y = y, z = z}).name
 		end,
@@ -663,7 +702,10 @@ function M.core_env(c, extras)
 			if sx ~= b.size.x or sc.size.y ~= b.size.y or sz ~= b.size.z then
 				return nil, "schematic " .. entry.path .. " does not have the validated size"
 			end
-			return extras.schematic.place(entry, b.min, b.rotation, extras.modpath)
+			-- With the node setup adapter present the blanket constructors are
+			-- skipped; the adapter runs once, after every schematic is placed.
+			return extras.schematic.place(entry, b.min, b.rotation, extras.modpath,
+				extras.node_setup and {initialize = false} or nil)
 		end,
 		node_info = function(name)
 			return placement.node_info(c.registered_nodes, name)
@@ -723,6 +765,21 @@ function M.core_env(c, extras)
 			return r
 		end,
 	}
+	-- Functional node initialization (ticket #46). extras.node_setup is the
+	-- src/node_setup.lua module, extras.globals {itemframes, chests}. The
+	-- state table makes a repeated call a no-op for completed placements.
+	if extras.node_setup and extras.schematic then
+		local setup_state = {}
+		env.setup_nodes = function(structures, entries)
+			local hooks = extras.node_setup.core_env(c, extras.globals, function(b)
+				local entry = entries[b.id]
+				return entry and extras.schematic.required_nodes(entry, extras.modpath) or nil
+			end)
+			return extras.node_setup.initialize(structures, hooks, setup_state)
+		end
+		env.format_setup = extras.node_setup.format
+	end
+	return env
 end
 
 return M
