@@ -120,3 +120,41 @@ facing -Z (catalog position 35,5,8) is planned for town generation at this time.
 
 **Status**: All verification tests pass. No defects found. The canonical file
 is schematics/templates/cathedral.mts with metadata in schematics/templates/cathedral.lua.
+
+## Re-import: monastery back steps and farm composters (tickets #91, #93, 2026-10-14)
+
+`cathedral` was re-exported with an unchanged fixed box (source
+(100,7,96)..(158,41,150), rotation 90, ground_y 8). Size stays 55 x 35 x 59,
+main entrance (35, 5, 8) and `ground_offset` 1, so the cathedral landmark
+profile and catalog entry did not change. 327 positions differ from the
+previous template (non-air 18,207 -> 18,228), all in the monastery's -X
+(canonical) end except the composters:
+
+- **Composters (#93):** two `mcl_composters:composter` at canonical
+  (2, 4, 43) and (26, 4, 49) on the monastery farm. `mcl_composters:composter` is registered, the
+  engine validation placed it, and it is now in `required_nodes`.
+- **Back steps (#91):** the old stair run at x 0..3, z 27..32 (diorite-smooth
+  stairs rising toward +X canonical) was removed. New: a diorite-smooth stair
+  run at canonical x 4..7, z 23..26 (stairs at (5..6, 2..5, 23..26)) rising
+  toward +Z to a dark oak double door at (5..6, 6..7, 28), foot on a diorite
+  smooth landing at (5..6, 1, 22); and a ground-level dark oak double door in
+  the west wall at (4, 2..3, 29..30) that opens onto bare ground
+  (canonical x 0..3). The old wooden door pair at (5, 6..7, 30) was removed.
+  Also new: deepslate-cobble wall rework around x 4..8, z 28..32 (doors,
+  walls), a flower pot (azure bluet) at (3, 6, 29..30) and window panes at
+  (4, 7, 29..30).
+- **Where the steps end:** inside the box, the stair foot is canonical
+  (5..6, 2, 22) (standing level above the landing at y=1) in the open
+  grass/ground area x 0..8, z 17..27 west of the monastery, and the west door
+  exits onto the ground strip canonical x 0..3 at z 29..30. The TownsWorkshop
+  world contains no road nodes there (flat grass; source z 85..96 is all
+  `dirt_with_grass`), so "the road" is the planner's street, not a captured
+  node. The planner does not know about this exit: only the main parvis
+  entrance is planned (see #71). Follow-up for the planner/product owner:
+  decide which side of the monastery block the street must pass and whether a
+  secondary entrance should be modelled.
+- **Not changed:** the above-ground footprint's canonical x=0 column is now
+  empty (x 1..54 above ground), so the box could be trimmed by one column;
+  it was kept to preserve the 4-wide approach strip outside the new west door
+  and avoid shifting the entrance offset.
+- **Metadata:** 44 entries (was 36).

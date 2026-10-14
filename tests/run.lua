@@ -273,7 +273,15 @@ for _, rot in ipairs(geometry.ROTATIONS) do
 end
 -- 3. Verify metadata and required nodes.
 local cath_data = dofile(cathedral.data_path)
-eq(#(cath_data.metadata or {}), 36, "cathedral metadata entries")
+-- 44 = 36 before the #91/#93 re-import, +2 composters (#93), +8 entries for
+-- the two dark oak double doors (eight halves) of the rebuilt monastery back steps (#91),
+-- -2 for the removed old wooden door.
+eq(#(cath_data.metadata or {}), 44, "cathedral metadata entries")
+local cath_composters = 0
+for _, m in ipairs(cath_data.metadata or {}) do
+	if m.name == "mcl_composters:composter" then cath_composters = cath_composters + 1 end
+end
+eq(cath_composters, 2, "cathedral monastery farm has two composters (#93)")
 -- Check for duplicate required nodes.
 local cath_node_set = {}
 local cath_dupes = false
