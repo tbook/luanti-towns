@@ -475,6 +475,9 @@ loadfile("tests/jail_reservation_tests.lua")(eq, fails, dofile("src/planner.lua"
 -- Service reservations: taverns, wells, chapels (ticket #41).
 loadfile("tests/service_reservation_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
+-- Frontage content planning (ticket #42).
+loadfile("tests/content_planner_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry)
+
 -- Streets, blocks and frontage (ticket #13).
 loadfile("tests/streets_tests.lua")(eq, fails, dofile("src/planner.lua"))
 
