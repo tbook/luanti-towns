@@ -6,7 +6,8 @@ local access = dofile("src/interior_access.lua")
 
 local function R(x1, z1, x2, z2) return {x1 = x1, z1 = z1, x2 = x2, z2 = z2} end
 
--- Block 0..19 square, streets all round (grid -4..23 = 28x28 nodes).
+-- Block 0..19 square, streets all round (pavement -4..23; grid adds a
+-- 3-node open margin: 34x34 nodes).
 local function fixture()
 	return {
 		sites = {},
@@ -40,8 +41,8 @@ do
 	p.content.buildings[1] = {rect = R(5, 5, 14, 14)}
 	local r = assert(access.check(p))
 	eq(r.ok, true, "open ok")
-	eq(r.free_cells, 28 * 28 - 100, "open free count")
-	eq(r.reachable_cells, 28 * 28 - 100, "open reachable")
+	eq(r.free_cells, 34 * 34 - 100, "open free count")
+	eq(r.reachable_cells, 34 * 34 - 100, "open reachable")
 end
 
 -- Sealed courtyard.
@@ -86,18 +87,39 @@ do
 	eq(assert(access.check(p)).ok, true, "touching: gap opens both blocks")
 end
 
--- Blocked market path: the block's only free route runs past the market,
--- and the city hall (a non-square site) stands across it.
+-- Blocked market path: the courtyard opens (gap at x = 10, z = 12..13) onto
+-- the market side, and the city hall (a non-square site) stands in the gap.
 do
 	local p = fixture()
-	p.streets = {}
-	p.sites = {market = {kind = "square", rect = R(0, 20, 19, 25)},
-		city_hall = {kind = "landmark", rect = R(0, 20, 19, 20)}}
+	ring(p)
+	p.content.buildings[2] = {rect = R(6, 12, 9, 13)}
+	p.content.buildings[5] = {rect = R(11, 12, 13, 13)}
+	p.sites = {market = {kind = "square", rect = R(0, 14, 19, 19)},
+		city_hall = {kind = "landmark", rect = R(10, 12, 10, 13)}}
 	local r = assert(access.check(p))
 	eq(r.ok, false, "blocked market: sealed")
-	eq(r.components[1].size, 400, "blocked market: whole block")
-	p.sites.city_hall.rect = R(0, 20, 8, 20)
+	eq(r.components[1].size, 16, "blocked market: courtyard")
+	p.sites.city_hall.rect = R(10, 2, 10, 3)
 	eq(assert(access.check(p)).ok, true, "market path open past hall")
+end
+
+-- Ground outside blocks and pavement is walkable; the open margin is a
+-- source, so a box on the grid edge does not seal anything.
+do
+	local p = fixture()
+	p.blocks = {{id = 1, rect = R(0, 0, 9, 19)}}
+	p.content.buildings = {{rect = R(0, 0, 9, 0)}, {rect = R(0, 19, 9, 19)}}
+	eq(assert(access.check(p)).ok, true, "open ground ok")
+end
+
+-- All pavement cells are sources: pavement cut off from the street network
+-- (here inside a sealed courtyard) is not reported and frees its neighbours.
+do
+	local p = fixture()
+	ring(p)
+	p.streets[#p.streets + 1] = {rect = R(9, 9, 10, 10)}
+	local r = assert(access.check(p))
+	eq(r.ok, true, "isolated pavement counts as source")
 end
 
 -- Jail, services and non-square sites are obstacles; bad input is refused.
@@ -114,22 +136,46 @@ do
 	eq(access.check(fixture(), {max_cells = 10}), nil, "oversized grid refused")
 end
 
--- Stock catalog across seeds: deterministic, plan unchanged, books balance.
+-- Stock catalog: pinned results, deterministic, plan unchanged.
 do
 	local base = assert(planner.landmark_profile(catalog.snapshot()))
-	for _, seed in ipairs({1, 2, 3, 4, 5, 6, 7, 8}) do
+	local pinned = {[1] = 0, [2] = 0, [3] = 0, [4] = 0, [5] = 32, [6] = 68,
+		[7] = 0, [8] = 18, [9] = 0, [10] = 0, [11] = 0, [12] = 0}
+	local function inside(r, x, z)
+		return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2
+	end
+	for seed = 1, 12 do
 		local label = "access seed " .. seed
 		local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
 		local nb = #plan.content.buildings
 		local a = assert(access.check(plan))
 		local b = assert(access.check(plan))
 		eq(#plan.content.buildings, nb, label .. " plan untouched")
+		eq(a.sealed_cells, pinned[seed], label .. " sealed cells")
+		eq(a.ok, pinned[seed] == 0, label .. " ok")
 		eq(#a.components, #b.components, label .. " stable count")
-		eq(a.sealed_cells, b.sealed_cells, label .. " stable cells")
-		eq(a.ok, #a.components == 0, label .. " ok matches")
+		local solid = {}
+		for _, s in pairs(plan.sites) do
+			if s.kind ~= "square" then solid[#solid + 1] = s.rect end
+		end
+		solid[#solid + 1] = plan.reservations.jail.rect
+		for _, s in ipairs(plan.reservations.services) do solid[#solid + 1] = s.rect end
+		for _, c in ipairs(plan.content.buildings) do solid[#solid + 1] = c.rect end
 		local n = 0
-		for _, c in ipairs(a.components) do n = n + c.size end
+		for ci, c in ipairs(a.components) do
+			n = n + c.size
+			eq(c.first.x, b.components[ci].first.x, label .. " stable first")
+			local cells = 0
+			for _, sp in ipairs(c.rects) do
+				for x = sp.x1, sp.x2 do
+					cells = cells + 1
+					for _, r in ipairs(solid) do
+						eq(inside(r, x, sp.z1), false, label .. " cell outside boxes")
+					end
+				end
+			end
+			eq(cells, c.size, label .. " spans cover component")
+		end
 		eq(n, a.sealed_cells, label .. " sizes add up")
-		eq(a.free_cells - a.reachable_cells, a.sealed_cells, label .. " accounting")
 	end
 end
