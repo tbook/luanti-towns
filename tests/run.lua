@@ -478,6 +478,9 @@ loadfile("tests/service_reservation_tests.lua")(eq, fails, dofile("src/planner.l
 -- Frontage content planning (ticket #42).
 loadfile("tests/content_planner_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
+-- Interior access validation (ticket #54).
+loadfile("tests/interior_access_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog)
+
 -- Streets, blocks and frontage (ticket #13).
 loadfile("tests/streets_tests.lua")(eq, fails, dofile("src/planner.lua"))
 
