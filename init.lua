@@ -37,3 +37,7 @@ loadfile(modpath .. "/src/test_command.lua")(towns)
 -- (overwrites its site; disposable Creative worlds only).
 towns.generate = dofile(modpath .. "/src/generate.lua")(towns.planner)
 loadfile(modpath .. "/src/generate_command.lua")(towns)
+
+-- Experimental opt-in placement of real schematics (ticket #45); registers
+-- nothing unless towns_enable_place_town = true.
+loadfile(modpath .. "/src/town_place_command.lua")(towns)

@@ -379,11 +379,11 @@
         "z": 149
       },
       "ground_y": 8,
-      "rotation": 180,
+      "rotation": 90,
       "entrance": {
-        "x": 268,
-        "y": 11,
-        "z": 143
+        "x": 295,
+        "y": 9,
+        "z": 124
       },
       "entrance_kind": "opening",
       "role": "castle"

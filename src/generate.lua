@@ -32,6 +32,8 @@
 --   entropy() -> number                     clock/world derived (random_seed)
 --   rng(lo, hi) -> integer   optional; injectable RNG for random_seed
 --   now() -> seconds         optional, for the stale-search guard
+--   command_name             optional text such as "/towns_place_town", shown
+--                            in the success report (default /towns_generate)
 
 return function(planner)
 
@@ -118,13 +120,16 @@ local SIDE_NAME = {["-x"] = "-x (west)", ["+x"] = "+x (east)",
 	["-z"] = "-z (south)", ["+z"] = "+z (north)"}
 
 -- Success report: array of lines (also logged). `summary` is the builder's.
-function M.format_report(summary)
+-- `command` (optional) is the chat command name shown for repeating the
+-- seed; the town placement entry point (ticket #45) passes its own.
+function M.format_report(summary, command)
 	local s = summary
+	command = command or "/towns_generate"
 	local g = s.ground_y
 	local lines = {}
 	local function add(fmt, ...) lines[#lines + 1] = fmt:format(...) end
-	add("Town built. Seed %d (repeat it with /towns_generate %d from the same place).",
-		s.seed, s.seed)
+	add("Town built. Seed %d (repeat it with %s %d from the same place).",
+		s.seed, command, s.seed)
 	add("Centre (%d,%d), ground level y=%d.", s.center.x, s.center.z, g)
 	add("Site bounds %s.", bounds_str(s.bounds))
 	if type(s.write_bounds) == "table" then
@@ -137,7 +142,7 @@ function M.format_report(summary)
 		if not site then return end
 		local e = site.entrance
 		add("%s: %s; %s at (%d,%d,%d) facing %s.", label, rect_str(site.rect), door,
-			e.x, g + 1, e.z, SIDE_NAME[site.side] or tostring(site.side))
+			e.x, site.entrance_y or (g + 1), e.z, SIDE_NAME[site.side] or tostring(site.side))
 	end
 	local function square(label, key)
 		local site = s.sites[key]
@@ -155,6 +160,10 @@ function M.format_report(summary)
 	add("Streets %d (%d principal, %d secondary), blocks %d, frontage runs %d.",
 		c.streets, c.principal, c.secondary, c.blocks, c.frontage)
 	if s.nodes then add("%d nodes changed.", s.nodes.changed) end
+	if s.town then
+		add("Placed %d buildings (%d alleys paved); all %d door approach routes are walkable.",
+			s.town.placed, s.town.alleys, #s.town.doors)
+	end
 	return lines
 end
 
@@ -277,7 +286,7 @@ function M.new(deps)
 				deps.log("action", "towns_generate (" .. name .. "): write bounds "
 					.. bounds_str(summary.write_bounds))
 			end
-			return finish(true, M.format_report(summary))
+			return finish(true, M.format_report(summary, deps.command_name))
 		end
 
 		deps.log("action", ("towns_generate (%s): seed %d%s, searching near (%.1f,%.1f,%.1f)"):format(
