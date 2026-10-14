@@ -465,11 +465,11 @@ do
 				end
 				for off = sr.x1 - SW + 1, sr.x2 do
 					if not spur and fits(off, sr.z2 + 1) then spur = {off, sr.z2 + 1} end
-					if not spur and fits(off, sr.z1 - SW) then spur = {off, sr.z1 - 6} end
+					if not spur and fits(off, sr.z1 - SW) then spur = {off, sr.z1 - SW} end
 				end
 				for off = sr.z1 - SW + 1, sr.z2 do
 					if not spur and fits(sr.x2 + 1, off) then spur = {sr.x2 + 1, off} end
-					if not spur and fits(sr.x1 - SW, off) then spur = {sr.x1 - 6, off} end
+					if not spur and fits(sr.x1 - SW, off) then spur = {sr.x1 - SW, off} end
 				end
 				eq(spur ~= nil, true, "spur site found")
 				if spur then
@@ -480,6 +480,10 @@ do
 							x2 = spur[1] + SW - 1, z2 = spur[2] + SW - 1}}
 					local ok2, why2 = planner.validate(q)
 					eq(ok2, nil, "SWxSW spur rejected (" .. tostring(why2) .. ")")
+					-- Adjacent to the street, so it is rejected as a dead end,
+					-- not as a detached street.
+					eq(tostring(why2):find("dead end", 1, true) ~= nil, true,
+						"spur rejected as a dead end: " .. tostring(why2))
 				end
 			end
 		end

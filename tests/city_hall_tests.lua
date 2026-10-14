@@ -106,13 +106,16 @@ for _, seed in ipairs(SEEDS) do
 		local plain = planner.plan({x = 0, z = 0}, seed,
 			{landmarks = {cathedral = base.cathedral, castle = base.castle}})
 		eq(plain ~= nil and plain.sites.city_hall == nil, true, label .. " hall-less plan has none")
-		-- Seed 3 (#88): equal attempt counts but the failed earlier attempts
-		-- consumed the random stream differently, so its sites differ.
-		if plain and plain.attempts == plan.attempts and seed ~= 3 then
+		if plain and plain.attempts == plan.attempts then
 			for _, nm in ipairs({"cathedral", "castle", "market"}) do
-				local a, b = plan.sites[nm].rect, plain.sites[nm].rect
-				eq(a.x1 == b.x1 and a.z1 == b.z1 and a.x2 == b.x2 and a.z2 == b.z2, true,
-					label .. " " .. nm .. " unchanged by the hall")
+				-- Seed 3 (#88): equal attempt counts, but the hall changed
+				-- how earlier failed attempts consumed the random stream, so
+				-- its cathedral and castle differ; the market still matches.
+				if not (seed == 3 and nm ~= "market") then
+					local a, b = plan.sites[nm].rect, plain.sites[nm].rect
+					eq(a.x1 == b.x1 and a.z1 == b.z1 and a.x2 == b.x2 and a.z2 == b.z2,
+						true, label .. " " .. nm .. " unchanged by the hall")
+				end
 			end
 		end
 	end

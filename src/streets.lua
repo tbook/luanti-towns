@@ -17,8 +17,8 @@
 -- ------
 -- 1. Principal streets are STREET_WIDTH (5) wide. A route is a shortest path
 --    (Dijkstra with a turn penalty and seeded per-window noise as
---    tie-breaker) of STREET_WIDTH-square
---    windows that lie wholly inside the boundary and clear of the cathedral
+--    tie-breaker) of STREET_WIDTH-square windows (an odd width, so the
+--    approach mid() node is centred) that lie wholly inside the boundary and clear of the cathedral
 --    and castle footprints; the union of the windows is a rectilinear
 --    corridor of full street width. Straight runs become street rectangles.
 --    Routes: approach_1 > market, approach_2 > market, then (from the

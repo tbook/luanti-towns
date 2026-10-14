@@ -124,11 +124,11 @@
 -- market and parvis squares are open to routing from any side that is not the
 -- cathedral; their approach is a preferred attachment point only.
 --
--- Boundary approaches: `edge` is a STREET_WIDTH (5) wide, 1-deep rect of boundary nodes on
--- an outer edge, `pos` a node of it (x1 + 2 or z1 + 2: NOT centred, two
--- nodes lie on one side and three on the other), `side` the outward
--- direction. The two approaches are on different sides and their 6x6
--- inward windows never overlap. Site `approach.pos` follows the same
+-- Boundary approaches: `edge` is a STREET_WIDTH (5) wide, 1-deep rect of
+-- boundary nodes on an outer edge, `pos` its middle node (x1 + 2 or z1 + 2,
+-- two nodes each side; with an even width it would be floor-middle, not
+-- centred), `side` the outward direction. The two approaches are on
+-- different sides and their STREET_WIDTH-square inward windows never overlap. Site `approach.pos` follows the same
 -- floor-middle rule along the site's edge.
 --
 -- Streets, blocks, frontage (filled by src/streets.lua on every accepted
@@ -141,7 +141,7 @@
 --   kind     = "principal" | "secondary",
 --   width    = 5 | 4,                     -- equals the rect's short side
 --   rect     = rect,                      -- full-width straight run
---   axis     = "x" | "z",                 -- long axis ("x" for a 6x6 corner)
+--   axis     = "x" | "z",                 -- long axis ("x" for a square corner)
 --   material = "mcl_core:stonebrick" (principal) | "mcl_core:cobble",
 --   route    = "approach_1>market" | "approach_2>market" | "network>parvis"
 --              | "network>castle" | "secondary",
@@ -188,7 +188,7 @@
 -- the market near the centre, the castle on a straight outer edge, the two
 -- approaches (different sides, non-overlapping windows), and route space:
 -- with the cathedral and castle footprints as obstacles, a chain of free
--- 6x6 windows must join the two approaches and cover the approach `pos` node
+-- STREET_WIDTH-square windows must join the two approaches and cover the approach `pos` node
 -- of the market, parvis, cathedral and castle (so each door has a full street
 -- width of free space in front of it).
 -- Then streets.validate always runs (a plan without streets is rejected):
@@ -1722,6 +1722,10 @@ function M.plan(center, seed, opts)
 				if M.CONSTANTS[k] == nil then
 					error("towns planner: unknown constant " .. tostring(k), 2)
 				end
+			end
+			local skip = opts.constants.SECONDARY_FAIL_SKIP
+			if skip ~= nil and not (is_int(skip) and skip >= 0) then
+				error("towns planner: SECONDARY_FAIL_SKIP must be an integer >= 0", 2)
 			end
 		end
 		if opts.landmarks ~= nil then
