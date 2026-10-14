@@ -72,6 +72,8 @@ was in a scratch world, not `TownsWorkshop`.
 
 ## Current cleaned game template (2026-10-13)
 
+> **Superseded:** the rotation, size and entrance in this section describe the template before the gate was re-selected. The current values (rotation 90, 50 × 39 × 54, entrance (24, 6, 3)) are in the "Gate re-selected" section at the end of this file.
+
 The active `castle` catalog entry now uses `schematics/templates/castle.mts`
 and its `.lua` metadata sidecar. It captures the current TownsWorkshop bounds
 **(245, 3, 100) through (298, 41, 149)**, retaining the full footprint and
