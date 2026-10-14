@@ -43,6 +43,13 @@
 --                  plan gets plan.reservations.services (list of placements),
 --                  plan.reservations.service_counts and unmet targets appended
 --                  to plan.shortages. Plans without services carry none of it.
+--                  A profile may also carry content = {id -> {id, size,
+--                  entrance, role}} with roles house, shop and workshop
+--                  (ticket #42, src/content_planner.lua): after the services
+--                  the plan gets plan.content = {buildings, unused,
+--                  empty_runs, counts, rejected, reason}, ordinary frontage
+--                  packed on the shared occupancy with a private random
+--                  stream. Plans without content carry no plan.content.
 --
 -- Determinism
 -- -----------
@@ -212,6 +219,8 @@ local frontage_packer = load_sibling("frontage_packer.lua")(geometry)
 local jail_reservation = load_sibling("jail_reservation.lua")(frontage_packer)
 local service_reservation = load_sibling("service_reservation.lua")(
 	frontage_packer, jail_reservation.occupied_rects)
+local content_planner = load_sibling("content_planner.lua")(
+	geometry, frontage_packer, jail_reservation.occupied_rects)
 
 M.CONSTANTS = {
 	ENVELOPE = 96,            -- town envelope, nodes per side
@@ -488,6 +497,17 @@ function M.landmark_profile(snapshot, ids)
 			if not L then return nil, why end
 			profile.services = profile.services or {}
 			profile.services[role] = L
+		end
+	end
+	-- Ordinary content (ticket #42): every house, shop and workshop entry.
+	for k, e in pairs(snapshot) do
+		if type(e) == "table" and content_planner.ROLES[e.role] then
+			local L, why = check_landmark(e.role, {id = k, size = e.size,
+				entrance = e.entrance, ground_offset = e.ground_offset})
+			if not L then return nil, "catalog entry '" .. k .. "': " .. tostring(why) end
+			L.role = e.role
+			profile.content = profile.content or {}
+			profile.content[k] = L
 		end
 	end
 	return profile
@@ -1717,6 +1737,30 @@ function M.plan(center, seed, opts)
 				end
 			end
 		end
+		if opts.landmarks ~= nil and opts.landmarks.content ~= nil then
+			local ct = opts.landmarks.content
+			if type(ct) ~= "table" then
+				error("towns planner: opts.landmarks.content must be a table", 2)
+			end
+			profile.content = {}
+			for k, e in pairs(ct) do
+				local L, why = nil, "entry is not a table"
+				if type(e) == "table" then
+					if not content_planner.ROLES[e.role] then
+						why = "role must be house, shop or workshop"
+					else
+						L, why = check_landmark(e.role, {id = k, size = e.size,
+							entrance = e.entrance, ground_offset = e.ground_offset})
+					end
+				end
+				if not L then
+					error("towns planner: opts.landmarks.content: " .. tostring(k)
+						.. ": " .. tostring(why), 2)
+				end
+				L.role = e.role
+				profile.content[k] = L
+			end
+		end
 		if opts.max_attempts ~= nil then
 			if not is_int(opts.max_attempts) or opts.max_attempts < 0 then
 				error("towns planner: max_attempts must be an integer >= 0", 2)
@@ -1749,7 +1793,7 @@ function M.plan(center, seed, opts)
 					if ok then
 						-- Jail (ticket #69): reserved after the landmarks and
 						-- hall, best effort; a shortage never fails the plan.
-						if profile and (profile.jail or profile.services) then
+						if profile and (profile.jail or profile.services or profile.content) then
 							full.reservations = {}
 							full.shortages = {}
 							if profile.jail then
@@ -1770,6 +1814,12 @@ function M.plan(center, seed, opts)
 								for _, sh in ipairs(shorts) do
 									full.shortages[#full.shortages + 1] = sh
 								end
+							end
+							if profile.content then
+								-- Private random stream: derived from the seed,
+								-- never drawn from the planner's `rng`.
+								full.content = content_planner.plan(full, profile.content,
+									{seed = seed})
 							end
 						end
 						return full
