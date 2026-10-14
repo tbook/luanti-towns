@@ -376,11 +376,36 @@ do
 		local c, cwhy = route("castle", rot)
 		eq(c ~= nil, true, "real castle gate reachable at rotation " .. rot .. ": " .. tostring(cwhy))
 	end
-	-- #87: the weaver house, chapel, tavern and corner house were captured
-	-- without their ground row, so the floor sat flush with the street (one
-	-- block low). Row 0 is now the ground (dirt) the street continues; the
-	-- door's floor is row 1, so the floor stands one block above the street.
-	for _, id in ipairs({"weaver_house", "chapel", "tavern", "corner_house"}) do
+	-- #87: captures that began at the floor row sank flush with the street
+	-- (one block low). A template must keep a ground row under its floor
+	-- whenever it has entrance stairs: no stair node may sit on the ground row
+	-- (row ground_offset) of a rotation-0 .mts. Templates that do keep the
+	-- ground row (entrance.y - ground_offset == 2, ground_offset 0) must have
+	-- solid ground outside the door, a solid floor row under the door and a
+	-- door at the entrance, and must route at every rotation.
+	local raised = {}
+	for _, id in ipairs(catalog.ids()) do
+		local entry = entries[id]
+		if entry and entry.data_path and entry.path then
+			local s = read_mts("schematics/" .. entry.path:gsub("^schematics/", ""))
+			local go = entry.ground_offset or 0
+			local stairs = 0
+			for z = 0, s.size.z - 1 do
+				for x = 0, s.size.x - 1 do
+					local n = s.at(x, go, z)
+					if n and n:find("stair", 1, true) then stairs = stairs + 1 end
+				end
+			end
+			-- Landmarks (ground_offset > 0) carry authored half-step stairs.
+			if go == 0 then
+				eq(stairs == 0 or entry.entrance.y >= 2, true,
+					id .. " has " .. stairs .. " stairs on its ground row without a ground row below the floor")
+			end
+			if go == 0 and entry.entrance.y == 2 then raised[#raised + 1] = id end
+		end
+	end
+	eq(#raised >= 5, true, "raised templates found: " .. #raised)
+	for _, id in ipairs(raised) do
 		local entry = entries[id]
 		local s = read_mts("schematics/" .. entry.path:gsub("^schematics/", ""))
 		local e = entry.entrance

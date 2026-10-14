@@ -222,11 +222,11 @@ end
 for _, id in ipairs(catalog.ids()) do
 	local e = catalog.get(id)
 	if e.data_path then
-		-- #87: weaver_house, chapel, tavern and corner_house keep a ground row
-		-- under the floor, so their door sits on row 1 above it (y = 2).
-		local raised = id == "weaver_house" or id == "chapel" or id == "tavern" or id == "corner_house"
-		local ey = (id == "castle" and 6) or (id == "cathedral" and 5) or (raised and 2) or 1
-		eq(e.entrance.y, ey, id .. " exported entrance height")
+		-- The door bottom lies inside the file above row 0 (#87: captures that
+		-- keep a ground row under the floor have entrance.y 2; the planner
+		-- convention is checked against the real nodes in town_build_tests).
+		eq(e.entrance.y >= 1 and e.entrance.y < e.size.y, true, id .. " exported entrance height")
+		local ey = e.entrance.y
 		for _, r in ipairs(geometry.ROTATIONS) do
 			local p = placement.plan(e, {x = 0, y = 8, z = 0}, r)
 			eq(p.building.entrance.y, 8 + ey - (e.ground_offset or 0), id .. " rotated entrance Y " .. r)

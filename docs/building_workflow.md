@@ -112,8 +112,10 @@ verifies the result at all four rotations.
    z is not necessarily 0 (real catalog values: 0 for `mason_yard`, 1 for most,
    2 for `townhouses`, `scribe`, `banker_house`, `butcher_shop`, `chapel`, 4
    for `gaboo_house`, 6 for `castle`, 8 for `cathedral`; x is off-centre, for
-   example 2 of 8 for `tower`, 8 of 11 for `jail`). `entrance.y` is 1 for ordinary buildings
-   (defaults to 1 in the runtime catalog); landmarks may differ.
+   example 2 of 8 for `tower`, 8 of 11 for `jail`). `entrance.y` is 1 for buildings captured
+   from the floor row (defaults to 1 in the runtime catalog), 2 for the ones
+   that keep a ground row below the floor (`weaver_house`, `chapel`, `tavern`,
+   `corner_house`, `townhouses`); landmarks differ (castle 6, cathedral 5).
 3. **Regenerate with `--only`**, from the Towns mod directory:
 
    ```sh

@@ -125,7 +125,7 @@
       "label": "Townhouses",
       "scan_min": {
         "x": 238,
-        "y": 9,
+        "y": 8,
         "z": 198
       },
       "scan_max": {
@@ -133,7 +133,18 @@
         "y": 24,
         "z": 212
       },
-      "floor_y": 9,
+      "floor_y": 8,
+      "capture_min": {
+        "x": 240,
+        "y": 8,
+        "z": 200
+      },
+      "capture_max": {
+        "x": 254,
+        "y": 19,
+        "z": 210
+      },
+      "ground_y": 8,
       "rotation": 0,
       "entrance": {
         "x": 247,
