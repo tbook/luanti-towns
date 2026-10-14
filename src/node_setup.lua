@@ -56,8 +56,10 @@ support({"mcl_itemframes:frame", "mcl_itemframes:glow_frame", "mcl_itemframes:in
 	"mcl_itemframes:plate"}, {construct = true, refresh = "itemframe"})
 support({"mcl_fences:fence_gate", "mcl_crimson:warped_fence_gate"}, {construct = true})
 support({"mesecons_pressureplates:pressure_plate_wood_off"}, {construct = true})
-support({"mcl_campfires:campfire_lit"}, {construct = true})
-support({"mcl_chests:black_shulker_box_small"}, {construct = true})
+-- The constructor adds a particle spawner each call; its id is stored in meta.
+support({"mcl_campfires:campfire_lit"}, {construct = true, skip_if_field = "particle_spawner_id"})
+-- The constructor adds a chest entity each call.
+support({"mcl_chests:black_shulker_box_small"}, {construct = true, skip_if_entity = "mcl_chests:"})
 support({"mcl_dispensers:dispenser"}, {after_place = true})
 support({"mcl_armor_stand:armor_stand"}, {refresh = "armor_stand"})
 support({"mcl_chests:chest_small", "mcl_chests:chest_left", "mcl_chests:chest_right",
@@ -107,6 +109,14 @@ end
 -- Initializes one supported node. Returns true, or nil, message.
 local function init_node(rule, name, pos, env)
 	local snap = env.snapshot(pos)
+	-- Constructors that add entities/particles unconditionally run once.
+	if rule.skip_if_field then
+		local v = snap.fields and snap.fields[rule.skip_if_field]
+		if v ~= nil and v ~= "" then return true end
+	end
+	if rule.skip_if_entity and env.entity_near and env.entity_near(pos, rule.skip_if_entity) then
+		return true
+	end
 	local function restore() env.restore(pos, snap) end
 	if rule.construct then
 		local fn = env.callback(name, "on_construct")
@@ -289,6 +299,13 @@ function M.core_env(c, globals, required)
 	function env.ensure_list(pos, list, size)
 		local inv = c.get_meta(pos):get_inventory()
 		if inv:get_size(list) == 0 then inv:set_size(list, size) end
+	end
+	function env.entity_near(pos, prefix)
+		for _, obj in ipairs(c.get_objects_inside_radius(pos, 0.6)) do
+			local le = obj:get_luaentity()
+			if le and le.name and le.name:sub(1, #prefix) == prefix then return true end
+		end
+		return false
 	end
 	function env.refresh(kind, pos, name)
 		if kind == "itemframe" then

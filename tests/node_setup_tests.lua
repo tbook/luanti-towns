@@ -16,7 +16,14 @@ local function new_engine()
 	E.c = {registered_nodes = E.defs}
 	function E.c.get_node(p) return {name = E.nodes[pk(p)] or "air"} end
 	function E.c.get_item_group(name, g) return (E.groups[name] or {})[g] or 0 end
-	function E.c.get_objects_inside_radius() return {} end
+	E.objects = {}
+	function E.c.get_objects_inside_radius()
+		local out = {}
+		for _, n in ipairs(E.objects) do
+			out[#out + 1] = {get_luaentity = function() return {name = n} end}
+		end
+		return out
+	end
 	function E.c.find_nodes_in_area(minp, maxp, names)
 		local want, out = {}, {}
 		for _, n in ipairs(names) do want[n] = true end
@@ -246,6 +253,37 @@ do
 	eq(#E.meta(b).lists.main, 27, "chests: missing main list sized 27")
 	eq(#E.meta(b).lists.input, 1, "chests: input list sized 1")
 	eq(#E.refreshed, 2, "chests: entities refreshed")
+end
+
+------------------------------------------------------------------------
+-- Entity-creating constructors run once (shulker box, campfire)
+------------------------------------------------------------------------
+do
+	local E = new_engine()
+	E.register("mcl_chests:black_shulker_box_small", {})
+	E.register("mcl_campfires:campfire_lit", {})
+	-- Each constructor call would add an entity / particle spawner.
+	local ents = 0
+	E.defs["mcl_chests:black_shulker_box_small"].on_construct = function(p)
+		ents = ents + 1
+		E.objects[#E.objects + 1] = "mcl_chests:shulker"
+	end
+	local fires = 0
+	E.defs["mcl_campfires:campfire_lit"].on_construct = function(p)
+		fires = fires + 1
+		E.meta(p).fields.particle_spawner_id = "7"
+	end
+	E.put({x = 1, y = 1, z = 1}, "mcl_chests:black_shulker_box_small")
+	E.put({x = 2, y = 1, z = 1}, "mcl_campfires:campfire_lit")
+	local env = env_for(E, nil)
+	local s = {structure("a", {x = 0, y = 0, z = 0}, {x = 5, y = 5, z = 5})}
+	local st = {}
+	eq(ns.initialize(s, env, st).initialized, 2, "entity nodes: initialized")
+	eq(ents == 1 and fires == 1, true, "entity nodes: constructors ran once")
+	ns.initialize(s, env, st)
+	ns.initialize(s, env, {})
+	eq(ents, 1, "shulker: no duplicate entity on repeat or fresh state")
+	eq(fires, 1, "campfire: no duplicate spawner on repeat or fresh state")
 end
 
 ------------------------------------------------------------------------

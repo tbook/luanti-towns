@@ -218,14 +218,34 @@ core.register_on_mods_loaded(function() core.after(0, function()
     do
      local env = towns.node_setup.core_env(core, {itemframes = rawget(_G, 'mcl_itemframes'), chests = rawget(_G, 'mcl_chests')},
       function(b) local e = towns.catalog.entries[b.id]; return e and towns.schematic.required_nodes(e, towns.modpath) end)
+     local function entity_count()
+      local n = 0
+      for _, b in ipairs(town.structures) do
+       for _, o in ipairs(core.get_objects_in_area(b.min, vector.add(b.max, {x = 1, y = 1, z = 1}))) do
+        local le = o:get_luaentity()
+        if le and le.name and (le.name:find('^mcl_chests:') or le.name:find('^mcl_armor_stand:')) then n = n + 1 end
+       end
+      end
+      return n
+     end
+     local entities_before = entity_count()
+     local state = {}
      local again = towns.node_setup.initialize(town.structures, env, {})
      check(#again.failed == 0, 'second node setup call has no failures')
      local changed = 0
      for key, before in pairs(snapshots) do
       local x, y, z = key:match('%((-?%d+),(-?%d+),(-?%d+)%)')
       local p = {x = tonumber(x), y = tonumber(y), z = tonumber(z)}
-      if signature(core.get_meta(p)) ~= before then changed = changed + 1 end
+      if signature(core.get_meta(p)) ~= before then changed = changed + 1; report.changed_node = key .. ' ' .. core.get_node(p).name .. ' ' .. before .. ' => ' .. signature(core.get_meta(p)) end
      end
+     report.entities = {before = entities_before, after = entity_count()}
+     check(report.entities.after == entities_before, 'second node setup call adds no entities (' .. entities_before .. ' -> ' .. report.entities.after .. ')')
+     -- Same state twice: the completed placements are skipped outright.
+     local first = towns.node_setup.initialize(town.structures, env, state)
+     local third = towns.node_setup.initialize(town.structures, env, state)
+     check(third.already_done == third.placements and third.initialized == 0,
+      'same-state repeat skips completed placements (' .. third.already_done .. ' of ' .. third.placements .. ')')
+     check(entity_count() == entities_before, 'same-state repeat adds no entities')
      report.repeat_changed_nodes = changed
      check(changed == 0, 'second node setup call preserves metadata (' .. changed .. ' nodes changed)')
     end
