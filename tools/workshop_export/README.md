@@ -149,3 +149,9 @@ world seeded from the installed game schematics:
   -X side, `rotation` 270), which is 10 x 12 x 12 in the canonical -Z-front
   file. The well keeps its dirt layer, because its standing apron is air at
   stock y 1 over that dirt: 6 x 7 x 8, front already on -Z.
+
+A selective export (`--only`) keeps the manifest's top-level `world` and
+`snapshot_sha256` untouched, so exporting these two from a scratch world does
+not rewrite provenance; each building record carries its own snapshot hash.
+Attribution for the two files is in
+`schematics/templates/NOTICE-stock-village.md`.
