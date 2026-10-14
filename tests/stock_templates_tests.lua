@@ -158,18 +158,21 @@ local function dims(id, mts)
 	return e
 end
 
--- Tavern: canonical -Z front, 10 x 12 x 12 (stock 12 x 13 x 10 rotated, dirt layer dropped).
+-- Tavern: canonical -Z front, 10 x 12 x 12 (stock 12 x 13 x 10 rotated, dirt ground layer kept as row 0, floor on row 1, #87).
 local tavern = read_mts("schematics/templates/tavern.mts")
 local te = dims("tavern", tavern)
 eq(catalog.get("tavern").role, "tavern", "tavern role")
 eq(required("tavern")["mcl_jukebox:jukebox"], true, "tavern requires jukebox")
-eq(tavern.node(7, 1, 7), "mcl_jukebox:jukebox", "tavern jukebox cell")
-eq(tavern.node(6, 1, 7), "air", "jukebox west side open")
-eq(tavern.node(7, 1, 6), "air", "jukebox north side open")
+eq(tavern.node(7, 2, 7), "mcl_jukebox:jukebox", "tavern jukebox cell")
+eq(tavern.node(6, 2, 7), "air", "jukebox west side open")
+eq(tavern.node(7, 2, 6), "air", "jukebox north side open")
+eq(te.entrance.y, 2, "tavern door sits on floor row 1 above the ground row")
+eq(te.ground_offset or 0, 0, "tavern ground row is row 0")
+eq(tavern.node(te.entrance.x, 0, te.entrance.z - 1), "mcl_core:dirt", "tavern ground row is dirt outside the door")
 eq(tavern.node(te.entrance.x, te.entrance.y, te.entrance.z), "mcl_doors:wooden_door_b_1", "tavern entrance is the door")
 eq(tavern.node(te.entrance.x, te.entrance.y, te.entrance.z - 1), "air", "tavern outside the door is open")
-eq(tavern.node(2, 2, 5), "mcl_itemframes:plate", "tavern plate on a table")
-eq(tavern.node(2, 1, 5), "mcl_decor:table_wooden", "tavern table under plate")
+eq(tavern.node(2, 3, 5), "mcl_itemframes:plate", "tavern plate on a table")
+eq(tavern.node(2, 2, 5), "mcl_decor:table_wooden", "tavern table under plate")
 
 -- Well: front on -Z, 6 x 7 x 8, Living Villages well.lua cells.
 local well = read_mts("schematics/templates/well.mts")

@@ -144,10 +144,11 @@ world seeded from the installed game schematics:
   plates). Keep the change list in `stock_seed/init.lua` equivalent to that
   file.
 - Both entries use fixed capture boxes so the stock footprint and apron are
-  kept. The tavern drops only the buried dirt layer (stock y 0), so its floor
-  layer is the template ground layer: 12 x 12 x 10 as authored (door on the
-  -X side, `rotation` 270), which is 10 x 12 x 12 in the canonical -Z-front
-  file. The well keeps its dirt layer, because its standing apron is air at
+  kept. The tavern keeps its dirt layer (stock y 0) as the template ground
+  row (`floor_y` and `ground_y` 7, `ground_offset` 0) with the floor on the
+  next row, so the floor stands one block above the street (#87): 12 x 13 x 10
+  as authored (door on the -X side, `rotation` 270), which is 10 x 13 x 12 in
+  the canonical -Z-front file, entrance y 2. The well keeps its dirt layer, because its standing apron is air at
   stock y 1 over that dirt: 6 x 7 x 8, front already on -Z.
 
 A selective export (`--only`) keeps the manifest's top-level `world` and

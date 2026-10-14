@@ -376,6 +376,28 @@ do
 		local c, cwhy = route("castle", rot)
 		eq(c ~= nil, true, "real castle gate reachable at rotation " .. rot .. ": " .. tostring(cwhy))
 	end
+	-- #87: the weaver house, chapel, tavern and corner house were captured
+	-- without their ground row, so the floor sat flush with the street (one
+	-- block low). Row 0 is now the ground (dirt) the street continues; the
+	-- door's floor is row 1, so the floor stands one block above the street.
+	for _, id in ipairs({"weaver_house", "chapel", "tavern", "corner_house"}) do
+		local entry = entries[id]
+		local s = read_mts("schematics/" .. entry.path:gsub("^schematics/", ""))
+		local e = entry.entrance
+		eq(e.y, 2, id .. " door bottom is on floor row 1")
+		eq(entry.ground_offset or 0, 0, id .. " ground row is row 0")
+		-- Outside the door the ground row is natural solid ground (dirt, stone).
+		local below = s.at(e.x, 0, e.z - 1)
+		eq(below ~= nil and below ~= "air", true,
+			id .. " ground row outside the door is solid ground: " .. tostring(below))
+		local floor = s.at(e.x, 1, e.z)
+		eq(floor ~= "air" and not floor:find("door", 1, true), true, id .. " floor under the door is solid: " .. tostring(floor))
+		eq(s.at(e.x, e.y, e.z):find("_door_b_", 1, true) ~= nil, true, id .. " entrance is a door")
+		for _, rot in ipairs({0, 90, 180, 270}) do
+			local r, why = route(id, rot)
+			eq(r ~= nil, true, "real " .. id .. " door reachable at rotation " .. rot .. ": " .. tostring(why))
+		end
+	end
 end
 
 ------------------------------------------------------------------------

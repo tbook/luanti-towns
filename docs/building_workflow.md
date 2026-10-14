@@ -159,6 +159,15 @@ the capture`. Ordinary buildings get 0 (omitted from the catalog); it is
 non-zero only for fixed-box landmarks with `ground_y` above the capture's
 bottom (castle 5, cathedral 1).
 
+A building that stands on a plinth with steps up to its door (stairs on the
+floor row) must keep the terrain row below its floor in the capture: set
+`floor_y` and `ground_y` to the terrain row and use a fixed `capture_min` /
+`capture_max` box starting there. The placer puts row 0 at street level, so the
+floor then stands one block above the street and the stairs are real steps
+(`entrance.y` 2, `ground_offset` 0). Capturing from the floor row instead sinks
+the floor flush with the street (#87: weaver_house, chapel, tavern,
+corner_house).
+
 ### Role in the generated catalog
 
 The 13 existing workshop templates currently have **no `role`** in the
