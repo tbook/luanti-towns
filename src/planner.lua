@@ -219,8 +219,9 @@ local frontage_packer = load_sibling("frontage_packer.lua")(geometry)
 local jail_reservation = load_sibling("jail_reservation.lua")(frontage_packer)
 local service_reservation = load_sibling("service_reservation.lua")(
 	frontage_packer, jail_reservation.occupied_rects)
+local interior_access = load_sibling("interior_access.lua")
 local content_planner = load_sibling("content_planner.lua")(
-	geometry, frontage_packer, jail_reservation.occupied_rects)
+	geometry, frontage_packer, jail_reservation.occupied_rects, interior_access)
 
 M.CONSTANTS = {
 	ENVELOPE = 96,            -- town envelope, nodes per side

@@ -136,11 +136,13 @@ do
 	eq(access.check(fixture(), {max_cells = 10}), nil, "oversized grid refused")
 end
 
--- Stock catalog: pinned results, deterministic, plan unchanged.
+-- Stock catalog: pinned results, deterministic, plan unchanged. Seeds 5, 6
+-- and 8 were sealed (32, 68 and 18 cells) before the alley pass (#43) opened
+-- them; the planner now delivers no sealed ground.
 do
 	local base = assert(planner.landmark_profile(catalog.snapshot()))
-	local pinned = {[1] = 0, [2] = 0, [3] = 0, [4] = 0, [5] = 32, [6] = 68,
-		[7] = 0, [8] = 18, [9] = 0, [10] = 0, [11] = 0, [12] = 0}
+	local pinned = {[1] = 0, [2] = 0, [3] = 0, [4] = 0, [5] = 0, [6] = 0,
+		[7] = 0, [8] = 0, [9] = 0, [10] = 0, [11] = 0, [12] = 0}
 	local function inside(r, x, z)
 		return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2
 	end
