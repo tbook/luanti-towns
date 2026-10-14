@@ -2,8 +2,11 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "castle",
-    "cathedral"
+    "weaver_house",
+    "chapel",
+    "corner_house",
+    "tavern",
+    "townhouses"
   ],
   "buildings": [
     {
@@ -119,7 +122,7 @@
     {
       "entrance": {
         "x": 4,
-        "y": 1,
+        "y": 2,
         "z": 1
       },
       "entrance_kind": "door",
@@ -132,6 +135,9 @@
         "mcl_chests:chest_small",
         "mcl_colorblocks:hardened_clay_grey",
         "mcl_colorblocks:hardened_clay_silver",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:grass_path",
         "mcl_core:sandstonesmooth2",
         "mcl_core:stone_smooth",
         "mcl_core:wood",
@@ -155,7 +161,7 @@
       "rotation": 270,
       "size": {
         "x": 8,
-        "y": 9,
+        "y": 10,
         "z": 9
       },
       "source_max": {
@@ -165,16 +171,16 @@
       },
       "source_min": {
         "x": 170,
-        "y": 9,
+        "y": 8,
         "z": 200
       },
       "source_size": {
         "x": 9,
-        "y": 9,
+        "y": 10,
         "z": 8
       },
-      "verified_nodes": 648,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "verified_nodes": 720,
+      "snapshot_sha256": "701f48def2ff405e9507619222187b25d6a0e8adad2d5f06d600ebe004b8fc1c"
     },
     {
       "entrance": {
@@ -234,7 +240,7 @@
     {
       "entrance": {
         "x": 7,
-        "y": 1,
+        "y": 2,
         "z": 2
       },
       "entrance_kind": "door",
@@ -248,6 +254,7 @@
         "mcl_core:brick_block",
         "mcl_core:dirt",
         "mcl_core:dirt_with_grass",
+        "mcl_core:grass_path",
         "mcl_core:stonebrick",
         "mcl_core:wood",
         "mcl_decor:chair_dark_oak",
@@ -274,7 +281,7 @@
       "rotation": 0,
       "size": {
         "x": 15,
-        "y": 11,
+        "y": 12,
         "z": 11
       },
       "source_max": {
@@ -284,21 +291,21 @@
       },
       "source_min": {
         "x": 240,
-        "y": 9,
+        "y": 8,
         "z": 200
       },
       "source_size": {
         "x": 15,
-        "y": 11,
+        "y": 12,
         "z": 11
       },
-      "verified_nodes": 1815,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "verified_nodes": 1980,
+      "snapshot_sha256": "701f48def2ff405e9507619222187b25d6a0e8adad2d5f06d600ebe004b8fc1c"
     },
     {
       "entrance": {
         "x": 2,
-        "y": 1,
+        "y": 2,
         "z": 1
       },
       "entrance_kind": "door",
@@ -310,6 +317,9 @@
         "mcl_beds:bed_white_top",
         "mcl_chests:trapped_chest_small",
         "mcl_core:cobble",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:stone_smooth",
         "mcl_core:tree",
         "mcl_core:wood",
         "mcl_doors:spruce_trapdoor",
@@ -330,7 +340,7 @@
       "rotation": 90,
       "size": {
         "x": 7,
-        "y": 7,
+        "y": 8,
         "z": 9
       },
       "source_max": {
@@ -340,16 +350,16 @@
       },
       "source_min": {
         "x": 100,
-        "y": 9,
+        "y": 8,
         "z": 250
       },
       "source_size": {
         "x": 9,
-        "y": 7,
+        "y": 8,
         "z": 7
       },
-      "verified_nodes": 441,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "verified_nodes": 504,
+      "snapshot_sha256": "701f48def2ff405e9507619222187b25d6a0e8adad2d5f06d600ebe004b8fc1c"
     },
     {
       "entrance": {
@@ -750,7 +760,7 @@
     {
       "entrance": {
         "x": 4,
-        "y": 1,
+        "y": 2,
         "z": 2
       },
       "entrance_kind": "door",
@@ -760,11 +770,14 @@
       "required_nodes": [
         "living_villages:pulpit",
         "mcl_core:andesite_smooth",
+        "mcl_core:coarse_dirt",
         "mcl_core:diorite_smooth",
         "mcl_core:dirt",
         "mcl_core:dirt_with_grass",
+        "mcl_core:granite",
         "mcl_core:granite_smooth",
         "mcl_core:sprucewood",
+        "mcl_core:stone",
         "mcl_decor:chair_spruce",
         "mcl_doors:spruce_door_b_1",
         "mcl_doors:spruce_door_t_1",
@@ -777,6 +790,7 @@
         "mcl_stairs:stair_diorite_smooth_outer",
         "mcl_stairs:stair_sprucewood",
         "mcl_torches:torch",
+        "mcl_torches:torch_wall",
         "mcl_walls:cobble_3",
         "mcl_walls:cobble_6",
         "mcl_walls:diorite_0",
@@ -787,7 +801,7 @@
       "rotation": 0,
       "size": {
         "x": 9,
-        "y": 13,
+        "y": 14,
         "z": 17
       },
       "source_max": {
@@ -797,16 +811,16 @@
       },
       "source_min": {
         "x": 171,
-        "y": 9,
+        "y": 8,
         "z": 301
       },
       "source_size": {
         "x": 9,
-        "y": 13,
+        "y": 14,
         "z": 17
       },
-      "verified_nodes": 1989,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "verified_nodes": 2142,
+      "snapshot_sha256": "701f48def2ff405e9507619222187b25d6a0e8adad2d5f06d600ebe004b8fc1c"
     },
     {
       "entrance": {
@@ -1239,7 +1253,7 @@
     {
       "entrance": {
         "x": 4,
-        "y": 1,
+        "y": 2,
         "z": 3
       },
       "entrance_kind": "door",
@@ -1250,6 +1264,7 @@
         "mcl_barrels:barrel_closed",
         "mcl_chests:chest_small",
         "mcl_core:cobble",
+        "mcl_core:dirt",
         "mcl_core:glass",
         "mcl_core:stonebrick",
         "mcl_core:stonebrickcarved",
@@ -1280,7 +1295,7 @@
       "rotation": 270,
       "size": {
         "x": 10,
-        "y": 12,
+        "y": 13,
         "z": 12
       },
       "source_max": {
@@ -1290,16 +1305,16 @@
       },
       "source_min": {
         "x": 100,
-        "y": 8,
+        "y": 7,
         "z": 100
       },
       "source_size": {
         "x": 12,
-        "y": 12,
+        "y": 13,
         "z": 10
       },
-      "verified_nodes": 1440,
-      "snapshot_sha256": "c60054391558bb84f218840992fab79cf2795dd2670f52d24142f524c9640d12"
+      "verified_nodes": 1560,
+      "snapshot_sha256": "b62c1d04849dc8e808ff69f72ac186886ed0c9abe683b5411297ae8de829dd9e"
     },
     {
       "entrance": {
@@ -1355,7 +1370,7 @@
   "runtime_validation": {
     "inventory_slots": 4096,
     "mismatches": 0,
-    "nodes": 952604,
+    "nodes": 954896,
     "placements": 72
   }
 }
