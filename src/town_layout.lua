@@ -62,6 +62,8 @@ end
 -- Pavement map {[x] = {[z] = material}} from the plan's squares and streets.
 function TL.pavement_map(plan)
 	local map, rank = {}, {}
+	-- City hall foundation (profile plans): a hole in the market pavement.
+	local hall = plan.sites.city_hall and plan.sites.city_hall.rect
 	local function claim(rect, material, order)
 		if type(material) ~= "string" then
 			error("town layout: pavement without a material name", 3)
@@ -70,7 +72,9 @@ function TL.pavement_map(plan)
 			local col = map[x]
 			if not col then col = {}; map[x] = col; rank[x] = {} end
 			for z = rect.z1, rect.z2 do
-				if col[z] == nil then
+				local held = hall and x >= hall.x1 and x <= hall.x2
+					and z >= hall.z1 and z <= hall.z2
+				if col[z] == nil and not held then
 					col[z] = material
 					rank[x][z] = order
 				end

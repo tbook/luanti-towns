@@ -195,3 +195,29 @@ do
 	local plan = planner.plan({x = 0, z = 0}, 3)
 	eq(plan ~= nil and plan.sites.city_hall == nil, true, "legacy plan has no hall")
 end
+
+-- Builder-side pavement map leaves the hall foundation unpaved.
+do
+	local fake_bo = {MAX_HEIGHT = 40, names = function() return {} end}
+	local TL = dofile("src/town_layout.lua")(fake_bo)
+	local plan = planner.plan({x = 0, z = 0}, 2, {landmarks = base})
+	eq(plan ~= nil, true, "pavement map plan")
+	if plan then
+		local map = TL.pavement_map(plan)
+		local h, mk = plan.sites.city_hall.rect, plan.sites.market.rect
+		local bad, paved = 0, 0
+		for x = mk.x1, mk.x2 do
+			for z = mk.z1, mk.z2 do
+				local has = map[x] and map[x][z] ~= nil
+				if in_rect(h, x, z) then
+					if has then bad = bad + 1 end
+				elseif has then
+					paved = paved + 1
+				end
+			end
+		end
+		eq(bad, 0, "no pavement under the hall")
+		eq(paved, (mk.x2 - mk.x1 + 1) * (mk.z2 - mk.z1 + 1)
+			- (h.x2 - h.x1 + 1) * (h.z2 - h.z1 + 1), "rest of the market paved")
+	end
+end

@@ -890,7 +890,9 @@ end
 -- its front, so its door opens onto the remaining pavement, and the box has
 -- the margin of free pavement on every side (circulation). Along an edge the
 -- stable order is centred first, then flush to either end of the margin; the
--- seeded rng breaks ties between the first tier that has any candidate.
+-- seeded rng breaks ties between the first tier that has any candidate. The
+-- end-flush tier is a fallback that is in practice only reached when no
+-- centred candidate exists (it is valid whenever the centred one is).
 -- Returns rect, side or nil.
 local function sample_city_hall(rng, C, market, L)
 	local m = C.CITY_HALL_MARGIN
