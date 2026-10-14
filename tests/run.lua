@@ -235,6 +235,57 @@ for _, r in ipairs(geometry.ROTATIONS) do
 	eq(p.building.entrance.y, 11, "castle rotated gate Y " .. r)
 end
 
+-- Cathedral verification (ticket #31): file header, entrance at all rotations, required nodes.
+local cathedral = catalog.get("cathedral")
+-- 1. Verify MTS file header matches catalog declaration.
+local cath_file = assert(io.open(cathedral.path, "rb"))
+local cath_h = cath_file:read(14); cath_file:close()
+local function u16_be(s, i) return s:byte(i) * 256 + s:byte(i + 1) end
+eq(cath_h:sub(1, 4), "MTSM", "cathedral file magic")
+local cath_sx = u16_be(cath_h, 7)
+local cath_sy = u16_be(cath_h, 9)
+local cath_sz = u16_be(cath_h, 11)
+eq(cath_sx, cathedral.size.x, "cathedral file width vs catalog")
+eq(cath_sy, cathedral.size.y, "cathedral file height vs catalog")
+eq(cath_sz, cathedral.size.z, "cathedral file depth vs catalog")
+-- 2. Verify entrance at all four rotations with exact coordinates (non-zero position).
+local cath_pos = {x = 100, y = 20, z = 50}
+local cath_expected = {
+	[0]   = {lx = 35, lz = 8, sx = 55, sz = 59},
+	[90]  = {lx = 8, lz = 19, sx = 59, sz = 55},
+	[180] = {lx = 19, lz = 50, sx = 55, sz = 59},
+	[270] = {lx = 50, lz = 35, sx = 59, sz = 55},
+}
+for _, rot in ipairs(geometry.ROTATIONS) do
+	local exp = cath_expected[rot]
+	local p = geometry.place(cathedral, cath_pos, rot)
+	-- Entrance Y should be pos.y + entrance.y.
+	eq(p.entrance.y, cath_pos.y + cathedral.entrance.y, "cathedral rot " .. rot .. " entrance Y")
+	-- Entrance X/Z derived from rotate_local.
+	eq(p.entrance.x, cath_pos.x + exp.lx, "cathedral rot " .. rot .. " entrance X")
+	eq(p.entrance.z, cath_pos.z + exp.lz, "cathedral rot " .. rot .. " entrance Z")
+	-- Size swaps at 90/270.
+	eq(p.size.x, exp.sx, "cathedral rot " .. rot .. " size X")
+	eq(p.size.z, exp.sz, "cathedral rot " .. rot .. " size Z")
+	-- Outside is entrance + front vector.
+	eq(p.outside.x - p.entrance.x, p.front.x, "cathedral rot " .. rot .. " outside X offset")
+	eq(p.outside.z - p.entrance.z, p.front.z, "cathedral rot " .. rot .. " outside Z offset")
+end
+-- 3. Verify metadata and required nodes.
+local cath_data = dofile(cathedral.data_path)
+eq(#(cath_data.metadata or {}), 36, "cathedral metadata entries")
+-- Check for duplicate required nodes.
+local cath_node_set = {}
+local cath_dupes = false
+for _, n in ipairs(cath_data.required_nodes or {}) do
+	if cath_node_set[n] then cath_dupes = true end
+	cath_node_set[n] = true
+end
+eq(cath_dupes, false, "cathedral required_nodes has no duplicates")
+eq(cath_node_set["living_villages:pulpit"] ~= nil, true, "cathedral has pulpit")
+eq(cath_node_set["mcl_books:bookshelf"] ~= nil, true, "cathedral has bookshelf")
+eq(cath_node_set["mcl_jukebox:jukebox"] ~= nil, true, "cathedral has jukebox")
+
 -- Role, snapshot, non-square and touching-box tests live in
 -- tests/catalog_tests.lua (ticket #28).
 loadfile("tests/catalog_tests.lua")(eq, fails, geometry, catalog, placement)
@@ -425,6 +476,9 @@ loadfile("tests/builder_tests.lua")(eq, fails, placement, dofile("src/planner.lu
 -- /towns_generate command logic (ticket #16): args, seeds, report, fakes.
 loadfile("tests/generate_tests.lua")(eq, fails, dofile("src/planner.lua"),
 	dofile("src/generate.lua"))
+
+-- Castle verification (ticket #30): dimensions, header parsing, placement at all rotations.
+loadfile("tests/castle_verification_tests.lua")(eq, fails, geometry)
 
 print(("%d checks, %d failures"):format(count, failures))
 os.exit(failures == 0 and 0 or 1)

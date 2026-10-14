@@ -92,3 +92,46 @@ The catalog role is `castle`. The old converted `schematics/castle.mts` and
 original capture files remain historical references; they do not supply the
 active catalog entry. Source bounds, ground datum, entrance and orientation
 are saved in `tools/workshop_export/buildings.json` for future re-export.
+
+## Verification (ticket #30)
+
+The cleaned castle template dimensions and catalog registration were verified
+against the file header and placement geometry functions:
+
+- **MTS header:** magic `MTSM`, version 4, size 54×39×50 (matches catalog registration)
+- **Entrance file-local coordinates:** x=30, y=8, z=6 (all within bounds)
+- **Ground offset:** 5 (within bounds)
+- **Footprint at rotations:** 54×50 (rotations 0, 180) and 50×54 (rotations 90, 270)
+- **Placement geometry:** entrance world coordinates verified at all four rotations
+  with explicit coordinate checks via `geometry.place(castle, origin, rotation)`.
+  The outside-node cell lies **inside** the footprint box, a documented property of
+  the z=6 recessed entrance.
+
+### Gate height and ground contact
+
+The gate is at file-local y=8, placing it at world y=11 when the origin is at y=3
+(ground_offset 5 below site ground at y=8). Thus the gate is **3 nodes above site
+ground**. The nodes below the gate (steps/podium structure) and ground contact
+mechanics were **not verified** — a disposable world is required to inspect what
+stands between the foundation (y=3) and the gate entrance at y=11. The outside
+cell at z=5 (rotation 0) is the ground contact point; the planner must approach
+from that cell along the direction vector, not from the footprint edge.
+
+### Implications for ticket #38
+
+The planner must take the approach from the placed outside cell (computed as
+`entrance + front` direction), not from the nearest bounding-box side. For the
+castle, the outside cell lies inside the landmark footprint due to the recessed
+recess gate, and the gate is 3 nodes above surrounding ground. These constraints
+affect how the planner positions adjacent roads and plazas.
+
+### Historical source files (not used by catalog)
+
+The catalog `castle` entry uses only `schematics/templates/castle.mts`. The
+following earlier sources remain for reference and are not referenced by the
+active catalog:
+
+- `schematics/castle_creative_raw.mts` — Original 54×39×50 raw capture from Creative world
+- `schematics/castle_creative_with_finials.mts` — Finials-inclusive 54×40×50 version
+- `schematics/castle_workshop_edited.mts` — Edited workshop version (54×40×50) with user changes
+- `schematics/castle.mts` — Legacy core-only converted version (54×40×50)
