@@ -2,7 +2,19 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "gaboo_house"
+    "tower",
+    "leather_worker",
+    "corner_house",
+    "jail",
+    "townhouses",
+    "weaver_house",
+    "scribe",
+    "gaboo_house",
+    "office_building",
+    "banker_house",
+    "butcher_shop",
+    "mason_yard",
+    "chapel"
   ],
   "buildings": [
     {
@@ -11,6 +23,8 @@
         "y": 1,
         "z": 1
       },
+      "entrance_kind": "door",
+      "ground_offset": 0,
       "id": "tower",
       "label": "Tower",
       "required_nodes": [
@@ -30,6 +44,7 @@
         "mcl_torches:torch_wall",
         "mcl_walls:diorite_0"
       ],
+      "role": "city_hall",
       "rotation": 90,
       "size": {
         "x": 8,
@@ -52,7 +67,7 @@
         "z": 8
       },
       "verified_nodes": 3200,
-      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
@@ -60,6 +75,8 @@
         "y": 1,
         "z": 1
       },
+      "entrance_kind": "door",
+      "ground_offset": 0,
       "id": "leather_worker",
       "label": "Leather worker",
       "required_nodes": [
@@ -85,6 +102,7 @@
         "mcl_wool:silver_carpet",
         "xpanes:pane_natural_flat"
       ],
+      "role": "workshop",
       "rotation": 180,
       "size": {
         "x": 8,
@@ -107,7 +125,7 @@
         "z": 9
       },
       "verified_nodes": 720,
-      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
@@ -115,6 +133,8 @@
         "y": 1,
         "z": 1
       },
+      "entrance_kind": "door",
+      "ground_offset": 0,
       "id": "corner_house",
       "label": "Corner house",
       "required_nodes": [
@@ -142,6 +162,7 @@
         "mesecons_pressureplates:pressure_plate_wood_off",
         "xpanes:pane_natural_flat"
       ],
+      "role": "house",
       "rotation": 270,
       "size": {
         "x": 8,
@@ -164,7 +185,7 @@
         "z": 8
       },
       "verified_nodes": 648,
-      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
@@ -172,6 +193,8 @@
         "y": 1,
         "z": 1
       },
+      "entrance_kind": "door",
+      "ground_offset": 0,
       "id": "jail",
       "label": "Jail",
       "required_nodes": [
@@ -194,6 +217,7 @@
         "mesecons_walllever:wall_lever_off",
         "xpanes:bar_flat"
       ],
+      "role": "jail",
       "rotation": 180,
       "size": {
         "x": 11,
@@ -216,7 +240,7 @@
         "z": 7
       },
       "verified_nodes": 462,
-      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
@@ -224,6 +248,8 @@
         "y": 1,
         "z": 2
       },
+      "entrance_kind": "door",
+      "ground_offset": 0,
       "id": "townhouses",
       "label": "Townhouses",
       "required_nodes": [
@@ -255,6 +281,7 @@
         "mcl_torches:torch_wall",
         "xpanes:pane_natural_flat"
       ],
+      "role": "house",
       "rotation": 0,
       "size": {
         "x": 15,
@@ -277,7 +304,7 @@
         "z": 11
       },
       "verified_nodes": 1815,
-      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
@@ -285,6 +312,8 @@
         "y": 1,
         "z": 1
       },
+      "entrance_kind": "door",
+      "ground_offset": 0,
       "id": "weaver_house",
       "label": "Weaver",
       "required_nodes": [
@@ -308,6 +337,7 @@
         "mcl_wool:white_carpet",
         "xpanes:pane_silver_flat"
       ],
+      "role": "house",
       "rotation": 90,
       "size": {
         "x": 7,
@@ -330,7 +360,7 @@
         "z": 7
       },
       "verified_nodes": 441,
-      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
@@ -338,6 +368,8 @@
         "y": 1,
         "z": 2
       },
+      "entrance_kind": "door",
+      "ground_offset": 0,
       "id": "scribe",
       "label": "Scribe",
       "required_nodes": [
@@ -389,6 +421,7 @@
         "xpanes:pane_natural",
         "xpanes:pane_natural_flat"
       ],
+      "role": "house",
       "rotation": 270,
       "size": {
         "x": 11,
@@ -411,7 +444,7 @@
         "z": 11
       },
       "verified_nodes": 1716,
-      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
@@ -420,6 +453,7 @@
         "z": 4
       },
       "entrance_kind": "door",
+      "ground_offset": 0,
       "id": "gaboo_house",
       "label": "Gaboo house",
       "required_nodes": [
@@ -470,6 +504,7 @@
         "mesecons_pressureplates:pressure_plate_wood_off",
         "xpanes:pane_natural_flat"
       ],
+      "role": "house",
       "rotation": 0,
       "size": {
         "x": 10,
@@ -500,6 +535,8 @@
         "y": 1,
         "z": 1
       },
+      "entrance_kind": "door",
+      "ground_offset": 0,
       "id": "office_building",
       "label": "Office building",
       "required_nodes": [
@@ -525,6 +562,7 @@
         "mcl_torches:torch",
         "mcl_torches:torch_wall"
       ],
+      "role": "shop",
       "rotation": 90,
       "size": {
         "x": 11,
@@ -547,7 +585,7 @@
         "z": 11
       },
       "verified_nodes": 2178,
-      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
@@ -555,6 +593,8 @@
         "y": 1,
         "z": 2
       },
+      "entrance_kind": "door",
+      "ground_offset": 0,
       "id": "banker_house",
       "label": "Banker house",
       "required_nodes": [
@@ -590,6 +630,7 @@
         "xpanes:bar_flat",
         "xpanes:pane_light_blue_flat"
       ],
+      "role": "house",
       "rotation": 270,
       "size": {
         "x": 11,
@@ -612,7 +653,7 @@
         "z": 11
       },
       "verified_nodes": 1452,
-      "snapshot_sha256": "557b0d8d78556667e672076b981a2ef5e6153c95c061eccf0c80420a428d4482"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
@@ -621,6 +662,7 @@
         "z": 2
       },
       "entrance_kind": "opening",
+      "ground_offset": 0,
       "id": "butcher_shop",
       "label": "Butcher shop",
       "required_nodes": [
@@ -643,6 +685,7 @@
         "mcl_stairs:slab_acaciawood_top",
         "mcl_torches:torch_wall"
       ],
+      "role": "shop",
       "rotation": 270,
       "size": {
         "x": 9,
@@ -665,7 +708,7 @@
         "z": 9
       },
       "verified_nodes": 567,
-      "snapshot_sha256": "be9cc64aa4a4733aae5b5ef40d50ffb3d3b0b41ae1b33c77ba8d0d876d5c61f7"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
@@ -674,6 +717,7 @@
         "z": 0
       },
       "entrance_kind": "opening",
+      "ground_offset": 0,
       "id": "mason_yard",
       "label": "Mason's yard",
       "required_nodes": [
@@ -689,6 +733,7 @@
         "mcl_stonecutter:stonecutter",
         "mcl_walls:stonebrick_0"
       ],
+      "role": "workshop",
       "rotation": 180,
       "size": {
         "x": 7,
@@ -711,7 +756,7 @@
         "z": 9
       },
       "verified_nodes": 378,
-      "snapshot_sha256": "be9cc64aa4a4733aae5b5ef40d50ffb3d3b0b41ae1b33c77ba8d0d876d5c61f7"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
@@ -720,6 +765,7 @@
         "z": 2
       },
       "entrance_kind": "door",
+      "ground_offset": 0,
       "id": "chapel",
       "label": "Chapel",
       "required_nodes": [
@@ -748,6 +794,7 @@
         "xpanes:pane_blue_flat",
         "xpanes:pane_red_flat"
       ],
+      "role": "chapel",
       "rotation": 0,
       "size": {
         "x": 9,
@@ -770,7 +817,7 @@
         "z": 17
       },
       "verified_nodes": 1989,
-      "snapshot_sha256": "be9cc64aa4a4733aae5b5ef40d50ffb3d3b0b41ae1b33c77ba8d0d876d5c61f7"
+      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
     },
     {
       "entrance": {
