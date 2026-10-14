@@ -19,6 +19,12 @@
 -- feet node that is open or a carpet (walkable but 1/16 high, so a villager
 -- stands on it), an open head node, and a walkable harmless floor below.
 -- That cell is returned as the bed's spawn position.
+-- Sibling rule: a bed without a cell of its own is also valid when orthogonally
+-- adjacent to a valid bed with headroom; it then spawns at the sibling's cell.
+--
+-- Note: villagers can still claim any bed within 48 blocks regardless of this
+-- enumeration (mobs_mc take_bed). "Skipped" only means "not counted for
+-- spawning a resident".
 --
 -- Searches only inside the given boxes (no nearby search). All engine access
 -- is through `env` (M.core_env), so the logic runs against fakes.
@@ -68,6 +74,7 @@ M.REASONS = {
 function M.enumerate(boxes, env)
 	local report = {beds = {}, skipped = {}, by_structure = {}, by_color = {}}
 	local seen = {}
+	local pending = {}
 
 	local function passable(p)
 		local n = env.get_node(p)
@@ -145,7 +152,9 @@ function M.enumerate(boxes, env)
 					else
 						spawn = standing_cell(p, tp) or standing_cell(tp, p)
 						if not spawn then
-							skip(p, node.name, "no_standing_space")
+							-- Maybe usable through a sibling bed; decided below.
+							pending[#pending + 1] = {p = p, tp = tp, node = node, base = base,
+								box = box, sum = sum, skip = skip}
 						else
 							report.beds[#report.beds + 1] = {pos = p, top = tp, name = node.name,
 								param2 = node.param2, spawn = spawn, id = box.id, kind = box.kind}
@@ -158,6 +167,38 @@ function M.enumerate(boxes, env)
 		end
 		for _, t in ipairs(tops) do
 			if not consumed[pkey(t.p)] then skip(t.p, t.node.name, "orphan_top") end
+		end
+	end
+	-- Sibling-bed rule: a bed with no standing cell of its own is valid when
+	-- it is orthogonally adjacent (same level) to a bed that has its own
+	-- standing cell and headroom above the adjoining half. A villager stands
+	-- on the walkable sibling and reaches this bed from there; the spawn is
+	-- the sibling's own standing cell. Only beds with their own cell count as
+	-- siblings, so a chain of enclosed beds stays skipped.
+	local own = {}
+	for _, b in ipairs(report.beds) do own[#own + 1] = b end
+	for _, q in ipairs(pending) do
+		local found
+		for _, sib in ipairs(own) do
+			for _, sh in ipairs({sib.pos, sib.top}) do
+				for _, h in ipairs({q.p, q.tp}) do
+					if not found and sh.y == h.y
+							and math.abs(sh.x - h.x) + math.abs(sh.z - h.z) == 1
+							and passable({x = sh.x, y = sh.y + 1, z = sh.z})
+							and passable({x = sh.x, y = sh.y + 2, z = sh.z}) then
+						found = sib
+					end
+				end
+			end
+		end
+		if found then
+			report.beds[#report.beds + 1] = {pos = q.p, top = q.tp, name = q.node.name,
+				param2 = q.node.param2, spawn = found.spawn, via = found.pos,
+				id = q.box.id, kind = q.box.kind}
+			q.sum.valid = q.sum.valid + 1
+			report.by_color[q.base] = (report.by_color[q.base] or 0) + 1
+		else
+			q.skip(q.p, q.node.name, "no_standing_space")
 		end
 	end
 	table.sort(report.beds, function(a, b) return sort_pos(a.pos, b.pos) end)

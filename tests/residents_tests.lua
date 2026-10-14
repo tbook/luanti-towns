@@ -177,6 +177,52 @@ do
 	eq(r.count, 0, "no floor under the only standing cell")
 end
 
+-- Sibling-bed rule.
+do
+	local function wall(W, x, z)
+		W.set({x = x, y = 1, z = z}, "mcl_core:stone")
+		W.set({x = x, y = 2, z = z}, "mcl_core:stone")
+	end
+	local b10 = box("h", 0, 1, 0, 10, 6, 10)
+	-- A (red, open) with B (blue) east of it, enclosed except toward A.
+	local W = new_world()
+	W.bed(4, 1, 4, "red", 0)
+	W.bed(5, 1, 4, "blue", 0)
+	for _, c in ipairs({{6, 4}, {6, 5}, {5, 3}, {5, 6}}) do wall(W, c[1], c[2]) end
+	local r = residents.enumerate({b10}, W.env)
+	eq(r.count, 2, "enclosed bed valid through its sibling: " .. reasons(r))
+	eq(#r.skipped, 0, "no skips with a sibling")
+	eq(r.beds[1].name, "mcl_beds:bed_red_bottom", "A first")
+	eq(pk(r.beds[2].spawn), pk(r.beds[1].spawn), "sibling bed spawns at the sibling's standing cell")
+	-- No headroom over A's adjoining half (only y+2): B is skipped again.
+	W.set({x = 4, y = 3, z = 4}, "mcl_core:stone")
+	W.set({x = 4, y = 3, z = 5}, "mcl_core:stone")
+	r = residents.enumerate({b10}, W.env)
+	eq(r.count, 1, "no headroom over the sibling: the enclosed bed stays skipped")
+	-- Two enclosed beds next to each other: neither has a standing cell.
+	W = new_world()
+	W.bed(4, 1, 4, "red", 0)
+	W.bed(5, 1, 4, "blue", 0)
+	for x = 3, 6 do for z = 3, 6 do
+		if not (x >= 4 and x <= 5 and z >= 4 and z <= 5) then wall(W, x, z) end
+	end end
+	r = residents.enumerate({b10}, W.env)
+	eq(r.count, 0, "adjacent enclosed beds are not siblings of each other")
+	eq(#r.skipped, 2, "both reported")
+	-- Ladder shaft: the only open neighbour is a ladder cell.
+	W = new_world()
+	W.bed(4, 1, 4, "white", 0)
+	for x = 3, 5 do for z = 3, 6 do
+		if not (x == 4 and (z == 4 or z == 5)) then wall(W, x, z) end
+	end end
+	W.set({x = 5, y = 0, z = 4}, "mcl_core:ladder")
+	W.set({x = 5, y = 1, z = 4}, "mcl_core:ladder")
+	W.set({x = 5, y = 2, z = 4}, "air")
+	r = residents.enumerate({b10}, W.env)
+	eq(r.count, 0, "ladder shaft bed stays skipped")
+	eq(r.skipped[1].reason, "no_standing_space", "ladder shaft reason")
+end
+
 ------------------------------------------------------------------------
 -- Boxes: beds outside are ignored; straddling and duplicates
 ------------------------------------------------------------------------
@@ -249,12 +295,12 @@ do
 	local read_mts = dofile("tests/mts_reader.lua")
 	local schem = dofile("src/schematic.lua")
 	-- id = {complete pairs counted from the .mts, of which valid}. The
-	-- invalid ones are real: gaboo_house has one bed reachable only through a
-	-- ladder cell and townhouses has three in niches whose only open side is
-	-- a chair node.
+	-- invalid one is real: gaboo_house has a bed reachable only through a
+	-- ladder cell (not walkable). The townhouses niche beds are valid through
+	-- their sibling bed.
 	local expected = {banker_house = {2, 2}, castle = {20, 20}, cathedral = {7, 7},
 		corner_house = {3, 3}, gaboo_house = {3, 2}, leather_worker = {2, 2},
-		scribe = {2, 2}, townhouses = {9, 6}, weaver_house = {1, 1}}
+		scribe = {2, 2}, townhouses = {9, 9}, weaver_house = {1, 1}}
 	local total_beds = 0
 	for id, counts in pairs(expected) do
 		local want, valid = counts[1], counts[2]

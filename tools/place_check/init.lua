@@ -291,6 +291,22 @@ core.register_on_mods_loaded(function() core.after(0, function()
       check(beds.count + #beds.skipped == expected_pairs, 'valid + skipped beds equal the schematic pairs (' .. beds.count .. '+' .. #beds.skipped .. ' vs ' .. expected_pairs .. ')')
       -- Every valid bed: bottom and top nodes as reported, spawn cell standable.
       local bad = 0
+      -- As strong as the enumeration: open (or carpet) feet cell, open head
+      -- cell, walkable harmless floor below.
+      local function open(p)
+       local d = core.registered_nodes[core.get_node(p).name]
+       return d ~= nil and d.walkable == false
+      end
+      local function spawn_ok(p)
+       local feet = core.get_node(p).name
+       local fd = core.registered_nodes[feet]
+       local floor = core.registered_nodes[core.get_node({x = p.x, y = p.y - 1, z = p.z}).name]
+       return fd ~= nil and (open(p) or core.get_item_group(feet, 'carpet') > 0)
+        and open({x = p.x, y = p.y + 1, z = p.z})
+        and floor ~= nil and floor.walkable ~= false
+        and (floor.damage_per_second or 0) <= 0
+        and (floor.liquidtype == nil or floor.liquidtype == 'none')
+      end
       for i, bed in ipairs(beds.beds) do
        if i > 1 then
         local a, c = beds.beds[i - 1].pos, bed.pos
@@ -300,7 +316,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
        local d = core.facedir_to_dir(nb.param2)
        if core.get_item_group(nb.name, 'bed') ~= 1 or core.get_item_group(nt.name, 'bed') ~= 2
          or nt.param2 ~= nb.param2 or not vector.equals(bed.top, vector.add(bed.pos, d))
-         or not (core.registered_nodes[core.get_node(bed.spawn).name].walkable == false or core.get_item_group(core.get_node(bed.spawn).name, 'carpet') > 0) then
+         or not spawn_ok(bed.spawn) then
         bad = bad + 1
        end
        -- mcl_beds' own top-lookup agrees with the reported top.

@@ -133,8 +133,8 @@ do -- ticket #47: the town report carries the bed enumeration
 			pos = {x = 1, y = 2, z = 3}, id = "townhouses"}}}}
 	local t3 = table.concat(generate.format_report(s3), "\n")
 	eq(has(t3, "Beds: 3 valid, 1 skipped."), true, "report: bed counts")
-	eq(has(t3, "Skipped bed (inaccessible, no_standing_space) at (1,2,3) in townhouses."), true,
-		"report: skipped bed")
+	eq(has(t3, "Skipped beds (inaccessible, no_standing_space): 1."), true,
+		"report: skipped bed count per reason")
 	s3.town.beds, s3.town.beds_error = nil, "boom"
 	eq(has(table.concat(generate.format_report(s3), "\n"), "Bed enumeration failed: boom."), true,
 		"report: bed enumeration failure")
