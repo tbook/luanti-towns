@@ -185,9 +185,11 @@ Agreed scope:
   Enlargement
   of the town is authorized. Derive reservations and approaches from the
   actual schematics, preserving the stepped boundary, parvis and connected
-  streets. Start engineering trials around a 192-node envelope and tune the
-  size for usable residential frontage and acceptable planning cost; this is
-  not a fixed product size. Keep the current terrain acceptance limits.
+  streets. Engineering trials began at a 192-node envelope; the profile envelope is
+  now 208 (#89) with principal streets 5 wide (#88), wider-spaced secondary
+  streets and a 12-node minimum block side (#86). Tune the size for usable
+  residential frontage and acceptable planning cost; this is not a fixed
+  product size. Keep the current terrain acceptance limits.
 - **Placement unit.** Pack the full schematic boxes, not separate lots. Their
   fronts must face the street or square, with entrances accessible from the
   pavement. Boxes can be immediately adjacent. Side windows, eaves and

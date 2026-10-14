@@ -175,12 +175,12 @@ do
 	eq(content.validate(plan, r, entries), true, "touching validates")
 end
 
--- Stock catalog: every seed 1..12 ends with nothing sealed and a valid plan.
+-- Stock catalog: every seed 1..22 ends with nothing sealed and a valid plan.
 do
 	local access_mod = dofile("src/interior_access.lua")
 	local base = assert(planner.landmark_profile(catalog.snapshot()))
 	local total = 0
-	for seed = 1, 12 do
+	for seed = 1, 22 do
 		local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
 		local c = plan.content
 		eq(assert(access_mod.check(plan)).sealed_cells, 0, "stock sealed " .. seed)

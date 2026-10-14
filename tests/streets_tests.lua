@@ -4,6 +4,9 @@
 -- reuses the router's structures.
 local eq, fails, planner = ...
 
+-- Principal street width / route clearance (ticket #88: 5).
+local SW = planner.CONSTANTS.STREET_WIDTH
+
 local function deep_equal(a, b)
 	if type(a) ~= type(b) then return false end
 	if type(a) ~= "table" then return a == b end
@@ -59,7 +62,7 @@ end
 
 local FACING = {["-z"] = {0, -1}, ["+z"] = {0, 1}, ["-x"] = {-1, 0}, ["+x"] = {1, 0}}
 
--- Independent 6-wide clearance walk: BFS over sw x sw windows lying wholly on
+-- Independent SW-wide clearance walk: BFS over sw x sw windows lying wholly on
 -- `occ`, from the window at an approach, brute-force per window.
 local function window_walk(occ, b, start, sw)
 	local function full(x, z)
@@ -147,7 +150,7 @@ for _, case in ipairs(cases) do
 		for i, s in ipairs(plan.streets) do
 			local r = s.rect
 			local ex, ez = r.x2 - r.x1 + 1, r.z2 - r.z1 + 1
-			local width = (s.kind == "principal") and 6 or 4
+			local width = (s.kind == "principal") and SW or 4
 			if s.kind == "principal" then npr = npr + 1 else nsec = nsec + 1 end
 			if s.id ~= i or s.width ~= width or math.min(ex, ez) ~= width then ok_shape = false end
 			if ex ~= width and ez ~= width then ok_shape = false end
@@ -189,20 +192,20 @@ for _, case in ipairs(cases) do
 			end
 			eq(all, true, label .. " every street connected")
 		end
-		-- Full-width clearance: 6x6 windows walk from each approach to the
+		-- Full-width clearance: SWxSW windows walk from each approach to the
 		-- other approach, the market and parvis, and cover the cathedral and
 		-- castle door nodes (approach.pos).
 		for _, a in ipairs({a1, a2}) do
-			local w = window_walk(principal, plan.bounds, approach_window(a, 6), 6)
-			local o = approach_window(a == a1 and a2 or a1, 6)
+			local w = window_walk(principal, plan.bounds, approach_window(a, SW), SW)
+			local o = approach_window(a == a1 and a2 or a1, SW)
 			local l = label .. " " .. a.name
-			eq(w[key(o[1], o[2])], true, l .. " 6-wide walk to other approach")
-			eq(window_touches(w, S.market.rect, 6), true, l .. " 6-wide walk to market")
-			eq(window_touches(w, S.parvis.rect, 6), true, l .. " 6-wide walk to parvis")
+			eq(w[key(o[1], o[2])], true, l .. " SW-wide walk to other approach")
+			eq(window_touches(w, S.market.rect, SW), true, l .. " SW-wide walk to market")
+			eq(window_touches(w, S.parvis.rect, SW), true, l .. " SW-wide walk to parvis")
 			for _, name in ipairs({"castle", "cathedral"}) do
 				local p = S[name].approach.pos
-				eq(window_touches(w, {x1 = p.x, z1 = p.z, x2 = p.x, z2 = p.z}, 6), true,
-					l .. " 6-wide walk covers " .. name .. " approach.pos")
+				eq(window_touches(w, {x1 = p.x, z1 = p.z, x2 = p.x, z2 = p.z}, SW), true,
+					l .. " SW-wide walk covers " .. name .. " approach.pos")
 			end
 		end
 		for _, name in ipairs({"castle", "cathedral"}) do
@@ -406,15 +409,18 @@ do
 		-- A stray principal stub attached to nothing but the town interior.
 		local s = p.streets[1]
 		local c = p.center
-		p.streets[#p.streets + 1] = {id = #p.streets + 1, kind = "principal", width = 6,
-			rect = {x1 = c.x + 40, z1 = c.z + 40, x2 = c.x + 45, z2 = c.z + 52},
+		p.streets[#p.streets + 1] = {id = #p.streets + 1, kind = "principal", width = SW,
+			rect = {x1 = c.x + 40, z1 = c.z + 40, x2 = c.x + 39 + SW, z2 = c.z + 52},
 			axis = "z", material = s.material, route = "stub"}
 	end)
 
 	-- Stubs hanging off the castle street must not hide behind landmark
 	-- leniency (reviewer repro plan, blocks and frontage cleared).
 	do
-		local b2 = planner.plan({x = -32, z = -8}, -1073729107)
+		-- Re-pinned in #88 from seed -1073729107: with 5-wide streets the old
+		-- plan's extension is a legitimate road, so a seed that keeps the
+		-- stub shapes (extension rejected, a free spur site) is used.
+		local b2 = planner.plan({x = -32, z = -8}, 3)
 		eq(b2 ~= nil, true, "stub repro plan exists")
 		if b2 then
 			b2.blocks, b2.frontage = {}, {}
@@ -428,18 +434,18 @@ do
 			end
 			eq(idx ~= nil, true, "castle street found")
 			if idx then
-				-- (a) extend the street 6 cells beyond the door end.
+				-- (a) extend the street SW cells beyond the door end.
 				local p = clone(b2)
 				local r = p.streets[idx].rect
 				if r.x2 - r.x1 >= r.z2 - r.z1 then
-					if pos.x <= r.x1 + 5 then r.x1 = r.x1 - 6 else r.x2 = r.x2 + 6 end
+					if pos.x <= r.x1 + SW - 1 then r.x1 = r.x1 - SW else r.x2 = r.x2 + SW end
 				else
-					if pos.z <= r.z1 + 5 then r.z1 = r.z1 - 6 else r.z2 = r.z2 + 6 end
+					if pos.z <= r.z1 + SW - 1 then r.z1 = r.z1 - SW else r.z2 = r.z2 + SW end
 				end
 				p.streets[idx].axis = (r.x2 - r.x1 >= r.z2 - r.z1) and "x" or "z"
 				local ok, why = planner.validate(p)
 				eq(ok, nil, "street extended past the door rejected (" .. tostring(why) .. ")")
-				-- (b) a 6x6 spur off the street's side, on free land.
+				-- (b) an SWxSW spur off the street's side, on free land.
 				local bset, taken = {}, {}
 				for _, br in ipairs(b2.boundary.rects) do
 					for z = br.z1, br.z2 do for x = br.x1, br.x2 do bset[key(x, z)] = true end end
@@ -452,28 +458,32 @@ do
 				local sr, spur = b2.streets[idx].rect
 				local function fits(x1, z1)
 					local ok_ = true
-					rect_cells({x1 = x1, z1 = z1, x2 = x1 + 5, z2 = z1 + 5}, function(x, z)
+					rect_cells({x1 = x1, z1 = z1, x2 = x1 + SW - 1, z2 = z1 + SW - 1}, function(x, z)
 						if not bset[key(x, z)] or taken[key(x, z)] then ok_ = false end
 					end)
 					return ok_
 				end
-				for off = sr.x1 - 5, sr.x2 do
+				for off = sr.x1 - SW + 1, sr.x2 do
 					if not spur and fits(off, sr.z2 + 1) then spur = {off, sr.z2 + 1} end
-					if not spur and fits(off, sr.z1 - 6) then spur = {off, sr.z1 - 6} end
+					if not spur and fits(off, sr.z1 - SW) then spur = {off, sr.z1 - SW} end
 				end
-				for off = sr.z1 - 5, sr.z2 do
+				for off = sr.z1 - SW + 1, sr.z2 do
 					if not spur and fits(sr.x2 + 1, off) then spur = {sr.x2 + 1, off} end
-					if not spur and fits(sr.x1 - 6, off) then spur = {sr.x1 - 6, off} end
+					if not spur and fits(sr.x1 - SW, off) then spur = {sr.x1 - SW, off} end
 				end
 				eq(spur ~= nil, true, "spur site found")
 				if spur then
 					local q = clone(b2)
 					q.streets[#q.streets + 1] = {id = #q.streets + 1, kind = "principal",
-						width = 6, axis = "x", material = b2.streets[idx].material,
+						width = SW, axis = "x", material = b2.streets[idx].material,
 						route = "spur", rect = {x1 = spur[1], z1 = spur[2],
-							x2 = spur[1] + 5, z2 = spur[2] + 5}}
+							x2 = spur[1] + SW - 1, z2 = spur[2] + SW - 1}}
 					local ok2, why2 = planner.validate(q)
-					eq(ok2, nil, "6x6 spur rejected (" .. tostring(why2) .. ")")
+					eq(ok2, nil, "SWxSW spur rejected (" .. tostring(why2) .. ")")
+					-- Adjacent to the street, so it is rejected as a dead end,
+					-- not as a detached street.
+					eq(tostring(why2):find("dead end", 1, true) ~= nil, true,
+						"spur rejected as a dead end: " .. tostring(why2))
 				end
 			end
 		end
