@@ -2,7 +2,7 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "office_building"
+    "soup_shop"
   ],
   "buildings": [
     {
@@ -1439,12 +1439,80 @@
       },
       "verified_nodes": 1232,
       "snapshot_sha256": "cad3d9c7085a468fabe4d6ac98a8bfc00d4c82ee124e7a744e269604383fa14a"
+    },
+    {
+      "entrance": {
+        "x": 4,
+        "y": 5,
+        "z": 1
+      },
+      "entrance_kind": "opening",
+      "ground_offset": 3,
+      "id": "soup_shop",
+      "label": "Soup shop (Home)",
+      "required_nodes": [
+        "mcl_barrels:barrel_closed",
+        "mcl_beds:bed_yellow_bottom",
+        "mcl_beds:bed_yellow_top",
+        "mcl_core:cobble",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:granite",
+        "mcl_core:granite_smooth",
+        "mcl_core:grass_path",
+        "mcl_core:ladder",
+        "mcl_core:mycelium",
+        "mcl_core:stone",
+        "mcl_core:stone_smooth",
+        "mcl_core:tree",
+        "mcl_core:wood",
+        "mcl_crafting_table:crafting_table",
+        "mcl_doors:spruce_trapdoor",
+        "mcl_flowers:dandelion",
+        "mcl_itemframes:frame",
+        "mcl_mushrooms:mushroom_brown",
+        "mcl_mushrooms:mushroom_red",
+        "mcl_stairs:slab_tree_bark",
+        "mcl_stairs:slab_tree_bark_double",
+        "mcl_stairs:slab_tree_bark_top",
+        "mcl_stairs:slab_wood",
+        "mcl_stairs:stair_cobble",
+        "mcl_stairs:stair_cobble_outer",
+        "mcl_stairs:stair_mossycobble",
+        "mcl_torches:torch_wall",
+        "mcl_walls:cobble_0",
+        "xpanes:pane_natural_flat"
+      ],
+      "role": "shop",
+      "rotation": 0,
+      "size": {
+        "x": 7,
+        "y": 10,
+        "z": 9
+      },
+      "source_max": {
+        "x": 246,
+        "y": 16,
+        "z": 241
+      },
+      "source_min": {
+        "x": 240,
+        "y": 7,
+        "z": 233
+      },
+      "source_size": {
+        "x": 7,
+        "y": 10,
+        "z": 9
+      },
+      "verified_nodes": 630,
+      "snapshot_sha256": "cc6637271133019eb6ec7e74fa6bd49dbed9dff33157edf6bbc02a4c9a877eac"
     }
   ],
   "runtime_validation": {
-    "inventory_slots": 4148,
+    "inventory_slots": 4388,
     "mismatches": 0,
-    "nodes": 959824,
-    "placements": 76
+    "nodes": 962344,
+    "placements": 80
   }
 }

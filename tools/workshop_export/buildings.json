@@ -564,6 +564,41 @@
         "z": 272
       },
       "role": "tavern"
+    },
+    {
+      "id": "soup_shop",
+      "label": "Soup shop (Home)",
+      "scan_min": {
+        "x": 236,
+        "y": 6,
+        "z": 229
+      },
+      "scan_max": {
+        "x": 250,
+        "y": 20,
+        "z": 245
+      },
+      "floor_y": 10,
+      "capture_min": {
+        "x": 240,
+        "y": 7,
+        "z": 233
+      },
+      "capture_max": {
+        "x": 246,
+        "y": 16,
+        "z": 241
+      },
+      "ground_y": 10,
+      "clip_to_capture": true,
+      "rotation": 0,
+      "entrance": {
+        "x": 244,
+        "y": 12,
+        "z": 234
+      },
+      "entrance_kind": "opening",
+      "role": "shop"
     }
   ]
 }

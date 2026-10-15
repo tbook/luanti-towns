@@ -74,6 +74,7 @@ M.NOT_REQUIRED = {
 	{"leaves_orphan$", "palette/orphan check only; the authored param2 is kept"},
 	{"^mcl_core:vine$", "palette only; the authored param2 is kept"},
 	{"^mcl_core:dirt_with_grass$", "palette only; the authored param2 is kept"},
+	{"^mcl_core:mycelium$", "snow-cover check only (on_snowable_construct)"},
 	{"^mcl_core:water_", "palette/extinguish only; liquid is handled by the engine"},
 	{"^mcl_decor:hedge_", "connection recalculation; authored variants are kept"},
 	{"^mcl_torches:", "flame constructor is a no-op in this VoxeLibre"},

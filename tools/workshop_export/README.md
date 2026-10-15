@@ -185,3 +185,57 @@ town site is flattened and filled, so a cave or liquid opening into it is
 unlikely but not excluded). The planner currently places only the first
 sorted tavern id (`tavern`), so `tavern_2` is in the catalog but is not yet
 placed in towns.
+
+## soup_shop (Home world, #110)
+
+`soup_shop` (role `shop`) is a build in the **Home** world, not TownsWorkshop.
+Any world can be the source: the exporter takes it from `--world`, and
+`buildings.json` only holds coordinates, so the entry is exported with
+`--only` against that world:
+
+```sh
+python3 tools/workshop_export/export.py \
+  --world "$HOME/Library/Application Support/minetest/worlds/Home" --only soup_shop
+```
+
+Home is a normal-mapgen world, so `--validate` against it fails for every
+template containing `dirt_with_grass` (the runtime constructor paints the
+grass colour from the biome at the test site, not from the saved node). Run the
+validation from TownsWorkshop instead; it checks the whole catalog, soup shop
+included: `--world <TownsWorkshop> --only office_building --validate`
+(an idempotent re-export of an unchanged build). Set `last_export_buildings`
+in the manifest by hand afterwards.
+
+Source box x 240..246, y 7..16, z 233..241 (the ticket's "246,6,233 x
+240,17,241"; y 6 is natural stone below the cellar and y 17 is air). The
+build has no door node anywhere: it is a serving-counter shop with open
+storefronts. The chosen entrance is the walk-in gap in the south wall at
+(244,12,234) (`entrance_kind = "opening"`, front -Z, `rotation` 0), reached by
+four cobble steps at z 233. The same stairs wrap round the +X side, where a
+second gap at (245,12,235) is a counter window with its own stair run.
+
+Floor and ground: the floor row (cobble/granite, y 11) stands one block above
+the street (path/grass at y 10), exactly like the #87 buildings, so the ground
+row y 10 is kept (`ground_y` 10) together with the cellar below it:
+`capture_min.y` 7, `ground_offset` 3, entrance (4, 5, 1), 7 x 10 x 9.
+
+Cellar (3 x 3 interior at x 242..244, z 237..239, y 8..10): mycelium at y 7
+with brown/red mushrooms at y 8, a ladder up to a spruce trapdoor in the floor
+at (242,11,239), one wall torch. It is enclosed on every side by the
+template's own dirt walls, the mycelium floor and the floor row, so nothing
+opens to the terrain below. Row y 7 outside the cellar is natural stone,
+granite and some dirt that the fixed box captured; row y 6 (natural stone) is
+omitted. No bedrock or void is involved at this depth.
+
+`clip_to_capture` (new optional entry field): the building to the north has
+eave slabs at z 242 (y 16) that fall inside the survey margin the exporter
+requires around the structure, so the whole-survey bounds check would either
+fail or capture them. With `clip_to_capture: true` and a fixed capture box,
+only the box is surveyed and anything outside it is ignored (the check that a
+build does not escape its box is skipped for such entries).
+
+Contents: one bed, two barrels, a crafting table, six item frames, three wall
+torches, a ladder, a trapdoor, two bark-slab roof corners. The back strip at
+floor height (grass and path at z 241 and along x 246) is terrain that sits
+inside the box and is captured with it. The planner has no corner-lot concept: the soup shop is
+placed like any other shop and has no preferred position.

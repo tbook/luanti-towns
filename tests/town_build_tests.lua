@@ -437,6 +437,22 @@ do
 		local r2, why2 = route("tavern_2", rot, {x = 5, y = 7, z = 1})
 		eq(r2 ~= nil, true, "tavern_2 stair reaches the upper door at rotation " .. rot .. ": " .. tostring(why2))
 	end
+	-- #110: soup_shop is a walk-in opening on a raised floor with a cellar
+	-- below (ground_offset 3, floor row 4, opening bottom on floor row + 1).
+	local ss = entries.soup_shop
+	eq(ss ~= nil and ss.ground_offset, 3, "soup_shop ground_offset")
+	eq(ss ~= nil and ss.entrance.y, 5, "soup_shop opening is two rows above the ground row")
+	eq(ss ~= nil and ss.entrance_kind, "opening", "soup_shop entrance kind")
+	local sss = read_mts("schematics/" .. ss.path:gsub("^schematics/", ""))
+	local se = ss.entrance
+	eq(sss.at(se.x, se.y, se.z), "air", "soup_shop opening cell is air")
+	eq(sss.at(se.x, se.y + 1, se.z), "air", "soup_shop opening head room is air")
+	eq(sss.at(se.x, se.y - 1, se.z), "mcl_core:cobble", "soup_shop opening floor is solid")
+	eq(sss.at(se.x, ss.ground_offset, se.z - 1), "mcl_core:dirt_with_grass", "soup_shop ground row outside the opening")
+	for _, rot in ipairs({0, 90, 180, 270}) do
+		local r, why = route("soup_shop", rot)
+		eq(r ~= nil, true, "real soup_shop opening reachable at rotation " .. rot .. ": " .. tostring(why))
+	end
 end
 
 ------------------------------------------------------------------------

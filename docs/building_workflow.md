@@ -78,6 +78,7 @@ verifies the result at all four rotations.
    | `role` | optional here, but registration tickets must set it: `house`, `shop`, `workshop`, `tavern`, `well`, `cathedral`, `castle`, `city_hall`, `chapel`, `jail` |
    | `label_position` | optional world position of a workshop label sign to exclude from the capture |
    | `capture_min`, `capture_max`, `ground_y` | optional fixed capture box (see clearance below) |
+| `clip_to_capture` | optional boolean: with a fixed capture box, survey only the box (for a build whose survey margin would contain a neighbouring build); the escape check is skipped |
 
    Example (source front already faces -Z, so `rotation` is 0):
 
