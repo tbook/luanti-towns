@@ -186,6 +186,12 @@ function M.format_report(summary, command)
 		elseif s.town.beds_error then
 			add("Bed enumeration failed: %s.", s.town.beds_error)
 		end
+		local res = s.town.residents
+		if res then
+			add("%s", res.summary)
+		elseif s.town.residents_error then
+			add("Resident initialization failed: %s.", s.town.residents_error)
+		end
 	end
 	return lines
 end

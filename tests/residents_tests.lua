@@ -356,3 +356,137 @@ do
 	end
 	eq(total_beds, 49, "total manual beds across stock templates")
 end
+
+-- Spawn and claim (ticket #48): fake engine and fake mod-storage record.
+do
+	local function P(x) return {x = x, y = 1, z = 0} end
+	local function beds(n)
+		local out = {}
+		for i = 1, n do
+			out[i] = {pos = P(i * 3), top = {x = i * 3, y = 1, z = 1}, spawn = {x = i * 3 + 1, y = 1, z = 0},
+				id = "townhouses", kind = "content"}
+		end
+		return out
+	end
+	local function new_store(init)
+		local data = {}
+		for k, v in pairs(init or {}) do data[k] = v end
+		return {data = data,
+			get = function(k) return data[k] end,
+			set = function(k, v) data[k] = v end}
+	end
+	local function new_engine(opts)
+		opts = opts or {}
+		local E = {meta = {}, removed = 0, spawned = {}, n = 0, events = {}}
+		for k, v in pairs(opts.meta or {}) do E.meta[k] = v end
+		local env = {}
+		E.env = env
+		function env.bed_owner(b)
+			local m = E.meta[pk(b.pos)] or {}
+			return {villager = m.villager or "", player = m.player or ""}
+		end
+		function env.spawn(p)
+			E.n = E.n + 1
+			E.events[#E.events + 1] = "spawn"
+			if opts.fail_spawn and opts.fail_spawn[E.n] then return nil end
+			local h = {id = (opts.bad_entity and opts.bad_entity[E.n]) and "" or ("v" .. E.n), at = p}
+			E.spawned[#E.spawned + 1] = h
+			return h
+		end
+		function env.entity_id(h) return h.id end
+		function env.claim(h, p, id)
+			if opts.fail_claim then return false end
+			E.meta[pk(p)] = {villager = id}
+			h.bed = p
+			return true
+		end
+		function env.remove(h) E.removed = E.removed + 1; h.removed = true end
+		function env.unclaim(p, id) end
+		return E
+	end
+	local function key(i) return residents.record_key(P(i * 3)) end
+
+	-- Successful spawn and claim: pending is recorded before the spawn,
+	-- done after the claim; bed and meta agree.
+	do
+		local store = new_store()
+		local E = new_engine()
+		local seen_pending
+		local spawn = E.env.spawn
+		E.env.spawn = function(p)
+			seen_pending = store.data[key(1)] == "pending" or seen_pending
+			return spawn(p)
+		end
+		local r = residents.initialize(beds(3), E.env, store)
+		eq(r.spawned, 3, "init: three spawned")
+		eq(seen_pending, true, "init: pending recorded before spawning")
+		eq(store.data[key(1)], "done:v1", "init: done record carries the villager id")
+		eq(E.meta["3,1,0"].villager, "v1", "init: bed meta claimed")
+		eq(E.spawned[1].bed.x, 3, "init: villager bed is the bottom node")
+		eq(E.spawned[1].at.x, 4, "init: spawned at the spawn cell")
+		eq(r.summary, "Residents: 3 spawned, 0 skipped/failed", "init: report line")
+	end
+	-- Repeat call and fresh state with the same storage: nothing new.
+	do
+		local store = new_store()
+		local E = new_engine()
+		residents.initialize(beds(2), E.env, store)
+		local E2 = new_engine({meta = E.meta})
+		local r = residents.initialize(beds(2), E2.env, store)
+		eq(r.spawned, 0, "repeat: nothing spawned")
+		eq(r.already_done, 2, "repeat: reported as already initialized")
+		eq(#E2.events, 0, "repeat: no engine spawn attempted")
+		-- Dead resident (claim meta cleared) is still not replaced.
+		local E3 = new_engine()
+		r = residents.initialize(beds(2), E3.env, store)
+		eq(r.spawned, 0, "dead resident is not replaced")
+	end
+	-- Existing claims are respected.
+	do
+		local store = new_store()
+		local E = new_engine({meta = {["3,1,0"] = {villager = "other"}, ["6,1,0"] = {player = "bob"}}})
+		local r = residents.initialize(beds(3), E.env, store)
+		eq(r.spawned, 1, "claimed: only the free bed is used")
+		eq(r.claimed, 2, "claimed: villager and player beds skipped")
+		eq(store.data[key(1)], nil, "claimed: no record written")
+		eq(E.meta["3,1,0"].villager, "other", "claimed: existing claim untouched")
+	end
+	-- Engine failure and unusable entity: no completed claim, cleaned up.
+	do
+		local store = new_store()
+		local E = new_engine({fail_spawn = {[1] = true}, bad_entity = {[2] = true}})
+		local r = residents.initialize(beds(3), E.env, store)
+		eq(r.spawned, 1, "failure: remaining bed still spawned")
+		eq(r.failed, 2, "failure: two failures counted")
+		eq(r.failures[1].reason, "spawn_failed", "failure: add_entity nil reason")
+		eq(r.failures[2].reason, "invalid_entity", "failure: invalid entity reason")
+		eq(E.removed, 1, "failure: unusable object removed")
+		eq(store.data[key(1)], nil, "failure: no record after failed spawn")
+		eq(store.data[key(2)], nil, "failure: no record after invalid entity")
+		eq(E.meta["3,1,0"], nil, "failure: no claim written")
+		local E2 = new_engine({meta = E.meta})
+		local r2 = residents.initialize(beds(3), E2.env, store)
+		eq(r2.spawned, 2, "failure: retry spawns the failed beds only")
+		eq(r2.already_done, 1, "failure: retry skips the done bed")
+	end
+	do -- claim failure cleans up and records nothing
+		local store = new_store()
+		local E = new_engine({fail_claim = true})
+		local r = residents.initialize(beds(1), E.env, store)
+		eq(r.failures[1].reason, "claim_failed", "claim failure reason")
+		eq(E.removed, 1, "claim failure removes object")
+		eq(store.data[key(1)], nil, "claim failure leaves no record")
+	end
+	-- Restart with a pending record: reported, not respawned; done respected.
+	do
+		local store = new_store({[key(1)] = "pending", [key(2)] = "done:abc"})
+		local E = new_engine()
+		local r = residents.initialize(beds(3), E.env, store)
+		eq(r.interrupted, 1, "restart: pending reported")
+		eq(r.interrupted_beds[1].pos.x, 3, "restart: pending bed identified")
+		eq(r.already_done, 1, "restart: done respected")
+		eq(r.spawned, 1, "restart: only the untouched bed spawned")
+		eq(store.data[key(1)], "pending", "restart: pending record left for inspection")
+		eq(r.summary:find("1 interrupted earlier", 1, true) ~= nil, true, "restart: report mentions it")
+	end
+end
