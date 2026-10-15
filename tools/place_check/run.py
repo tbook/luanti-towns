@@ -86,7 +86,7 @@ def main():
         f.write('\nload_mod_towns = worldmods/towns\nload_mod_towns_place_check = worldmods/towns_place_check\n')
     (work / 'check.conf').write_text(
         'enable_ipv6 = false\nbind_address = 127.0.0.1\nserver_announce = false\n'
-        'towns_enable_place_town = true\ntowns_place_check_seed = %d\n'
+        'towns_place_check_seed = %d\n'
         'towns_place_check_scenario = %s\n' % (args.seed, args.scenario))
     print('Scratch world:', work, flush=True)
     def run_engine(tag):

@@ -294,7 +294,7 @@ Creative world such as Testlandia.
 ## Placed node initialization (ticket #46)
 
 `core.place_schematic` runs no node callbacks, so the town placement path
-(`/towns_place_town`, `builder.build_town`) places every schematic without
+(`/towns_generate`, `builder.build_town`) places every schematic without
 constructors and then, once all schematics and door routes succeeded, runs
 `src/node_setup.lua` inside the placed boxes only. It initializes just the
 functional nodes present in the registered templates:
