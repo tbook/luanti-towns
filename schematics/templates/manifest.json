@@ -2,7 +2,7 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "tavern_2"
+    "office_building"
   ],
   "buildings": [
     {
@@ -535,9 +535,9 @@
       "id": "office_building",
       "label": "Office building",
       "required_nodes": [
+        "mcl_cartography_table:cartography_table",
         "mcl_chests:chest_small",
         "mcl_core:cobble",
-        "mcl_core:dirt",
         "mcl_core:dirt_with_grass",
         "mcl_core:glass",
         "mcl_core:ladder",
@@ -549,6 +549,7 @@
         "mcl_doors:wooden_door_t_1",
         "mcl_flowers:oxeye_daisy",
         "mcl_flowers:tallgrass",
+        "mcl_lectern:lectern",
         "mcl_stairs:slab_wood_top",
         "mcl_stairs:stair_cobble",
         "mcl_stairs:stair_cobble_outer",
@@ -580,7 +581,7 @@
         "z": 11
       },
       "verified_nodes": 2178,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "snapshot_sha256": "edf2e1b3f715ad4f28fe374342d834bfaeb09b953024e80c5c7f61faaafd3663"
     },
     {
       "entrance": {
