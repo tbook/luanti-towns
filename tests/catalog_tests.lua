@@ -41,6 +41,9 @@ local role_checks = {
 	banker_house = "house",
 	butcher_shop = "shop",
 	mason_yard = "workshop",
+	soup_shop = "shop",
+	library = "shop",
+	blacksmith = "workshop",
 	chapel = "chapel",
 	castle = "castle",
 	cathedral = "cathedral",
@@ -63,8 +66,8 @@ eq(catalog.VALID_ROLES.invalid_role, nil, "invalid_role is not a role")
 
 -- Role filtering over the real catalog.
 eq(table.concat(catalog.ids_for_role("house"), ","), "banker_house,corner_house,demo_house,gaboo_house,scribe,townhouses,weaver_house", "house filter")
-eq(table.concat(catalog.ids_for_role("shop"), ","), "butcher_shop,office_building", "shop filter")
-eq(table.concat(catalog.ids_for_role("workshop"), ","), "leather_worker,mason_yard", "workshop filter")
+eq(table.concat(catalog.ids_for_role("shop"), ","), "butcher_shop,library,office_building,soup_shop", "shop filter")
+eq(table.concat(catalog.ids_for_role("workshop"), ","), "blacksmith,leather_worker,mason_yard", "workshop filter")
 eq(table.concat(catalog.ids_for_role("city_hall"), ","), "tower", "city_hall filter")
 eq(table.concat(catalog.ids_for_role("chapel"), ","), "chapel", "chapel filter")
 eq(table.concat(catalog.ids_for_role("jail"), ","), "jail", "jail filter")

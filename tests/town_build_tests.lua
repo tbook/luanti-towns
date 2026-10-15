@@ -13,7 +13,7 @@ local GROUND_Y = 40
 
 local entries = catalog.entries
 local profile = assert(planner.landmark_profile(catalog.snapshot()))
-local plan = assert(planner.plan({x = 0, z = 0}, 2, {landmarks = profile}))
+local plan = assert(planner.plan({x = 0, z = 0}, 1, {landmarks = profile}))
 eq(#plan.content.alleys >= 1, true, "fixture plan has an alley")
 eq(#plan.content.buildings >= 2, true, "fixture plan has buildings")
 eq(plan.sites.city_hall ~= nil, true, "fixture plan has a city hall")
@@ -411,13 +411,23 @@ do
 		local e = entry.entrance
 		eq(e.y, 2, id .. " door bottom is on floor row 1")
 		eq(entry.ground_offset or 0, 0, id .. " ground row is row 0")
-		-- Outside the door the ground row is natural solid ground (dirt, stone).
-		local below = s.at(e.x, 0, e.z - 1)
+		local opening = entry.entrance_kind == "opening"
+		-- Outside the door the ground row is natural solid ground (dirt, stone);
+		-- a walk-in opening on the box edge has its ground row at the entrance.
+		local below = s.at(e.x, 0, opening and e.z or e.z - 1)
 		eq(below ~= nil and below ~= "air", true,
 			id .. " ground row outside the door is solid ground: " .. tostring(below))
 		local floor = s.at(e.x, 1, e.z)
-		eq(floor ~= "air" and not floor:find("door", 1, true), true, id .. " floor under the door is solid: " .. tostring(floor))
-		eq(s.at(e.x, e.y, e.z):find("_door_b_", 1, true) ~= nil, true, id .. " entrance is a door")
+		if opening then
+			-- A stair is a valid floor under a walk-in opening; it must be solid
+			-- and the two cells above it clear.
+			eq(floor ~= "air", true, id .. " floor under the opening is solid: " .. tostring(floor))
+			eq(s.at(e.x, e.y, e.z), "air", id .. " opening cell is air")
+			eq(s.at(e.x, e.y + 1, e.z), "air", id .. " opening head room is air")
+		else
+			eq(floor ~= "air" and not floor:find("door", 1, true), true, id .. " floor under the door is solid: " .. tostring(floor))
+			eq(s.at(e.x, e.y, e.z):find("_door_b_", 1, true) ~= nil, true, id .. " entrance is a door")
+		end
 		for _, rot in ipairs({0, 90, 180, 270}) do
 			local r, why = route(id, rot)
 			eq(r ~= nil, true, "real " .. id .. " door reachable at rotation " .. rot .. ": " .. tostring(why))
@@ -436,6 +446,22 @@ do
 		-- The exterior stair on the +X strip to the second-floor door (5,7,1).
 		local r2, why2 = route("tavern_2", rot, {x = 5, y = 7, z = 1})
 		eq(r2 ~= nil, true, "tavern_2 stair reaches the upper door at rotation " .. rot .. ": " .. tostring(why2))
+	end
+	-- #110: soup_shop is a walk-in opening on a raised floor with a cellar
+	-- below (ground_offset 3, floor row 4, opening bottom on floor row + 1).
+	local ss = entries.soup_shop
+	eq(ss ~= nil and ss.ground_offset, 3, "soup_shop ground_offset")
+	eq(ss ~= nil and ss.entrance.y, 5, "soup_shop opening is two rows above the ground row")
+	eq(ss ~= nil and ss.entrance_kind, "opening", "soup_shop entrance kind")
+	local sss = read_mts("schematics/" .. ss.path:gsub("^schematics/", ""))
+	local se = ss.entrance
+	eq(sss.at(se.x, se.y, se.z), "air", "soup_shop opening cell is air")
+	eq(sss.at(se.x, se.y + 1, se.z), "air", "soup_shop opening head room is air")
+	eq(sss.at(se.x, se.y - 1, se.z), "mcl_core:cobble", "soup_shop opening floor is solid")
+	eq(sss.at(se.x, ss.ground_offset, se.z - 1), "mcl_core:dirt_with_grass", "soup_shop ground row outside the opening")
+	for _, rot in ipairs({0, 90, 180, 270}) do
+		local r, why = route("soup_shop", rot)
+		eq(r ~= nil, true, "real soup_shop opening reachable at rotation " .. rot .. ": " .. tostring(why))
 	end
 end
 

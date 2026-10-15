@@ -2,7 +2,8 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "tavern_2"
+    "library",
+    "blacksmith"
   ],
   "buildings": [
     {
@@ -535,9 +536,9 @@
       "id": "office_building",
       "label": "Office building",
       "required_nodes": [
+        "mcl_cartography_table:cartography_table",
         "mcl_chests:chest_small",
         "mcl_core:cobble",
-        "mcl_core:dirt",
         "mcl_core:dirt_with_grass",
         "mcl_core:glass",
         "mcl_core:ladder",
@@ -549,6 +550,7 @@
         "mcl_doors:wooden_door_t_1",
         "mcl_flowers:oxeye_daisy",
         "mcl_flowers:tallgrass",
+        "mcl_lectern:lectern",
         "mcl_stairs:slab_wood_top",
         "mcl_stairs:stair_cobble",
         "mcl_stairs:stair_cobble_outer",
@@ -580,7 +582,7 @@
         "z": 11
       },
       "verified_nodes": 2178,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "snapshot_sha256": "a9e9db85a1be4355cb8af542f7d902957b66577853399af1c17490f7ac993da6"
     },
     {
       "entrance": {
@@ -1438,12 +1440,204 @@
       },
       "verified_nodes": 1232,
       "snapshot_sha256": "cad3d9c7085a468fabe4d6ac98a8bfc00d4c82ee124e7a744e269604383fa14a"
+    },
+    {
+      "entrance": {
+        "x": 4,
+        "y": 5,
+        "z": 1
+      },
+      "entrance_kind": "opening",
+      "ground_offset": 3,
+      "id": "soup_shop",
+      "label": "Soup shop (Home)",
+      "required_nodes": [
+        "mcl_barrels:barrel_closed",
+        "mcl_beds:bed_yellow_bottom",
+        "mcl_beds:bed_yellow_top",
+        "mcl_core:cobble",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:granite",
+        "mcl_core:granite_smooth",
+        "mcl_core:grass_path",
+        "mcl_core:ladder",
+        "mcl_core:mycelium",
+        "mcl_core:stone",
+        "mcl_core:stone_smooth",
+        "mcl_core:tree",
+        "mcl_core:wood",
+        "mcl_crafting_table:crafting_table",
+        "mcl_doors:spruce_trapdoor",
+        "mcl_flowers:dandelion",
+        "mcl_itemframes:frame",
+        "mcl_mushrooms:mushroom_brown",
+        "mcl_mushrooms:mushroom_red",
+        "mcl_stairs:slab_tree_bark",
+        "mcl_stairs:slab_tree_bark_double",
+        "mcl_stairs:slab_tree_bark_top",
+        "mcl_stairs:slab_wood",
+        "mcl_stairs:stair_cobble",
+        "mcl_stairs:stair_cobble_outer",
+        "mcl_stairs:stair_mossycobble",
+        "mcl_torches:torch_wall",
+        "mcl_walls:cobble_0",
+        "xpanes:pane_natural_flat"
+      ],
+      "role": "shop",
+      "rotation": 0,
+      "size": {
+        "x": 7,
+        "y": 10,
+        "z": 9
+      },
+      "source_max": {
+        "x": 246,
+        "y": 16,
+        "z": 241
+      },
+      "source_min": {
+        "x": 240,
+        "y": 7,
+        "z": 233
+      },
+      "source_size": {
+        "x": 7,
+        "y": 10,
+        "z": 9
+      },
+      "verified_nodes": 630,
+      "snapshot_sha256": "cc6637271133019eb6ec7e74fa6bd49dbed9dff33157edf6bbc02a4c9a877eac"
+    },
+    {
+      "entrance": {
+        "x": 3,
+        "y": 2,
+        "z": 2
+      },
+      "entrance_kind": "door",
+      "ground_offset": 0,
+      "id": "library",
+      "label": "Stock village library",
+      "required_nodes": [
+        "mcl_books:bookshelf",
+        "mcl_cauldrons:cauldron",
+        "mcl_core:cobble",
+        "mcl_core:dirt",
+        "mcl_core:glass",
+        "mcl_core:stonebrick",
+        "mcl_core:stonebrickcarved",
+        "mcl_core:wood",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_fences:fence",
+        "mcl_flowerpots:flower_pot_blue_orchid",
+        "mcl_lectern:lectern",
+        "mcl_stairs:slab_wood",
+        "mcl_stairs:slab_wood_top",
+        "mcl_stairs:stair_stonebrick",
+        "mcl_stairs:stair_stonebrick_outer",
+        "mcl_stairs:stair_wood",
+        "mcl_torches:torch",
+        "mcl_torches:torch_wall",
+        "mesecons_pressureplates:pressure_plate_wood_off"
+      ],
+      "role": "shop",
+      "rotation": 270,
+      "size": {
+        "x": 10,
+        "y": 8,
+        "z": 12
+      },
+      "source_max": {
+        "x": 191,
+        "y": 14,
+        "z": 110
+      },
+      "source_min": {
+        "x": 180,
+        "y": 7,
+        "z": 101
+      },
+      "source_size": {
+        "x": 12,
+        "y": 8,
+        "z": 10
+      },
+      "verified_nodes": 960,
+      "snapshot_sha256": "8a96b86de525077e0da3b6d45c109b17efd234b3eb73641931106e6f28795c86"
+    },
+    {
+      "entrance": {
+        "x": 2,
+        "y": 2,
+        "z": 1
+      },
+      "entrance_kind": "opening",
+      "ground_offset": 0,
+      "id": "blacksmith",
+      "label": "Stock village blacksmith",
+      "required_nodes": [
+        "mcl_anvils:anvil",
+        "mcl_blast_furnace:blast_furnace",
+        "mcl_chests:chest_small",
+        "mcl_colorblocks:hardened_clay",
+        "mcl_core:brick_block",
+        "mcl_core:cobble",
+        "mcl_core:dirt",
+        "mcl_core:lava_source",
+        "mcl_core:stonebrickcarved",
+        "mcl_core:tree",
+        "mcl_core:wood",
+        "mcl_doors:iron_trapdoor_open",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_fences:fence",
+        "mcl_stairs:slab_stone",
+        "mcl_stairs:slab_stone_double",
+        "mcl_stairs:slab_stone_top",
+        "mcl_stairs:stair_cobble",
+        "mcl_stairs:stair_cobble_outer",
+        "mcl_stairs:stair_wood",
+        "mcl_stairs:stair_wood_inner",
+        "mcl_torches:torch_wall",
+        "mcl_walls:stonebrick_0",
+        "mcl_walls:stonebrick_9",
+        "mesecons_pressureplates:pressure_plate_wood_off",
+        "mesecons_walllever:wall_lever_on",
+        "xpanes:bar_flat",
+        "xpanes:pane_natural_flat"
+      ],
+      "role": "workshop",
+      "rotation": 270,
+      "size": {
+        "x": 9,
+        "y": 7,
+        "z": 7
+      },
+      "source_max": {
+        "x": 227,
+        "y": 13,
+        "z": 109
+      },
+      "source_min": {
+        "x": 221,
+        "y": 7,
+        "z": 101
+      },
+      "source_size": {
+        "x": 7,
+        "y": 7,
+        "z": 9
+      },
+      "verified_nodes": 441,
+      "snapshot_sha256": "8a96b86de525077e0da3b6d45c109b17efd234b3eb73641931106e6f28795c86"
     }
   ],
   "runtime_validation": {
-    "inventory_slots": 4148,
+    "inventory_slots": 6256,
     "mismatches": 0,
-    "nodes": 959824,
-    "placements": 76
+    "nodes": 967948,
+    "placements": 88
   }
 }

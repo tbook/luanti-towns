@@ -31,7 +31,12 @@ core.register_on_mods_loaded(function() core.after(0,function()
     local lo={x=31000,y=j.floor_y,z=31000};local hi={x=-31000,y=j.floor_y,z=-31000}
     -- Bounds include everything above the finished floor, and floor-level steps.
     -- Workshop labels and terrain/paving outside the structure are excluded.
-    for z=j.scan_min.z,j.scan_max.z do for y=j.floor_y,j.scan_max.y do for x=j.scan_min.x,j.scan_max.x do
+    -- clip_to_capture: a neighbouring build overlaps the survey margin, so only
+    -- the fixed capture box is surveyed (whatever lies outside the box is
+    -- ignored, not reported as an escape).
+    local s0,s1=j.scan_min,j.scan_max
+    if j.clip_to_capture then assert(j.capture_min and j.capture_max,j.id..' clip_to_capture needs a capture box');s0,s1=j.capture_min,j.capture_max end
+    for z=s0.z,s1.z do for y=j.floor_y,s1.y do for x=s0.x,s1.x do
      local n=core.get_node({x=x,y=y,z=z});assert(n.name~='ignore')
      local label=j.label_position and x==j.label_position.x and y==j.label_position.y and z==j.label_position.z
      local use=n.name~='air' and not label and (y>(j.ground_y or j.floor_y) or (y==(j.ground_y or j.floor_y) and n.name:find('^mcl_stairs:stair_')))

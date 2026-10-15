@@ -564,6 +564,108 @@
         "z": 272
       },
       "role": "tavern"
+    },
+    {
+      "id": "soup_shop",
+      "label": "Soup shop (Home)",
+      "scan_min": {
+        "x": 236,
+        "y": 6,
+        "z": 229
+      },
+      "scan_max": {
+        "x": 250,
+        "y": 20,
+        "z": 245
+      },
+      "floor_y": 10,
+      "capture_min": {
+        "x": 240,
+        "y": 7,
+        "z": 233
+      },
+      "capture_max": {
+        "x": 246,
+        "y": 16,
+        "z": 241
+      },
+      "ground_y": 10,
+      "clip_to_capture": true,
+      "rotation": 0,
+      "entrance": {
+        "x": 244,
+        "y": 12,
+        "z": 234
+      },
+      "entrance_kind": "opening",
+      "role": "shop"
+    },
+    {
+      "id": "library",
+      "label": "Stock village library",
+      "scan_min": {
+        "x": 176,
+        "y": 7,
+        "z": 97
+      },
+      "scan_max": {
+        "x": 196,
+        "y": 20,
+        "z": 115
+      },
+      "floor_y": 7,
+      "capture_min": {
+        "x": 180,
+        "y": 7,
+        "z": 101
+      },
+      "capture_max": {
+        "x": 191,
+        "y": 14,
+        "z": 110
+      },
+      "ground_y": 7,
+      "rotation": 270,
+      "entrance": {
+        "x": 182,
+        "y": 9,
+        "z": 107
+      },
+      "role": "shop"
+    },
+    {
+      "id": "blacksmith",
+      "label": "Stock village blacksmith",
+      "scan_min": {
+        "x": 216,
+        "y": 7,
+        "z": 97
+      },
+      "scan_max": {
+        "x": 232,
+        "y": 18,
+        "z": 113
+      },
+      "floor_y": 7,
+      "capture_min": {
+        "x": 221,
+        "y": 7,
+        "z": 101
+      },
+      "capture_max": {
+        "x": 227,
+        "y": 13,
+        "z": 109
+      },
+      "ground_y": 7,
+      "rotation": 270,
+      "entrance": {
+        "x": 222,
+        "y": 9,
+        "z": 107
+      },
+      "entrance_kind": "opening",
+      "role": "workshop"
     }
   ]
 }

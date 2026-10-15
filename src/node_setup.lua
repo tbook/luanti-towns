@@ -46,6 +46,8 @@ end
 
 support({"mcl_jukebox:jukebox"}, {construct = true})
 support({"mcl_barrels:barrel_closed"}, {construct = true})
+-- Inventory (2 input, 1 output) and formspec; idempotent.
+support({"mcl_anvils:anvil"}, {construct = true})
 support({"mcl_furnaces:furnace", "mcl_smoker:smoker", "mcl_blast_furnace:blast_furnace"},
 	{construct = true})
 support({"mcl_brewing:stand_000"}, {construct = true})
@@ -74,6 +76,7 @@ M.NOT_REQUIRED = {
 	{"leaves_orphan$", "palette/orphan check only; the authored param2 is kept"},
 	{"^mcl_core:vine$", "palette only; the authored param2 is kept"},
 	{"^mcl_core:dirt_with_grass$", "palette only; the authored param2 is kept"},
+	{"^mcl_core:mycelium$", "snow-cover check only (on_snowable_construct)"},
 	{"^mcl_core:water_", "palette/extinguish only; liquid is handled by the engine"},
 	{"^mcl_decor:hedge_", "connection recalculation; authored variants are kept"},
 	{"^mcl_torches:", "flame constructor is a no-op in this VoxeLibre"},

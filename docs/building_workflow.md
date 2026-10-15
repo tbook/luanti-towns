@@ -78,6 +78,7 @@ verifies the result at all four rotations.
    | `role` | optional here, but registration tickets must set it: `house`, `shop`, `workshop`, `tavern`, `well`, `cathedral`, `castle`, `city_hall`, `chapel`, `jail` |
    | `label_position` | optional world position of a workshop label sign to exclude from the capture |
    | `capture_min`, `capture_max`, `ground_y` | optional fixed capture box (see clearance below) |
+   | `clip_to_capture` | optional boolean: with a fixed capture box, survey only the box (for a build whose survey margin would contain a neighbouring build); the escape check is skipped |
 
    Example (source front already faces -Z, so `rotation` is 0):
 
@@ -301,7 +302,7 @@ functional nodes present in the registered templates:
 
 | Nodes | Initialization |
 |-------|----------------|
-| `mcl_jukebox:jukebox`, `mcl_barrels:barrel_closed`, `mcl_furnaces:furnace`, `mcl_smoker:smoker`, `mcl_blast_furnace:blast_furnace`, `mcl_brewing:stand_000`, `mcl_books:bookshelf`, `mcl_composters:composter`, `mcl_grindstone:grindstone`, `mcl_campfires:campfire_lit`, `mcl_chests:black_shulker_box_small` | `on_construct` (inventory lists, formspec, particles) |
+| `mcl_jukebox:jukebox`, `mcl_barrels:barrel_closed`, `mcl_anvils:anvil`, `mcl_furnaces:furnace`, `mcl_smoker:smoker`, `mcl_blast_furnace:blast_furnace`, `mcl_brewing:stand_000`, `mcl_books:bookshelf`, `mcl_composters:composter`, `mcl_grindstone:grindstone`, `mcl_campfires:campfire_lit`, `mcl_chests:black_shulker_box_small` | `on_construct` (inventory lists, formspec, particles) |
 | `mcl_itemframes:frame`, `glow_frame`, `invisible_frame`, `plate` | `on_construct`, then item display refresh |
 | `mcl_fences:fence_gate`, `mcl_crimson:warped_fence_gate` | `on_construct` (state meta) |
 | `mesecons_pressureplates:pressure_plate_wood_off` | `on_construct` (starts the node timer) |
