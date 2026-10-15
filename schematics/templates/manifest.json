@@ -2,11 +2,7 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "weaver_house",
-    "chapel",
-    "corner_house",
-    "tavern",
-    "townhouses"
+    "tavern_2"
   ],
   "buildings": [
     {
@@ -1365,12 +1361,89 @@
       },
       "verified_nodes": 336,
       "snapshot_sha256": "c60054391558bb84f218840992fab79cf2795dd2670f52d24142f524c9640d12"
+    },
+    {
+      "entrance": {
+        "x": 5,
+        "y": 3,
+        "z": 1
+      },
+      "entrance_kind": "door",
+      "ground_offset": 2,
+      "id": "tavern_2",
+      "label": "Tavern 2 (workshop)",
+      "required_nodes": [
+        "mcl_beds:bed_red_bottom",
+        "mcl_beds:bed_red_top",
+        "mcl_colorblocks:hardened_clay_silver",
+        "mcl_core:cobble",
+        "mcl_core:darkwood",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:granite",
+        "mcl_core:junglewood",
+        "mcl_core:stripped_oak_bark",
+        "mcl_core:tree",
+        "mcl_core:wood",
+        "mcl_decor:chair_dark_oak",
+        "mcl_decor:chair_spruce",
+        "mcl_decor:table_dark_oak",
+        "mcl_decor:table_lamp",
+        "mcl_decor:table_spruce",
+        "mcl_deepslate:deepslate_cobbled",
+        "mcl_doors:dark_oak_door_b_2",
+        "mcl_doors:dark_oak_door_t_2",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_b_2",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_doors:wooden_door_t_2",
+        "mcl_fences:fence",
+        "mcl_fire:eternal_fire",
+        "mcl_itemframes:frame",
+        "mcl_itemframes:plate",
+        "mcl_jukebox:jukebox",
+        "mcl_lanterns:lantern_ceiling",
+        "mcl_mud:mud_bricks",
+        "mcl_nether:netherrack",
+        "mcl_stairs:slab_wood",
+        "mcl_stairs:slab_wood_top",
+        "mcl_stairs:stair_deepslate_cobbled",
+        "mcl_stairs:stair_granite",
+        "mcl_stairs:stair_wood",
+        "mcl_stairs:stair_wood_inner",
+        "mcl_torches:torch_wall",
+        "xpanes:pane_natural_flat"
+      ],
+      "role": "tavern",
+      "rotation": 90,
+      "size": {
+        "x": 7,
+        "y": 11,
+        "z": 16
+      },
+      "source_max": {
+        "x": 221,
+        "y": 16,
+        "z": 273
+      },
+      "source_min": {
+        "x": 206,
+        "y": 6,
+        "z": 267
+      },
+      "source_size": {
+        "x": 16,
+        "y": 11,
+        "z": 7
+      },
+      "verified_nodes": 1232,
+      "snapshot_sha256": "cad3d9c7085a468fabe4d6ac98a8bfc00d4c82ee124e7a744e269604383fa14a"
     }
   ],
   "runtime_validation": {
-    "inventory_slots": 4096,
+    "inventory_slots": 4148,
     "mismatches": 0,
-    "nodes": 954896,
-    "placements": 72
+    "nodes": 959824,
+    "placements": 76
   }
 }

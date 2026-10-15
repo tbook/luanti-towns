@@ -531,6 +531,39 @@
       },
       "entrance_kind": "opening",
       "role": "well"
+    },
+    {
+      "id": "tavern_2",
+      "label": "Tavern 2 (workshop)",
+      "scan_min": {
+        "x": 202,
+        "y": 8,
+        "z": 263
+      },
+      "scan_max": {
+        "x": 226,
+        "y": 22,
+        "z": 277
+      },
+      "floor_y": 8,
+      "capture_min": {
+        "x": 206,
+        "y": 6,
+        "z": 267
+      },
+      "capture_max": {
+        "x": 221,
+        "y": 16,
+        "z": 273
+      },
+      "ground_y": 8,
+      "rotation": 90,
+      "entrance": {
+        "x": 220,
+        "y": 9,
+        "z": 272
+      },
+      "role": "tavern"
     }
   ]
 }
