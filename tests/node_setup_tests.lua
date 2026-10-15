@@ -367,6 +367,26 @@ do
 	for _, n in ipairs(names) do
 		eq(used[n] == true, true, "supported node appears in a template: " .. n)
 	end
+	-- Derived from every registered template (not a fixed list): any required
+	-- node whose name marks it functional must be classified.
+	local FUNCTIONAL = {"chest", "furnace", "smoker", "barrel", "jukebox", "frame", "plate",
+		"eternal_fire", "torch", "dispenser", "shulker", "brewing", "campfire", "bookshelf",
+		"composter", "grindstone", "fence_gate", "armor_stand"}
+	for id, e in pairs(catalog.entries) do
+		if e.data_path then
+			for _, n in ipairs(dofile(e.data_path).required_nodes) do
+				for _, f in ipairs(FUNCTIONAL) do
+					if n:find(f, 1, true) then
+						eq(ns.classify(n) ~= nil, true, id .. " functional node classified: " .. n)
+						break
+					end
+				end
+			end
+		end
+	end
+	local t2 = {}
+	for _, n in ipairs(dofile(catalog.entries.tavern_2.data_path).required_nodes) do t2[n] = true end
+	eq(t2["mcl_jukebox:jukebox"], true, "tavern_2 template has the jukebox")
 	-- The tavern and well carry the nodes Living Villages recognizes.
 	local tav = dofile(catalog.entries.tavern.data_path).required_nodes
 	local has = {}

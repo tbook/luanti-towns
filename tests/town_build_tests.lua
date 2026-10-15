@@ -423,6 +423,20 @@ do
 			eq(r ~= nil, true, "real " .. id .. " door reachable at rotation " .. rot .. ": " .. tostring(why))
 		end
 	end
+	-- #96: tavern_2 keeps its cellar rows below the floor (ground_offset 2,
+	-- floor flush with the street), so its door is not a "raised" template.
+	local t2 = entries.tavern_2
+	eq(t2 ~= nil and t2.ground_offset, 2, "tavern_2 ground_offset")
+	eq(t2 ~= nil and t2.entrance.y, 3, "tavern_2 door bottom is on the floor row plus one")
+	local t2s = read_mts("schematics/" .. t2.path:gsub("^schematics/", ""))
+	eq(t2s.at(t2.entrance.x, t2.entrance.y, t2.entrance.z):find("_door_b_", 1, true) ~= nil, true, "tavern_2 entrance is a door")
+	for _, rot in ipairs({0, 90, 180, 270}) do
+		local r, why = route("tavern_2", rot)
+		eq(r ~= nil, true, "real tavern_2 door reachable at rotation " .. rot .. ": " .. tostring(why))
+		-- The exterior stair on the +X strip to the second-floor door (5,7,1).
+		local r2, why2 = route("tavern_2", rot, {x = 5, y = 7, z = 1})
+		eq(r2 ~= nil, true, "tavern_2 stair reaches the upper door at rotation " .. rot .. ": " .. tostring(why2))
+	end
 end
 
 ------------------------------------------------------------------------

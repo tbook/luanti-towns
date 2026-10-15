@@ -70,7 +70,7 @@ eq(table.concat(catalog.ids_for_role("chapel"), ","), "chapel", "chapel filter")
 eq(table.concat(catalog.ids_for_role("jail"), ","), "jail", "jail filter")
 eq(table.concat(catalog.ids_for_role("castle"), ","), "castle", "castle filter")
 eq(table.concat(catalog.ids_for_role("cathedral"), ","), "cathedral", "cathedral filter")
-eq(table.concat(catalog.ids_for_role("tavern"), ","), "tavern", "tavern filter")
+eq(table.concat(catalog.ids_for_role("tavern"), ","), "tavern,tavern_2", "tavern filter")
 eq(table.concat(catalog.ids_for_role("well"), ","), "well", "well filter")
 eq(#catalog.ids_for_role("not_a_role"), 0, "unknown role filter empty")
 for role in pairs(catalog.VALID_ROLES) do
