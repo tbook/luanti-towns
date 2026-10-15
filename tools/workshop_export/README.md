@@ -111,7 +111,7 @@ saved colors while functional node initialization and inventories still run.
 Detailed records: `docs/castle_capture.md`,
 `docs/cathedral_monastery_capture.md`, and the generated template manifest.
 
-## Stock village templates (tavern, well)
+## Stock village templates (tavern, well, library, blacksmith)
 
 `tavern` (role `tavern`) and `well` (role `well`) are the stock VoxeLibre
 village buildings, not TownsWorkshop builds, so their source is a scratch
@@ -150,6 +150,28 @@ world seeded from the installed game schematics:
   as authored (door on the -X side, `rotation` 270), which is 10 x 13 x 12 in
   the canonical -Z-front file, entrance y 2. The well keeps its dirt layer, because its standing apron is air at
   stock y 1 over that dirt: 6 x 7 x 8, front already on -Z.
+
+`library` (role `shop`) and `blacksmith` (role `workshop`, #112) come from the
+same scratch world and the same seeder, which places them at (180,7,100) and
+(220,7,100) beside the tavern and well (regenerate with `--only library
+blacksmith`; the world needs a valid `[end_of_params]` line in `map_meta.txt`
+and a clean `worldmods/stock_seed` that is a copy of the directory, not nested).
+
+- Library: stock 12 x 9 x 12 with bookshelves but no jobsite: Living
+  Villages' `library_schematic.lua` replaces the wooden stair at stock (6,2,9)
+  with a `mcl_lectern:lectern` so a librarian can exist;
+  `stock_seed` does the same, and the stock cell is asserted before the edit.
+  Real door at stock (2,2,7) on the -X side (`rotation` 270) behind two stair
+  rows on the floor row; the second door at (10,2,5) is internal. Dirt row kept
+  (`ground_y` 7), box x 180..191, z 101..110 (the stock z 0 and z 11 rows are
+  empty): 10 x 8 x 12, entrance (3,2,2), `ground_offset` 0. It is 12 deep.
+- Blacksmith: stock 8 x 8 x 11, no Living Villages furnishing step (only
+  `mcl_villages` and the village job sites). Open-front smithy on the -X side
+  (`rotation` 270, `entrance_kind` opening at stock (2,2,7): the floor under
+  it is cobble, with the half-step stair outside at (1,1,7)); the only door,
+  (2,2,5), is internal to the back room. Four enclosed lava sources under a
+  chimney, anvil, blast furnace (`mcl_blast_furnace`), chest. Box x 221..227,
+  z 101..109: 9 x 7 x 7, entrance (2,2,1), `ground_offset` 0.
 
 A selective export (`--only`) keeps the manifest's top-level `world` and
 `snapshot_sha256` untouched, so exporting these two from a scratch world does

@@ -411,13 +411,23 @@ do
 		local e = entry.entrance
 		eq(e.y, 2, id .. " door bottom is on floor row 1")
 		eq(entry.ground_offset or 0, 0, id .. " ground row is row 0")
-		-- Outside the door the ground row is natural solid ground (dirt, stone).
-		local below = s.at(e.x, 0, e.z - 1)
+		local opening = entry.entrance_kind == "opening"
+		-- Outside the door the ground row is natural solid ground (dirt, stone);
+		-- a walk-in opening on the box edge has its ground row at the entrance.
+		local below = s.at(e.x, 0, opening and e.z or e.z - 1)
 		eq(below ~= nil and below ~= "air", true,
 			id .. " ground row outside the door is solid ground: " .. tostring(below))
 		local floor = s.at(e.x, 1, e.z)
-		eq(floor ~= "air" and not floor:find("door", 1, true), true, id .. " floor under the door is solid: " .. tostring(floor))
-		eq(s.at(e.x, e.y, e.z):find("_door_b_", 1, true) ~= nil, true, id .. " entrance is a door")
+		if opening then
+			-- A stair is a valid floor under a walk-in opening; it must be solid
+			-- and the two cells above it clear.
+			eq(floor ~= "air", true, id .. " floor under the opening is solid: " .. tostring(floor))
+			eq(s.at(e.x, e.y, e.z), "air", id .. " opening cell is air")
+			eq(s.at(e.x, e.y + 1, e.z), "air", id .. " opening head room is air")
+		else
+			eq(floor ~= "air" and not floor:find("door", 1, true), true, id .. " floor under the door is solid: " .. tostring(floor))
+			eq(s.at(e.x, e.y, e.z):find("_door_b_", 1, true) ~= nil, true, id .. " entrance is a door")
+		end
 		for _, rot in ipairs({0, 90, 180, 270}) do
 			local r, why = route(id, rot)
 			eq(r ~= nil, true, "real " .. id .. " door reachable at rotation " .. rot .. ": " .. tostring(why))

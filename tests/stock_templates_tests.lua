@@ -191,3 +191,45 @@ end
 eq(well.node(we.entrance.x, we.entrance.y, we.entrance.z), "air", "well entrance cell is air")
 eq(well.node(we.entrance.x, we.entrance.y + 1, we.entrance.z), "air", "well entrance head room")
 eq(well.node(we.entrance.x, we.entrance.y - 1, we.entrance.z), "mcl_core:dirt", "well entrance has ground")
+
+-- Library and blacksmith (#112): stock 12 x 9 x 12 and 8 x 8 x 11, door/opening
+-- on the stock -X side (rotation 270), dirt ground row kept as row 0.
+local function find(m, name)
+	local found = {}
+	for z = 0, m.size.z - 1 do for y = 0, m.size.y - 1 do for x = 0, m.size.x - 1 do
+		if m.node(x, y, z) == name then found[#found + 1] = {x = x, y = y, z = z} end
+	end end end
+	return found
+end
+
+local library = read_mts("schematics/templates/library.mts")
+local le = dims("library", library)
+eq(catalog.get("library").role, "shop", "library role")
+eq(le.size.x * le.size.z, 10 * 12, "library footprint (stock 12 x 12 minus the empty back rows)")
+eq(le.entrance.y, 2, "library door sits on floor row 1 above the ground row")
+eq(le.ground_offset or 0, 0, "library ground row is row 0")
+eq(library.node(le.entrance.x, le.entrance.y, le.entrance.z), "mcl_doors:wooden_door_b_1", "library entrance is the door")
+-- Living Villages library_schematic.lua: the lectern replaces the wooden stair.
+eq(#find(library, "mcl_lectern:lectern"), 1, "library has exactly one lectern")
+eq(required("library")["mcl_lectern:lectern"], true, "library requires the lectern")
+eq(#find(library, "mcl_books:bookshelf") > 0, true, "library has bookshelves")
+
+local smith = read_mts("schematics/templates/blacksmith.mts")
+local se = dims("blacksmith", smith)
+eq(catalog.get("blacksmith").role, "workshop", "blacksmith role")
+eq(catalog.get("blacksmith").entrance_kind, "opening", "blacksmith entrance kind")
+eq(se.entrance.y, 2, "blacksmith opening is on floor row 1 above the ground row")
+eq(se.ground_offset or 0, 0, "blacksmith ground row is row 0")
+eq(smith.node(se.entrance.x, se.entrance.y, se.entrance.z), "air", "blacksmith opening cell is air")
+eq(smith.node(se.entrance.x, se.entrance.y - 1, se.entrance.z), "mcl_core:cobble", "blacksmith opening floor is solid")
+eq(#find(smith, "mcl_anvils:anvil"), 1, "blacksmith anvil")
+eq(#find(smith, "mcl_blast_furnace:blast_furnace"), 1, "blacksmith blast furnace")
+-- The four lava sources are enclosed on every horizontal side.
+local lava = find(smith, "mcl_core:lava_source")
+eq(#lava, 4, "blacksmith lava sources")
+for _, p in ipairs(lava) do
+	for _, d in ipairs({{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) do
+		local n = smith.node(p.x + d[1], p.y, p.z + d[2])
+		eq(n ~= nil and n ~= "air", true, ("lava %d,%d,%d side %d,%d is enclosed"):format(p.x, p.y, p.z, d[1], d[2]))
+	end
+end

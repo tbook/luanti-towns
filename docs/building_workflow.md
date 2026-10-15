@@ -302,7 +302,7 @@ functional nodes present in the registered templates:
 
 | Nodes | Initialization |
 |-------|----------------|
-| `mcl_jukebox:jukebox`, `mcl_barrels:barrel_closed`, `mcl_furnaces:furnace`, `mcl_smoker:smoker`, `mcl_blast_furnace:blast_furnace`, `mcl_brewing:stand_000`, `mcl_books:bookshelf`, `mcl_composters:composter`, `mcl_grindstone:grindstone`, `mcl_campfires:campfire_lit`, `mcl_chests:black_shulker_box_small` | `on_construct` (inventory lists, formspec, particles) |
+| `mcl_jukebox:jukebox`, `mcl_barrels:barrel_closed`, `mcl_anvils:anvil`, `mcl_furnaces:furnace`, `mcl_smoker:smoker`, `mcl_blast_furnace:blast_furnace`, `mcl_brewing:stand_000`, `mcl_books:bookshelf`, `mcl_composters:composter`, `mcl_grindstone:grindstone`, `mcl_campfires:campfire_lit`, `mcl_chests:black_shulker_box_small` | `on_construct` (inventory lists, formspec, particles) |
 | `mcl_itemframes:frame`, `glow_frame`, `invisible_frame`, `plate` | `on_construct`, then item display refresh |
 | `mcl_fences:fence_gate`, `mcl_crimson:warped_fence_gate` | `on_construct` (state meta) |
 | `mesecons_pressureplates:pressure_plate_wood_off` | `on_construct` (starts the node timer) |

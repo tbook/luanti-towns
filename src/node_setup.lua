@@ -46,6 +46,8 @@ end
 
 support({"mcl_jukebox:jukebox"}, {construct = true})
 support({"mcl_barrels:barrel_closed"}, {construct = true})
+-- Inventory (2 input, 1 output) and formspec; idempotent.
+support({"mcl_anvils:anvil"}, {construct = true})
 support({"mcl_furnaces:furnace", "mcl_smoker:smoker", "mcl_blast_furnace:blast_furnace"},
 	{construct = true})
 support({"mcl_brewing:stand_000"}, {construct = true})

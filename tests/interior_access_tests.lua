@@ -145,6 +145,8 @@ end
 -- #106 (hall beside the market, a different random stream): seeds 2 and 16
 -- seal 12 and 270 cells, all others 0. Re-pinned in #110 (soup_shop joins the
 -- content pool): only seed 16 seals (270 cells), all others 0.
+-- Re-pinned in #112 (library, blacksmith): seeds 1, 16, 20 and 22 seal 18,
+-- 106, 21 and 18 cells, all others 0.
 do
 	local geometry = dofile("src/geometry.lua")
 	local packer = dofile("src/frontage_packer.lua")(geometry)
@@ -152,7 +154,7 @@ do
 	local content = dofile("src/content_planner.lua")(geometry, packer,
 		jailmod.occupied_rects, access)
 	local base = assert(planner.landmark_profile(catalog.snapshot()))
-	local pinned = {[16] = 270}
+	local pinned = {[1] = 18, [16] = 106, [20] = 21, [22] = 18}
 	for seed = 1, 22 do pinned[seed] = pinned[seed] or 0 end
 	local function inside(r, x, z)
 		return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2
