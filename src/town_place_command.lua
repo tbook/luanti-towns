@@ -13,7 +13,8 @@
 -- check (files, node registration) -> builder.build_town, which also
 -- initializes the placed functional nodes (ticket #46, src/node_setup.lua).
 -- Valid beds in the placed boxes are enumerated and reported (ticket #47).
--- No residents (ticket #48) are spawned here.
+-- Ticket #48: one villager is spawned and bed-claimed per valid bed, guarded
+-- by a persistent per-bed record in mod storage (see residents.initialize).
 
 local towns = ...  -- the global table built by init.lua
 
@@ -33,6 +34,8 @@ local function search(pos, seed, _, done)
 		planner_opts = {landmarks = profile()},
 	}, done)
 end
+
+local store = towns.residents.core_store(core.get_mod_storage())
 
 local function build(result)
 	local pre, msg, reason = towns.preflight.check({
@@ -60,6 +63,24 @@ local function build(result)
 			towns.residents.core_env(core))
 		if ok then
 			summary.town.beds = rep
+			-- Ticket #48: spawn and claim, once per bed. Never fails the build.
+			local ok2, res = pcall(towns.residents.initialize, rep.beds,
+				towns.residents.core_env(core), store)
+			if ok2 then
+				summary.town.residents = res
+				for _, f in ipairs(res.failures) do
+					core.log("warning", ("towns: resident not spawned at %s (%s in %s): %s")
+						:format(core.pos_to_string(f.pos), tostring(f.kind), tostring(f.id), f.reason))
+				end
+				for _, i in ipairs(res.interrupted_beds) do
+					core.log("warning", ("towns: interrupted resident initialization at bed %s (%s); "
+						.. "not retried, see mod storage key %s"):format(core.pos_to_string(i.pos),
+						tostring(i.id), towns.residents.record_key(i.pos)))
+				end
+			else
+				core.log("warning", "towns: resident initialization failed: " .. tostring(res))
+				summary.town.residents_error = tostring(res)
+			end
 		else
 			core.log("warning", "towns: bed enumeration failed: " .. tostring(rep))
 			summary.town.beds_error = tostring(rep)
@@ -67,7 +88,7 @@ local function build(result)
 	end
 	return summary, bmsg, bcode, extra
 end
-towns.place_town = {search = search, build = build}
+towns.place_town = {search = search, build = build, store = store}
 
 local controller = towns.generate.new({
 	command_name = "/towns_place_town",

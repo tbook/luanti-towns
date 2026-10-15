@@ -24,7 +24,87 @@ local function rect_gap(a, b)
  return dx, dz
 end
 
+-- Phase 2 (ticket #48): a fresh server process on the world phase 1 built.
+-- Re-enumerates the saved boxes, runs the resident initialization again with
+-- the persisted mod-storage record and checks no villager is added.
+local function restart_phase()
+ local ok, err = pcall(function()
+  local f = assert(io.open(core.get_worldpath() .. '/place-check.json', 'r'))
+  local prev = core.parse_json(f:read('*a'))
+  f:close()
+  local boxes = assert(prev.resident_boxes, 'phase 1 left no resident boxes')
+  local lo, hi
+  for _, b in ipairs(boxes) do
+   lo = lo and vector.new(math.min(lo.x, b.min.x), math.min(lo.y, b.min.y), math.min(lo.z, b.min.z)) or vector.new(b.min.x, b.min.y, b.min.z)
+   hi = hi and vector.new(math.max(hi.x, b.max.x), math.max(hi.y, b.max.y), math.max(hi.z, b.max.z)) or vector.new(b.max.x, b.max.y, b.max.z)
+  end
+  core.emerge_area(vector.subtract(lo, 16), vector.add(hi, 16), function(_, action, remaining)
+   if remaining > 0 then return end
+   -- No player is connected, so nothing activates stored objects: forceload
+   -- every mapblock of the town (max_forceloaded_blocks is raised to 4096 in check.conf).
+   local a, b = vector.subtract(lo, 16), vector.add(hi, 16)
+   local nblocks = 0
+   for bx = math.floor(a.x / 16), math.floor(b.x / 16) do
+    for by = math.floor(a.y / 16), math.floor(b.y / 16) do
+     for bz = math.floor(a.z / 16), math.floor(b.z / 16) do
+      if core.forceload_block({x = bx * 16, y = by * 16, z = bz * 16}, true) then nblocks = nblocks + 1 end
+     end
+    end
+   end
+   report.forceloaded_blocks = nblocks
+   core.after(3, function()
+    local ok2, err2 = pcall(function()
+     assert(action ~= core.EMERGE_CANCELLED and action ~= core.EMERGE_ERRORED, 'emerge failed')
+     local env = towns.residents.core_env(core)
+     local rep = towns.residents.enumerate(boxes, env)
+     check(rep.count == prev.resident_bed_count, 'restart: same valid bed count (' .. rep.count .. ' vs ' .. tostring(prev.resident_bed_count) .. ')')
+     local function villagers()
+      local n = 0
+      for _, o in ipairs(core.get_objects_inside_radius(vector.multiply(vector.add(lo, hi), 0.5), 400)) do
+       local le = o:get_luaentity()
+       if le and le.name == 'mobs_mc:villager' then n = n + 1 end
+      end
+      return n
+     end
+     local before = villagers()
+     -- Every recorded resident must have persisted. Villagers beyond those
+     -- are reported, not failed: Living Villages (births.lua) breeds a child
+     -- into any free bed, which includes the beds enumeration skipped.
+     local rec_ids = {}
+     for _, b in ipairs(rep.beds) do
+      local rec = towns.place_town.store.get(towns.residents.record_key(b.pos))
+      if rec then rec_ids[(rec:gsub('^done:', ''))] = true end
+     end
+     local found, extra = 0, {}
+     for _, o in ipairs(core.get_objects_inside_radius(vector.multiply(vector.add(lo, hi), 0.5), 400)) do
+      local le = o:get_luaentity()
+      if le and le.name == 'mobs_mc:villager' then
+       if rec_ids[le._id] then found = found + 1
+       else extra[#extra + 1] = core.pos_to_string(vector.round(o:get_pos())) .. ' bed=' .. tostring(le._bed and core.pos_to_string(le._bed)) .. ' child=' .. tostring(le.child) end
+      end
+     end
+     report.unrecorded_villagers = extra
+     check(found == rep.count, 'restart: every recorded resident persisted (' .. found .. ' of ' .. rep.count .. ')')
+     local r = towns.residents.initialize(rep.beds, env, towns.place_town.store)
+     report.restart = {villagers_before = before, spawned = r.spawned, already_done = r.already_done,
+      claimed = r.claimed, interrupted = r.interrupted, failed = r.failed}
+     check(r.spawned == 0 and r.failed == 0 and r.already_done == rep.count, 'restart: initialization spawns nothing (' .. r.spawned .. ' spawned, ' .. r.already_done .. ' already done)')
+     check(villagers() == before, 'restart: villager count unchanged (' .. villagers() .. ')')
+    end)
+    if not ok2 then check(false, 'restart verification error: ' .. tostring(err2)) end
+    local out = assert(io.open(core.get_worldpath() .. '/place-check-restart.json', 'w'))
+    report.ok = #report.failures == 0
+    out:write(core.write_json(report, true))
+    out:close()
+    core.request_shutdown('place check restart done', false, 0)
+   end)
+  end)
+ end)
+ if not ok then check(false, 'restart startup error: ' .. tostring(err)); finish() end
+end
+
 core.register_on_mods_loaded(function() core.after(0, function()
+ if core.settings:get('towns_place_check_phase') == '2' then return restart_phase() end
  local ok, err = pcall(function()
   local root = towns.modpath
   -- The scratch world has no map yet: generate the start area first.
@@ -323,6 +403,73 @@ core.register_on_mods_loaded(function() core.after(0, function()
        if mcl_beds and mcl_beds.get_bed_top and not vector.equals(mcl_beds.get_bed_top(bed.pos), bed.top) then bad = bad + 1 end
       end
       check(bad == 0, 'reported beds are sorted, paired and have a free spawn cell (' .. bad .. ' bad)')
+     end
+    end
+    -- Residents (ticket #48): the build already spawned one villager per
+    -- valid bed; verify against the world, then repeat and simulate an
+    -- interrupted attempt. Phase 2 (a fresh server start on the same world)
+    -- re-checks persistence.
+    do
+     local beds = town.beds
+     local res = town.residents
+     check(res ~= nil, 'resident initialization report present' .. (town.residents_error and (': ' .. town.residents_error) or ''))
+     if beds and res then
+      report.residents = {spawned = res.spawned, failed = res.failed, already_done = res.already_done,
+       claimed = res.claimed, interrupted = res.interrupted, line = res.summary}
+      check(res.spawned == beds.count and res.failed == 0, 'one resident spawned per valid bed (' .. res.spawned .. ' of ' .. beds.count .. ', ' .. res.failed .. ' failed)')
+      local mid = vector.multiply(vector.add(town.bounds.min, town.bounds.max), 0.5)
+      local function villagers()
+       local out = {}
+       for _, o in ipairs(core.get_objects_inside_radius(mid, 400)) do
+        local le = o:get_luaentity()
+        if le and le.name == 'mobs_mc:villager' then out[#out + 1] = le end
+       end
+       return out
+      end
+      local vs = villagers()
+      check(#vs >= beds.count, 'villager entities cover the valid beds (' .. #vs .. ' vs ' .. beds.count .. ')')
+      local bed_at = {}
+      for _, b in ipairs(beds.beds) do bed_at[core.pos_to_string(b.pos)] = b end
+      local bad, used = 0, {}
+      for _, le in ipairs(vs) do
+       local b = le._bed and bed_at[core.pos_to_string(le._bed)]
+       local meta = b and core.get_meta(b.pos)
+       if not b or used[core.pos_to_string(b.pos)] or not le._id or meta:get_string('villager') ~= le._id
+         or meta:get_string('player') ~= '' then
+        bad = bad + 1
+       else
+        used[core.pos_to_string(b.pos)] = true
+        -- The villager's own validate_bed/take_bed rule: within 2 of the node.
+        if vector.distance(le.object:get_pos(), b.pos) > 4 then bad = bad + 1 end
+       end
+      end
+      check(bad == 0, 'each villager owns exactly one valid bed and the bed meta agrees (' .. bad .. ' bad)')
+      local meta_claims = 0
+      for _, b in ipairs(beds.beds) do
+       if core.get_meta(b.pos):get_string('villager') ~= '' then meta_claims = meta_claims + 1 end
+      end
+      check(meta_claims == beds.count, 'every valid bed carries a villager claim (' .. meta_claims .. ')')
+      local store = towns.place_town.store
+      local again = towns.residents.initialize(beds.beds, towns.residents.core_env(core), store)
+      report.residents.repeat_call = {spawned = again.spawned, already_done = again.already_done}
+      check(again.spawned == 0 and again.already_done == beds.count and again.failed == 0, 'repeated initialization spawns nothing (' .. again.spawned .. ' spawned, ' .. again.already_done .. ' already done)')
+      check(#villagers() == beds.count, 'villager count unchanged after repeat')
+      -- Interrupted attempt: a leftover pending record is reported, not retried.
+      if beds.beds[1] then
+       local k = towns.residents.record_key(beds.beds[1].pos)
+       local saved = store.get(k)
+       store.set(k, 'pending')
+       local pend = towns.residents.initialize(beds.beds, towns.residents.core_env(core), store)
+       store.set(k, saved)
+       check(pend.interrupted == 1 and pend.spawned == 0, 'pending record is reported and not retried')
+       check(#villagers() == beds.count, 'villager count unchanged after pending restart')
+      end
+      local ids = {}
+      for _, b in ipairs(town.structures) do
+       ids[#ids + 1] = {id = b.id, kind = b.kind, min = b.min, max = b.max}
+      end
+      report.resident_boxes = ids
+      report.resident_bed_count = beds.count
      end
     end
     -- Living Villages recognizes the tavern jukebox (its own keeper.lua claim

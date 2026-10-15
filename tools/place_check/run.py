@@ -86,15 +86,18 @@ def main():
         'enable_ipv6 = false\nbind_address = 127.0.0.1\nserver_announce = false\n'
         'towns_enable_place_town = true\ntowns_place_check_seed = %d\n' % args.seed)
     print('Scratch world:', work, flush=True)
-    with (work / 'stdout.log').open('w') as log:
-        process = subprocess.run(
-            [args.engine, '--server', '--world', str(work), '--gameid', 'mineclone2',
-             '--config', str(work / 'check.conf'), '--port', str(args.port),
-             '--logfile', str(work / 'engine.log')],
-            stdout=log, stderr=subprocess.STDOUT, timeout=args.timeout)
+    def run_engine(tag):
+        with (work / ('stdout-%s.log' % tag)).open('w') as log:
+            return subprocess.run(
+                [args.engine, '--server', '--world', str(work), '--gameid', 'mineclone2',
+                 '--config', str(work / 'check.conf'), '--port', str(args.port),
+                 '--logfile', str(work / ('engine-%s.log' % tag))],
+                stdout=log, stderr=subprocess.STDOUT, timeout=args.timeout)
+
+    process = run_engine('phase1')
     report_file = work / 'place-check.json'
     if not report_file.exists():
-        raise SystemExit('No report written (engine exit %s); inspect %s' % (process.returncode, work / 'engine.log'))
+        raise SystemExit('No report written (engine exit %s); inspect %s' % (process.returncode, work / 'engine-phase1.log'))
     report = json.loads(report_file.read_text())
     print(json.dumps({k: v for k, v in report.items() if k != 'checks'}, indent=2))
     manual = manual_bed_counts(report)
@@ -112,6 +115,22 @@ def main():
             print('FAIL manual .mts bed counts disagree with the engine report')
     for c in report['checks']:
         print('PASS' if c['ok'] else 'FAIL', c['label'])
+    if report.get('ok'):
+        # Phase 2 (#48): a fresh server process on the same world and mod
+        # storage must not spawn any additional resident.
+        with (work / 'check.conf').open('a') as f:
+            f.write('towns_place_check_phase = 2\nmax_forceloaded_blocks = 4096\n')
+        run_engine('phase2')
+        restart_file = work / 'place-check-restart.json'
+        if not restart_file.exists():
+            print('FAIL restart phase wrote no report; inspect', work / 'engine-phase2.log')
+            report['ok'] = False
+        else:
+            restart = json.loads(restart_file.read_text())
+            print('Restart phase:', json.dumps(restart.get('restart')))
+            for c in restart['checks']:
+                print('PASS' if c['ok'] else 'FAIL', c['label'])
+            report['ok'] = bool(restart.get('ok'))
     if not args.keep and report.get('ok'):
         shutil.rmtree(work, ignore_errors=True)
     raise SystemExit(0 if report.get('ok') else 1)
