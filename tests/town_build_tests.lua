@@ -376,6 +376,53 @@ do
 		local c, cwhy = route("castle", rot)
 		eq(c ~= nil, true, "real castle gate reachable at rotation " .. rot .. ": " .. tostring(cwhy))
 	end
+	-- #87: captures that began at the floor row sank flush with the street
+	-- (one block low). A template must keep a ground row under its floor
+	-- whenever it has entrance stairs: no stair node may sit on the ground row
+	-- (row ground_offset) of a rotation-0 .mts. Templates that do keep the
+	-- ground row (entrance.y - ground_offset == 2, ground_offset 0) must have
+	-- solid ground outside the door, a solid floor row under the door and a
+	-- door at the entrance, and must route at every rotation.
+	local raised = {}
+	for _, id in ipairs(catalog.ids()) do
+		local entry = entries[id]
+		if entry and entry.data_path and entry.path then
+			local s = read_mts("schematics/" .. entry.path:gsub("^schematics/", ""))
+			local go = entry.ground_offset or 0
+			local stairs = 0
+			for z = 0, s.size.z - 1 do
+				for x = 0, s.size.x - 1 do
+					local n = s.at(x, go, z)
+					if n and n:find("stair", 1, true) then stairs = stairs + 1 end
+				end
+			end
+			-- Landmarks (ground_offset > 0) carry authored half-step stairs.
+			if go == 0 then
+				eq(stairs == 0 or entry.entrance.y >= 2, true,
+					id .. " has " .. stairs .. " stairs on its ground row without a ground row below the floor")
+			end
+			if go == 0 and entry.entrance.y == 2 then raised[#raised + 1] = id end
+		end
+	end
+	eq(#raised >= 5, true, "raised templates found: " .. #raised)
+	for _, id in ipairs(raised) do
+		local entry = entries[id]
+		local s = read_mts("schematics/" .. entry.path:gsub("^schematics/", ""))
+		local e = entry.entrance
+		eq(e.y, 2, id .. " door bottom is on floor row 1")
+		eq(entry.ground_offset or 0, 0, id .. " ground row is row 0")
+		-- Outside the door the ground row is natural solid ground (dirt, stone).
+		local below = s.at(e.x, 0, e.z - 1)
+		eq(below ~= nil and below ~= "air", true,
+			id .. " ground row outside the door is solid ground: " .. tostring(below))
+		local floor = s.at(e.x, 1, e.z)
+		eq(floor ~= "air" and not floor:find("door", 1, true), true, id .. " floor under the door is solid: " .. tostring(floor))
+		eq(s.at(e.x, e.y, e.z):find("_door_b_", 1, true) ~= nil, true, id .. " entrance is a door")
+		for _, rot in ipairs({0, 90, 180, 270}) do
+			local r, why = route(id, rot)
+			eq(r ~= nil, true, "real " .. id .. " door reachable at rotation " .. rot .. ": " .. tostring(why))
+		end
+	end
 end
 
 ------------------------------------------------------------------------

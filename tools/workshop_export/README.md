@@ -144,14 +144,22 @@ world seeded from the installed game schematics:
   plates). Keep the change list in `stock_seed/init.lua` equivalent to that
   file.
 - Both entries use fixed capture boxes so the stock footprint and apron are
-  kept. The tavern drops only the buried dirt layer (stock y 0), so its floor
-  layer is the template ground layer: 12 x 12 x 10 as authored (door on the
-  -X side, `rotation` 270), which is 10 x 12 x 12 in the canonical -Z-front
-  file. The well keeps its dirt layer, because its standing apron is air at
+  kept. The tavern keeps its dirt layer (stock y 0) as the template ground
+  row (`floor_y` and `ground_y` 7, `ground_offset` 0) with the floor on the
+  next row, so the floor stands one block above the street (#87): 12 x 13 x 10
+  as authored (door on the -X side, `rotation` 270), which is 10 x 13 x 12 in
+  the canonical -Z-front file, entrance y 2. The well keeps its dirt layer, because its standing apron is air at
   stock y 1 over that dirt: 6 x 7 x 8, front already on -Z.
 
 A selective export (`--only`) keeps the manifest's top-level `world` and
 `snapshot_sha256` untouched, so exporting these two from a scratch world does
 not rewrite provenance; each building record carries its own snapshot hash.
+The top-level `snapshot_sha256` therefore only names the last full export;
+the per-building hashes are authoritative and legitimately differ between
+buildings (several `--only` runs, and the tavern/well come from a scratch
+world). `last_export_buildings` lists the buildings of the most recent
+`--only` run, so when one change re-exports buildings in several runs (as
+#87 did: weaver_house, chapel, corner_house and townhouses from TownsWorkshop,
+tavern from the stock scratch world) the list is set by hand to the union.
 Attribution for the two files is in
 `schematics/templates/NOTICE-stock-village.md`.

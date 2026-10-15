@@ -60,7 +60,7 @@
       "label": "Corner house",
       "scan_min": {
         "x": 168,
-        "y": 9,
+        "y": 8,
         "z": 198
       },
       "scan_max": {
@@ -68,7 +68,18 @@
         "y": 22,
         "z": 209
       },
-      "floor_y": 9,
+      "floor_y": 8,
+      "capture_min": {
+        "x": 170,
+        "y": 8,
+        "z": 200
+      },
+      "capture_max": {
+        "x": 178,
+        "y": 17,
+        "z": 207
+      },
+      "ground_y": 8,
       "rotation": 270,
       "entrance": {
         "x": 171,
@@ -114,7 +125,7 @@
       "label": "Townhouses",
       "scan_min": {
         "x": 238,
-        "y": 9,
+        "y": 8,
         "z": 198
       },
       "scan_max": {
@@ -122,7 +133,18 @@
         "y": 24,
         "z": 212
       },
-      "floor_y": 9,
+      "floor_y": 8,
+      "capture_min": {
+        "x": 240,
+        "y": 8,
+        "z": 200
+      },
+      "capture_max": {
+        "x": 254,
+        "y": 19,
+        "z": 210
+      },
+      "ground_y": 8,
       "rotation": 0,
       "entrance": {
         "x": 247,
@@ -141,7 +163,7 @@
       "label": "Weaver",
       "scan_min": {
         "x": 98,
-        "y": 9,
+        "y": 8,
         "z": 248
       },
       "scan_max": {
@@ -149,7 +171,18 @@
         "y": 20,
         "z": 258
       },
-      "floor_y": 9,
+      "floor_y": 8,
+      "capture_min": {
+        "x": 100,
+        "y": 8,
+        "z": 250
+      },
+      "capture_max": {
+        "x": 108,
+        "y": 15,
+        "z": 256
+      },
+      "ground_y": 8,
       "rotation": 90,
       "entrance": {
         "x": 107,
@@ -332,7 +365,7 @@
       "label": "Chapel",
       "scan_min": {
         "x": 167,
-        "y": 9,
+        "y": 8,
         "z": 298
       },
       "scan_max": {
@@ -340,7 +373,18 @@
         "y": 26,
         "z": 322
       },
-      "floor_y": 9,
+      "floor_y": 8,
+      "capture_min": {
+        "x": 171,
+        "y": 8,
+        "z": 301
+      },
+      "capture_max": {
+        "x": 179,
+        "y": 21,
+        "z": 317
+      },
+      "ground_y": 8,
       "rotation": 0,
       "entrance": {
         "x": 175,
@@ -426,7 +470,7 @@
       "label": "Stock village tavern",
       "scan_min": {
         "x": 96,
-        "y": 8,
+        "y": 7,
         "z": 96
       },
       "scan_max": {
@@ -434,10 +478,10 @@
         "y": 24,
         "z": 114
       },
-      "floor_y": 8,
+      "floor_y": 7,
       "capture_min": {
         "x": 100,
-        "y": 8,
+        "y": 7,
         "z": 100
       },
       "capture_max": {
@@ -445,7 +489,7 @@
         "y": 19,
         "z": 109
       },
-      "ground_y": 8,
+      "ground_y": 7,
       "rotation": 270,
       "entrance": {
         "x": 103,

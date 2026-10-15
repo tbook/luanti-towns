@@ -112,8 +112,10 @@ verifies the result at all four rotations.
    z is not necessarily 0 (real catalog values: 0 for `mason_yard`, 1 for most,
    2 for `townhouses`, `scribe`, `banker_house`, `butcher_shop`, `chapel`, 4
    for `gaboo_house`, 6 for `castle`, 8 for `cathedral`; x is off-centre, for
-   example 2 of 8 for `tower`, 8 of 11 for `jail`). `entrance.y` is 1 for ordinary buildings
-   (defaults to 1 in the runtime catalog); landmarks may differ.
+   example 2 of 8 for `tower`, 8 of 11 for `jail`). `entrance.y` is 1 for buildings captured
+   from the floor row (defaults to 1 in the runtime catalog), 2 for the ones
+   that keep a ground row below the floor (`weaver_house`, `chapel`, `tavern`,
+   `corner_house`, `townhouses`); landmarks differ (castle 6, cathedral 5).
 3. **Regenerate with `--only`**, from the Towns mod directory:
 
    ```sh
@@ -158,6 +160,15 @@ build must fit inside it or the export fails.
 the capture`. Ordinary buildings get 0 (omitted from the catalog); it is
 non-zero only for fixed-box landmarks with `ground_y` above the capture's
 bottom (castle 5, cathedral 1).
+
+A building that stands on a plinth with steps up to its door (stairs on the
+floor row) must keep the terrain row below its floor in the capture: set
+`floor_y` and `ground_y` to the terrain row and use a fixed `capture_min` /
+`capture_max` box starting there. The placer puts row 0 at street level, so the
+floor then stands one block above the street and the stairs are real steps
+(`entrance.y` 2, `ground_offset` 0). Capturing from the floor row instead sinks
+the floor flush with the street (#87: weaver_house, chapel, tavern,
+corner_house).
 
 ### Role in the generated catalog
 
