@@ -29,8 +29,8 @@ local function check(plan, label)
 	eq(planner.validate(plan), true, label .. " validates")
 	local j = plan.reservations and plan.reservations.jail
 	eq(j ~= nil, true, label .. " has a jail")
-	-- Seed 3 reports one chapel shortage since #86 (see the service tests).
-	eq(#plan.shortages, (label == "jail seed 3") and 1 or 0, label .. " shortages")
+	-- Seed 4 reports one chapel shortage since #106 (seed 3 until then) (see the service tests).
+	eq(#plan.shortages, (label == "jail seed 4") and 1 or 0, label .. " shortages")
 	if not j then return end
 	eq(j.role, "jail", label .. " role")
 	local g = geometry.place({size = base.jail.size, entrance = base.jail.entrance},

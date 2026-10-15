@@ -82,7 +82,8 @@ end
 function TL.pavement_map(plan, extra)
 	extra = extra or {}
 	local map, rank = {}, {}
-	-- City hall foundation (profile plans): a hole in the market pavement.
+	-- City hall foundation (profile plans): never paved. It lies beside the
+	-- market (#106), so this is a guard rather than a cut-out of the square.
 	local holes = {}
 	local hall = plan.sites.city_hall and plan.sites.city_hall.rect
 	if hall then holes[#holes + 1] = hall end

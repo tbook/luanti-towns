@@ -175,7 +175,6 @@ do
 	eq(planner.resolve_constants().MAX_BLOCK_DEPTH, 12, "legacy max block depth")
 	eq(planner.resolve_constants().MIN_BLOCK_SIDE, 8, "legacy min block side")
 	eq(planner.CONSTANTS.STREET_WIDTH, 5, "principal street width (#88)")
-	eq(planner.CONSTANTS.CITY_HALL_MARGIN, 5, "hall margin follows the street width")
 	eq(planner.resolve_constants().ENVELOPE, 96, "legacy envelope default")
 end
 

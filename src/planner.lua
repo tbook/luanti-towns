@@ -27,12 +27,16 @@
 --                  Without it the Phase 2 nominal footprints and the 96-node
 --                  envelope are used. A profile that cannot fit the envelope
 --                  returns nil, reason, {code = "unsupported_fit"} at once.
---                  A profile may also carry city_hall (ticket #39): plan.sites.city_hall
---                  (kind "landmark", square = "market", outside site_order) is
---                  then a complete rotated box on the market with
---                  CITY_HALL_MARGIN of pavement all round and its door facing
---                  into the remaining market. The market grows to fit it; the
---                  hall is an obstacle for streets, routing and pavement.
+--                  A profile may also carry city_hall (tickets #39, #106):
+--                  plan.sites.city_hall (kind "landmark", square = "market",
+--                  outside site_order) is a complete rotated box OUTSIDE the
+--                  open market rectangle, touching one market edge with its
+--                  facade within that edge and its real (off-centre, recessed)
+--                  door facing across it, so the door approach is a market
+--                  pavement node. The open market is sized independently of
+--                  the hall (it only has to be as long as the facade); the
+--                  hall is an obstacle for streets, routing and the other
+--                  landmarks, keeping a street width clear of them.
 --                  A profile may also carry jail (ticket #69): the finished
 --                  plan then has plan.reservations.jail (src/jail_reservation.lua:
 --                  one box on ordinary street frontage, entrance farthest from
@@ -270,10 +274,6 @@ M.CONSTANTS = {
 	PRINCIPAL_MATERIAL = "mcl_core:stonebrick",
 	SECONDARY_MATERIAL = "mcl_core:cobble",
 	SQUARE_MATERIAL = "mcl_core:stonebrick",
-	-- City hall reservation (profile planning only, ticket #39)
-	CITY_HALL_MARGIN = 5,     -- free market pavement kept round the hall box
-	                          --  (principal street width); the market grows
-	                          --  to hall box + 2 * margin when smaller
 	-- Jail reservation (profile planning only, ticket #69)
 	JAIL_MARKET_BIAS = 1,     -- 1: jail entrance farthest from the market
 	                          --  centre, -1: nearest
@@ -608,13 +608,13 @@ local function landmark_box(L, side)
 	return {w = g.size.x, d = g.size.z, ex = ex, ez = ez, recess = recess}
 end
 
--- Side of the smallest market square (both axes, so any hall rotation fits)
--- that holds the hall box with CITY_HALL_MARGIN of pavement all round, or
--- nil when the profile has no city hall.
-local function hall_market_side(C, profile)
+-- Minimum market side for the city hall (#106): the hall stands beside the
+-- open market with its facade along one market edge, so the market must be at
+-- least as long as that facade (the catalog size.x, whatever the rotation).
+-- It is not enlarged by any ring round the hall. nil without a city hall.
+local function hall_facade(profile)
 	local h = profile and profile.city_hall
-	if not h then return nil end
-	return math.max(h.size.x, h.size.z) + 2 * C.CITY_HALL_MARGIN
+	return h and h.size.x or nil
 end
 
 -- Cheap static check that the cathedral (with its parvis) and the castle
@@ -639,11 +639,16 @@ local function fit_check(C, profile)
 	if not fits then
 		return nil, "the castle box does not fit a " .. n .. "-node envelope"
 	end
-	local need = hall_market_side(C, profile)
-	if need and need > math.floor(C.MIN_SHORT_SPAN / 2) then
-		return nil, "the city hall box with its " .. C.CITY_HALL_MARGIN
-			.. "-node circulation margin needs a " .. need
-			.. "-node market, too large for a " .. n .. "-node envelope"
+	local facade = hall_facade(profile)
+	if facade then
+		-- Market (at least the hall's facade long) plus the hall's depth
+		-- beyond one edge, within the half span the market centre allows.
+		local need = math.max(C.MARKET_MIN, facade) + profile.city_hall.size.z
+		if need > math.floor(C.MIN_SHORT_SPAN / 2) then
+			return nil, "the city hall box beside a " .. math.max(C.MARKET_MIN, facade)
+				.. "-node market needs " .. need
+				.. " nodes, too large for a " .. n .. "-node envelope"
+		end
 	end
 	return true
 end
@@ -1051,38 +1056,39 @@ local function sample_market(rng, C, count, n, min_side)
 	end
 end
 
--- City hall on the market (profile only). Candidates run along the square's
--- four edges: the hall's back lies CITY_HALL_MARGIN inside the edge opposite
--- its front, so its door opens onto the remaining pavement, and the box has
--- the margin of free pavement on every side (circulation). Along an edge the
--- stable order is centred first, then flush to either end of the margin; the
--- seeded rng breaks ties between the first tier that has any candidate. The
--- end-flush tier is a fallback that is in practice only reached when no
--- centred candidate exists (it is valid whenever the centred one is).
--- Returns rect, side or nil.
-local function sample_city_hall(rng, C, market, L)
-	local m = C.CITY_HALL_MARGIN
+-- City hall beside the market (profile only, #106). The hall is outside the
+-- open market rectangle, touching one of its four edges, with its entrance
+-- side facing across that edge: the node in front of the real (possibly
+-- off-centre, recessed) door is then a market pavement node on the edge row.
+-- Its whole facade lies within the market edge, so the corners and the other
+-- three sides stay free for streets and building frontage. Candidates need
+-- the complete box inside the boundary. Along an edge the stable order is
+-- centred first, then flush to either end; the seeded rng breaks ties
+-- between the first tier that has any candidate. Returns rect, side (the
+-- entrance side, facing the market) or nil.
+local function sample_city_hall(rng, C, count, market, L)
 	local tiers = {{}, {}}
-	for _, side in ipairs(SIDES) do
+	for _, mside in ipairs(SIDES) do
+		-- The hall lies beyond market edge `mside`, facing back across it.
+		local side = OPPOSITE[mside]
 		local b = landmark_box(L, side)
 		local horiz = (side == "-z" or side == "+z")
-		local lo = (horiz and market.x1 or market.z1) + m
-		local hi = (horiz and market.x2 - b.w + 1 or market.z2 - b.d + 1) - m
+		local lat = horiz and b.w or b.d
+		local lo = horiz and market.x1 or market.z1
+		local hi = (horiz and market.x2 or market.z2) - lat + 1
 		if lo <= hi then
 			for t, along in ipairs({lo + math.floor((hi - lo) / 2), lo, hi}) do
 				local r
-				if side == "-z" then r = rect(along, market.z2 - m - b.d + 1, along + b.w - 1, market.z2 - m)
-				elseif side == "+z" then r = rect(along, market.z1 + m, along + b.w - 1, market.z1 + m + b.d - 1)
-				elseif side == "-x" then r = rect(market.x2 - m - b.w + 1, along, market.x2 - m, along + b.d - 1)
-				else r = rect(market.x1 + m, along, market.x1 + m + b.w - 1, along + b.d - 1) end
+				if mside == "+z" then r = rect(along, market.z2 + 1, along + b.w - 1, market.z2 + b.d)
+				elseif mside == "-z" then r = rect(along, market.z1 - b.d, along + b.w - 1, market.z1 - 1)
+				elseif mside == "+x" then r = rect(market.x2 + 1, along, market.x2 + b.w, along + b.d - 1)
+				else r = rect(market.x1 - b.w, along, market.x1 - 1, along + b.d - 1) end
 				local tier = tiers[t == 1 and 1 or 2]
 				local dup = false
 				for _, c in ipairs(tier) do
 					if c.side == side and same_rect(c.r, r) then dup = true end
 				end
-				local ring = inflate(r, m)
-				if not dup and ring.x1 >= market.x1 and ring.x2 <= market.x2
-						and ring.z1 >= market.z1 and ring.z2 <= market.z2 then
+				if not dup and all_filled(count, r) then
 					tier[#tier + 1] = {r = r, side = side}
 				end
 			end
@@ -1098,7 +1104,7 @@ end
 
 -- Candidate lists are enumerated in a fixed order and one is picked with the
 -- seeded rng, so a feasible layout is found whenever one exists.
-local function sample_cathedral(rng, C, count, bbox, market, profile)
+local function sample_cathedral(rng, C, count, bbox, market, profile, hall)
 	local sw = C.STREET_WIDTH
 	local m, p = C.PARVIS_MARGIN, C.PARVIS_DEPTH
 	local found, roomy = {}, {}
@@ -1131,6 +1137,7 @@ local function sample_cathedral(rng, C, count, bbox, market, profile)
 				elseif side == "-x" then pr = rect(c.x1 - p, c.z1 - m, c.x1 - 1, c.z2 + m)
 				else pr = rect(c.x2 + 1, c.z1 - m, c.x2 + p, c.z2 + m) end
 				if gap(c, market) >= sw and gap(pr, market) >= sw
+						and (not hall or (gap(c, hall) >= sw and gap(pr, hall) >= sw))
 						and all_filled(count, c) and all_filled(count, pr) then
 					found[#found + 1] = {c, pr, side}
 					-- Preferred: a street's width of boundary all round.
@@ -1450,15 +1457,40 @@ local function validate_impl(plan, C)
 		end
 	end
 
-	-- City hall: wholly on the market with CITY_HALL_MARGIN of market
-	-- pavement round it, so its door opens onto remaining pavement and the
-	-- square keeps circulation on every side.
+	-- City hall (#106): outside the open market, touching one market edge,
+	-- its facade within that edge and its entrance side facing across it, so
+	-- the node in front of the door is a market pavement node. It keeps a
+	-- street width clear of the other landmarks and the parvis.
 	if sites.city_hall then
-		local h, m = sites.city_hall, C.CITY_HALL_MARGIN
+		local h, mk = sites.city_hall, sites.market.r
 		if h.s.square ~= "market" then return nil, "city_hall does not name the market" end
-		local ring, mk = inflate(h.r, m), sites.market.r
-		if ring.x1 < mk.x1 or ring.x2 > mk.x2 or ring.z1 < mk.z1 or ring.z2 > mk.z2 then
-			return nil, "city_hall lacks " .. m .. " nodes of market pavement round it"
+		local side, r = h.s.side, h.r
+		local touch, within
+		if side == "-z" then
+			touch = r.z1 == mk.z2 + 1
+			within = r.x1 >= mk.x1 and r.x2 <= mk.x2
+		elseif side == "+z" then
+			touch = r.z2 == mk.z1 - 1
+			within = r.x1 >= mk.x1 and r.x2 <= mk.x2
+		elseif side == "-x" then
+			touch = r.x1 == mk.x2 + 1
+			within = r.z1 >= mk.z1 and r.z2 <= mk.z2
+		else
+			touch = r.x2 == mk.x1 - 1
+			within = r.z1 >= mk.z1 and r.z2 <= mk.z2
+		end
+		if intersects(r, mk) then return nil, "city_hall overlaps the open market" end
+		if not touch or not within then
+			return nil, "city_hall is not beside the market with its entrance side facing it"
+		end
+		if not (h.pos.x >= mk.x1 and h.pos.x <= mk.x2 and h.pos.z >= mk.z1
+				and h.pos.z <= mk.z2) then
+			return nil, "city_hall door approach is not on the market"
+		end
+		for _, name in ipairs({"cathedral", "parvis", "castle"}) do
+			local g = gap(r, sites[name].r)
+			if g < 0 then return nil, "city_hall and " .. name .. " overlap" end
+			if g < sw then return nil, "city_hall and " .. name .. " are closer than a street width" end
 		end
 	end
 
@@ -1545,8 +1577,11 @@ local function validate_impl(plan, C)
 		if not all_filled(count, win) then
 			return nil, "approach has less than a street width of boundary inside"
 		end
-		for _, name in ipairs(ORDER) do
-			if intersects(win, sites[name].r) and (name == "cathedral" or name == "castle") then
+		local blockers = {}
+		for k, name in ipairs(ORDER) do blockers[k] = name end
+		if sites.city_hall then blockers[#blockers + 1] = "city_hall" end
+		for _, name in ipairs(blockers) do
+			if intersects(win, sites[name].r) and (name == "cathedral" or name == "castle" or name == "city_hall") then
 				return nil, "approach window blocked by " .. name
 			end
 			if intersects(e, sites[name].r) then
@@ -1646,12 +1681,24 @@ local function attempt(rng, C, profile)
 	local c = math.floor(n / 2)
 	if cells[c][c] ~= 1 then return nil, "boundary", "centre outside boundary" end
 
-	local market = sample_market(rng, C, count, n, hall_market_side(C, profile))
+	local market = sample_market(rng, C, count, n, hall_facade(profile))
 	if not market then return nil, "market", "no market square fits near centre" end
-	local cathedral, parvis, cside = sample_cathedral(rng, C, count, bbox, market, profile)
+	-- City hall beside the market (#106; profile with a city_hall entry
+	-- only), reserved before the other landmarks so they keep clear of it.
+	local hall, hside
+	if profile and profile.city_hall then
+		hall, hside = sample_city_hall(rng, C, count, market, profile.city_hall)
+		if not hall then
+			return nil, "market", "no city hall placement beside the market square"
+		end
+	end
+	local cathedral, parvis, cside = sample_cathedral(rng, C, count, bbox, market,
+		profile, hall)
 	if not cathedral then return nil, "cathedral", "no cathedral and parvis placement" end
+	local others = {cathedral, parvis, market}
+	if hall then others[#others + 1] = hall end
 	local castle, outer_side, egap = sample_castle(rng, C, count, bbox, n,
-		{cathedral, parvis, market}, profile)
+		others, profile)
 	if not castle then return nil, "castle", "no castle placement on an outer edge" end
 
 	local sites = {
@@ -1669,6 +1716,14 @@ local function attempt(rng, C, profile)
 	local mside
 	if math.abs(dx) >= math.abs(dz) then mside = dx >= 0 and "+x" or "-x"
 	else mside = dz >= 0 and "+z" or "-z" end
+	if hall and mside == OPPOSITE[hside] then
+		-- The hall stands beside that market edge: approach the market over
+		-- the other axis toward the cathedral instead (then the far sides).
+		local alt
+		if mside == "+x" or mside == "-x" then alt = dz >= 0 and "+z" or "-z"
+		else alt = dx >= 0 and "+x" or "-x" end
+		mside = alt
+	end
 	sites.market = shape_site("market", "square", market, mside)
 	-- Parvis approach is its far edge (away from the cathedral).
 	sites.parvis = shape_site("parvis", "square", parvis, cside)
@@ -1678,6 +1733,7 @@ local function attempt(rng, C, profile)
 	local s2
 	repeat s2 = rng.pick(SIDES) until s2 ~= s1
 	local obstacles = {cathedral, parvis, market, castle}
+	if hall then obstacles[#obstacles + 1] = hall end
 	local a1 = sample_approach(rng, C, count, bbox, n, s1, obstacles)
 	if not a1 then
 		return nil, "approach", "no boundary approach window on two outer sides"
@@ -1687,14 +1743,8 @@ local function attempt(rng, C, profile)
 		return nil, "approach", "no boundary approach window on two outer sides"
 	end
 
-	-- City hall on the market (profile with a city_hall entry only). Drawn
-	-- after the approaches so the other sites keep their positions.
-	if profile and profile.city_hall then
-		local hr, hside = sample_city_hall(rng, C, market, profile.city_hall)
-		if not hr then
-			return nil, "market", "no city hall placement on the market square"
-		end
-		sites.city_hall = shape_site("city_hall", "landmark", hr, hside, profile.city_hall)
+	if hall then
+		sites.city_hall = shape_site("city_hall", "landmark", hall, hside, profile.city_hall)
 		sites.city_hall.square = "market"
 	end
 	local function approach_of(name, r, side)
