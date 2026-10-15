@@ -90,13 +90,12 @@ free ground, since buildings can sit on it).
   or parvis are `frontage_square` and are not building frontage for ordinary
   content.
 - `frontage_usable`: the part of `frontage_ordinary` whose block, measured
-  perpendicular to the run, is at least D_min deep. D_min is the smallest
-  eligible ordinary building depth: the shorter footprint side of the
-  smallest house, shop or workshop in the catalog (inclusive node counts, no
-  extra clearance). This is the baseline policy. Because the planner already
-  refuses blocks thinner than `MIN_BLOCK_SIDE` (12) this equals
-  `frontage_ordinary` at baseline; it becomes informative when #86 changes
-  the spacing policy. Do not read it as packing capacity.
+  perpendicular to the run, is at least D deep. D is the catalog-derived row
+  depth (see "Depth policy" below), not a placeholder. Blocks thinner than
+  D are never carved with the depth policy active, so this equals
+  `frontage_ordinary` for current plans; it stays as a guard against a
+  future change of the minimum block side. Do not read it as packing
+  capacity.
 - `frontage_used`: summed width along its street of the ordinary buildings
   actually placed, in the same units as `frontage_ordinary`. The ratio
   `frontage_used / frontage_ordinary` shows how much theoretical frontage
@@ -111,14 +110,14 @@ free ground, since buildings can sit on it).
   `unused_len` the total length of run intervals no building covers
   (continuity of rows: lower is more continuous).
 - `blocks`, `block_cells`: planner blocks and their area. `blocks_single_row`
-  counts blocks whose shorter side is under 2 x D_min, which cannot hold two
+  counts blocks whose shorter side is under 2 x D, which cannot hold two
   opposing rows back to back.
 - `strips`, `strip_cells`: narrow strips. Free ground is opened with a
-  D_min x D_min window (cells inside any all-free D_min x D_min square are
+  D x D window (cells inside any all-free D x D square are
   buildable); the residue is the free ground outside every such window. A
   narrow strip is a 4-connected component of residue whose longer bounding box
-  side is at least D_min. So it is ground bounded by a road, square, landmark
-  or the town boundary on both sides at under D_min depth, such as the
+  side is at least D. So it is ground bounded by a road, square, landmark
+  or the town boundary on both sides at under D depth, such as the
   reported 1- and 3-node gaps. `specks` and `speck_cells` count smaller
   residue components, which are leftover corners rather than strips. The
   metric measures buildable depth only, not whether rows were placed, and a
@@ -144,6 +143,71 @@ feature and extend this section.
 
 - Everything is derived from the plan, not from a built world; it complements
   rather than replaces disposable-world observation and #50 validation.
-- No clearance around buildings is included in D_min; #86 will decide the
-  catalog-derived depth policy and should update `M.min_depth` and this
-  document together.
+- D is a depth only: it measures whether a row fits behind a street. It does
+  not include setbacks, because the packer places boxes flush against the
+  street row with their door on the pavement.
+- The narrow-strip metric opens free ground with D x D windows, so a sliver
+  that lies between a block edge and a road is covered by the block's own
+  cells and is not reported; it shows up as a block without frontage and
+  in the placed-building count instead. `streets.narrow_gaps(plan, C)`
+  reports the road-side runs directly and is zero for every accepted plan.
+- Ground between a landmark or market and the town edge is not between
+  roads and is not gated; it is what walls (#95) and edge compounds (#108)
+  will claim, and it keeps being reported as strips.
+
+## Depth policy (ticket #86)
+
+Derived from the catalog, not fixed. `planner.row_depth(profile)` takes the
+eligible ordinary entries (house, shop, workshop) and their depth behind the
+street. The packer turns file X into the run axis and puts file Z (depth)
+behind it, with the door on the street row, so a block that is `d` deep
+admits exactly the entries with `size.z <= d`; the door approach is the
+pavement node in front of it and no further clearance sits inside the block.
+D is the smallest depth that admits at least half of the eligible entries
+(lower median): neither the smallest sample house (7, the demo house) nor
+the deepest (13). With the stock catalog (11 entries) the depths are
+7, 9, 9, 9, 9, 9, 11, 11, 12, 13, 13 and D = 9.
+
+`planner.depth_policy(profile)` turns D into the constants listed in the
+report: `MIN_BLOCK_SIDE = D`, `ROAD_GAP = 2 D` (two opposing rows between
+roads), `SQUARE_GAP`, `LANDMARK_GAP` and `BOUNDARY_GAP = D` (one row from a
+square, a landmark or the town edge; `BOUNDARY_GAP` is the named gap that
+walls #95 will claim). Squares (market, parvis) are paved edges: a road
+within `SQUARE_GAP` of one is as narrow as one within `ROAD_GAP` of a road.
+Enforcement is in `src/streets.lua`: the router pays `NARROW_PENALTY` per
+step beside a narrow gap, a secondary candidate is shifted, shortened from
+its free end or rejected, an accepted layout that still keeps a narrow run
+beside a street fails the attempt, and block carving prefers rectangles that
+do not leave a sliver between their edge and the pavement
+(`SLIVER_WEIGHT`). Exceptions: one street width at each street end
+(junctions, bends and entrance approaches), runs shorter than
+`MIN_FRONTAGE_RUN`, and a gap of 0 (a street touching a road or a landmark;
+a street touching the town edge is not exempt). Plans without ordinary
+content in the profile, and the legacy 96 envelope, plan without the policy.
+
+### Before and after (#86)
+
+Same seeds, centres and metric (D = 9) on `origin/main` (ea510ed, after
+#105 compact parvis) and on this change; artifacts of the change are in
+`docs/layout_after_86/`. The committed `docs/layout_baseline/` predates #105
+and the 19th catalog entry and is kept as the historical pre-#86 record; its
+D_min = 7 strips are not comparable with these.
+
+| metric (12 seeds, sums) | before | after |
+| --- | --- | --- |
+| narrow strips (count) | 111 | 70 |
+| narrow strip cells | 19586 | 7454 |
+| street length (est.) | 7133 | 6711 |
+| ordinary frontage | 7755 | 10575 |
+| frontage used by placed buildings | 4902 | 6961 |
+| placed ordinary buildings | 536 | 789 |
+| blocks / single-row blocks | 108 / 35 | 191 / 119 |
+| empty runs | 49 | 124 |
+| unused run length | 2851 | 3610 |
+| planning failures | 0 | 0 |
+| planner attempts (sum) | 27 | 44 |
+
+Most of the gain in placed buildings comes from lowering the minimum block
+side from 12 to D = 9 together with block carving that no longer strands
+slivers; the road changes remove the strips between roads and at the town
+edge.

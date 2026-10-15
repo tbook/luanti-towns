@@ -193,7 +193,8 @@ Agreed scope:
   actual schematics, preserving the stepped boundary, parvis and connected
   streets. Engineering trials began at a 192-node envelope; the profile envelope is
   now 208 (#89) with principal streets 5 wide (#88), wider-spaced secondary
-  streets and a 12-node minimum block side (#86). Tune the size for usable
+  streets (#86); the street spacing and minimum block side are derived
+  from the catalog's ordinary building depth (#86, `docs/layout_comparison.md`). Tune the size for usable
   residential frontage and acceptable planning cost; this is not a fixed
   product size. Keep the current terrain acceptance limits.
 - **Placement unit.** Pack the full schematic boxes, not separate lots. Their

@@ -114,10 +114,16 @@ eq(base.content ~= nil, true, "profile carries content")
 local civic = {cathedral = base.cathedral, castle = base.castle,
 	city_hall = base.city_hall, jail = base.jail, services = base.services}
 
+-- The street spacing depth (ticket #86) is derived from the catalog content,
+-- so a profile without content plans without it. Pass the derived values
+-- explicitly to isolate "content leaves civic planning alone".
+local depth_policy = planner.depth_policy(base)
+
 for _, seed in ipairs({1, 2, 3, 4, 5, 6, 7, 8}) do
 	local label = "content seed " .. seed
 	local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
-	local without = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = civic}))
+	local without = assert(planner.plan({x = 10, z = -30}, seed,
+		{landmarks = civic, constants = depth_policy}))
 	eq(planner.validate(plan), true, label .. " validates")
 	eq(without.content, nil, label .. " no content without profile entry")
 	eq(#plan.blocks, #without.blocks, label .. " blocks")

@@ -313,8 +313,55 @@ M.LANDMARK_TUNING = {
 	                          --  between a road and the boundary (or a
 	                          --  landmark) fits only the smallest house and
 	                          --  is left open instead (default 8). The walls
-	                          --  ticket (#95) may claim such a gap.
+	                          --  ticket (#95) may claim such a gap. Replaced
+	                          --  by the catalog-derived row depth when the
+	                          --  profile has ordinary content (depth_policy).
 }
+
+-- Row depth (ticket #86). The depth a street frontage must be given for one
+-- row of ordinary buildings, derived from the catalog content of a landmark
+-- profile: the packer puts every box with its depth (file Z) side behind the
+-- street and its door on the street, so a block that is `d` deep admits
+-- exactly the eligible entries whose depth is at most `d` (the door approach
+-- lies on the pavement, no extra clearance inside the block). The row depth
+-- is the smallest depth that admits at least half of the eligible entries
+-- (lower median): not the smallest sample house alone, and not the deepest.
+-- Returns nil when the profile has no ordinary content.
+function M.row_depth(profile)
+	if type(profile) ~= "table" or type(profile.content) ~= "table" then return nil end
+	local depths = {}
+	for _, e in pairs(profile.content) do
+		if type(e) == "table" and type(e.size) == "table" then
+			depths[#depths + 1] = e.size.z
+		end
+	end
+	if #depths == 0 then return nil end
+	table.sort(depths)
+	return depths[math.ceil(#depths / 2)]
+end
+
+-- The constants the street spacing policy (ticket #86) derives from a
+-- landmark profile's ordinary content; empty when it has none, which plans
+-- without the policy. Applied by resolve_constants; explicit
+-- opts.constants still win.
+function M.depth_policy(profile)
+	local depth = M.row_depth(profile)
+	if not depth then return {} end
+	return {
+		ROW_DEPTH = depth,
+		MIN_BLOCK_SIDE = depth,     -- a block is at least one row deep
+		ROAD_GAP = 2 * depth,       -- road to road: two opposing rows
+		SQUARE_GAP = depth,         -- square to road: one row
+		LANDMARK_GAP = depth,       -- landmark to road: one row
+		BOUNDARY_GAP = depth,       -- road to town edge: one row; the walls
+		                            --  ticket (#95) claims this ground
+		NARROW_PENALTY = 4,         -- router cost of a narrow street side
+		SLIVER_WEIGHT = 4,          -- block carving: cost per sliver node
+	}
+end
+
+-- Names the depth policy may set (valid in opts.constants).
+local DEPTH_POLICY_KEYS = M.depth_policy({content = {x = {size = {z = 1}}}})
 
 -- Dimensions that scale with the envelope. Reference values are the Phase 2
 -- constants at LEGACY_ENVELOPE; explicit opts.constants still override them.
@@ -342,6 +389,7 @@ function M.resolve_constants(opts)
 		local env = (type(explicit) == "table" and explicit.ENVELOPE) or M.LANDMARK_ENVELOPE
 		for k, v in pairs(envelope_derived(env)) do C[k] = v end
 		for k, v in pairs(M.LANDMARK_TUNING) do C[k] = v end
+		for k, v in pairs(M.depth_policy(opts.landmarks)) do C[k] = v end
 	end
 	if type(explicit) == "table" then
 		for k, v in pairs(explicit) do C[k] = v end
@@ -1754,7 +1802,7 @@ function M.plan(center, seed, opts)
 		end
 		if opts.constants then
 			for k in pairs(opts.constants) do
-				if M.CONSTANTS[k] == nil then
+				if M.CONSTANTS[k] == nil and DEPTH_POLICY_KEYS[k] == nil then
 					error("towns planner: unknown constant " .. tostring(k), 2)
 				end
 			end
