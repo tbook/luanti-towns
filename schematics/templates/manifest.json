@@ -1665,5 +1665,11 @@
       "verified_nodes": 441,
       "snapshot_sha256": "8a96b86de525077e0da3b6d45c109b17efd234b3eb73641931106e6f28795c86"
     }
-  ]
+  ],
+  "runtime_validation": {
+    "inventory_slots": 6256,
+    "mismatches": 0,
+    "nodes": 1030748,
+    "placements": 88
+  }
 }
