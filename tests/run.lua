@@ -498,6 +498,7 @@ loadfile("tests/access_alley_tests.lua")(eq, fails, dofile("src/planner.lua"), c
 
 -- Streets, blocks and frontage (ticket #13).
 loadfile("tests/streets_tests.lua")(eq, fails, dofile("src/planner.lua"))
+loadfile("tests/street_spacing_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog)
 
 -- Site search (ticket #14): mocked-world search harness.
 loadfile("tests/site_search_tests.lua")(eq, fails, placement, dofile("src/planner.lua"),
