@@ -198,7 +198,7 @@ changes nothing. At least two seeds were checked in a disposable world.
 ### 3. First populated town
 
 **Result:** the empty blocks become dense handmade street fronts, the existing
-cathedral and castle replace their blockouts, a city hall occupies part of the
+cathedral and castle replace their blockouts, a city hall stands beside the
 market square, and residents begin using the town with Living Villages enabled.
 
 Agreed scope:
@@ -246,9 +246,18 @@ Agreed scope:
   must match Living Villages' recognition rules; taverns contain accessible
   jukeboxes. No hard per-bed service coverage guarantee or optimizer yet.
 - **City hall.** Add one user-authored tower, including a larger base if
-  supplied, on the market square. Its entrance faces remaining market space.
-  Treat its box as an obstacle and preserve principal-width circulation and
-  all main routes. Choose a fitting square-edge location from simple rules.
+  supplied, beside the market square (#106): the complete rotated box lies
+  outside the open market rectangle, touching one market edge, its facade
+  within that edge and its real (possibly off-centre or recessed) door facing
+  across it, so the door approach is a market pavement node. The market is
+  sized independently of the hall (it must only be as long as the facade, so
+  no ring of pavement is reserved round the hall) and stays one contiguous
+  open square. The hall keeps a street width from the cathedral, parvis and
+  castle, is an obstacle for streets, blocks and routes, and ordinary
+  buildings, services and roads respect its footprint; the other three
+  market sides stay open to streets and building frontage. Candidates run
+  along the four market edges, centred first then flush to an end; the seeded
+  rng picks among the first tier that fits inside the boundary.
 - **Residents.** Require Living Villages. Spawn one resident per valid,
   complete, accessible bed inside placed buildings, including tavern and
   landmark beds. Support the game's bed colors, count each pair once, and
@@ -282,7 +291,7 @@ Agreed scope:
 
 **Exit check:** inspect two fixed seeds with the actual initial library.
 Street fronts are mostly continuous, doors and leftover interiors are
-accessible, city hall leaves the market walkable, and the real landmarks fit
+accessible, city hall stands beside an open, walkable market, and the real landmarks fit
 without damaging routes. Observe one full day/night cycle: residents can
 sleep and use nearby services when their behavior triggers. Verify no duplicate
 initial residents after reload, and record construction cost and the largest

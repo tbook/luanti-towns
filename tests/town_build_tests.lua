@@ -13,7 +13,7 @@ local GROUND_Y = 40
 
 local entries = catalog.entries
 local profile = assert(planner.landmark_profile(catalog.snapshot()))
-local plan = assert(planner.plan({x = 0, z = 0}, 14, {landmarks = profile}))
+local plan = assert(planner.plan({x = 0, z = 0}, 2, {landmarks = profile}))
 eq(#plan.content.alleys >= 1, true, "fixture plan has an alley")
 eq(#plan.content.buildings >= 2, true, "fixture plan has buildings")
 eq(plan.sites.city_hall ~= nil, true, "fixture plan has a city hall")

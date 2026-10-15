@@ -136,10 +136,10 @@ for seed = 1, 8 do
 	local counts = res.service_counts
 	eq(counts.tavern.placed, 3, label .. " taverns")
 	eq(counts.well.placed, 3, label .. " wells")
-	-- Seed 3 (#86 re-pin): with the larger of row depth and the #89 minimum
+	-- Seed 4 (#106 re-pin; seed 3 under #86): with the larger of row depth and the #89 minimum
 	-- block side and the narrow-gap rules there is no frontage left for a
 	-- second chapel 70 away; it is a reported shortage, not a failed plan.
-	local want_chapels = (seed == 3) and 1 or 2
+	local want_chapels = (seed == 4) and 1 or 2
 	eq(counts.chapel.placed, want_chapels, label .. " chapels")
 	eq(#plan.shortages, 2 - want_chapels, label .. " shortages")
 	local all = {}

@@ -128,7 +128,8 @@ free ground, since buildings can sit on it).
   count.
 - `market_x`, `market_z`, `market_area`: market rectangle extents and node
   count. `market_open` is the number of market nodes left as market after
-  the city hall (or anything else painted over it) is subtracted;
+  anything painted over it is subtracted (since #106 the city hall stands
+  beside the market, so this is normally the whole rectangle);
   `market_open_share = market_open / market_area`;
   `market_open_square` is the side of the largest all-open square inside the
   market. Openness is area based, so a market that is open but squeezed into a
@@ -217,3 +218,30 @@ Placed buildings fall by about 9% (6% over seeds 1 to 30); the town-edge and
 between-road strips are gone. Seed 3 of the test set loses its second
 chapel (a reported shortage, not a failure). Variant A (minimum block side
 = D = 9) placed 789 buildings; it was not taken to keep the #89 look.
+
+### Before and after (#106 hall beside the market)
+
+Same 12 seeds and centres, catalog hash `62aae063`, on `origin/main`
+(3e4714c, after #86) and on this change; artifacts of the change are in
+`docs/layout_after_106/`. The hall used to stand inside the market with a
+5-node pavement ring; it now lies outside the open market, touching one edge
+with its door facing across it.
+
+| metric (12 seeds, sums) | before | after |
+| --- | --- | --- |
+| market area (nodes) | 6566 | 6705 |
+| market open nodes / share | 5798 / 0.883 | 6705 / 1.000 |
+| largest open square (sum of per-seed sides; range) | 130 (7 to 15) | 263 (20 to 25) |
+| narrow strips (count) | 63 | 55 |
+| narrow strip cells | 7482 | 6216 |
+| street length (est.) | 6699 | 6649 |
+| placed ordinary buildings (houses/shops/workshops) | 488 (298/89/101) | 517 (324/69/124) |
+| frontage used by placed buildings | 4473 | 4722 |
+| blocks / single-row blocks | 124 / 49 | 131 / 55 |
+| shortages / planning failures | 0 / 0 | 0 / 0 |
+| planner attempts (sum) | 44 | 44 |
+| tool time for the 12 seeds | 15.1 s | 14.2 s |
+
+The random stream changed (the hall is now drawn right after the market and
+the other landmarks keep clear of it), so individual towns differ; the totals
+above are not a like-for-like tuning result.

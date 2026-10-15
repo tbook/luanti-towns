@@ -141,7 +141,9 @@ end
 -- which the planner runs by default. Re-pinned in #86 (catalog-derived
 -- narrow-gap rules, minimum block side stays the #89 12): seeds 8, 14, 16
 -- and 17 seal 20, 72, 24 and 47 cells, all others 0 (before: 3, 4, 18, 19,
--- 20 sealed 84, 546, 36, 97, 24; earlier re-pins #88/#89/#105).
+-- 20 sealed 84, 546, 36, 97, 24; earlier re-pins #88/#89/#105). Re-pinned in
+-- #106 (hall beside the market, a different random stream): seeds 2 and 16
+-- seal 12 and 270 cells, all others 0.
 do
 	local geometry = dofile("src/geometry.lua")
 	local packer = dofile("src/frontage_packer.lua")(geometry)
@@ -149,7 +151,7 @@ do
 	local content = dofile("src/content_planner.lua")(geometry, packer,
 		jailmod.occupied_rects, access)
 	local base = assert(planner.landmark_profile(catalog.snapshot()))
-	local pinned = {[8] = 20, [14] = 72, [16] = 24, [17] = 47}
+	local pinned = {[2] = 12, [16] = 270}
 	for seed = 1, 22 do pinned[seed] = pinned[seed] or 0 end
 	local function inside(r, x, z)
 		return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2

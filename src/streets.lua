@@ -248,7 +248,7 @@ function M.fill(plan, rng, C)
 	local castle = lrect(plan.sites.castle.rect)
 	set_rect(F, n, cathedral, 0)
 	set_rect(F, n, castle, 0)
-	-- City hall (profile plans): an obstacle on the market, neither free
+	-- City hall (profile plans): an obstacle beside the market (#106), neither free
 	-- ground nor pavement, so no route or paving crosses its foundation.
 	local hall = plan.sites.city_hall and lrect(plan.sites.city_hall.rect)
 	if hall then set_rect(F, n, hall, 0) end
@@ -1058,7 +1058,7 @@ function M.validate(plan, C)
 		for z = r.z1, r.z2 do
 			for x = r.x1, r.x2 do
 				local i = z * n + x + 1
-				-- The city hall foundation is not pavement.
+				-- The city hall lies outside the market (#106); guard only.
 				if not (hall and name == "market"
 						and x >= hall.x1 and x <= hall.x2
 						and z >= hall.z1 and z <= hall.z2) then
