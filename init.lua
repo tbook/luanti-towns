@@ -21,6 +21,10 @@ towns.site_search = dofile(modpath .. "/src/site_search.lua")(towns.placement, t
 -- opt-in /towns_place_town path only.
 towns.node_setup = dofile(modpath .. "/src/node_setup.lua")
 
+-- Valid-bed enumeration inside placed buildings (#47); read-only, used by
+-- the opt-in /towns_place_town path only.
+towns.residents = dofile(modpath .. "/src/residents.lua")
+
 -- Flat-town builder: one validated plan + inspected site -> nodes (#15).
 towns.builder = dofile(modpath .. "/src/builder.lua")(towns.placement, towns.planner)
 

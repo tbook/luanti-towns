@@ -126,6 +126,19 @@ do -- without write_bounds the modified area falls back to the site bounds
 	eq(has(table.concat(generate.format_report(s2), "\n"), "Modified area (" .. plan.bounds.x1 .. ",100,"),
 		true, "report: modified area falls back to bounds")
 end
+do -- ticket #47: the town report carries the bed enumeration
+	local s3 = make_summary()
+	s3.town = {placed = 2, alleys = 0, doors = {},
+		beds = {count = 3, skipped = {{category = "inaccessible", reason = "no_standing_space",
+			pos = {x = 1, y = 2, z = 3}, id = "townhouses"}}}}
+	local t3 = table.concat(generate.format_report(s3), "\n")
+	eq(has(t3, "Beds: 3 valid, 1 skipped."), true, "report: bed counts")
+	eq(has(t3, "Skipped beds (inaccessible, no_standing_space): 1."), true,
+		"report: skipped bed count per reason")
+	s3.town.beds, s3.town.beds_error = nil, "boom"
+	eq(has(table.concat(generate.format_report(s3), "\n"), "Bed enumeration failed: boom."), true,
+		"report: bed enumeration failure")
+end
 local text = table.concat(lines, "\n")
 eq(has(text, "Seed 11"), true, "report: seed")
 eq(has(text, "Centre (3000,2952)"), true, "report: centre")
