@@ -351,12 +351,26 @@ core.register_on_mods_loaded(function() core.after(0, function()
      check(above == 'air', 'alley ' .. a.id .. ' open above: ' .. above)
     end
     report.alleys_in_plan = #alleys > 0
-    -- City hall is not paved over.
+    -- City hall (#106) stands beside the market: the market node in front
+    -- of its door is pavement, its facade end cells are not.
     local hall = plan.sites.city_hall
     if hall then
-     local n = core.get_node({x = hall.rect.x1, y = g, z = hall.rect.z1}).name
-     report.hall_corner = n
-     check(n ~= 'mcl_core:stonebrick' and n ~= 'mcl_core:cobble', 'city hall corner not pavement: ' .. n)
+     local r, side = hall.rect, hall.side
+     local ends
+     if side == '-z' then ends = {{r.x1, r.z1}, {r.x2, r.z1}}
+     elseif side == '+z' then ends = {{r.x1, r.z2}, {r.x2, r.z2}}
+     elseif side == '-x' then ends = {{r.x1, r.z1}, {r.x1, r.z2}}
+     else ends = {{r.x2, r.z1}, {r.x2, r.z2}} end
+     for i, e in ipairs(ends) do
+      local n = core.get_node({x = e[1], y = g, z = e[2]}).name
+      report['hall_facade_end_' .. i] = n
+      check(n ~= 'mcl_core:stonebrick' and n ~= 'mcl_core:cobble',
+       'city hall facade end ' .. i .. ' not pavement: ' .. n)
+     end
+     local p = hall.approach.pos
+     local n = core.get_node({x = p.x, y = g, z = p.z}).name
+     report.hall_approach = n
+     check(n == 'mcl_core:stonebrick', 'market node in front of the hall door is pavement: ' .. n)
     end
     -- Functional node initialization (ticket #46), verified in the engine.
     local setup = town.setup

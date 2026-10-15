@@ -1041,7 +1041,8 @@ local function shape_site(name, kind, r, side, L)
 	return s
 end
 
--- `min_side` (optional) enlarges the square so it holds the city hall.
+-- `min_side` (optional) enlarges the square to at least the city hall's
+-- facade length, so the hall can stand along one of its edges (#106).
 local function sample_market(rng, C, count, n, min_side)
 	for _ = 1, C.MARKET_TRIES do
 		local w = rng.int(C.MARKET_MIN, C.MARKET_MAX)
