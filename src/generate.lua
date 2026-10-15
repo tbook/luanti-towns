@@ -160,6 +160,25 @@ function M.format_report(summary, command)
 	add("Streets %d (%d principal, %d secondary), blocks %d, frontage runs %d.",
 		c.streets, c.principal, c.secondary, c.blocks, c.frontage)
 	if s.nodes then add("%d nodes changed.", s.nodes.changed) end
+	local lq = s.liquids
+	if type(lq) == "table" and (lq.buried > 0 or lq.sealed > 0) then
+		add("Replaced %d buried liquid/ice nodes; sealed %d open cells beside outside water.",
+			lq.buried, lq.sealed)
+	end
+	local site = s.site
+	if type(site) == "table" then
+		if site.wet and site.wet.count > 0 then
+			add("Landfilled %d water/ice columns (deepest %d nodes) up to ground level y=%d.",
+				site.wet.count, site.wet.max_depth, g)
+		end
+		if type(site.rejections) == "table" and next(site.rejections) then
+			local codes = {}
+			for code, n in pairs(site.rejections) do codes[#codes + 1] = code .. " x" .. n end
+			table.sort(codes)
+			add("Skipped %d candidate sites on the way: %s.", site.candidates_tried and
+				(site.candidates_tried - 1) or 0, table.concat(codes, ", "))
+		end
+	end
 	if s.town then
 		add("Placed %d buildings (%d alleys paved); all %d door approach routes are walkable.",
 			s.town.placed, s.town.alleys, #s.town.doors)

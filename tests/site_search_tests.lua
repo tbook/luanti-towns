@@ -761,3 +761,122 @@ local rf, sf, df = run(fw2, PLAYER, SMALL)
 eq(rf, nil, "frozen lake: no site")
 eq(df.rejections.water ~= nil and df.rejections.water > 0, true, "frozen lake: rejected as water")
 eq(#fw2.writes, 0, "frozen lake: no writes")
+
+------------------------------------------------------------------------
+-- Wet sites (ticket #104)
+------------------------------------------------------------------------
+do
+	local WET = ss.WET_DEFAULTS
+	eq(WET.max_water_depth, 6, "wet defaults: depth")
+	eq(WET.max_wet_fraction, 0.25, "wet defaults: fraction")
+	eq(ss.CONSTANTS.MAX_WATER_DEPTH, 0, "legacy default: no wet columns")
+
+	-- scan_column_wet
+	local col = {}
+	local function cls(y) return col[y] or "air" end
+	col = {[30] = "water", [29] = "water", [28] = "solid"}
+	local bed, prob, _, surf = ss.scan_column_wet(cls, 40, 0, 6)
+	eq(bed, 28, "scan wet: bed")
+	eq(surf, 30, "scan wet: surface")
+	eq(prob, nil, "scan wet: no problem")
+	col = {[25] = "clear", [24] = "solid"}
+	bed, prob, _, surf = ss.scan_column_wet(cls, 40, 0, 6)
+	eq(bed, 24, "scan dry: bed")
+	eq(surf, nil, "scan dry: no surface")
+	col = {[30] = "water", [29] = "clear", [28] = "water", [27] = "solid"}
+	bed, _, _, surf = ss.scan_column_wet(cls, 40, 0, 6)
+	eq(bed == 27 and surf == 30, true, "scan wet: plants under water are passed")
+	col = {}
+	for y = 30, 20, -1 do col[y] = "water" end
+	col[19] = "solid"
+	_, prob = ss.scan_column_wet(cls, 40, 0, 6)
+	eq(prob, "too_deep_water", "scan wet: deeper than the limit")
+	col = {[30] = "water", [29] = "air", [28] = "solid"}
+	_, prob = ss.scan_column_wet(cls, 40, 0, 6)
+	eq(prob, "no_ground", "scan wet: air gap under ice/water rejects")
+	col = {[30] = "water", [29] = "lava"}
+	_, prob = ss.scan_column_wet(cls, 40, 0, 6)
+	eq(prob, "lava", "scan wet: lava under water rejects")
+	col = {[30] = "lava"}
+	_, prob = ss.scan_column_wet(cls, 40, 0, 6)
+	eq(prob, "lava", "scan wet: top lava rejects")
+	col = {}
+	for y = 30, 0, -1 do col[y] = "water" end
+	_, prob = ss.scan_column_wet(cls, 40, 0, 6)
+	eq(prob, "too_deep_water", "scan wet: bottomless water")
+
+	-- inspect_columns wet rules
+	local cols = {}
+	for i = 1, 100 do cols[i] = {x = i, z = 0} end
+	local function rd(bed_of, surf_of)
+		return function(x) return bed_of(x), nil, 0, surf_of and surf_of(x) or nil end
+	end
+	local cfg = {max_depth = 6, max_fraction = 0.25}
+	local function pond_cols(n, bed, surf, dry)
+		return rd(function(x) return x <= n and bed or dry end,
+			function(x) return x <= n and surf or nil end)
+	end
+	local i1 = ss.inspect_columns(cols, pond_cols(10, 16, 20, 20), 100, 16, 5, 24, cfg)
+	eq(i1 ~= nil and i1.ground_y, 20, "wet inspect: ground at the water surface")
+	eq(i1 and i1.wet.count, 10, "wet inspect: count")
+	eq(i1 and i1.wet.max_depth, 4, "wet inspect: depth (surface - bed)")
+	eq(i1 and i1.heights[1][0], 16, "wet inspect: heights keep the bed")
+	eq(i1 and i1.min_height, 16, "wet inspect: min height is the bed")
+	eq(i1 and i1.wet.surfaces[1][0], 20, "wet inspect: surfaces kept")
+	local _, code2 = ss.inspect_columns(cols, pond_cols(30, 16, 20, 20), 100, 16, 5, 24, cfg)
+	eq(code2, "too_wet", "wet inspect: too many wet columns")
+	local i3 = ss.inspect_columns(cols, pond_cols(25, 16, 20, 20), 100, 16, 5, 24, cfg)
+	eq(i3 ~= nil, true, "wet inspect: exactly the fraction accepted")
+	local i4 = ss.inspect_columns(cols, pond_cols(5, 22, 26, 20), 100, 16, 5, 24, cfg)
+	eq(i4 ~= nil and i4.ground_y, 26, "wet inspect: ground never below a wet surface")
+	local ring_cfg = {max_depth = 6, max_fraction = 0.25, ring = {{x = 0, z = 0}},
+		read_ring = function() return 23 end}
+	local i5 = ss.inspect_columns(cols, rd(function() return 20 end), 100, 16, 5, 24, ring_cfg)
+	eq(i5 ~= nil and i5.ground_y, 23, "wet inspect: ring water raises the ground")
+	eq(i5 and i5.wet, nil, "wet inspect: ring water is not a wet column")
+	ring_cfg.read_ring = function() return 50 end
+	local _, code5 = ss.inspect_columns(cols, rd(function() return 20 end), 100, 16, 5, 24, ring_cfg)
+	eq(code5, "too_uneven", "wet inspect: ring water beyond cut/fill")
+	local _, code6 = ss.inspect_columns(cols, function() return nil, "water", 5 end, 100, 16)
+	eq(code6, "water", "legacy water code unchanged")
+	local _, code7, msg7 = ss.inspect_columns(cols, function() return nil, "lava", 5 end, 100, 16, 5, 24, cfg)
+	eq(code7 == "lava" and msg7:find("lava", 1, true) ~= nil, true, "lava code")
+
+	-- Whole searches on the mock world: a 10x10 pond inside the first
+	-- candidate that is clear of the player.
+	local big
+	for _, r in ipairs(eplan.boundary.rects) do
+		if r.x2 - r.x1 >= 14 and r.z2 - r.z1 >= 14 then big = r; break end
+	end
+	local px1, pz1 = big.x1 + 2, big.z1 + 2
+	local function in_pond(x, z) return x >= px1 and x <= px1 + 9 and z >= pz1 and z <= pz1 + 9 end
+	local function pond_world(bed, level)
+		return new_world({
+			surface = function(x, z) return in_pond(x, z) and bed or 20 end,
+			water = function(x, z) if in_pond(x, z) then return level end end,
+		})
+	end
+	local P0 = {x = 0, y = 21, z = 0}
+	local lr = run(pond_world(16, 20), P0, nil)
+	eq(lr ~= nil and lr.candidate.index > ei, true, "pond legacy: first candidate skipped")
+	local opts = {max_water_depth = WET.max_water_depth, max_wet_fraction = WET.max_wet_fraction}
+	local wr = run(pond_world(16, 20), P0, opts)
+	eq(wr ~= nil and wr.candidate.index, ei, "pond wet: first clear candidate accepted")
+	eq(wr and wr.ground_y, 20, "pond wet: ground at water level")
+	eq(wr and wr.wet and wr.wet.count, 100, "pond wet: 100 landfilled columns")
+	eq(wr and wr.wet and wr.wet.max_depth, 4, "pond wet: depth")
+	eq(wr and wr.min_height, 16, "pond wet: lowest bed in min_height")
+	eq(wr and wr.heights[px1][pz1], 16, "pond wet: height is the bed")
+	eq(wr and wr.build_bounds.min.y <= 16, true, "pond wet: build bounds reach the bed")
+	-- bed 12 under water level 20: depth 9 > 6.
+	local _, _, dd2 = run(pond_world(12, 20), P0,
+		{max_water_depth = 6, max_wet_fraction = 0.25, max_radius = 128})
+	eq(dd2.rejections.too_deep_water ~= nil, true, "pond deep: too_deep_water counted")
+	local _, _, td = run(pond_world(16, 20), P0,
+		{max_water_depth = 6, max_wet_fraction = 0.001, max_radius = 128})
+	eq(td.rejections.too_wet ~= nil, true, "pond: too_wet counted")
+	-- A pond whose level is below the dry ground (water 19, depth 3).
+	local ir = run(pond_world(16, 19), P0, opts)
+	eq(ir ~= nil and ir.wet ~= nil and ir.wet.max_depth, 3, "pond wet: depth counted to the top water node")
+	eq(ir and ir.ground_y, 20, "pond wet: ground is the dry level (median)")
+end

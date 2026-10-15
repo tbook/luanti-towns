@@ -40,6 +40,10 @@
 --                                    ss.median for even-count ties)
 --     heights      = {[x] = {[z] = y}}  surface (topmost solid node) of every
 --                                    boundary column; ss.height_at(result,x,z)
+--     wet          = nil | {count, max_depth, surfaces = {[x]={[z]=y}}}
+--                                    wet mode only (MAX_WATER_DEPTH > 0): the
+--                                    landfilled columns and their liquid/ice
+--                                    surface; heights holds their BED
 --     columns      = integer         number of inspected columns
 --     min_height, max_height = integer   actual surface extremes, including outliers
 --     build_bounds = {min={x,y,z}, max={x,y,z}} inclusive, exact: X/Z are
@@ -66,6 +70,21 @@
 -- Terrain classes are exactly Phase 1's (placement.classify). Ice (ice,
 -- packed ice, frosted ice, any slippery node) counts as water: never ground,
 -- so a frozen lake is rejected as "water". Cactus etc. are not special-cased.
+-- Wet columns (ticket #104, opt-in through MAX_WATER_DEPTH > 0): a column
+-- whose topmost non-air/non-vegetation node is liquid or ice and which reaches
+-- solid ground within MAX_WATER_DEPTH nodes is "wet". Its `surface` is the top
+-- liquid/ice node; its `bed` is the topmost solid node below (result.heights
+-- keeps the BED, so the builder fills from solid ground; result.wet holds the
+-- surfaces). The finished ground is
+--     ground_y = max(median of the surface heights (bed for dry columns,
+--                water surface for wet ones), highest wet surface in the
+--                footprint or in the one-node ring around it)
+-- so the water level is never above the finished ground and no liquid can
+-- flow back into the cleared volume. Range and cut/fill are measured on
+-- surfaces (range, upper cut) and beds (lower fill: min_height is the lowest
+-- bed). Lava and unknown nodes always reject. Rejection codes added: lava,
+-- too_deep_water (a column deeper than MAX_WATER_DEPTH, or water without a
+-- bed in the window), too_wet (wet columns > MAX_WET_FRACTION of the footprint).
 -- Rejection codes: out_of_range (centre beyond planner's +/-31000),
 -- emerge_timeout (see EMERGE_TIMEOUT), player_inside (player within the candidate's bounds plus
 -- PLAYER_MARGIN), plan_failed, emerge_failed (CANCELLED/ERRORED), water
@@ -118,7 +137,16 @@ M.CONSTANTS = {
 	EMERGE_TIMEOUT = 30,      -- seconds to wait for one emerge before giving up
 	MAX_CONSECUTIVE_TIMEOUTS = 3, -- then fail the whole search
 	CENTER_LIMIT = 31000,     -- planner.plan accepts |centre| <= this
+	-- Wet sites (ticket #104). Both default to 0 = legacy: any liquid or ice
+	-- node in a footprint column rejects the candidate as "water". Opt in with
+	-- M.WET_DEFAULTS (or any positive values); see "Wet columns" in the header.
+	MAX_WATER_DEPTH = 0,      -- deepest liquid/ice column that is landfilled, nodes
+	MAX_WET_FRACTION = 0,     -- largest share of footprint columns that may be wet
 }
+
+-- Conservative loosening used by /towns_place_town: columns under at most 6
+-- nodes of water/ice are landfilled, up to a quarter of the footprint columns.
+M.WET_DEFAULTS = {max_water_depth = 6, max_wet_fraction = 0.25}
 
 local function constants(opts)
 	local C = {}
@@ -150,6 +178,12 @@ local function constants(opts)
 	end
 	if C.STEP < 1 or C.STEP ~= math.floor(C.STEP) then
 		error("towns site_search: opts.step must be an integer >= 1, got " .. tostring(C.STEP), 3)
+	end
+	if C.MAX_WET_FRACTION > 1 then
+		error("towns site_search: opts.max_wet_fraction must be <= 1", 3)
+	end
+	if C.MAX_WATER_DEPTH ~= math.floor(C.MAX_WATER_DEPTH) then
+		error("towns site_search: opts.max_water_depth must be an integer", 3)
 	end
 	if C.OUTLIER_PERCENT >= 100 then
 		error("towns site_search: opts.outlier_percent must be < 100", 3)
@@ -266,9 +300,11 @@ function M.inspection_volume(plan_bounds, ref_y, C)
 	local b = plan_bounds
 	local top = ref_y + C.SCAN_UP + 1
 	local bottom = ref_y - C.SCAN_DOWN
+	-- Wet mode also reads the one-node ring around the plan (outside water).
+	local m = C.MAX_WATER_DEPTH > 0 and 1 or 0
 	return {
-		min = {x = b.x1, y = bottom, z = b.z1},
-		max = {x = b.x2, y = top, z = b.z2},
+		min = {x = b.x1 - m, y = bottom, z = b.z1 - m},
+		max = {x = b.x2 + m, y = top, z = b.z2 + m},
 	}, top, bottom
 end
 
@@ -308,37 +344,134 @@ function M.height_at(result, x, z)
 	return col and col[z]
 end
 
+-- Scan of one column in wet mode (ticket #104). class_at(y) returns the
+-- placement.classify classes plus "lava" (named lava). Returns
+--   bed, nil, nil, surface   wet column (surface = topmost liquid/ice y)
+--   bed                      dry column
+--   nil, problem, y          problem: lava, unknown, no_ground, too_deep_water
+-- (liquid/ice, then vegetation, then solid is wet; air under a liquid is a
+-- cave or ice-sheet gap and rejects as no_ground; no bed within max_depth
+-- nodes of the surface is too_deep_water, including water that runs to the
+-- bottom of the window.)
+function M.scan_column_wet(class_at, top, bottom, max_depth)
+	local surface
+	for y = top, bottom, -1 do
+		local c = class_at(y)
+		if c == "solid" then
+			if surface then return y, nil, nil, surface end
+			return y
+		elseif c == "unknown" or c == "lava" then
+			return nil, c, y
+		elseif c == "water" then
+			surface = surface or y
+			if surface - y + 1 > max_depth then return nil, "too_deep_water", y end
+		elseif c == "air" and surface then
+			return nil, "no_ground", y
+		end
+	end
+	if surface then return nil, "too_deep_water", bottom end
+	return nil, "no_ground", bottom
+end
+
+-- Surface y of a ring column (water outside the footprint) or nil.
+function M.ring_surface(class_at, top, bottom)
+	for y = top, bottom, -1 do
+		local c = class_at(y)
+		if c == "water" then return y end
+		if c == "solid" or c == "unknown" or c == "lava" then return nil end
+	end
+end
+
+-- Columns adjacent (4-neighbourhood) to the union but not in it.
+function M.ring_columns(rects)
+	local inside = {}
+	for _, r in ipairs(rects) do
+		for x = r.x1, r.x2 do
+			inside[x] = inside[x] or {}
+			for z = r.z1, r.z2 do inside[x][z] = true end
+		end
+	end
+	local seen, list = {}, {}
+	for x, col in pairs(inside) do
+		for z in pairs(col) do
+			for _, d in ipairs({{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) do
+				local nx, nz = x + d[1], z + d[2]
+				if not (inside[nx] and inside[nx][nz]) then
+					seen[nx] = seen[nx] or {}
+					if not seen[nx][nz] then
+						seen[nx][nz] = true
+						list[#list + 1] = {x = nx, z = nz}
+					end
+				end
+			end
+		end
+	end
+	table.sort(list, function(a, b)
+		if a.x ~= b.x then return a.x < b.x end
+		return a.z < b.z
+	end)
+	return list
+end
+
 -- Inspects every column. read(x, z) -> height | nil, problem, y
--- (the placement.scan_column results). Pure given `read`.
+-- (the placement.scan_column results; in wet mode scan_column_wet's, whose
+-- 4th value is the liquid surface of a wet column).
+-- Pure given `read`.
 -- Returns info table, or nil, code, message with code one of
--- water, unknown, no_ground, too_high, too_uneven.
+-- water, lava, unknown, no_ground, too_high, too_uneven, too_deep_water,
+-- too_wet.
 -- Optional outlier_percent trims equally from both tails, rounded down so
 -- the allowance is never exceeded. Actual extremes and all heights are kept
 -- for construction. max_cut_fill caps every column relative to the median.
-function M.inspect_columns(columns, read, top, max_range, outlier_percent, max_cut_fill)
+-- Optional `wet` = {max_depth, max_fraction, ring = columns} enables wet
+-- columns (see the header): info.heights stays the bed, info.wet =
+-- {count, max_depth, surfaces = {[x]={[z]=y}}}, and ground_y is raised to the
+-- highest water surface (footprint or ring) when the median is lower.
+function M.inspect_columns(columns, read, top, max_range, outlier_percent, max_cut_fill, wet)
 	local heights, list = {}, {}
-	local lo, hi
+	local lo, hi, bed_lo
+	local nwet, wet_depth, wet_max_surf, surfaces = 0, 0, nil, {}
 	for _, c in ipairs(columns) do
-		local h, problem, py = read(c.x, c.z)
+		local h, problem, py, surf = read(c.x, c.z)
 		if not h then
 			if problem == "water" then
 				return nil, "water", ("water or lava at (%d,%d,%d)"):format(c.x, py, c.z)
+			elseif problem == "lava" then
+				return nil, "lava", ("lava at (%d,%d,%d)"):format(c.x, py, c.z)
+			elseif problem == "too_deep_water" then
+				return nil, "too_deep_water",
+					("water at (%d,%d) deeper than %d nodes (no bed above y=%d)"):format(
+						c.x, c.z, wet and wet.max_depth or 0, py)
 			elseif problem == "unknown" then
 				return nil, "unknown", ("unloaded or unknown node at (%d,%d,%d)"):format(c.x, py, c.z)
 			end
 			return nil, "no_ground", ("no solid ground at (%d,%d) down to y=%d"):format(c.x, c.z, py)
 		end
-		if h >= top then
+		local v = surf or h -- the height this column contributes to range/median
+		if v >= top then
 			return nil, "too_high", ("surface at (%d,%d) reaches the inspection window top y=%d"):format(c.x, c.z, top)
 		end
 		local col = heights[c.x]
 		if not col then col = {}; heights[c.x] = col end
 		col[c.z] = h
-		list[#list + 1] = h
-		if not lo or h < lo then lo = h end
-		if not hi or h > hi then hi = h end
+		if surf then
+			nwet = nwet + 1
+			wet_depth = math.max(wet_depth, surf - h)
+			if not wet_max_surf or surf > wet_max_surf then wet_max_surf = surf end
+			surfaces[c.x] = surfaces[c.x] or {}
+			surfaces[c.x][c.z] = surf
+		end
+		list[#list + 1] = v
+		if not lo or v < lo then lo = v end
+		if not hi or v > hi then hi = v end
+		if not bed_lo or h < bed_lo then bed_lo = h end
 	end
 	if not lo then return nil, "no_ground", "no columns to inspect" end
+	if nwet > 0 and wet and #list > 0 and nwet > wet.max_fraction * #list then
+		return nil, "too_wet",
+			("%d of %d columns (%.1f%%) are under water or ice, more than the allowed %.1f%%"):format(
+				nwet, #list, 100 * nwet / #list, 100 * wet.max_fraction)
+	end
 	table.sort(list)
 	local ground = list[math.floor((#list + 1) / 2)]
 	local trim = math.floor(#list * (outlier_percent or 0) / 200)
@@ -348,12 +481,28 @@ function M.inspect_columns(columns, read, top, max_range, outlier_percent, max_c
 			("middle surface heights vary from y=%d to y=%d (range %d, max %d; %d columns excluded from each tail)"):format(
 				core_lo, core_hi, core_hi - core_lo, max_range, trim)
 	end
-	if max_cut_fill and math.max(ground - lo, hi - ground) > max_cut_fill then
-		return nil, "too_uneven",
-			("surface extremes y=%d..%d require more than %d nodes of cut/fill at median y=%d"):format(
-				lo, hi, max_cut_fill, ground)
+	-- Water must never end up above the finished ground (no flow back in).
+	if wet and wet.ring then
+		for _, c in ipairs(wet.ring) do
+			local rs = wet.read_ring(c.x, c.z)
+			if rs and (not wet_max_surf or rs > wet_max_surf) then wet_max_surf = rs end
+		end
 	end
-	return {heights = heights, list = list, min_height = lo, max_height = hi, ground_y = ground}
+	local label = "median"
+	if wet_max_surf and wet_max_surf > ground then
+		ground, label = wet_max_surf, "water-level ground"
+	end
+	if max_cut_fill and math.max(ground - bed_lo, hi - ground) > max_cut_fill then
+		return nil, "too_uneven",
+			("surface extremes y=%d..%d require more than %d nodes of cut/fill at %s y=%d"):format(
+				bed_lo, hi, max_cut_fill, label, ground)
+	end
+	local info = {heights = heights, list = list, min_height = bed_lo, max_height = hi,
+		ground_y = ground}
+	if nwet > 0 then
+		info.wet = {count = nwet, max_depth = wet_depth, surfaces = surfaces}
+	end
+	return info
 end
 
 -- "water x3, too_uneven x10": most frequent first, ties by code.
@@ -446,8 +595,11 @@ function M.search(player_pos, seed, opts, done, env)
 			tostring(gname), px, ref_y, pz))
 	end
 
+	local wet_mode = C.MAX_WATER_DEPTH > 0
 	local function class_at(x, y, z)
-		return placement.classify(env.get_node_name(x, y, z), env.node_info)
+		local name = env.get_node_name(x, y, z)
+		if wet_mode and name:find("lava", 1, true) then return "lava" end
+		return placement.classify(name, env.node_info)
 	end
 
 	-- The layout depends only on the seed and the centre merely translates
@@ -552,9 +704,24 @@ function M.search(player_pos, seed, opts, done, env)
 
 		emerge_step(volume.min, volume.max, function(status)
 			if emerge_bad(status, center) then return end
-			local info, code, msg = M.inspect_columns(M.boundary_columns(rects), function(x, z)
-				return placement.scan_column(function(y) return class_at(x, y, z) end, top, bottom)
-			end, top, C.MAX_RANGE, C.OUTLIER_PERCENT, C.MAX_CUT_FILL)
+			local read, wet
+			if wet_mode then
+				read = function(x, z)
+					return M.scan_column_wet(function(y) return class_at(x, y, z) end,
+						top, bottom, C.MAX_WATER_DEPTH)
+				end
+				wet = {max_depth = C.MAX_WATER_DEPTH, max_fraction = C.MAX_WET_FRACTION,
+					ring = M.ring_columns(rects),
+					read_ring = function(x, z)
+						return M.ring_surface(function(y) return class_at(x, y, z) end, top, bottom)
+					end}
+			else
+				read = function(x, z)
+					return placement.scan_column(function(y) return class_at(x, y, z) end, top, bottom)
+				end
+			end
+			local info, code, msg = M.inspect_columns(M.boundary_columns(rects), read,
+				top, C.MAX_RANGE, C.OUTLIER_PERCENT, C.MAX_CUT_FILL, wet)
 			if not info then return reject(code, msg) end
 
 			-- Real plan for the accepted site; it must be exactly the
@@ -604,6 +771,7 @@ function M.search(player_pos, seed, opts, done, env)
 					plan = plan,
 					ground_y = ground,
 					heights = info.heights,
+					wet = info.wet,
 					columns = #info.list,
 					min_height = info.min_height,
 					max_height = info.max_height,

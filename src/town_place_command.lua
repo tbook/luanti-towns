@@ -29,10 +29,15 @@ end
 -- Search and build halves, exposed for headless validation
 -- (tools/place_check) as towns.place_town.
 local function search(pos, seed, _, done)
-	return towns.site_search.search(pos, seed, {
+	-- Ticket #104: wet sites (shallow ponds, rivers, ice) are landfilled; the
+	-- conservative towns.site_search.WET_DEFAULTS apply. /towns_generate keeps
+	-- the legacy "any liquid rejects" rule.
+	local opts = {
 		structure_bounds = true,
 		planner_opts = {landmarks = profile()},
-	}, done)
+	}
+	for k, v in pairs(towns.site_search.WET_DEFAULTS) do opts[k] = v end
+	return towns.site_search.search(pos, seed, opts, done)
 end
 
 local store = towns.residents.core_store(core.get_mod_storage())
@@ -56,6 +61,11 @@ local function build(result)
 	})
 	local summary, bmsg, bcode, extra = towns.builder.build_town(
 		result, {entries = towns.catalog.entries}, env)
+	if summary then
+		summary.site = {wet = result.wet and {count = result.wet.count,
+			max_depth = result.wet.max_depth}, rejections = result.rejections,
+			candidates_tried = result.candidates_tried}
+	end
 	if summary and summary.town then
 		-- Ticket #47: read-only bed enumeration inside the placed boxes. It
 		-- never fails the build; a problem is reported instead of the count.

@@ -141,6 +141,27 @@ sketch):
   within 320 nodes and inspect heights within 48 nodes above and below the
   player’s ground level. Actual surface extremes determine the build bounds.
   The search is read-only and asynchronous (it emerges what it inspects).
+  Water (ticket #104): only liquid or ice at the top of a column counts as
+  surface water; buried pockets and caves are ignored by the search and are
+  made safe by the builder (below). `/towns_generate` keeps the strict rule
+  (any surface water or ice rejects). `/towns_place_town` opts into
+  `WET_DEFAULTS`: a column covered by at most `MAX_WATER_DEPTH` = 6 nodes of
+  water or ice (bed found within that depth) is "wet" and is landfilled; wet
+  columns may be at most `MAX_WET_FRACTION` = 25% of the footprint, deeper
+  water rejects as `too_deep_water`, more wet columns as `too_wet`, lava as
+  `lava`. For range and median a wet column counts at its water surface; the
+  finished ground is the median raised to the highest water surface in the
+  footprint or in the one-node ring around it, so no water ends up above the
+  ground. Fill is measured from the bed and still limited by the 24 node
+  cut/fill cap. The failure message and the success report list rejection
+  counts per reason.
+- **Liquids in the build volume.** The builder replaces every liquid or ice
+  node that lies at or below a column's surface inside the owned rows (cut
+  volume, support rows, landfilled wet columns); liquid above a dry column's
+  surface is a stale inspection and fails the build with nothing written. A
+  liquid outside the town beside an open cell above ground level is sealed:
+  the natural solid terrain cell is kept, otherwise stone is written (inside
+  the town columns only). Deep pockets below the support rows are left alone.
 - **Flattening.** The accepted town interior is cut and filled to the median
   surface height of its columns, with the natural surface node kept at the
   new ground level. Smoothing the terrain at and beyond the town edge is
