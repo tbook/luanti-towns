@@ -18,11 +18,11 @@ towns.preflight = dofile(modpath .. "/src/preflight.lua")
 towns.site_search = dofile(modpath .. "/src/site_search.lua")(towns.placement, towns.planner)
 
 -- Post-placement initialization of functional nodes (#46); used by the
--- opt-in /towns_place_town path only.
+-- /towns_generate only.
 towns.node_setup = dofile(modpath .. "/src/node_setup.lua")
 
 -- Valid-bed enumeration inside placed buildings (#47); read-only, used by
--- the opt-in /towns_place_town path only.
+-- /towns_generate only.
 towns.residents = dofile(modpath .. "/src/residents.lua")
 
 -- Flat-town builder: one validated plan + inspected site -> nodes (#15).
@@ -41,11 +41,7 @@ end
 -- Privileged Phase 1 test command (overwrites its site; Testlandia only).
 loadfile(modpath .. "/src/test_command.lua")(towns)
 
--- Privileged Phase 2 command: search near the player and build at once
+-- Privileged populated-town command: search near the player and build at once
 -- (overwrites its site; disposable Creative worlds only).
 towns.generate = dofile(modpath .. "/src/generate.lua")(towns.planner)
 loadfile(modpath .. "/src/generate_command.lua")(towns)
-
--- Experimental opt-in placement of real schematics (ticket #45); registers
--- nothing unless towns_enable_place_town = true.
-loadfile(modpath .. "/src/town_place_command.lua")(towns)

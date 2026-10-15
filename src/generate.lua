@@ -32,7 +32,7 @@
 --   entropy() -> number                     clock/world derived (random_seed)
 --   rng(lo, hi) -> integer   optional; injectable RNG for random_seed
 --   now() -> seconds         optional, for the stale-search guard
---   command_name             optional text such as "/towns_place_town", shown
+--   command_name             optional text such as "/towns_generate", shown
 --                            in the success report (default /towns_generate)
 
 return function(planner)
@@ -48,8 +48,13 @@ M.USAGE = "Usage: /towns_generate [seed], where seed is an integer from -"
 
 M.HELP = "WARNING: builds a town on the chosen site immediately, OVERWRITING it "
 	.. "with no preview and no confirmation; for disposable Creative worlds "
-	.. "only. Searches near you (you must stand on solid ground) for a site "
-	.. "with no water, a middle 95% height range of at most 16 nodes, and "
+	.. "only. Builds the populated town: cathedral, castle, city hall, jail, "
+	.. "services and houses/shops/workshops from the catalog, with alleys, "
+	.. "initialized nodes and one Living Villages resident per valid bed. "
+	.. "Searches near you (you must stand on solid ground) for a site "
+	.. "with no lava or deep water (shallow water and ice up to 6 nodes deep "
+	.. "is landfilled, over at most 25% of the footprint), a middle 95% "
+	.. "height range of at most 16 nodes, and "
 	.. "at most 24 nodes of cut/fill per column. Searches within 320 nodes and "
 	.. "inspects heights within 48 nodes above/below your ground level, flattens "
 	.. "it and builds the "
@@ -119,6 +124,26 @@ end
 local SIDE_NAME = {["-x"] = "-x (west)", ["+x"] = "+x (east)",
 	["-z"] = "-z (south)", ["+z"] = "+z (north)"}
 
+-- Post-write stages that did not complete cleanly (the town itself is
+-- placed). Returns a list of short strings; empty means a clean build.
+function M.report_problems(summary)
+	local out = {}
+	local t = type(summary) == "table" and summary.town
+	if not t then return out end
+	if t.beds_error then out[#out + 1] = "bed enumeration failed" end
+	if t.residents_error then out[#out + 1] = "resident initialization failed" end
+	local r = t.residents
+	if type(r) == "table" then
+		if (tonumber(r.failed) or 0) > 0 then
+			out[#out + 1] = ("%d resident(s) not spawned"):format(r.failed)
+		end
+		if (tonumber(r.interrupted) or 0) > 0 then
+			out[#out + 1] = ("%d resident initialization(s) interrupted"):format(r.interrupted)
+		end
+	end
+	return out
+end
+
 -- Success report: array of lines (also logged). `summary` is the builder's.
 -- `command` (optional) is the chat command name shown for repeating the
 -- seed; the town placement entry point (ticket #45) passes its own.
@@ -128,8 +153,15 @@ function M.format_report(summary, command)
 	local g = s.ground_y
 	local lines = {}
 	local function add(fmt, ...) lines[#lines + 1] = fmt:format(...) end
-	add("Town built. Seed %d (repeat it with %s %d from the same place).",
-		s.seed, command, s.seed)
+	local problems = M.report_problems(s)
+	if #problems > 0 then
+		add("Town built but INCOMPLETE (%s); the town itself is placed and the "
+			.. "world was modified. Seed %d (repeat it with %s %d from the same place).",
+			table.concat(problems, "; "), s.seed, command, s.seed)
+	else
+		add("Town built. Seed %d (repeat it with %s %d from the same place).",
+			s.seed, command, s.seed)
+	end
 	add("Centre (%d,%d), ground level y=%d.", s.center.x, s.center.z, g)
 	add("Site bounds %s.", bounds_str(s.bounds))
 	if type(s.write_bounds) == "table" then
@@ -182,6 +214,30 @@ function M.format_report(summary, command)
 	if s.town then
 		add("Placed %d buildings (%d alleys paved); all %d door approach routes are walkable.",
 			s.town.placed, s.town.alleys, #s.town.doors)
+		local kinds, ids, idorder = {}, {}, {}
+		for _, b in ipairs(s.town.structures or {}) do
+			kinds[b.kind] = (kinds[b.kind] or 0) + 1
+			if not ids[b.id] then ids[b.id] = 0; idorder[#idorder + 1] = b.id end
+			ids[b.id] = ids[b.id] + 1
+			if b.kind == "city_hall" then
+				add("City hall: %s; door at (%d,%d,%d).", rect_str(b.rect),
+					b.entrance.x, b.entrance.y, b.entrance.z)
+			end
+		end
+		if s.town.structures then
+			add("Buildings: %d landmarks/city hall/jail, %d services, %d houses/shops/workshops, %d alleys.",
+				(kinds.cathedral or 0) + (kinds.castle or 0) + (kinds.city_hall or 0)
+					+ (kinds.jail or 0),
+				kinds.service or 0, kinds.content or 0, s.town.alleys)
+			table.sort(idorder)
+			local parts = {}
+			for _, id in ipairs(idorder) do parts[#parts + 1] = id .. " x" .. ids[id] end
+			add("Catalog ids: %s.", table.concat(parts, ", "))
+		end
+		for _, sh in ipairs(s.town.shortages or {}) do
+			add("Unmet target: %s wanted %s, placed %s (%s).", tostring(sh.role),
+				tostring(sh.wanted), tostring(sh.placed), tostring(sh.reason))
+		end
 		local st = s.town.setup
 		if st then
 			add("Node setup: %d functional nodes initialized (%d placements, %d unhandled).",
@@ -224,10 +280,26 @@ function M.format_search_failure(message)
 end
 
 -- Builder failure: `code` is the builder's. Only write_failed may have
--- written anything and is reported as possibly partial, with the bounds.
+-- written anything (terrain, schematic placement, node initialization) and is
+-- reported as possibly partial, with the bounds; the other codes, including a
+-- failed preflight, happen before the first write ("Nothing was changed").
+-- Residents are initialized after the build; their failure is a report
+-- problem (report_problems), not a build failure.
 function M.format_build_failure(message, code, result, extra)
 	local m = tostring(message)
 	if code == "write_failed" then
+		if type(extra) == "table" then
+			local d = {}
+			if extra.reason then d[#d + 1] = "stage " .. tostring(extra.reason) end
+			if type(extra.building) == "table" then
+				d[#d + 1] = "building " .. tostring(extra.building.id)
+			end
+			if extra.placed and extra.total then
+				d[#d + 1] = ("%s of %s buildings placed"):format(
+					tostring(extra.placed), tostring(extra.total))
+			end
+			if #d > 0 then m = m .. " (" .. table.concat(d, ", ") .. ")" end
+		end
 		local where = ""
 		if type(extra) == "table" and type(extra.bounds) == "table" then
 			return "Town construction FAILED while writing (write_failed): " .. m
@@ -334,7 +406,8 @@ function M.new(deps)
 				deps.log("action", "towns_generate (" .. name .. "): write bounds "
 					.. bounds_str(summary.write_bounds))
 			end
-			return finish(true, M.format_report(summary, deps.command_name))
+			return finish(#M.report_problems(summary) == 0,
+				M.format_report(summary, deps.command_name))
 		end
 
 		deps.log("action", ("towns_generate (%s): seed %d%s, searching near (%.1f,%.1f,%.1f)"):format(

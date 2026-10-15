@@ -248,12 +248,13 @@ for _, bad in ipairs({"abc", "1.5", "1 2", tostring(LIMIT + 1), "922337203685477
 	eq(f.c.busy(), false, "invalid '" .. bad .. "': not busy")
 end
 
--- Ticket #104: /towns_generate passes no search options, so the strict
--- (non-wet) site search rule stays in force.
+-- Ticket #104: the controller itself passes no search options; the wiring in
+-- src/generate_command.lua adds structure bounds and WET_DEFAULTS (landfill
+-- mode is on for /towns_generate; exercised by place_check --scenario water).
 do
 	local f = fakes()
 	f.c.run("alice", "31337")
-	eq(f.searches[1].opts, nil, "towns_generate: no search opts, wet mode stays off")
+	eq(f.searches[1].opts, nil, "controller leaves search options to the wiring")
 end
 
 -- Offline player.
@@ -447,4 +448,99 @@ do
 	eq(#f.builds, 1, "throwing send: town still built")
 	eq(has(logs_text(f), "could not send chat"), true, "throwing send logged")
 	eq((f.c.run("alice", "6")), true, "can run again after a send failure")
+end
+
+------------------------------------------------------------------------
+-- Populated town command (ticket #49)
+------------------------------------------------------------------------
+local function box(id, kind, role, x)
+	return {id = id, kind = kind, role = role, rect = {x1 = x, z1 = 0, x2 = x + 5, z2 = 5},
+		entrance = {x = x, y = 105, z = -1}}
+end
+local function populated(extra)
+	local s = make_summary()
+	s.town = {placed = 6, alleys = 2, doors = {1, 2, 3, 4, 5, 6},
+		structures = {box("cathedral", "cathedral", "cathedral", 0),
+			box("castle", "castle", "castle", 10), box("city_hall", "city_hall", "city_hall", 20),
+			box("tavern_a", "service", "tavern", 30), box("home_a", "content", "house", 40),
+			box("home_a", "content", "house", 50)},
+		beds = {count = 5, skipped = {}},
+		residents = {summary = "Residents: 5 spawned, 0 skipped, 0 failed", spawned = 5, failed = 0,
+			interrupted = 0},
+		shortages = {{role = "well", wanted = 3, placed = 1, reason = "no_candidates"}}}
+	for k, v in pairs(extra or {}) do s.town[k] = v end
+	return s
+end
+
+do -- complete report
+	local s = populated()
+	eq(#generate.report_problems(s), 0, "populated: no problems")
+	local t = table.concat(generate.format_report(s), "\n")
+	eq(has(t, "Town built. Seed 11"), true, "populated: success header")
+	eq(has(t, "City hall: x 20..25, z 0..5"), true, "populated: city hall")
+	eq(has(t, "Buildings: 3 landmarks/city hall/jail, 1 services, 2 houses/shops/workshops, 2 alleys."),
+		true, "populated: counts")
+	eq(has(t, "Catalog ids: castle x1, cathedral x1, city_hall x1, home_a x2, tavern_a x1."),
+		true, "populated: catalog ids")
+	eq(has(t, "Beds: 5 valid, 0 skipped."), true, "populated: beds")
+	eq(has(t, "Residents: 5 spawned"), true, "populated: residents")
+	eq(has(t, "Unmet target: well wanted 3, placed 1 (no_candidates)."), true, "populated: unmet")
+end
+
+do -- success through the controller releases the lock
+	local f = fakes({build_result = function() return populated() end})
+	f.c.run("alice", "5")
+	f.searches[1].done({}, nil, {})
+	eq(has(sent_text(f), "Catalog ids:"), true, "controller: report sent")
+	eq(has(sent_text(f), "Error:"), false, "controller: success not an error")
+	eq(f.c.busy(), false, "controller: lock released after success")
+end
+
+do -- zero-write planning/preflight failure says nothing changed
+	local f = fakes({build_result = function() return nil, "node 'x' not registered", "inspection_failed",
+		{reason = "missing_node"} end})
+	f.c.run("alice", "5")
+	f.searches[1].done({}, nil, {})
+	eq(has(sent_text(f), "Nothing was changed"), true, "preflight failure: nothing changed")
+	eq(has(sent_text(f), "PARTIALLY"), false, "preflight failure: not partial")
+	eq(f.c.busy(), false, "preflight failure: lock released")
+end
+
+do -- late-stage partial failure (node setup after schematics) is not "nothing changed"
+	local wb = {min = {x = 1, y = 2, z = 3}, max = {x = 4, y = 5, z = 6}}
+	local f = fakes({build_result = function() return nil, "node setup failed", "write_failed",
+		{bounds = wb, reason = "node_setup_failed", building = {id = "tavern_a"}, placed = 4, total = 9} end})
+	f.c.run("alice", "5")
+	f.searches[1].done({}, nil, {})
+	local s = sent_text(f)
+	eq(has(s, "PARTIALLY written"), true, "late failure: partial")
+	eq(has(s, "Nothing was changed"), false, "late failure: no false reassurance")
+	eq(has(s, "node_setup_failed") and has(s, "tavern_a") and has(s, "4 of 9"), true,
+		"late failure: stage, building and progress")
+	eq(has(s, "Town built"), false, "late failure: no success claim")
+	eq(f.c.busy(), false, "late failure: lock released")
+end
+
+do -- resident stage failure after a placed town: written, flagged, not full success
+	for _, extra in ipairs({{residents = false, residents_error = "boom"},
+			{residents = {summary = "Residents: 3 spawned, 0 skipped, 2 failed", spawned = 3, failed = 2,
+				interrupted = 0}},
+			{beds = false, beds_error = "nope", residents = false}}) do
+		local f = fakes({build_result = function() return populated(extra) end})
+		f.c.run("alice", "5")
+		f.searches[1].done({}, nil, {})
+		local s = sent_text(f)
+		eq(has(s, "INCOMPLETE"), true, "resident stage failure: flagged incomplete")
+		eq(has(s, "Nothing was changed"), false, "resident stage failure: no false reassurance")
+		eq(has(s, "Error:"), true, "resident stage failure: reported as error")
+		eq(f.c.busy(), false, "resident stage failure: lock released")
+	end
+end
+
+do -- builder raising after the search keeps the lock honest
+	local f = fakes({build_raises = "kaboom"})
+	f.c.run("alice", "5")
+	f.searches[1].done({}, nil, {})
+	eq(f.c.busy(), false, "raise: lock released")
+	eq((f.c.run("bob", "6")), true, "raise: next command allowed")
 end

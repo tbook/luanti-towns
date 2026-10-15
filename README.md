@@ -6,9 +6,10 @@ landmarks, and surrounding development. It is intended to work alongside
 [Living Villages](https://github.com/tbook/luanti-villages), which handles
 villager behavior.
 
-The mod currently builds one first walkable town on demand with
-`/towns_generate` (see below); natural generation, ordinary buildings and
-residents are later phases. See the [design brief](docs/design_brief.md) for the intended direction
+The mod currently builds one populated town on demand with
+`/towns_generate` (see below): real cathedral, castle, city hall, jail,
+services and ordinary buildings, alleys, and one Living Villages resident per
+valid bed. Natural generation is a later phase. See the [design brief](docs/design_brief.md) for the intended direction
 and the [engineering design](docs/engineering_design.md) for implementation phases.
 
 To add a building, see the [building workflow](docs/building_workflow.md),
@@ -18,28 +19,17 @@ edited Home buildings. Workshop buildings can be
 [re-exported automatically](tools/workshop_export/README.md) with saved bounds,
 entrance choices, and inventory/decoration data.
 
-## Experimental town placement (ticket #45)
-
-Setting `towns_enable_place_town = true` registers `/towns_place_town [seed]`
-(needs the `server` privilege). It is **not** the production command: it
-does what `/towns_generate` does but uses the real cathedral and castle
-instead of blockouts, places the city hall, jail, services and ordinary
-buildings from the plan at their planned rotations, and paves access alleys
-with the secondary street material. It overwrites the site immediately, with
-no preview; use it only in disposable Creative worlds. Afterwards every
-door's approach route is walked in the placed world; any failure is reported
-as a partial construction with the actual bounds and the failing building.
-
-`python3 tools/place_check/run.py` repeats that placement headlessly in a
-scratch superflat world and re-reads it (see the script's header).
-
 ## Town command
 
 `/towns_generate [seed]` (needs the `server` privilege) searches near you
-for a site and builds a first walkable town there: a stepped boundary about
-96 nodes across, a cathedral and its parvis, a market square, a castle, and
-connected principal and secondary streets with empty blocks for later
-buildings. The cathedral and castle are temporary blockouts.
+for a site and builds a populated town there: the real cathedral and its
+parvis, a market square with the city hall, the castle, a jail, taverns,
+wells and chapels, ordinary houses, shops and workshops on the street
+frontage, paved access alleys, initialized functional nodes (chests, item
+frames, jukebox, well), and then one villager spawned and bed-claimed per
+valid bed. The former opt-in `/towns_place_town` command and its
+`towns_enable_place_town` setting were removed; `/towns_generate` is the one
+production path.
 
 > **WARNING: it OVERWRITES the chosen site immediately, with no preview and
 > no confirmation.** Use it only in disposable Creative worlds (such as
@@ -47,7 +37,9 @@ buildings. The cathedral and castle are temporary blockouts.
 > clears trees and terrain inside it, and does no edge smoothing.
 
 - Stand on solid ground, then run the command. It looks for a site within
-  about 320 nodes with no water. The middle 95% of surface heights must
+  about 320 nodes. Shallow water and ice (up to 6 nodes deep, over at most
+  25% of the footprint) is landfilled to ground level; deep water, lava and
+  too-wet footprints reject the site. The middle 95% of surface heights must
   span at most 16 nodes (up to 2.5% of columns at each extreme are ignored,
   rounded down). Every column must be within 24 nodes of the median height,
   limiting cutting and filling. Terrain is inspected within 48 nodes above
@@ -60,12 +52,26 @@ buildings. The cathedral and castle are temporary blockouts.
   the same layout. Anything else (decimals, words, extra arguments, or a
   larger number such as a 64-bit world seed) is rejected with the allowed
   range and nothing is changed.
-- On success it reports and logs the seed, centre, ground level, exact
-  bounds, cathedral, parvis, market and castle coordinates and the number of
-  streets, blocks and frontage runs. If no site is suitable (water, an
-  uneven or unloaded surface) it says why and changes nothing. A failed
-  engine write is the one case that may leave a partly built site; the
-  message then says so and gives the bounds.
+- On success it reports and logs the seed, centre, ground level, bounds,
+  cathedral, parvis, market, castle and city hall coordinates, building,
+  service and alley counts, the catalog ids used, valid and skipped beds,
+  spawned residents and any unmet service targets. If a stage after the
+  town was placed (bed enumeration or resident spawning) did not complete,
+  the first line says the build is INCOMPLETE and names the problem; the
+  town itself is still in the world.
+- The report lists landfilled water/ice columns, replaced buried liquids
+  and how many candidate sites were skipped and why.
+- Zero-write failures (no suitable site, deep water, lava, too-wet, an uneven or unloaded
+  surface, a missing schematic or unregistered node found by the preflight)
+  say why and "Nothing was changed". A failure once writing began (terrain,
+  a schematic, node initialization) is reported as a partly built site with
+  the stage, building and bounds; it never says nothing changed.
+- Residents are recorded per bed in mod storage (keys `resident:x,y,z` in
+  the Towns mod's storage, `mod_storage.sqlite` in the world directory) so a
+  bed is never spawned twice, even if you rebuild the same site. To re-test
+  from scratch, remove the villagers (or use a fresh world) and, with the
+  server stopped, delete the `resident:` rows for the `towns` mod from
+  `mod_storage.sqlite` (or delete that file to reset every mod's storage).
 
 ## Test command
 
@@ -91,8 +97,15 @@ directory or a world's `worldmods` directory. Enable it for a VoxeLibre world.
 mods Towns calls directly: `mcl_core`, `mcl_chests` and `mcl_itemframes`.
 Living Villages supplies the pulpit node used by the cathedral and chapel
 templates and recognizes the tavern jukebox and the well by node and shape;
-the Towns node setup (`src/node_setup.lua`, run by `/towns_place_town`) only
+the Towns node setup (`src/node_setup.lua`, run by `/towns_generate`) only
 prepares those nodes and never reimplements villager behaviour.
+
+## Settings
+
+Towns reads no `minetest.conf` settings. (`towns_enable_place_town` no longer
+exists.) The headless check `python3 tools/place_check/run.py` repeats a
+`/towns_generate` build in a scratch superflat world through the command
+controller and re-reads it.
 
 ## Tests
 

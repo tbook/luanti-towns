@@ -1,7 +1,7 @@
 -- Headless disposable-world check for ticket #45; only ever installed in a
 -- scratch world by tools/place_check/run.py. It searches for a site in the
 -- flat scratch world, builds a town with real schematics through the
--- production code (towns.place_town) and re-reads the world to verify the
+-- production code (towns.populated, driven through the /towns_generate controller) and re-reads the world to verify the
 -- result independently of the builder's own checks. Ticket #46 additions:
 -- functional node initialization, idempotence and Living Villages
 -- recognition of the tavern jukebox and the well.
@@ -72,7 +72,7 @@ local function restart_phase()
      -- into any free bed, which includes the beds enumeration skipped.
      local rec_ids = {}
      for _, b in ipairs(rep.beds) do
-      local rec = towns.place_town.store.get(towns.residents.record_key(b.pos))
+      local rec = towns.populated.store.get(towns.residents.record_key(b.pos))
       if rec then rec_ids[(rec:gsub('^done:', ''))] = true end
      end
      local found, extra, seen = 0, {}, {}
@@ -87,7 +87,7 @@ local function restart_phase()
      end
      report.unrecorded_villagers = extra
      check(found >= rep.count, 'restart: every recorded resident persisted (' .. found .. ' of ' .. rep.count .. ')')
-     local r = towns.residents.initialize(rep.beds, env, towns.place_town.store)
+     local r = towns.residents.initialize(rep.beds, env, towns.populated.store)
      report.restart = {villagers_before = before, spawned = r.spawned, already_done = r.already_done,
       claimed = r.claimed, interrupted = r.interrupted, failed = r.failed}
      check(r.spawned == 0 and r.failed == 0 and r.already_done == rep.count, 'restart: initialization spawns nothing (' .. r.spawned .. ' spawned, ' .. r.already_done .. ' already done)')
@@ -139,12 +139,12 @@ local function prepare_world(result)
  report.scenario = {name = scenario, rect = big, ground_y = g}
 end
 local function search_then(cb)
- towns.place_town.search(PLAYER_POS, seed, nil, function(result, msg)
+ towns.populated.search(PLAYER_POS, seed, nil, function(result, msg)
   if scenario == '' or not result then return cb(result, msg) end
   local ok, e = pcall(prepare_world, result)
   if not ok then return cb(nil, 'scenario setup: ' .. tostring(e)) end
   local first = result.center
-  towns.place_town.search(PLAYER_POS, seed, nil, function(r2, m2)
+  towns.populated.search(PLAYER_POS, seed, nil, function(r2, m2)
    if r2 then
     report.scenario.first_center, report.scenario.center = first, r2.center
     report.scenario.rejections, report.scenario.wet = r2.rejections, r2.wet and {count = r2.wet.count, max_depth = r2.wet.max_depth}
@@ -214,11 +214,43 @@ core.register_on_mods_loaded(function() core.after(0, function()
   core.emerge_area({x = -48, y = -8, z = -48}, {x = 48, y = 40, z = 48}, function(_, action, remaining)
    if remaining > 0 then return end
    assert(action ~= core.EMERGE_CANCELLED and action ~= core.EMERGE_ERRORED, 'start area emerge failed')
-  search_then(function(result, msg)
+  -- Drive the production controller (lock, report, failure wording) with
+  -- the real search/build halves and a fake player standing at the origin.
+  local built, chat = nil, {}
+  local verify
+  local controller
+  controller = towns.generate.new({
+   command_name = '/towns_generate',
+   get_player_pos = function() return {x = 0, y = 9, z = 0} end,
+   search = function(pos, s, o, done)
+    return search_then(function(result, msg)
+     done(result, msg) -- controller builds synchronously and reports
+     report.chat = chat
+     report.controller_busy_after = (controller.busy())
+     local text = table.concat(chat, '\n')
+     if result then
+      check(not controller.busy(), 'controller lock released after the build')
+      check(text:find('Town built', 1, true) ~= nil, 'controller reported success')
+      check(text:find('Catalog ids:', 1, true) ~= nil, 'report lists catalog ids')
+      check(text:find('Beds:', 1, true) ~= nil and text:find('Residents:', 1, true) ~= nil, 'report has beds and residents')
+      check(text:find('Nothing was changed', 1, true) == nil, 'success report does not claim nothing changed')
+     end
+     return verify(result, msg)
+    end)
+   end,
+   build = function(r)
+    built = {towns.populated.build(r)}
+    return unpack(built)
+   end,
+   send = function(_, m) chat[#chat + 1] = m end,
+   log = function() end,
+   now = os.time,
+  })
+  function verify(result, msg)
    local ok2, err2 = pcall(function()
     if not result then report.search_failure = msg; check(false, 'site search: ' .. tostring(msg)); return finish() end
     report.center, report.ground_y = result.center, result.ground_y
-    local summary, bmsg, code, extra = towns.place_town.build(result)
+    local summary, bmsg, code, extra = unpack(built or {})
     report.build_message, report.build_code = bmsg, code
     check(summary ~= nil, 'build_town succeeded' .. (bmsg and (': ' .. bmsg) or ''))
     if not summary then
@@ -552,7 +584,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
        if core.get_meta(b.pos):get_string('villager') ~= '' then meta_claims = meta_claims + 1 end
       end
       check(meta_claims == beds.count, 'every valid bed carries a villager claim (' .. meta_claims .. ')')
-      local store = towns.place_town.store
+      local store = towns.populated.store
       local again = towns.residents.initialize(beds.beds, towns.residents.core_env(core), store)
       report.residents.repeat_call = {spawned = again.spawned, already_done = again.already_done}
       check(again.spawned == 0 and again.already_done == beds.count and again.failed == 0, 'repeated initialization spawns nothing (' .. again.spawned .. ' spawned, ' .. again.already_done .. ' already done)')
@@ -623,7 +655,9 @@ core.register_on_mods_loaded(function() core.after(0, function()
     finish()
    end)
    if not ok2 then check(false, 'verification error: ' .. tostring(err2)); finish() end
-  end)
+  end
+  local started = controller.run('place_check', tostring(seed))
+  check(started == true, 'controller accepted /towns_generate ' .. seed)
   end)
  end)
  if not ok then check(false, 'startup error: ' .. tostring(err)); finish() end
