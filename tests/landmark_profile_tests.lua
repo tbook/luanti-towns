@@ -93,9 +93,23 @@ local function check_plan(plan, prof, label)
 	eq(plan.sites.castle.door.rise, 1, label .. " castle rise")
 	eq(plan.sites.cathedral.door.recess, 8, label .. " cathedral recess")
 	eq(plan.sites.cathedral.door.rise, 4, label .. " cathedral rise")
-	-- The parvis is adjacent on the entrance side and spans the whole front,
-	-- so it contains the approach node of the real (off-centre) door.
+	-- The parvis is adjacent on the entrance side, PARVIS_WIDTH x
+	-- PARVIS_FRONT_DEPTH, centred on the real (off-centre) door (#105); it
+	-- need not span the compound, and contains the door's approach node.
 	local c, pv = plan.sites.cathedral, plan.sites.parvis
+	do
+		local K = planner.CONSTANTS
+		local pr, f = pv.rect, c.facing
+		local w, d = pr.x2 - pr.x1 + 1, pr.z2 - pr.z1 + 1
+		local lat, lo, depth, width
+		if f.x == 0 then lat, lo, width, depth = c.entrance.x, pr.x1, w, d
+		else lat, lo, width, depth = c.entrance.z, pr.z1, d, w end
+		eq(width, K.PARVIS_WIDTH, label .. " parvis width")
+		eq(depth, K.PARVIS_FRONT_DEPTH, label .. " parvis depth")
+		eq(lo, lat - math.floor(K.PARVIS_WIDTH / 2), label .. " parvis centred on door")
+		-- Clear approach: the node in front of the door edge is parvis.
+		eq(in_rect(pr, c.approach.pos.x, c.approach.pos.z), true, label .. " parvis fronts door")
+	end
 	eq(in_rect(pv.rect, c.approach.pos.x, c.approach.pos.z), true,
 		label .. " parvis contains the door approach")
 end

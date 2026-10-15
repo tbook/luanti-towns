@@ -120,6 +120,12 @@ sketch):
   boundary, the two landmark sites, the parvis, the market square, the
   principal and secondary streets and the blocks all come from rules and the
   seed.
+- **Parvis (profile plans, #105).** A 12-wide (`PARVIS_WIDTH`) by 8-deep
+  (`PARVIS_FRONT_DEPTH`) rect on the entrance side, touching the compound box
+  edge and centred on the catalog door's lateral coordinate (not the compound
+  midpoint). For an even width the extra node falls on the lower-coordinate
+  (-x / -z) side in world space for every rotation. It does not span the
+  compound front; legacy (no profile) plans keep the old margin rule.
 - **Sites.** Reserve a cathedral (with its parvis) and a castle as landmark
   sites and a separate market square. The first landmarks are temporary
   physical blockouts (recognizable silhouettes, real doors and gates) while
