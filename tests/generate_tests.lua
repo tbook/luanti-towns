@@ -141,8 +141,8 @@ do -- ticket #47: the town report carries the bed enumeration
 end
 do -- ticket #48: resident line
 	local s4 = make_summary()
-	s4.town = {placed = 2, alleys = 0, doors = {}, residents = {summary = "Residents: 4 spawned, 1 skipped/failed"}}
-	eq(has(table.concat(generate.format_report(s4), "\n"), "Residents: 4 spawned, 1 skipped/failed"),
+	s4.town = {placed = 2, alleys = 0, doors = {}, residents = {summary = "Residents: 4 spawned, 1 skipped, 0 failed"}}
+	eq(has(table.concat(generate.format_report(s4), "\n"), "Residents: 4 spawned, 1 skipped, 0 failed"),
 		true, "report: residents line")
 	s4.town.residents, s4.town.residents_error = nil, "boom"
 	eq(has(table.concat(generate.format_report(s4), "\n"), "Resident initialization failed: boom."),

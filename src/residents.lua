@@ -245,7 +245,23 @@ end
 -- it can be retried. A leftover "pending" is an attempt interrupted by a
 -- crash or shutdown: it is reported (result.interrupted_beds) and NOT
 -- retried, because the villager may already exist. Dead residents keep
--- their "done" record and are never replaced.
+-- their "done" record and are never replaced. A throw while processing one
+-- bed is caught: that bed is reported as failed (reason "error"), the spawned
+-- object is cleaned up if possible, and the loop continues.
+--
+-- CAVEATS
+--   * Records are keyed by bed position and never validated against the
+--     world. Re-placing or clearing a town on identical coordinates reports
+--     "already initialized" and spawns nothing until the records are cleared
+--     (stop the server; sqlite3 <world>/mod_storage.sqlite "delete from
+--     entries where modname='towns' and key like 'resident:%'"; also remove
+--     existing villagers and bed claims, which are respected).
+--   * Mod storage is flushed periodically, so a hard crash can lose a record:
+--     a lost "pending" with a spawned villager is protected by the bed's
+--     claim meta only if that was saved; a lost "done" can allow a duplicate
+--     if the bed meta was not saved either. A clean shutdown is safe.
+--   * Skipped beds can be filled with children by Living Villages' own
+--     births. That is not a population cap or replenishment by Towns.
 function M.record_key(pos) return "resident:" .. pkey(pos) end
 
 function M.initialize(beds, env, store)
@@ -257,40 +273,67 @@ function M.initialize(beds, env, store)
 	end
 	for _, b in ipairs(beds) do
 		local key = M.record_key(b.pos)
-		local rec = store.get(key)
-		if rec == "pending" then
-			r.interrupted = r.interrupted + 1
-			r.interrupted_beds[#r.interrupted_beds + 1] = {pos = b.pos, id = b.id, kind = b.kind}
-		elseif rec and rec ~= "" then
-			r.already_done = r.already_done + 1
-		else
+		-- State visible to the error path below.
+		local h, wrote_pending
+		local function process()
+			local rec = store.get(key)
+			if rec == "pending" then
+				r.interrupted = r.interrupted + 1
+				r.interrupted_beds[#r.interrupted_beds + 1] = {pos = b.pos, id = b.id, kind = b.kind}
+				return
+			elseif rec and rec ~= "" then
+				r.already_done = r.already_done + 1
+				return
+			end
 			local owner = env.bed_owner(b)
-			if not owner then
-				fail(b, "not_loaded")
-			elseif owner.villager ~= "" or owner.player ~= "" then
+			if not owner then return fail(b, "not_loaded") end
+			if owner.villager ~= "" or owner.player ~= "" then
 				r.claimed = r.claimed + 1
-			else
-				store.set(key, "pending")
-				local h = env.spawn(b.spawn)
-				if not h then
-					store.set(key, nil)
-					fail(b, "spawn_failed")
-				else
+				return
+			end
+			store.set(key, "pending")
+			wrote_pending = true
+			h = env.spawn(b.spawn)
+			if not h then
+				store.set(key, nil)
+				return fail(b, "spawn_failed")
+			end
+			local id = env.entity_id(h)
+			if type(id) ~= "string" or id == "" then
+				env.remove(h)
+				h = nil
+				store.set(key, nil)
+				return fail(b, "invalid_entity")
+			end
+			if not env.claim(h, b.pos, id) then
+				env.unclaim(b.pos, id)
+				env.remove(h)
+				h = nil
+				store.set(key, nil)
+				return fail(b, "claim_failed")
+			end
+			-- From here the resident exists; done is recorded last.
+			store.set(key, "done:" .. id)
+			r.spawned = r.spawned + 1
+		end
+		local ok, err = pcall(process)
+		if not ok then
+			fail(b, "error")
+			r.failures[#r.failures].detail = tostring(err)
+			-- Best-effort cleanup. The pending record is cleared only when
+			-- the object (if any) is confirmed removed and unclaimed;
+			-- otherwise it stays so the next run reports it, not respawns.
+			local clean = true
+			if h then
+				local okc = pcall(function()
 					local id = env.entity_id(h)
-					if type(id) ~= "string" or id == "" then
-						env.remove(h)
-						store.set(key, nil)
-						fail(b, "invalid_entity")
-					elseif not env.claim(h, b.pos, id) then
-						env.unclaim(b.pos, id)
-						env.remove(h)
-						store.set(key, nil)
-						fail(b, "claim_failed")
-					else
-						store.set(key, "done:" .. id)
-						r.spawned = r.spawned + 1
-					end
-				end
+					if type(id) == "string" and id ~= "" then env.unclaim(b.pos, id) end
+					env.remove(h)
+				end)
+				clean = okc
+			end
+			if wrote_pending and clean then
+				pcall(store.set, key, nil)
 			end
 		end
 	end
@@ -305,8 +348,8 @@ function M.format_init(r)
 	if r.claimed > 0 then parts[#parts + 1] = r.claimed .. " already claimed" end
 	if r.interrupted > 0 then parts[#parts + 1] = r.interrupted .. " interrupted earlier, not retried" end
 	if r.failed > 0 then parts[#parts + 1] = r.failed .. " failed" end
-	return ("Residents: %d spawned, %d skipped/failed%s"):format(r.spawned,
-		r.already_done + r.claimed + r.interrupted + r.failed,
+	return ("Residents: %d spawned, %d skipped, %d failed%s"):format(r.spawned,
+		r.already_done + r.claimed + r.interrupted, r.failed,
 		#parts > 0 and (" (" .. table.concat(parts, ", ") .. ")") or "")
 end
 

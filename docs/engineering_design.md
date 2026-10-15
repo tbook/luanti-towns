@@ -223,6 +223,17 @@ Agreed scope:
   claim beds through a narrow VoxeLibre adapter. No population cap, assigned
   profession, workplace quota, bed/workplace balancing or automatic replacement
   of dead residents in this phase.
+  Caveats: initialization records are keyed by bed position and never
+  validated against the world, so re-placing or clearing a town on identical
+  coordinates reports "already initialized" until the records are cleared
+  (server stopped; `sqlite3 <world>/mod_storage.sqlite "delete from entries
+  where modname='towns' and key like 'resident:%'"`; also remove existing
+  villagers and bed claims, which are respected). Mod storage is flushed
+  periodically, so a hard crash can lose a pending or done record: a lost
+  pending is the safe case (the bed meta is the second guard), a lost done
+  with unsaved bed meta can allow a duplicate. Living Villages' own births
+  can fill skipped beds with children; that is not a Towns cap or
+  replenishment.
 - **Construction.** Preflight selected assets, node names, placement geometry
   and complete emerged bounds before terrain writes. Bounds include the true
   schematic heights. Prepare ground and pavement, place schematics, initialize

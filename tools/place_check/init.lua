@@ -41,7 +41,7 @@ local function restart_phase()
   core.emerge_area(vector.subtract(lo, 16), vector.add(hi, 16), function(_, action, remaining)
    if remaining > 0 then return end
    -- No player is connected, so nothing activates stored objects: forceload
-   -- every mapblock of the town (max_forceloaded_blocks is raised in check.conf).
+   -- every mapblock of the town (max_forceloaded_blocks is raised to 4096 in check.conf).
    local a, b = vector.subtract(lo, 16), vector.add(hi, 16)
    local nblocks = 0
    for bx = math.floor(a.x / 16), math.floor(b.x / 16) do
@@ -427,7 +427,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
        return out
       end
       local vs = villagers()
-      check(#vs == beds.count, 'villager entity count equals valid bed count (' .. #vs .. ' vs ' .. beds.count .. ')')
+      check(#vs >= beds.count, 'villager entities cover the valid beds (' .. #vs .. ' vs ' .. beds.count .. ')')
       local bed_at = {}
       for _, b in ipairs(beds.beds) do bed_at[core.pos_to_string(b.pos)] = b end
       local bad, used = 0, {}

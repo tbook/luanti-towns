@@ -424,7 +424,7 @@ do
 		eq(E.meta["3,1,0"].villager, "v1", "init: bed meta claimed")
 		eq(E.spawned[1].bed.x, 3, "init: villager bed is the bottom node")
 		eq(E.spawned[1].at.x, 4, "init: spawned at the spawn cell")
-		eq(r.summary, "Residents: 3 spawned, 0 skipped/failed", "init: report line")
+		eq(r.summary, "Residents: 3 spawned, 0 skipped, 0 failed", "init: report line")
 	end
 	-- Repeat call and fresh state with the same storage: nothing new.
 	do
@@ -488,5 +488,51 @@ do
 		eq(r.spawned, 1, "restart: only the untouched bed spawned")
 		eq(store.data[key(1)], "pending", "restart: pending record left for inspection")
 		eq(r.summary:find("1 interrupted earlier", 1, true) ~= nil, true, "restart: report mentions it")
+	end
+	-- A throw after the spawn does not abort the loop or lose counts.
+	do
+		local store = new_store()
+		local E = new_engine()
+		local claim = E.env.claim
+		E.env.claim = function(h, p, id)
+			if p.x == 6 then error("boom") end
+			return claim(h, p, id)
+		end
+		local r = residents.initialize(beds(3), E.env, store)
+		eq(r.spawned, 2, "throw: other beds still processed")
+		eq(r.failed, 1, "throw: one failure counted")
+		eq(r.failures[1].reason, "error", "throw: error reason")
+		eq(E.removed, 1, "throw: spawned object cleaned up")
+		eq(store.data[key(2)], nil, "throw: record cleared after confirmed cleanup")
+		eq(store.data[key(3)], "done:v3", "throw: later bed completed")
+	end
+	do -- cleanup that cannot be confirmed leaves the pending record
+		local store = new_store()
+		local E = new_engine()
+		E.env.claim = function() error("boom") end
+		E.env.remove = function() error("cannot remove") end
+		local r = residents.initialize(beds(2), E.env, store)
+		eq(r.failed, 2, "unconfirmed: both beds failed")
+		eq(r.spawned, 0, "unconfirmed: nothing counted spawned")
+		eq(store.data[key(1)], "pending", "unconfirmed: pending left in place")
+	end
+	do -- the store throwing on the done write
+		local data = {}
+		local store = {data = data, get = function(k) return data[k] end,
+			set = function(k, v)
+				if v and v:find("^done:v1") then error("disk") end
+				data[k] = v
+			end}
+		local E = new_engine()
+		local r = residents.initialize(beds(2), E.env, store)
+		eq(r.failed, 1, "store throw: failure counted")
+		eq(r.spawned, 1, "store throw: next bed still spawned")
+		eq(E.removed, 1, "store throw: object removed")
+		eq(data[key(1)], nil, "store throw: pending cleared after cleanup")
+	end
+	do -- claimed beds are counted apart from failures
+		local E = new_engine({meta = {["3,1,0"] = {villager = "other"}}})
+		local r = residents.initialize(beds(2), E.env, new_store())
+		eq(r.summary, "Residents: 1 spawned, 1 skipped, 0 failed (1 already claimed)", "claimed line")
 	end
 end
