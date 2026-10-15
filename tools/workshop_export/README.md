@@ -234,7 +234,7 @@ build has no door node anywhere: it is a serving-counter shop with open
 storefronts. The chosen entrance is the walk-in gap in the south wall at
 (244,12,234) (`entrance_kind = "opening"`, front -Z, `rotation` 0), reached by
 four cobble steps at z 233. The same stairs wrap round the +X side, where a
-second gap at (245,12,235) is a counter window with its own stair run.
+second gap at (246,12,235) is a counter window with its own stair run.
 
 Floor and ground: the floor row (cobble/granite, y 11) stands one block above
 the street (path/grass at y 10), exactly like the #87 buildings, so the ground
