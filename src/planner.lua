@@ -184,7 +184,7 @@
 -- boundary connectivity, size and feature size (steps, notches, arms >=
 -- MIN_FEATURE), exact bounds inside the envelope, centre inside the
 -- boundary, site containment, no overlaps and >= STREET_WIDTH between sites
--- (cathedral and parvis touch by design, parvis spanning the entrance side),
+-- (cathedral and parvis touch by design; the parvis is centred on the door),
 -- the market near the centre, the castle on a straight outer edge, the two
 -- approaches (different sides, non-overlapping windows), and route space:
 -- with the cathedral and castle footprints as obstacles, a chain of free
@@ -238,8 +238,15 @@ M.CONSTANTS = {
 	STREET_WIDTH = 5,         -- principal street width / route clearance (#88)
 	CATHEDRAL_LONG = 32,      -- footprint, long axis (entrance on short end)
 	CATHEDRAL_SHORT = 20,
-	PARVIS_DEPTH = 12,        -- perpendicular to the entrance side
-	PARVIS_MARGIN = 4,        -- extra width on each side of the front
+	PARVIS_DEPTH = 12,        -- legacy (no profile) parvis depth
+	PARVIS_MARGIN = 4,        -- legacy: extra width each side of the whole front
+	-- Profile plans (#105): the parvis is a PARVIS_WIDTH x PARVIS_FRONT_DEPTH
+	-- rect on the entrance side, touching the box edge and centred on the
+	-- door's lateral coordinate e: it spans e - floor(W/2) .. that + W - 1,
+	-- so an even width puts the extra node on the lower-coordinate (-x / -z)
+	-- side in world space, for every rotation. It need not span the footprint.
+	PARVIS_WIDTH = 12,        -- along the facade
+	PARVIS_FRONT_DEPTH = 8,   -- perpendicular to the entrance side
 	MARKET_MIN = 20, MARKET_MAX = 28, -- market side lengths (varied per axis)
 	MARKET_CENTER_RADIUS = 12, -- market centre within this of the town centre
 	CASTLE_X = 30, CASTLE_Z = 26, -- footprint (axes swapped half the time)
@@ -568,8 +575,8 @@ local function fit_check(C, profile)
 	for _, side in ipairs(SIDES) do
 		local b = landmark_box(profile.cathedral, side)
 		local horiz = side == "-z" or side == "+z"
-		local ax = horiz and (b.w + 2 * C.PARVIS_MARGIN) or (b.w + C.PARVIS_DEPTH)
-		local az = horiz and (b.d + C.PARVIS_DEPTH) or (b.d + 2 * C.PARVIS_MARGIN)
+		local ax = horiz and math.max(b.w, C.PARVIS_WIDTH) or (b.w + C.PARVIS_FRONT_DEPTH)
+		local az = horiz and (b.d + C.PARVIS_FRONT_DEPTH) or math.max(b.d, C.PARVIS_WIDTH)
 		if ax <= n and az <= n then best = true end
 	end
 	if not best then
@@ -1049,15 +1056,26 @@ local function sample_cathedral(rng, C, count, bbox, market, profile)
 		local long_x = (side == "-x" or side == "+x")
 		local w = long_x and C.CATHEDRAL_LONG or C.CATHEDRAL_SHORT
 		local d = long_x and C.CATHEDRAL_SHORT or C.CATHEDRAL_LONG
+		local b
 		if profile then
-			local b = landmark_box(profile.cathedral, side)
+			b = landmark_box(profile.cathedral, side)
 			w, d = b.w, b.d
 		end
+		local hw, pd = math.floor(C.PARVIS_WIDTH / 2), C.PARVIS_FRONT_DEPTH
 		for z1 = bbox.z1, bbox.z2 - d + 1, 2 do
 			for x1 = bbox.x1, bbox.x2 - w + 1, 2 do
 				local c = rect(x1, z1, x1 + w - 1, z1 + d - 1)
 				local pr
-				if side == "-z" then pr = rect(c.x1 - m, c.z1 - p, c.x2 + m, c.z1 - 1)
+				if b then
+					-- Centred on the real door, not the compound (#105).
+					local lat = (side == "-z" or side == "+z") and (x1 + b.ex) or (z1 + b.ez)
+					local a1 = lat - hw
+					local a2 = a1 + C.PARVIS_WIDTH - 1
+					if side == "-z" then pr = rect(a1, c.z1 - pd, a2, c.z1 - 1)
+					elseif side == "+z" then pr = rect(a1, c.z2 + 1, a2, c.z2 + pd)
+					elseif side == "-x" then pr = rect(c.x1 - pd, a1, c.x1 - 1, a2)
+					else pr = rect(c.x2 + 1, a1, c.x2 + pd, a2) end
+				elseif side == "-z" then pr = rect(c.x1 - m, c.z1 - p, c.x2 + m, c.z1 - 1)
 				elseif side == "+z" then pr = rect(c.x1 - m, c.z2 + 1, c.x2 + m, c.z2 + p)
 				elseif side == "-x" then pr = rect(c.x1 - p, c.z1 - m, c.x1 - 1, c.z2 + m)
 				else pr = rect(c.x2 + 1, c.z1 - m, c.x2 + p, c.z2 + m) end
@@ -1398,15 +1416,32 @@ local function validate_impl(plan, C)
 	if parv.s.side ~= cath.s.side then return nil, "parvis not on the cathedral entrance side" end
 	do
 		local side, c, p = cath.s.side, cath.r, parv.r
-		local touch, spans
+		local touch
 		if side == "-z" then touch = p.z2 == c.z1 - 1
 		elseif side == "+z" then touch = p.z1 == c.z2 + 1
 		elseif side == "-x" then touch = p.x2 == c.x1 - 1
 		else touch = p.x1 == c.x2 + 1 end
-		if side == "-z" or side == "+z" then spans = p.x1 <= c.x1 and p.x2 >= c.x2
-		else spans = p.z1 <= c.z1 and p.z2 >= c.z2 end
 		if not touch then return nil, "parvis not adjacent on the entrance side" end
-		if not spans then return nil, "parvis does not span the cathedral front" end
+		if cath.s.door ~= nil then
+			-- Profile plan (#105): fixed size, centred on the real door.
+			local e = cath.s.entrance
+			local horiz = side == "-z" or side == "+z"
+			local lo, hi = p.x1, p.x2
+			local dlo, dhi = p.z1, p.z2
+			local lat = e.x - ox
+			if not horiz then lo, hi, dlo, dhi = p.z1, p.z2, p.x1, p.x2; lat = e.z - oz end
+			if hi - lo + 1 ~= C.PARVIS_WIDTH or lo ~= lat - math.floor(C.PARVIS_WIDTH / 2) then
+				return nil, "parvis is not " .. C.PARVIS_WIDTH .. " wide and centred on the door"
+			end
+			if dhi - dlo + 1 ~= C.PARVIS_FRONT_DEPTH then
+				return nil, "parvis is not " .. C.PARVIS_FRONT_DEPTH .. " deep"
+			end
+		else
+			local spans
+			if side == "-z" or side == "+z" then spans = p.x1 <= c.x1 and p.x2 >= c.x2
+			else spans = p.z1 <= c.z1 and p.z2 >= c.z2 end
+			if not spans then return nil, "parvis does not span the cathedral front" end
+		end
 	end
 
 	-- Market near the centre.
