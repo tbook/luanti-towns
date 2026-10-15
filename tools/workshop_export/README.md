@@ -173,7 +173,15 @@ the build, one block outside the ticket's x 207..221). Front is +X (door at
 the surrounding terrain in the source, with a two-row cellar and its stair
 below, so the capture keeps rows y 6..7 (`ground_y` 8, `ground_offset` 2) and
 the floor stays flush with the street, as authored: 7 x 11 x 16 in the
-canonical file, entrance (5, 3, 1). Source y 5 is the world's bedrock layer
-(over `mcl_core:void`) and is not captured. The planner currently places only
-the first sorted tavern id (`tavern`), so `tavern_2` is in the catalog but is
-not yet placed in towns.
+canonical file, entrance (5, 3, 1). Intentionally omitted: source y 5, the
+cellar's lowest row (furnace, smoker, the bottom granite stair step, a wood
+row and cobble there; the rest of that layer is the world's bedrock, over
+`mcl_core:void` at y 4 and below). Capturing it would put bedrock and void
+cells at street minus 3, and the exporter has no bedrock-to-dirt mapping, so
+the template starts at y 6. Consequences: the cellar furnace and smoker are
+not in the template, the stair ends one step short of the bottom, and the
+cellar's row 0 sits directly on whatever terrain is at street minus 3 (the
+town site is flattened and filled, so a cave or liquid opening into it is
+unlikely but not excluded). The planner currently places only the first
+sorted tavern id (`tavern`), so `tavern_2` is in the catalog but is not yet
+placed in towns.

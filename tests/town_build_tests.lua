@@ -433,6 +433,9 @@ do
 	for _, rot in ipairs({0, 90, 180, 270}) do
 		local r, why = route("tavern_2", rot)
 		eq(r ~= nil, true, "real tavern_2 door reachable at rotation " .. rot .. ": " .. tostring(why))
+		-- The exterior stair on the +X strip to the second-floor door (5,7,1).
+		local r2, why2 = route("tavern_2", rot, {x = 5, y = 7, z = 1})
+		eq(r2 ~= nil, true, "tavern_2 stair reaches the upper door at rotation " .. rot .. ": " .. tostring(why2))
 	end
 end
 

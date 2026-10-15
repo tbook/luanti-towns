@@ -300,7 +300,7 @@ do
 	-- their sibling bed.
 	local expected = {banker_house = {2, 2}, castle = {20, 20}, cathedral = {7, 7},
 		corner_house = {3, 3}, gaboo_house = {3, 2}, leather_worker = {2, 2},
-		scribe = {2, 2}, townhouses = {9, 9}, weaver_house = {1, 1}}
+		scribe = {2, 2}, tavern_2 = {2, 2}, townhouses = {9, 9}, weaver_house = {1, 1}}
 	local total_beds = 0
 	for id, counts in pairs(expected) do
 		local want, valid = counts[1], counts[2]
@@ -354,5 +354,5 @@ do
 			end
 		end
 	end
-	eq(total_beds, 49, "total manual beds across stock templates")
+	eq(total_beds, 51, "total manual beds across stock templates")
 end
