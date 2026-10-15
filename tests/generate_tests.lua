@@ -126,6 +126,16 @@ do -- without write_bounds the modified area falls back to the site bounds
 	eq(has(table.concat(generate.format_report(s2), "\n"), "Modified area (" .. plan.bounds.x1 .. ",100,"),
 		true, "report: modified area falls back to bounds")
 end
+do -- ticket #104: liquids, landfill and rejection counts are reported
+	local s4 = make_summary()
+	s4.liquids = {buried = 7, wet = 3, sealed = 2}
+	s4.site = {wet = {count = 12, max_depth = 4}, rejections = {water = 3, too_wet = 1},
+		candidates_tried = 5}
+	local t4 = table.concat(generate.format_report(s4), "\n")
+	eq(has(t4, "Replaced 7 buried liquid/ice nodes; sealed 2 open cells"), true, "report: liquids")
+	eq(has(t4, "Landfilled 12 water/ice columns (deepest 4 nodes)"), true, "report: landfill")
+	eq(has(t4, "too_wet x1, water x3"), true, "report: rejection counts")
+end
 do -- ticket #47: the town report carries the bed enumeration
 	local s3 = make_summary()
 	s3.town = {placed = 2, alleys = 0, doors = {},
@@ -236,6 +246,14 @@ for _, bad in ipairs({"abc", "1.5", "1 2", tostring(LIMIT + 1), "922337203685477
 	eq(type(m) == "string" and m ~= "", true, "invalid '" .. bad .. "' has message")
 	eq(#f.searches + #f.builds, 0, "invalid '" .. bad .. "': no search or build")
 	eq(f.c.busy(), false, "invalid '" .. bad .. "': not busy")
+end
+
+-- Ticket #104: /towns_generate passes no search options, so the strict
+-- (non-wet) site search rule stays in force.
+do
+	local f = fakes()
+	f.c.run("alice", "31337")
+	eq(f.searches[1].opts, nil, "towns_generate: no search opts, wet mode stays off")
 end
 
 -- Offline player.

@@ -1040,3 +1040,131 @@ for seed = 100, 130 do
 	end
 	eq(L.max_dy <= 40, true, label .. "within clearance")
 end
+
+-- Landfilled wet columns (ticket #104): liquid/ice between the bed and the
+-- finished ground (and above it) is replaced; without result.wet it rejects.
+do
+	local res = copy_result()
+	local g, plan = res.ground_y, res.plan
+	local fx, fz
+	for _, c in ipairs(ss.boundary_columns(plan.boundary.rects)) do
+		local h = res.heights[c.x][c.z]
+		if h < g - 1 and not fx and not expected_pavement(plan, c.x, c.z)
+				and not in_rect(plan.sites.cathedral.rect, c.x, c.z)
+				and not in_rect(plan.sites.castle.rect, c.x, c.z) then
+			fx, fz = c.x, c.z
+		end
+	end
+	eq(fx ~= nil, true, "wet fixture has a fill column")
+	if fx then
+		local h = res.heights[fx][fz]
+		local function lake(x, y, z)
+			if x == fx and z == fz and y > h and y <= g + 2 then
+				return (y == g) and "mcl_core:ice" or "mcl_core:water_source"
+			end
+		end
+		expect_rejection("lake without wet info", copy_result(), new_world({world = lake}),
+			"inspection_failed", "liquid or ice")
+		local wres = copy_result()
+		wres.wet = {count = 1, max_depth = g - h, surfaces = {[fx] = {[fz] = g}}}
+		local w = new_world({world = lake})
+		local summary, msg = builder.build(wres, {log = false}, w.env)
+		eq(summary ~= nil, true, "lake: built (" .. tostring(msg) .. ")")
+		for y = h + 1, g - 1 do
+			local n = w.get(fx, y, fz)
+			eq(n == DIRT or n == STONE, true, "lake: row " .. y .. " solid fill (" .. tostring(n) .. ")")
+		end
+		eq(w.get(fx, g, fz), GRASS, "lake: default surface at ground")
+		eq(w.get(fx, g + 1, fz), "air", "lake: water above ground cleared")
+		eq(w.get(fx, g + 2, fz), "air", "lake: water above ground cleared 2")
+		-- Flowing water and ice over a wet column are replaced as well.
+		local function mixed(x, y, z)
+			if x == fx and z == fz and y > h and y <= g + 1 then
+				if y == g + 1 then return "mcl_core:water_flowing" end
+				return (y % 2 == 0) and "mcl_core:ice" or "mcl_core:water_flowing"
+			end
+		end
+		local mres = copy_result()
+		mres.wet = {count = 1, max_depth = g - h, surfaces = {[fx] = {[fz] = g}}}
+		local mw = new_world({world = mixed, nodes = (function()
+			local t = nodes_table()
+			t["mcl_core:water_flowing"] = {liquid = true}
+			return t
+		end)()})
+		local ms, mm = builder.build(mres, {log = false}, mw.env)
+		eq(ms ~= nil, true, "flowing/ice lake: built (" .. tostring(mm) .. ")")
+		for y = h + 1, g - 1 do
+			local n = mw.get(fx, y, fz)
+			eq(n == DIRT or n == STONE, true, "flowing/ice lake: row " .. y .. " solid")
+		end
+		eq(mw.get(fx, g + 1, fz), "air", "flowing/ice lake: flowing water above ground cleared")
+		local bad = copy_result()
+		bad.wet = {count = 1, max_depth = 1, surfaces = {[fx] = {[fz] = g + 1}}}
+		expect_rejection("wet surface above ground", bad, new_world({world = lake}), "bad_result", "above the finished ground")
+	end
+end
+
+-- Buried liquid and the seal (ticket #104).
+do
+	local res = copy_result()
+	local g, plan = res.ground_y, res.plan
+	local function plain(c)
+		return not expected_pavement(plan, c.x, c.z)
+			and not in_rect(plan.sites.cathedral.rect, c.x, c.z)
+			and not in_rect(plan.sites.castle.rect, c.x, c.z)
+	end
+	local cols = ss.boundary_columns(plan.boundary.rects)
+	local cutx, cutz
+	for _, c in ipairs(cols) do
+		local h = res.heights[c.x][c.z]
+		if not cutx and h >= g + 3 and plain(c) then cutx, cutz = c.x, c.z end
+	end
+	eq(cutx ~= nil, true, "buried fixture has a cut column")
+	if cutx then
+		-- Water pocket inside the cut (rows g..g+2) and a deep one below it.
+		local w = new_world({world = function(x, y, z)
+			if x == cutx and z == cutz and y >= g and y <= g + 2 then return "mcl_core:water_source" end
+			if x == cutx and z == cutz and y == g - 6 then return "mcl_core:water_source" end
+		end})
+		local summary, msg = builder.build(copy_result(), {log = false}, w.env)
+		eq(summary ~= nil, true, "buried pocket in the cut: built (" .. tostring(msg) .. ")")
+		if summary then
+			eq(summary.liquids.buried, 3, "buried pocket: counted")
+			for y = g + 1, g + 3 do
+				eq(w.get(cutx, y, cutz), "air", "buried pocket: carved row " .. y)
+			end
+			eq(w.get(cutx, g - 6, cutz), "mcl_core:water_source", "deep pocket left untouched")
+		end
+		-- Liquid just outside the town beside a carved edge column.
+		local inside = {}
+		for _, c in ipairs(cols) do
+			inside[c.x] = inside[c.x] or {}
+			inside[c.x][c.z] = true
+		end
+		local ex, ez, ox, oz
+		for _, c in ipairs(cols) do
+			local hh = res.heights[c.x][c.z]
+			if not ex and hh >= g + 2 and plain(c) then
+				for _, d in ipairs({{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) do
+					local nx, nz = c.x + d[1], c.z + d[2]
+					if not ex and not (inside[nx] and inside[nx][nz]) then ex, ez, ox, oz = c.x, c.z, nx, nz end
+				end
+			end
+		end
+		eq(ex ~= nil, true, "seal fixture has an edge column")
+		if ex then
+			local eh = res.heights[ex][ez]
+			local w2 = new_world({world = function(x, y, z)
+				if x == ox and z == oz and y >= g + 1 and y <= g + 2 then return "mcl_core:water_source" end
+			end})
+			local s2, m2 = builder.build(copy_result(), {log = false}, w2.env)
+			eq(s2 ~= nil, true, "seal: built (" .. tostring(m2) .. ")")
+			if s2 then
+				eq(s2.liquids.sealed >= 2, true, "seal: counted")
+				eq(w2.get(ex, g + 1, ez) ~= "air", true, "seal: edge cell beside the liquid kept solid")
+				eq(w2.get(ex, g + 2, ez) ~= "air", true, "seal: second row kept solid")
+				eq(w2.get(ex, eh + 1, ez), "air", "seal: free air above the surface")
+			end
+		end
+	end
+end

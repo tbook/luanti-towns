@@ -103,6 +103,107 @@ local function restart_phase()
  if not ok then check(false, 'restart startup error: ' .. tostring(err)); finish() end
 end
 
+-- Water scenario (ticket #104): towns_place_check_scenario = 'water' first
+-- finds the site on the untouched world, then builds into that footprint a
+-- hill holding buried water pockets, a pond inside it, a pond straddling its
+-- edge and deep pockets under the ground, and searches again. The checks
+-- below confirm the site is accepted and the finished town is dry.
+local scenario = core.settings:get('towns_place_check_scenario') or ''
+local PLAYER_POS = {x = 0, y = 9, z = 0}
+local WATER, STONE = 'mcl_core:water_source', 'mcl_core:stone'
+local function prepare_world(result)
+ local g, rects = result.ground_y, result.plan.boundary.rects
+ local big
+ for _, r in ipairs(rects) do
+  if r.x2 - r.x1 >= 26 and r.z2 - r.z1 >= 12 and (not big or (r.x2 - r.x1) * (r.z2 - r.z1) > (big.x2 - big.x1) * (big.z2 - big.z1)) then big = r end
+ end
+ assert(big, 'no footprint rectangle large enough for the water scenario')
+ local x1, z1 = big.x1, big.z1
+ local function fill(xa, xb, ya, yb, za, zb, name)
+  for x = xa, xb do for y = ya, yb do for z = za, zb do core.set_node({x = x, y = y, z = z}, {name = name}) end end end
+ end
+ -- Hill (surface g+3) with two buried pockets inside the cut and one under it.
+ fill(x1 + 2, x1 + 11, g + 1, g + 3, z1 + 2, z1 + 9, STONE)
+ fill(x1 + 4, x1 + 6, g + 1, g + 2, z1 + 4, z1 + 6, WATER)
+ fill(x1 + 8, x1 + 9, g - 2, g - 1, z1 + 7, z1 + 8, WATER)
+ -- Deep pockets (untouched by the builder, below the support rows).
+ fill(x1 + 13, x1 + 15, g - 9, g - 8, z1 + 2, z1 + 4, WATER)
+ if scenario == 'water' then -- 'buried' stops at the pockets
+  -- Pond inside the footprint: bed g-3, water g-2..g.
+  fill(x1 + 15, x1 + 22, g - 2, g, z1 + 6, z1 + 11, WATER)
+  -- Pond straddling the east edge of the rectangle.
+  fill(big.x2 - 3, big.x2 + 4, g - 1, g, z1 + 1, z1 + 5, WATER)
+ end
+ report.scenario = {name = scenario, rect = big, ground_y = g}
+end
+local function search_then(cb)
+ towns.place_town.search(PLAYER_POS, seed, nil, function(result, msg)
+  if scenario == '' or not result then return cb(result, msg) end
+  local ok, e = pcall(prepare_world, result)
+  if not ok then return cb(nil, 'scenario setup: ' .. tostring(e)) end
+  local first = result.center
+  towns.place_town.search(PLAYER_POS, seed, nil, function(r2, m2)
+   if r2 then
+    report.scenario.first_center, report.scenario.center = first, r2.center
+    report.scenario.rejections, report.scenario.wet = r2.rejections, r2.wet and {count = r2.wet.count, max_depth = r2.wet.max_depth}
+   end
+   cb(r2, m2)
+  end)
+ end)
+end
+local function scenario_checks(result, summary, town)
+ if scenario == '' then return end
+ local g = result.ground_y
+ local top = result.build_bounds.max.y
+ local function in_structure(x, y, z)
+  for _, b in ipairs(town.structures) do
+   if x >= b.min.x and x <= b.max.x and y >= b.min.y and y <= b.max.y and z >= b.min.z and z <= b.max.z then return true end
+  end
+  return false
+ end
+ local inside = {}
+ for _, r in ipairs(result.plan.boundary.rects) do
+  for x = r.x1, r.x2 do inside[x] = inside[x] or {}; for z = r.z1, r.z2 do inside[x][z] = true end end
+ end
+ local function liquid(p)
+  local d = core.registered_nodes[core.get_node(p).name]
+  return d ~= nil and d.liquidtype ~= nil and d.liquidtype ~= 'none'
+ end
+ local function open(p)
+  local d = core.registered_nodes[core.get_node(p).name]
+  return d ~= nil and d.walkable == false and not liquid(p)
+ end
+ local wet_cells, adjacent, floating, columns = 0, 0, 0, 0
+ for x, col in pairs(inside) do
+  for z in pairs(col) do
+   columns = columns + 1
+   for y = g - 3, top do
+    if not in_structure(x, y, z) and liquid({x = x, y = y, z = z}) then wet_cells = wet_cells + 1 end
+   end
+   if not in_structure(x, g, z) then
+    local d = core.registered_nodes[core.get_node({x = x, y = g, z = z}).name]
+    if d == nil or d.walkable == false then floating = floating + 1 end
+   end
+   for _, dd in ipairs({{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) do
+    local nx, nz = x + dd[1], z + dd[2]
+    if not (inside[nx] and inside[nx][nz]) then
+     for y = g + 1, top do
+      if liquid({x = nx, y = y, z = nz}) and open({x = x, y = y, z = z}) and not in_structure(x, y, z) then adjacent = adjacent + 1 end
+     end
+    end
+   end
+  end
+ end
+ report.scenario.checked_columns, report.scenario.wet_cells = columns, wet_cells
+ report.scenario.liquid_adjacent_open, report.scenario.unsupported_ground = adjacent, floating
+ report.scenario.liquids = summary.liquids
+ check(summary.liquids ~= nil and summary.liquids.buried >= 3, 'buried liquid cells were replaced (' .. tostring(summary.liquids and summary.liquids.buried) .. ')')
+ if scenario == 'water' then check(result.wet ~= nil and result.wet.count >= 1, 'pond columns were landfilled (' .. tostring(result.wet and result.wet.count) .. ')') end
+ check(wet_cells == 0, 'no liquid between g-3 and the build top inside the footprint outside buildings (' .. wet_cells .. ')')
+ check(adjacent == 0, 'no open cell above ground beside outside liquid (' .. adjacent .. ')')
+ check(floating == 0, 'ground row is walkable under every non-building column (' .. floating .. ' bad)')
+end
+
 core.register_on_mods_loaded(function() core.after(0, function()
  if core.settings:get('towns_place_check_phase') == '2' then return restart_phase() end
  local ok, err = pcall(function()
@@ -111,7 +212,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
   core.emerge_area({x = -48, y = -8, z = -48}, {x = 48, y = 40, z = 48}, function(_, action, remaining)
    if remaining > 0 then return end
    assert(action ~= core.EMERGE_CANCELLED and action ~= core.EMERGE_ERRORED, 'start area emerge failed')
-  towns.place_town.search({x = 0, y = 9, z = 0}, seed, nil, function(result, msg)
+  search_then(function(result, msg)
    local ok2, err2 = pcall(function()
     if not result then report.search_failure = msg; check(false, 'site search: ' .. tostring(msg)); return finish() end
     report.center, report.ground_y = result.center, result.ground_y
@@ -516,6 +617,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
       check(wells >= 1 and recognized_wells == wells, 'every well is recognized by Living Villages well.lua (' .. recognized_wells .. ' of ' .. wells .. ')')
      end
     end
+    scenario_checks(result, summary, town)
     finish()
    end)
    if not ok2 then check(false, 'verification error: ' .. tostring(err2)); finish() end

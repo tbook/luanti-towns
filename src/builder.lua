@@ -21,6 +21,9 @@
 --   invalid_palette a required node name is not registered
 --   inspection_failed  the area could not be opened, is not loaded (ignore
 --                   nodes), a surface node is missing, or liquid appeared
+--                   ABOVE a dry column's surface (liquid at or below the
+--                   surface row is buried and simply replaced, see
+--                   summary.liquids)
 --   write_failed    the engine raised while writing/committing (the only
 --                   code that may follow a partial write); the message says
 --                   so and names the bounds, and a 4th return value is
@@ -63,6 +66,11 @@
 --   nodes = {examined, changed, by_kind = {clear, fill, support, surface, pave,
 --            landmark}, by_name = {[name] = n}},
 --   palette = {names}
+--   liquids = {buried, wet, sealed} (ticket #104): liquid/ice nodes replaced
+--             inside the owned rows (buried in terrain / in landfilled wet
+--             columns) and open cells above ground kept solid or filled
+--             because a liquid lies just outside the town beside them.
+--             The region is opened one node wider in X/Z for that read.
 
 return function(placement, planner)
 
@@ -109,6 +117,20 @@ function M.check_result(result)
 		end
 		for _, a in ipairs({"x", "y", "z"}) do
 			if b.min[a] > b.max[a] then return nil, "result." .. k .. " is empty" end
+		end
+	end
+	-- Landfilled wet columns (ticket #104): {surfaces = {[x]={[z]=y}}}. Their
+	-- water surface must not be above the finished ground.
+	if result.wet ~= nil then
+		local surfaces = type(result.wet) == "table" and result.wet.surfaces
+		if type(surfaces) ~= "table" then return nil, "result.wet.surfaces missing" end
+		for x, col in pairs(surfaces) do
+			for z, y in pairs(col) do
+				if not is_int(y) or y > result.ground_y then
+					return nil, ("water surface at (%s,%s) is above the finished ground"):format(
+						tostring(x), tostring(z))
+				end
+			end
 		end
 	end
 	local pb, bb, vol = result.plan.bounds, result.build_bounds, result.build_volume
@@ -343,8 +365,19 @@ local function build_impl(result, opts, env, st)
 		max = {x = bb.max.x, y = bb.max.y, z = bb.max.z},
 	}
 	st.wbounds = wbounds
+	local wet = result.wet and result.wet.surfaces or {}
+	local function is_wet(x, z) return wet[x] ~= nil and wet[x][z] ~= nil end
+	local approach_cols = {}
+	for _, a in ipairs(plan.approaches or {}) do
+		if a.pos then approach_cols[a.pos.x .. "," .. a.pos.z] = true end
+	end
+	local NEIGH = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
 	local function read_phase()
-		local region, err = env.open_region(wbounds.min, wbounds.max)
+		-- One node wider in X/Z so liquids just outside the town can be
+		-- seen (read only; nothing outside wbounds is ever written).
+		local rmin = {x = wbounds.min.x - 1, y = wbounds.min.y, z = wbounds.min.z - 1}
+		local rmax = {x = wbounds.max.x + 1, y = wbounds.max.y, z = wbounds.max.z + 1}
+		local region, err = env.open_region(rmin, rmax)
 		if not region then
 			return fail("inspection_failed", "cannot read the build area: " .. tostring(err))
 		end
@@ -377,6 +410,12 @@ local function build_impl(result, opts, env, st)
 						surf[x][z] = name
 						surf_p2[x] = surf_p2[x] or {}
 						surf_p2[x][z] = region.get_param2 and region.get_param2(x, h, z) or 0
+						if is_wet(x, z) then
+							-- Landfilled lake or river bed: the new ground is the
+							-- default surface, not sand/gravel/clay of the bed.
+							surf[x][z] = TL.DEFAULT_SURFACE
+							surf_p2[x][z] = 0
+						end
 					end
 				end
 			end
@@ -405,7 +444,8 @@ local function build_impl(result, opts, env, st)
 		local D = {L = L, palette = palette, region = region,
 			cx = {}, cy = {}, cz = {}, cname = {}, cp2 = {}, n = 0, examined = 0,
 			by_kind = {clear = 0, fill = 0, support = 0, surface = 0, pave = 0, landmark = 0},
-			by_name = {}, paved = 0}
+			by_name = {}, paved = 0,
+			liquids = {buried = 0, wet = 0, sealed = 0}}
 		for _, c in ipairs(L.columns) do
 			local x, z = c.x, c.z
 			if L.pavement(x, z) then D.paved = D.paved + 1 end
@@ -423,16 +463,55 @@ local function build_impl(result, opts, env, st)
 				end
 				local info = env.node_info(have)
 				local write = false
+				local wet_have = info and (info.liquid or info.ice)
 				if kind == "support" then
 					-- Under the finished ground: anything that is not solid,
 					-- stable ground is replaced (air, liquid, ice, sand...).
 					write = not (is_ground(info) and not info.falling)
+					if wet_have and y <= result.heights[x][z] then D.liquids.buried = D.liquids.buried + 1 end
 				else
-					if info and (info.liquid or info.ice) then
-						return fail("inspection_failed", ("liquid or ice '%s' at (%d,%d,%d)"):format(
-							have, x, y, z))
+					if wet_have then
+						-- Liquid or ice is expected only in landfilled wet
+						-- columns and buried in terrain (at or below the
+						-- column's surface row, i.e. inside a cut or under a
+						-- fill); exposed liquid above the surface is a stale
+						-- inspection. Buried liquid is replaced by the
+						-- intended node, so no source can flow into the town.
+						if is_wet(x, z) then
+							D.liquids.wet = D.liquids.wet + 1
+						elseif y <= result.heights[x][z] then
+							D.liquids.buried = D.liquids.buried + 1
+						else
+							return fail("inspection_failed", ("liquid or ice '%s' at (%d,%d,%d)"):format(
+								have, x, y, z))
+						end
 					end
 					write = want ~= nil and want ~= have
+					-- Seal: open air above ground beside a liquid outside
+					-- the town would be flooded. Keep natural solid terrain
+					-- there, else put stone (confined to the town columns).
+					-- Flow is 4-neighbour horizontal only. Paved columns and
+					-- approach columns keep their headroom (y <= g+2) so no
+					-- street or door approach is walled off; their sides
+					-- are left to the door/approach validation.
+					if want == TL.AIR and y > g
+							and not (y <= g + 2 and (L.pavement(x, z) or approach_cols[x .. "," .. z])) then
+						for _, d in ipairs(NEIGH) do
+							local nx, nz = x + d[1], z + d[2]
+							if not L.in_town(nx, nz) then
+								local ninfo = env.node_info(region.get(nx, y, nz))
+								if ninfo and (ninfo.liquid or ninfo.ice) then
+									if is_ground(info) and not info.falling then
+										write = false
+									else
+										want, kind, write = TL.FILL_DEEP, "fill", (have ~= TL.FILL_DEEP)
+									end
+									D.liquids.sealed = D.liquids.sealed + 1
+									break
+								end
+							end
+						end
+					end
 				end
 				if write then
 					if not TL.confined(L.in_town, wbounds, x, y, z) then
@@ -593,6 +672,7 @@ local function build_impl(result, opts, env, st)
 			columns = #L.columns, paved_columns = paved,
 		},
 		nodes = {examined = examined, changed = n_changed, by_kind = by_kind, by_name = by_name},
+		liquids = D.liquids,
 		palette = palette,
 	}
 	if town_info then
