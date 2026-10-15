@@ -143,8 +143,12 @@ sketch):
   The search is read-only and asynchronous (it emerges what it inspects).
   Water (ticket #104): only liquid or ice at the top of a column counts as
   surface water; buried pockets and caves are ignored by the search and are
-  made safe by the builder (below). `/towns_generate` keeps the strict rule
-  (any surface water or ice rejects). `/towns_place_town` opts into
+  made safe by the builder (below). The site SEARCH of `/towns_generate` keeps
+  the strict rule (any surface water or ice rejects, wet mode off). The
+  builder changes below are shared: `/towns_generate` output also differs
+  whenever liquid is buried in the cut or beside the town above ground
+  level (previously `inspection_failed` or ignored). Flow is treated as
+  4-neighbour horizontal; paved and approach columns keep headroom unsealed. `/towns_place_town` opts into
   `WET_DEFAULTS`: a column covered by at most `MAX_WATER_DEPTH` = 6 nodes of
   water or ice (bed found within that depth) is "wet" and is landfilled; wet
   columns may be at most `MAX_WET_FRACTION` = 25% of the footprint, deeper

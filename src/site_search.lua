@@ -527,6 +527,12 @@ local function same_rect(a, b)
 	return a.x1 == b.x1 and a.z1 == b.z1 and a.x2 == b.x2 and a.z2 == b.z2
 end
 
+-- Exact lava node names (wet mode reports them as "lava", not "water").
+M.LAVA_NODES = {
+	["mcl_core:lava_source"] = true, ["mcl_core:lava_flowing"] = true,
+	["default:lava_source"] = true, ["default:lava_flowing"] = true,
+}
+
 function M.search(player_pos, seed, opts, done, env)
 	local seed_ok, seed_msg = planner.check_seed(seed)
 	if not seed_ok then
@@ -598,7 +604,7 @@ function M.search(player_pos, seed, opts, done, env)
 	local wet_mode = C.MAX_WATER_DEPTH > 0
 	local function class_at(x, y, z)
 		local name = env.get_node_name(x, y, z)
-		if wet_mode and name:find("lava", 1, true) then return "lava" end
+		if wet_mode and M.LAVA_NODES[name] then return "lava" end
 		return placement.classify(name, env.node_info)
 	end
 

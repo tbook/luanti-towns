@@ -880,3 +880,7 @@ do
 	eq(ir ~= nil and ir.wet ~= nil and ir.wet.max_depth, 3, "pond wet: depth counted to the top water node")
 	eq(ir and ir.ground_y, 20, "pond wet: ground is the dry level (median)")
 end
+
+-- Lava is matched by exact node name (ticket #104).
+eq(ss.LAVA_NODES["mcl_core:lava_source"], true, "lava source listed")
+eq(ss.LAVA_NODES["mcl_decor:lava_lamp"], nil, "unrelated lava-named node is not lava")

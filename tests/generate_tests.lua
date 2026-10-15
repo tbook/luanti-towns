@@ -248,6 +248,14 @@ for _, bad in ipairs({"abc", "1.5", "1 2", tostring(LIMIT + 1), "922337203685477
 	eq(f.c.busy(), false, "invalid '" .. bad .. "': not busy")
 end
 
+-- Ticket #104: /towns_generate passes no search options, so the strict
+-- (non-wet) site search rule stays in force.
+do
+	local f = fakes()
+	f.c.run("alice", "31337")
+	eq(f.searches[1].opts, nil, "towns_generate: no search opts, wet mode stays off")
+end
+
 -- Offline player.
 do
 	local f = fakes()

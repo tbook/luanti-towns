@@ -1077,6 +1077,27 @@ do
 		eq(w.get(fx, g, fz), GRASS, "lake: default surface at ground")
 		eq(w.get(fx, g + 1, fz), "air", "lake: water above ground cleared")
 		eq(w.get(fx, g + 2, fz), "air", "lake: water above ground cleared 2")
+		-- Flowing water and ice over a wet column are replaced as well.
+		local function mixed(x, y, z)
+			if x == fx and z == fz and y > h and y <= g + 1 then
+				if y == g + 1 then return "mcl_core:water_flowing" end
+				return (y % 2 == 0) and "mcl_core:ice" or "mcl_core:water_flowing"
+			end
+		end
+		local mres = copy_result()
+		mres.wet = {count = 1, max_depth = g - h, surfaces = {[fx] = {[fz] = g}}}
+		local mw = new_world({world = mixed, nodes = (function()
+			local t = nodes_table()
+			t["mcl_core:water_flowing"] = {liquid = true}
+			return t
+		end)()})
+		local ms, mm = builder.build(mres, {log = false}, mw.env)
+		eq(ms ~= nil, true, "flowing/ice lake: built (" .. tostring(mm) .. ")")
+		for y = h + 1, g - 1 do
+			local n = mw.get(fx, y, fz)
+			eq(n == DIRT or n == STONE, true, "flowing/ice lake: row " .. y .. " solid")
+		end
+		eq(mw.get(fx, g + 1, fz), "air", "flowing/ice lake: flowing water above ground cleared")
 		local bad = copy_result()
 		bad.wet = {count = 1, max_depth = 1, surfaces = {[fx] = {[fz] = g + 1}}}
 		expect_rejection("wet surface above ground", bad, new_world({world = lake}), "bad_result", "above the finished ground")

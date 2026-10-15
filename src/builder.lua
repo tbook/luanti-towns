@@ -367,6 +367,10 @@ local function build_impl(result, opts, env, st)
 	st.wbounds = wbounds
 	local wet = result.wet and result.wet.surfaces or {}
 	local function is_wet(x, z) return wet[x] ~= nil and wet[x][z] ~= nil end
+	local approach_cols = {}
+	for _, a in ipairs(plan.approaches or {}) do
+		if a.pos then approach_cols[a.pos.x .. "," .. a.pos.z] = true end
+	end
 	local NEIGH = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
 	local function read_phase()
 		-- One node wider in X/Z so liquids just outside the town can be
@@ -486,7 +490,12 @@ local function build_impl(result, opts, env, st)
 					-- Seal: open air above ground beside a liquid outside
 					-- the town would be flooded. Keep natural solid terrain
 					-- there, else put stone (confined to the town columns).
-					if want == TL.AIR and y > g then
+					-- Flow is 4-neighbour horizontal only. Paved columns and
+					-- approach columns keep their headroom (y <= g+2) so no
+					-- street or door approach is walled off; their sides
+					-- are left to the door/approach validation.
+					if want == TL.AIR and y > g
+							and not (y <= g + 2 and (L.pavement(x, z) or approach_cols[x .. "," .. z])) then
 						for _, d in ipairs(NEIGH) do
 							local nx, nz = x + d[1], z + d[2]
 							if not L.in_town(nx, nz) then
