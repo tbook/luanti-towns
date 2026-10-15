@@ -13,7 +13,7 @@ local GROUND_Y = 40
 
 local entries = catalog.entries
 local profile = assert(planner.landmark_profile(catalog.snapshot()))
-local plan = assert(planner.plan({x = 0, z = 0}, 1, {landmarks = profile}))
+local plan = assert(planner.plan({x = 0, z = 0}, 101, {landmarks = profile}))
 eq(#plan.content.alleys >= 1, true, "fixture plan has an alley")
 eq(#plan.content.buildings >= 2, true, "fixture plan has buildings")
 eq(plan.sites.city_hall ~= nil, true, "fixture plan has a city hall")
@@ -375,6 +375,9 @@ do
 		-- (24,6,3)) is a 6-wide, 5-high opening with half-step stairs.
 		local c, cwhy = route("castle", rot)
 		eq(c ~= nil, true, "real castle gate reachable at rotation " .. rot .. ": " .. tostring(cwhy))
+		-- The town hall (#126): door (9,2,8) behind a stepped porch.
+		local h, hwhy = route("tower", rot)
+		eq(h ~= nil, true, "real town hall door reachable at rotation " .. rot .. ": " .. tostring(hwhy))
 	end
 	-- #87: captures that began at the floor row sank flush with the street
 	-- (one block low). A template must keep a ground row under its floor

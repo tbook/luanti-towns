@@ -3,23 +3,34 @@
   "buildings": [
     {
       "id": "tower",
-      "label": "Tower",
+      "label": "Town hall",
       "scan_min": {
-        "x": 98,
+        "x": 89,
         "y": 8,
-        "z": 198
+        "z": 195
       },
       "scan_max": {
-        "x": 109,
+        "x": 118,
         "y": 62,
-        "z": 209
+        "z": 222
       },
       "floor_y": 8,
+      "capture_min": {
+        "x": 93,
+        "y": 8,
+        "z": 200
+      },
+      "capture_max": {
+        "x": 113,
+        "y": 57,
+        "z": 217
+      },
+      "ground_y": 8,
       "rotation": 90,
       "entrance": {
-        "x": 106,
-        "y": 9,
-        "z": 202
+        "x": 105,
+        "y": 10,
+        "z": 209
       },
       "label_position": {
         "x": 104,

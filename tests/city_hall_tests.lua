@@ -23,7 +23,9 @@ end
 local base = assert(planner.landmark_profile(catalog.snapshot()))
 eq(base.city_hall ~= nil, true, "catalog profile carries the city hall")
 eq(base.city_hall.id, "tower", "catalog hall id")
-eq(base.city_hall.size.x, 8, "tower size x")
+eq(base.city_hall.size.x, 18, "town hall size x (#126)")
+eq(base.city_hall.size.y, 50, "town hall size y (#126)")
+eq(base.city_hall.size.z, 21, "town hall size z (#126)")
 
 -- Synthetic asymmetric halls: long with an off-centre door; deep with the
 -- door near a corner; a larger one with a recessed off-centre door.

@@ -245,3 +245,32 @@ with its door facing across it.
 The random stream changed (the hall is now drawn right after the market and
 the other landmarks keep clear of it), so individual towns differ; the totals
 above are not a like-for-like tuning result.
+
+### Before and after (#126 town hall template)
+
+Same 12 seeds and centres on main after #128 (714b63c, 22-entry catalog hash
+`86fae7e9`) and on this change (22-entry catalog hash `70a54cb4`). Both sides
+include the soup shop, library, blacksmith, and updated office from #128;
+the city hall `tower` grows from 8 x 50 x 8 to 18 x 50 x 21. Artifacts of
+the change are in `docs/layout_after_126/`. The hall still stands beside the
+open market touching one edge (#106); its facade (18) is shorter than
+`MARKET_MIN` (20), so the market needs no expansion and keeps its ordinary
+20 to 28 node sides.
+
+| metric (12 seeds, sums) | before | after |
+| --- | --- | --- |
+| market area (nodes) | 6705 | 6665 |
+| market open nodes / share | 6705 / 1.000 | 6665 / 1.000 |
+| largest open square (sum of per-seed sides; range) | 263 (20 to 25) | 263 (20 to 26) |
+| narrow strips (count) | 55 | 49 |
+| narrow strip cells | 6216 | 4893 |
+| street length (est.) | 6649 | 7574 |
+| placed ordinary buildings (houses/shops/workshops) | 536 (253/131/152) | 568 (257/147/164) |
+| frontage used by placed buildings | 4759 | 5069 |
+| blocks / single-row blocks | 131 / 55 | 128 / 40 |
+| shortages / planning failures | 0 / 0 | 0 / 0 |
+| planner attempts (sum) | 44 | 79 |
+
+The wider hall box changes what the sampler accepts and rejects, so the
+random stream differs and these totals are not a like-for-like tuning
+result. Every seed still plans with the whole market open and no shortages.

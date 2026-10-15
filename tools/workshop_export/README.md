@@ -261,3 +261,18 @@ torches, a ladder, a trapdoor, two bark-slab roof corners. The back strip at
 floor height (grass and path at z 241 and along x 246) is terrain that sits
 inside the box and is captured with it. The planner has no corner-lot concept: the soup shop is
 placed like any other shop and has no preferred position.
+
+## Town hall (`tower`, #126)
+
+The `tower` entry (role `city_hall`, label "Town hall") is the TownsWorkshop
+town hall: the former 8 x 50 x 8 cobble tower with a diorite hall built round
+its foot. The catalog id stays `tower` so it remains the only `city_hall` entry
+(the planner takes the first sorted id of the role). Source box x 93..113,
+y 8..57, z 200..217 (the upper tower reaches z 200, one node beyond the hall
+body); front is +X (door at (105,10,209), `rotation` 90). The terrain row y 8
+is kept (`floor_y` and `ground_y` 8, `ground_offset` 0), so the hall floor
+(y 9) is one block above the street with real porch steps, as authored:
+18 x 50 x 21 in the canonical file, entrance (9, 2, 8). The standing sign at
+(104,9,197) is the workshop label and is excluded; a 5-wide diorite_smooth
+paving strip (source x 109..113, y 8) in front of the porch is part of the
+capture.
