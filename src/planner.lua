@@ -349,7 +349,10 @@ function M.depth_policy(profile)
 	if not depth then return {} end
 	return {
 		ROW_DEPTH = depth,
-		MIN_BLOCK_SIDE = depth,     -- a block is at least one row deep
+		-- Intentionally the larger of the row depth and the #89 product
+		-- value: a block is at least one row deep, and the thin strips the
+		-- #89 tuning refused stay refused.
+		MIN_BLOCK_SIDE = math.max(depth, M.LANDMARK_TUNING.MIN_BLOCK_SIDE),
 		ROAD_GAP = 2 * depth,       -- road to road: two opposing rows
 		SQUARE_GAP = depth,         -- square to road: one row
 		LANDMARK_GAP = depth,       -- landmark to road: one row

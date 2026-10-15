@@ -169,7 +169,7 @@ the deepest (13). With the stock catalog (11 entries) the depths are
 7, 9, 9, 9, 9, 9, 11, 11, 12, 13, 13 and D = 9.
 
 `planner.depth_policy(profile)` turns D into the constants listed in the
-report: `MIN_BLOCK_SIDE = D`, `ROAD_GAP = 2 D` (two opposing rows between
+report: `MIN_BLOCK_SIDE = max(D, 12)`, `ROAD_GAP = 2 D` (two opposing rows between
 roads), `SQUARE_GAP`, `LANDMARK_GAP` and `BOUNDARY_GAP = D` (one row from a
 square, a landmark or the town edge; `BOUNDARY_GAP` is the named gap that
 walls #95 will claim). Squares (market, parvis) are paved edges: a road
@@ -185,6 +185,10 @@ do not leave a sliver between their edge and the pavement
 a street touching the town edge is not exempt). Plans without ordinary
 content in the profile, and the legacy 96 envelope, plan without the policy.
 
+`MIN_BLOCK_SIDE` is intentionally the larger of D and the #89 product value
+(`LANDMARK_TUNING.MIN_BLOCK_SIDE = 12`): the derived depth must not thin the
+#89 look, and a deeper catalog raises it. Explicit `opts.constants` win.
+
 ### Before and after (#86)
 
 Same seeds, centres and metric (D = 9) on `origin/main` (ea510ed, after
@@ -195,19 +199,21 @@ D_min = 7 strips are not comparable with these.
 
 | metric (12 seeds, sums) | before | after |
 | --- | --- | --- |
-| narrow strips (count) | 111 | 70 |
-| narrow strip cells | 19586 | 7454 |
-| street length (est.) | 7133 | 6711 |
-| ordinary frontage | 7755 | 10575 |
-| frontage used by placed buildings | 4902 | 6961 |
-| placed ordinary buildings | 536 | 789 |
-| blocks / single-row blocks | 108 / 35 | 191 / 119 |
-| empty runs | 49 | 124 |
-| unused run length | 2851 | 3610 |
+| narrow strips (count) | 111 | 63 |
+| narrow strip cells | 19586 | 7482 |
+| street length (est.) | 7133 | 6699 |
+| ordinary frontage | 7755 | 7402 |
+| frontage used by placed buildings | 4902 | 4473 |
+| placed ordinary buildings (houses/shops/workshops) | 536 (336/82/118) | 488 (298/89/101) |
+| blocks / single-row blocks | 108 / 35 | 124 / 49 |
+| empty runs | 49 | 76 |
+| unused run length | 2851 | 2929 |
+| shortages | 0 | 0 |
 | planning failures | 0 | 0 |
 | planner attempts (sum) | 27 | 44 |
+| plan time (30 seeds, this machine) | 15.5 s | 34 s |
 
-Most of the gain in placed buildings comes from lowering the minimum block
-side from 12 to D = 9 together with block carving that no longer strands
-slivers; the road changes remove the strips between roads and at the town
-edge.
+Placed buildings fall by about 9% (6% over seeds 1 to 30); the town-edge and
+between-road strips are gone. Seed 3 of the test set loses its second
+chapel (a reported shortage, not a failure). Variant A (minimum block side
+= D = 9) placed 789 buildings; it was not taken to keep the #89 look.

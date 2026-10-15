@@ -138,11 +138,10 @@ end
 
 -- Stock catalog: pinned results, deterministic, plan unchanged. Sealed cells
 -- are counted when the content is planned without the alley pass (#43),
--- which the planner runs by default. Re-pinned in #86 (catalog-derived row
--- depth, shallower minimum blocks): seeds 2, 3, 4, 5, 6, 8, 11, 13, 17, 18
--- and 19 seal 18, 18, 18, 18, 72, 20, 18, 36, 47, 36 and 8 cells, the rest 0
--- (before: 3, 4, 18, 19, 20 sealed 84, 546, 36, 97, 24; earlier re-pins
--- #88/#89/#105).
+-- which the planner runs by default. Re-pinned in #86 (catalog-derived
+-- narrow-gap rules, minimum block side stays the #89 12): seeds 8, 14, 16
+-- and 17 seal 20, 72, 24 and 47 cells, all others 0 (before: 3, 4, 18, 19,
+-- 20 sealed 84, 546, 36, 97, 24; earlier re-pins #88/#89/#105).
 do
 	local geometry = dofile("src/geometry.lua")
 	local packer = dofile("src/frontage_packer.lua")(geometry)
@@ -150,8 +149,7 @@ do
 	local content = dofile("src/content_planner.lua")(geometry, packer,
 		jailmod.occupied_rects, access)
 	local base = assert(planner.landmark_profile(catalog.snapshot()))
-	local pinned = {[2] = 18, [3] = 18, [4] = 18, [5] = 18, [6] = 72, [8] = 20,
-		[11] = 18, [13] = 36, [17] = 47, [18] = 36, [19] = 8}
+	local pinned = {[8] = 20, [14] = 72, [16] = 24, [17] = 47}
 	for seed = 1, 22 do pinned[seed] = pinned[seed] or 0 end
 	local function inside(r, x, z)
 		return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2

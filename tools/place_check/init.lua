@@ -75,16 +75,18 @@ local function restart_phase()
       local rec = towns.place_town.store.get(towns.residents.record_key(b.pos))
       if rec then rec_ids[(rec:gsub('^done:', ''))] = true end
      end
-     local found, extra = 0, {}
+     local found, extra, seen = 0, {}, {}
      for _, o in ipairs(core.get_objects_inside_radius(vector.multiply(vector.add(lo, hi), 0.5), 400)) do
       local le = o:get_luaentity()
       if le and le.name == 'mobs_mc:villager' then
-       if rec_ids[le._id] then found = found + 1
+       if rec_ids[le._id] then
+        -- distinct recorded ids: a duplicate entity does not count twice
+        if not seen[le._id] then seen[le._id] = true; found = found + 1 end
        else extra[#extra + 1] = core.pos_to_string(vector.round(o:get_pos())) .. ' bed=' .. tostring(le._bed and core.pos_to_string(le._bed)) .. ' child=' .. tostring(le.child) end
       end
      end
      report.unrecorded_villagers = extra
-     check(found == rep.count, 'restart: every recorded resident persisted (' .. found .. ' of ' .. rep.count .. ')')
+     check(found >= rep.count, 'restart: every recorded resident persisted (' .. found .. ' of ' .. rep.count .. ')')
      local r = towns.residents.initialize(rep.beds, env, towns.place_town.store)
      report.restart = {villagers_before = before, spawned = r.spawned, already_done = r.already_done,
       claimed = r.claimed, interrupted = r.interrupted, failed = r.failed}

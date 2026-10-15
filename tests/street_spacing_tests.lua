@@ -27,7 +27,9 @@ do
 	eq(C.ROAD_GAP, 18, "road to road needs two opposing rows")
 	eq(C.SQUARE_GAP, 9, "square to road needs one row")
 	eq(C.BOUNDARY_GAP, 9, "boundary gap is a named constant")
-	eq(C.MIN_BLOCK_SIDE, 9, "minimum block side follows the row depth")
+	eq(C.MIN_BLOCK_SIDE, 12, "minimum block side is the larger of row depth and #89 value")
+	eq(planner.depth_policy({content = {a = {size = {z = 20}}}}).MIN_BLOCK_SIDE, 20,
+		"a deeper catalog raises the minimum block side")
 	local legacy = planner.resolve_constants({})
 	eq(legacy.ROW_DEPTH, nil, "no policy without a profile")
 	eq(legacy.MIN_BLOCK_SIDE, 8, "legacy block side unchanged")
@@ -118,4 +120,61 @@ do
 		without_total = without_total + #streets.narrow_gaps(plain, Cp)
 	end
 	eq(without_total > 0, true, "plans without the policy do keep narrow runs")
+end
+
+-- streets.fill() level: a hand-built town where unconstrained secondaries
+-- leave narrow runs. With the policy fill() shifts/shortens/rejects them and
+-- the finished plan has no narrow run; without it the same town does.
+do
+	local function town(approach_z)
+		return {
+			envelope = {x1 = 0, z1 = 0, x2 = 79, z2 = 79},
+			boundary = {rects = {{x1 = 0, z1 = 0, x2 = 59, z2 = 49}}},
+			sites = {
+				cathedral = {rect = {x1 = 2, z1 = 36, x2 = 12, z2 = 47}, kind = "landmark",
+					approach = {pos = {x = 7, z = 35}, edge = {x1 = 7, z1 = 35, x2 = 7, z2 = 35}}},
+				castle = {rect = {x1 = 44, z1 = 36, x2 = 57, z2 = 47}, kind = "landmark",
+					approach = {pos = {x = 50, z = 35}, edge = {x1 = 50, z1 = 35, x2 = 50, z2 = 35}}},
+				parvis = {rect = {x1 = 2, z1 = 14, x2 = 9, z2 = 25}, kind = "square",
+					approach = {pos = {x = 10, z = 20}, edge = {x1 = 10, z1 = 20, x2 = 10, z2 = 20}}},
+				market = {rect = {x1 = 30, z1 = 20, x2 = 39, z2 = 29}, kind = "square",
+					approach = {pos = {x = 35, z = 25}, edge = {x1 = 35, z1 = 25, x2 = 35, z2 = 25}}},
+			},
+			approaches = {
+				{name = "a1", side = "-x", pos = {x = 0, z = approach_z + 2},
+					edge = {x1 = 0, z1 = approach_z, x2 = 4, z2 = approach_z + 4}},
+				{name = "a2", side = "+x", pos = {x = 59, z = 24},
+					edge = {x1 = 55, z1 = 22, x2 = 59, z2 = 26}},
+			},
+		}
+	end
+	local rng = {int = function(a) return a end, pick = function(l) return l[1] end}
+	local function consts(over)
+		local c = planner.resolve_constants({landmarks = base})
+		c.ENVELOPE, c.MAX_BLOCK_SCAN, c.MIN_BLOCKS, c.MAX_BLOCK_DEPTH = 80, 20, 1, 8
+		for k, v in pairs(over or {}) do c[k] = v end
+		return c
+	end
+	local policy = consts()
+	local plan, why = streets.fill(town(22), rng, consts())
+	eq(plan ~= nil, true, "fill with policy plans: " .. tostring(why))
+	if plan then
+		eq(#streets.narrow_gaps(plan, policy), 0, "fill leaves no narrow run")
+		for _, s in ipairs(plan.streets) do
+			eq(s.rect.x1 >= 0 and s.rect.x2 <= 59, true, "street stays in the boundary")
+		end
+	end
+	local off = consts()
+	off.ROW_DEPTH = nil
+	local plain = streets.fill(town(22), rng, off)
+	eq(plain ~= nil and #streets.narrow_gaps(plain, policy) > 0, true,
+		"without the policy fill keeps narrow runs")
+	-- Router: a principal route that hugs the edge is penalised away; with no
+	-- penalty the same town is rejected by the final gate.
+	local hug, hug_why = streets.fill(town(4), rng, consts({NARROW_PENALTY = 0}))
+	eq(hug, nil, "unpenalised edge-hugging route is rejected")
+	eq(tostring(hug_why):find("too narrow", 1, true) ~= nil, true, "gate reason")
+	local ok = streets.fill(town(4), rng, consts())
+	eq(ok ~= nil and #streets.narrow_gaps(ok, policy) == 0, true,
+		"penalised route plans without narrow runs")
 end

@@ -179,12 +179,14 @@ local function gap_scan(n, B, F, R, S, C)
 
 	-- Narrow runs beside the long sides of rect r (local coordinates). Only
 	-- runs of at least MIN_FRONTAGE_RUN positions count (shorter slivers hold
-	-- no frontage run), and the first and last `sw` positions of a street are
+	-- no frontage run), and the first and last positions of a street, as many
+	-- as the street is wide (its own width: 5 principal, 4 secondary), are
 	-- exempt: junctions, bends and short entrance approaches. Returns a list
 	-- of {a1, a2} coordinates along the street.
 	local function runs(r)
 		local out = {}
 		local ex, ez = r.x2 - r.x1 + 1, r.z2 - r.z1 + 1
+		local w = math.min(ex, ez)
 		for _, axis in ipairs({"x", "z"}) do
 			if (axis == "x" and ex >= ez) or (axis == "z" and ez >= ex) then
 				local lo = (axis == "x") and r.x1 or r.z1
@@ -199,7 +201,7 @@ local function gap_scan(n, B, F, R, S, C)
 						end
 						run_start = nil
 					end
-					for a = lo + sw, hi - sw do
+					for a = lo + w, hi - w do
 						local g, class
 						if axis == "x" then
 							g, class = ray(a, (side < 0) and c1 - 1 or c2 + 1, 0, side)

@@ -25,80 +25,80 @@ legend:
   !  narrow strip cells (metric)
   +  town centre (circle)
 
-                                    ...........................                    .............
-                                    ...........................                    .............
-                                    ...........................                    .............
-                                    ...........................                    .............
-                                    ...........................                    .............
-                                    ...........................                    .............
-                                    ...........................                    .............
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,!!!!!!!
-,,,,,,,,,,,,,,,,,,,OOOO,,,,wwwwwwwwwwwwhhhh,,,,ssssshhhsssswwwwwwww,,,,wwwwssssshhh,,,,hhhh,,,,!!!!!!!
-,,,,,,,,,,,,,,,,,,,OOOhhhhhwwwwwwwwwwwwhhhhhhhhssssshhhsssswwwwwwwwhhhhwwwwssssshhhhhhhhhhhJJJJJOOO!!!
-,,,,,,,,,,,,,,,,,,,OOOhhhhhwwwwwwwwwwwwhhhhhhhhssssshhhsssswwwwwwwwhhhhwwwwssssshhhhhhhhhhhJJJJJOOO!!!
-,,,,,,,,,,,,,,,,,,,OOOhhhhhwwwwwwwwwwwwhhhhhhhhssssshhhsssswwwwwwwwhhhhwwwwssssshhhhhhhhhhhJJJJJOOO!!!
-,,,,,,,,,,,,,,,,,,,OOOhhhhhwwwwwwwwwwwwhhhhhhhhssssshhhsssswwwwwwwwhhhhwwwwssssshhhhhhhhhhhJJJJJOOO!!!
+                                    ,,,,,,,,,,,,,,,,,,,,,,,,,,,                    ,,,,,,,,,,,,,
+                                    ,,,,,,,,,,,,,,,,,,,,,,,,,,,                    ,,,,,,,,,,,,,
+                                    ,,,,,,,,,,,,,,,,,,,,,,,,,,,                    ,,,,,,,,,,,,,
+                                    ,,,,,,,,,,,,,,,,,,,,,,,,,,,                    ,,,,,,,,,,,,,
+                                    ,,,,,,,,,,,,,,,,,,,,,,,,,,,                    ,,,,,,,,,,,,,
+                                    ,,,,,,,,,,,,,,,,,,,,,,,,,,,                    ,,,,,,,,,,,,,
+                                    TTTTTT,,,,,,,,,,,,,hhhhhh,,                    TTTTT,,,,,,,,
+.......,,,,,,,......................TTTTTT,,,,,,,,,,,,,hhhhhh,,....................TTTTT,,,,,,,,......
+.......,,,,,,,......................TTTTTT,,OOOhhhhssssshhhhh,,....................TTTTT,,,,,,,,......
+.......,,,,,,,......................TTTTTT,,OOOhhhhssssshhhhh,,....................TTTTTJJJJJJ,,......
+.......,,,,,,,......................TTTTTT,,OOOhhhhssssshhhhh,,....................TTTTTJJJJJJ,,......
+.......,,,,,,,......................TTTTTT,,OOOhhhhssssshhhhh,,....................TTTTTJJJJJJ,,......
+.......,,,,,,,.....=================TTTTTT==OOOhhhhssssshhhhh======================TTTTTJJJJJJ========
 .......,,,,,,ppppppp==================================================================================
-.......,,,,,,ppppppp################################wwwwhhhhh=hhhhhhsssssshhhhhhhwwww==TTTTT!!!==YYYYY
-.......,,,,,,ppppppp################################wwwwhhhhh,hhhhhhsssssshhhhhhhwwww,,TTTTT!!!==YYYYY
-.......,,,,,,ppppppp################################wwwwhhhhh,hhhhhhsssssshhhhhhhwwww,,TTTTT!!!==YYYYY
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCTTTTThhhhhhhhh,###wwwwhhhhh,hhhhhhsssssshhhhhhhwwww,,TTTTT!!!==YYYYY
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCTTTTThhhhhhhhh,###wwwwhhhhh,hhhhhhsssssshhhhhhhwwww,,TTTTT!!!==YYYYY
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCTTTTThhhhhhhhh,###,,,hhhhhh,hhhhhhsssssshhhhhhh,,,,,,TTTTT!!!==YYYYY
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCTTTTThhhhhhhhh,###,,,hhhhhh,hhhhhh,,,,,,,,,,,,,,,,,,,TTTTT!!!==YYYYY
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCTTTTThhhhhhhhh,###sssss,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhhh==YYYYY
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCTTTTThhhhhh,hhhh##sssss,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhhh==YYYYY
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,hhhhhh,hhhh##sssss,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhhh==,,,,,
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,hhhh##sssss,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhhh==,,,,,
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,hhhh##ssssshh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ssssss==hhhhh
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,hhhh##hhhhhhh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ssssss==hhhhh
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,wwwww##hhhhhhh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ssssss==hhhhh
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,wwwww##hhhhhhh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ssssss==hhhhh
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,wwwww##hhhhhhh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ssssss==hhhhh
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,wwwww##hhhhhhh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ssssss==hhhhh
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,hhhhh##wwwww,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==hhhhh
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,hhhhh##wwwww,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==hhhhh
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,hhhhh##wwwww,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==hhhhh
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,hhhhh##wwwww,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==hhhhh
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MMMMMMMMMMMMMM,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==sssss
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MMMMMMMMMMMMMM,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==sssss
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MMMMMMMMMMMMMM,,,hhhhhh,,,,,,,,,,,,,,,,,,,hhhh==sssss
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MMMMMMMHHHHMMhhhhhhhhhh,,,,,,,,,,,,,,,,,,,hhhh==sssss
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MMMMMMMHHHHMMhhhhhhhhhh,,,,,,,,,,,,,,,,,,wwwww==sssss
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MMMMMMMHHHHMMhhhhhhhhhh,,,,,,,,,,,,,,,,,,wwwww==sssss
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MM+MMMMHHHHMMhhhhhhhhhh,,,,,,,,,,,,,,,,,,wwwww==sssss
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,#MMMMMMMHHHHMMhhhhhhhhhh,,,,,,,,,,,,,,,,,,wwwww==sssss
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC.,,,,,,,,,,,,#MMMMMMMMMMMMMM###########wwwww,,,,,,,,,,ssssss==sssss
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC.,,,,,,,,,,,,#MMMMMMMMMMMMMM###########wwwww,,,,,,,,,,ssssss==sssss
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC.,,,,,,,,hhhhhMM!!!!!!!!!!Mhhhhhh######wwwww,,,,,,,,,,ssssss==sssss
-.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC.,,,,,,,,hhhhh##!!!!!!!!!!,hhhhhh,,,,##wwwwwhh,,,,,,,,ssssss==sssss
-....................................,,,,,,,,hhhhh##!!!!!!!!!!,hhhhhh,,,,##hhhhhhh,,,,,,,,ssssss==sssss
-....................................,,,,,,,,hhhhh##!!!!!!!!!!,hhhhhh,,,,##hhhhhhh,,,,,,,,ssssss==sssss
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,hhhhhhOOOO##hhhhhhh,,,,,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,hhhhhhOOOO##hhhhhhh,,,,,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,hhhhhhOOOO##hhhhhhh,,,,,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,hhhhh##hhhhhhh,,,,,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,hhhhh##hhhhhhh,,,,,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,hhhhh##hhhhhhh,,,,,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,hhhhh##hhhhhhh,,,,,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhhh,,,,,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhhhh,,TTTTTT
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhhhh,,TTTTTT
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhhhh,,TTTTTT
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhhhh,,TTTTTT
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhhhh,,TTTTTT
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhhhh,,TTTTTT
+.......,,,,,,ppppppp################################wwwwhhhhh=wwww=YYYYsssssshhhhhhhwwwwsssss=========
+.......,,,,,,ppppppp################################wwwwhhhhh,wwww,YYYYsssssshhhhhhhwwwwsssss,,==.....
+.......,,,,,,ppppppp################################wwwwhhhhh,wwww,YYYYsssssshhhhhhhwwwwsssss,,==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCwwwwwwwwwwwwhhh###wwwwhhhhh,wwww,YYYYsssssshhhhhhhwwwwsssss,,==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCwwwwwwwwwwwwhhh###wwwwhhhhh,wwww,YYYYsssssshhhhhhhwwwwsssss,,==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCwwwwwwwwwwwwhhh###,,,hhhhhh,,,,,,YYYYsssssshhhhhhhh,,,,ssssss==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCwwwwwwwwwwwwhhh###,,,hhhhhh,,,,,,YYYYY,,,,,,,,,,,,,,,,,ssssss==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCwwwwwwwwwwwwhhh###sssss,,,,,,,,,,YYYYY,,,,,,,,,,,,,,,,,ssssss==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,sssss##sssss,,,,,,,,,,YYYYY,,,,,,,,,,,,,,,,,ssssss==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,sssss##sssss,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ssssss==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,sssss##sssss,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,ssssss==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,sssss##ssssshh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,OOOO==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,sssss##hhhhhhh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,OOOO==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,hhhhh##hhhhhhh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,OOOO==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,hhhhh##hhhhhhh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,hhhhh##hhhhhhh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,hhhhh##hhhhhhh,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,hhhh##wwwww,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,hhhh##wwwww,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,hhhh##wwwww,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,hhhh##wwwww,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MMMMMMMMMMMMMM,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MMMMMMMMMMMMMM,,,,,,,,,,,,,,,,,,,,,,,,,,,,hhhh==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MMMMMMMMMMMMMM,,,hhhhhh,,,,,,,,,,,,,,,,,,,hhhh==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MMMMMMMHHHHMMhhhhhhhhhh,,,,,,,,,,,,,,,,,,,hhhh==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MMMMMMMHHHHMMhhhhhhhhhh,,,,,,,,,,,,,,,,,,wwwww==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MMMMMMMHHHHMMhhhhhhhhhh,,,,,,,,,,,,,,,,,,wwwww==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,,MM+MMMMHHHHMMhhhhhhhhhh,,,,,,,,,,,,,,,,,,wwwww==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC,,,,,,,,,,,,,#MMMMMMMHHHHMMhhhhhhhhhh,,,,,,,,,,,,,,,,,,wwwww==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC.,,,,,,,,,,,,#MMMMMMMMMMMMMM############,,,,,,,,,,,,,,,.....==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC.,,,,,,,,,,,,#MMMMMMMMMMMMMM############,,,,,,,,,,,,,,,.....==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC.,,,,,,,,hhhhhMM!!!!!!!!!!Mhhhhwwwww###hhhh,,,,,,,,,,,,.....==.....
+.......CCCCCCCCCCCCCCCCCCCCCCCCCCCC.,,,,,,,,hhhhh##!!!!!!!!!!,hhhhwwwww,##hhhh,,,,,,,,,,,,.....==.....
+....................................,,,,,,,,hhhhh##!!!!!!!!!!,hhhhwwwww,##hhhh,,,,,,,,,,,,.....==.....
+....................................,,,,,,,,hhhhh##!!!!!!!!!!,hhhhwwwww,##hhhh,,,,,,,,,,,,.....==.....
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,hhhhwwwww,##hhhhhhh,,,,,,,,,
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,,,,,,##hhhhhhh,,,,,,,,,
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,wwwww##hhhhhhh,,,,,,,,,
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,wwwww##hhhhhhh,,,,,,,,,
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,wwwww##hhhhhhh,,,,,,,,,
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,wwwww##hhhhhhh,,,,,,,,,
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,wwwww##wwwww,,,,,,,,,,,
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,sssss##wwwww,,,,,hhhhhh
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,sssss##wwwwwTTTTThhhhhh
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,sssss##wwwwwTTTTThhhhhh
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,sssss##hhhh,TTTTThhhhhh
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,wwwww##hhhh,TTTTThhhhhh
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,wwwww##hhhh,TTTTThhhhhh
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,wwwww##hhhh,TTTTThhhhhh
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hwwwww#################A
        .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh#################A
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,sssss#################A
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,sssss##hhhhhhhhhhhhhhhA
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,sssss##hhhhhhhhhhhhhhh,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,sssss##hhhhhhhhhhhhhhh,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,sssss##hhhhhhhhhhhhhhh,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,hhhhh##hhhhhhhhhhhhhhh,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,hhhhh##hhhhhhhhhhh,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,,hhhhh##hhhhhhhhhhh,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK!!!YYYYYYYY##hhhhh,,,,,,,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK!!!YYYYYYYY##hhhhh,,,,,,,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK!!!YYYYYYYY##hhhhh,,,,,,,,,,,
-       .............................KKKKKKKKKKKKKKKKKKKKKKKKK!!!YYYYYYYY##hhhhh,,,,,,,,,,,
-       .............................!!!!!!!!!!!!!!!!!!!!!!!!!!!!YYYYYYYYAAAhhhh,,,,,,,,,,,
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhwwwwYYYY!!!
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhwwwwYYYY!!!
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhwwwwYYYY!!!
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhwwwwYYYY!!!
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhwwwwYYYY!!!
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhh,,,YYYY!!!
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##hhhhhh,,,YYYY!!!
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh###,,,,,,,,YYYY!!!
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##OOOOO,,,,YYYY!!!
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##OOOOO,,,,!!!!!!!
+       .............................KKKKKKKKKKKKKKKKKKKKKKKKK,,,,,hhhhhh##OOOOO,,,,!!!!!!!
+       .............................!!!!!!!!!!!!!!!!!!!!!!!!!,,,,,hhhhhhAAAOOOO,,,,!!!!!!!
