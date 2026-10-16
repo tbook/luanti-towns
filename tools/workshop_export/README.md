@@ -70,7 +70,8 @@ Reload the game after replacing schematics because Luanti caches them. Use
 `/towns_test weaver_house 90`. The catalog IDs are `tower`, `leather_worker`,
 `corner_house`, `jail`, `townhouses`, `weaver_house`, `scribe`, `gaboo_house`,
 `office_building`, `banker_house`, `butcher_shop`, `mason_yard`, and `chapel`.
-The `castle`, `cathedral` compound and existing `demo_house` are also available.
+The `armory`, `castle`, `cathedral` compound and existing `demo_house` are
+also available.
 
 The command reconstructs containers and decorations, restores inventory
 contents and door state, and creates their display entities. It does not
@@ -110,6 +111,21 @@ saved colors while functional node initialization and inventories still run.
 
 Detailed records: `docs/castle_capture.md`,
 `docs/cathedral_monastery_capture.md`, and the generated template manifest.
+
+## Reimports from issue #130
+
+The updated TownsWorkshop versions of the jail, cathedral/monastery, butcher
+shop, corner house, Gaboo house, townhouses, banker house and castle are
+captured in their saved source bounds. The cathedral compound now includes
+the extra source layer at y=6 so the stone floor beneath the monastery library
+is retained. The armory is a new workshop at source x=210..218, y=9..14,
+z=301..310; its entrance is (214,10,303), and its source front already faces
+-Z.
+
+Gaboo house keeps its three beds in the schematic, but two beds that can only
+be reached by ladder are excluded from Towns' resident spawning. The
+`excluded_resident_beds` building field stores canonical schematic offsets;
+placement rotates those offsets with the building before bed enumeration.
 
 ## Stock village templates (tavern, well, library, blacksmith)
 

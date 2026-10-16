@@ -76,6 +76,7 @@ verifies the result at all four rotations.
    | `entrance` | **world** coordinates of the door bottom node (or walk-in opening node) in the source |
    | `entrance_kind` | optional, `"door"` (default) or `"opening"` |
    | `role` | optional here, but registration tickets must set it: `house`, `shop`, `workshop`, `tavern`, `well`, `cathedral`, `castle`, `city_hall`, `chapel`, `jail` |
+   | `excluded_resident_beds` | optional list of canonical schematic offsets for beds that Towns should not use when spawning residents |
    | `label_position` | optional world position of a workshop label sign to exclude from the capture |
    | `capture_min`, `capture_max`, `ground_y` | optional fixed capture box (see clearance below) |
    | `clip_to_capture` | optional boolean: with a fixed capture box, survey only the box (for a build whose survey margin would contain a neighbouring build); the escape check is skipped |
@@ -201,6 +202,8 @@ exported file has the front on -Z. Never `//rotate` the source build.
 - [ ] `entrance` (world coords) is the door bottom node (or the opening
       node, with `entrance_kind: "opening"`).
 - [ ] `role` set at the building object's top level.
+- [ ] Any beds that Towns must not use for resident spawning are listed in
+      `excluded_resident_beds` as canonical schematic bottom-node offsets.
 - [ ] Record exact size, entrance XYZ (file-local), source coordinates, beds,
       and service nodes (chests, furnaces, signs; metadata is not in `.mts`)
       and any initialization needs; "none" if self-contained.
