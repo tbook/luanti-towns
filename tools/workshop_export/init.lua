@@ -93,7 +93,7 @@ core.register_on_mods_loaded(function() core.after(0,function()
      local a=core.get_node(vector.add(lo,{x=x,y=y,z=z}));local b=core.get_node(vector.add(inverse,{x=x,y=y,z=z}));assert(a.name==b.name and a.param2==b.param2,j.id..' inverse rotation mismatch')
     end end end
     local names={} for name in pairs(dependencies) do names[#names+1]=name end table.sort(names)
-    local r={id=j.id,label=j.label,source_min=lo,source_max=hi,source_size=size,size=rotated_size,rotation=j.rotation,entrance=entrance,entrance_kind=kind,ground_offset=ground_offset,role=j.role,metadata=metadata,nodes=nodes,required_nodes=names,verified_nodes=count}
+    local r={id=j.id,label=j.label,source_min=lo,source_max=hi,source_size=size,size=rotated_size,rotation=j.rotation,entrance=entrance,entrance_kind=kind,ground_offset=ground_offset,role=j.role,excluded_resident_beds=j.excluded_resident_beds,metadata=metadata,nodes=nodes,required_nodes=names,verified_nodes=count}
     write_json(wp..'/export/'..j.id..'.json',r);results[#results+1]=r
    end
    write_json(wp..'/export/results.json',results)

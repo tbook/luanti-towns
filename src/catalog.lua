@@ -99,6 +99,9 @@ function M.snapshot()
 			if e.ground_offset then
 				snap[id].ground_offset = e.ground_offset
 			end
+			if e.excluded_resident_beds then
+				snap[id].excluded_resident_beds = e.excluded_resident_beds
+			end
 		end
 	end
 	return snap
@@ -147,6 +150,20 @@ function M.verify(read, modpath)
 			elseif e.ground_offset and (type(e.ground_offset) ~= "number" or e.ground_offset < 0 or e.ground_offset >= e.size.y
 					or e.ground_offset ~= math.floor(e.ground_offset)) then
 				msg = "ground offset outside the schematic"
+			elseif e.excluded_resident_beds ~= nil then
+				if type(e.excluded_resident_beds) ~= "table" then
+					msg = "excluded resident beds must be a list"
+				else
+					for _, p in ipairs(e.excluded_resident_beds) do
+						if type(p) ~= "table" or type(p.x) ~= "number" or type(p.y) ~= "number"
+								or type(p.z) ~= "number" or p.x ~= math.floor(p.x) or p.y ~= math.floor(p.y)
+								or p.z ~= math.floor(p.z) or p.x < 0 or p.x >= e.size.x
+								or p.y < 0 or p.y >= e.size.y or p.z < 0 or p.z >= e.size.z then
+							msg = "excluded resident bed offset outside the schematic"
+							break
+						end
+					end
+				end
 			end
 		end
 

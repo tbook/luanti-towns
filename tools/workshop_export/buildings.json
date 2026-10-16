@@ -259,7 +259,19 @@
         "y": 9,
         "z": 247
       },
-      "role": "house"
+      "role": "house",
+      "excluded_resident_beds": [
+        {
+          "x": 6,
+          "y": 5,
+          "z": 3
+        },
+        {
+          "x": 5,
+          "y": 4,
+          "z": 7
+        }
+      ]
     },
     {
       "id": "office_building",
@@ -448,7 +460,7 @@
       "label": "Cathedral and monastery",
       "scan_min": {
         "x": 97,
-        "y": 7,
+        "y": 6,
         "z": 95
       },
       "scan_max": {
@@ -459,7 +471,7 @@
       "floor_y": 7,
       "capture_min": {
         "x": 100,
-        "y": 7,
+        "y": 6,
         "z": 96
       },
       "capture_max": {
@@ -676,6 +688,28 @@
         "z": 107
       },
       "entrance_kind": "opening",
+      "role": "workshop"
+    },
+    {
+      "id": "armory",
+      "label": "Armory",
+      "scan_min": {
+        "x": 206,
+        "y": 7,
+        "z": 297
+      },
+      "scan_max": {
+        "x": 222,
+        "y": 22,
+        "z": 314
+      },
+      "floor_y": 9,
+      "rotation": 0,
+      "entrance": {
+        "x": 214,
+        "y": 10,
+        "z": 303
+      },
       "role": "workshop"
     }
   ]

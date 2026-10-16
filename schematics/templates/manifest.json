@@ -2,7 +2,15 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "tower"
+    "corner_house",
+    "jail",
+    "townhouses",
+    "gaboo_house",
+    "banker_house",
+    "butcher_shop",
+    "castle",
+    "cathedral",
+    "armory"
   ],
   "buildings": [
     {
@@ -174,7 +182,9 @@
         "mcl_doors:wooden_door_b_1",
         "mcl_doors:wooden_door_t_1",
         "mcl_fences:fence",
+        "mcl_fletching_table:fletching_table",
         "mcl_flowers:fern",
+        "mcl_itemframes:frame",
         "mcl_lanterns:lantern_ceiling",
         "mcl_lanterns:lantern_floor",
         "mcl_stairs:slab_tree_bark_top",
@@ -209,7 +219,7 @@
         "z": 8
       },
       "verified_nodes": 720,
-      "snapshot_sha256": "701f48def2ff405e9507619222187b25d6a0e8adad2d5f06d600ebe004b8fc1c"
+      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
     },
     {
       "entrance": {
@@ -222,6 +232,8 @@
       "id": "jail",
       "label": "Jail",
       "required_nodes": [
+        "mcl_beds:bed_brown_bottom",
+        "mcl_beds:bed_brown_top",
         "mcl_chests:trapped_chest_small",
         "mcl_core:cobble",
         "mcl_core:mossycobble",
@@ -264,7 +276,7 @@
         "z": 7
       },
       "verified_nodes": 462,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
     },
     {
       "entrance": {
@@ -329,7 +341,7 @@
         "z": 11
       },
       "verified_nodes": 1980,
-      "snapshot_sha256": "701f48def2ff405e9507619222187b25d6a0e8adad2d5f06d600ebe004b8fc1c"
+      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
     },
     {
       "entrance": {
@@ -481,6 +493,18 @@
         "z": 4
       },
       "entrance_kind": "door",
+      "excluded_resident_beds": [
+        {
+          "x": 6,
+          "y": 5,
+          "z": 3
+        },
+        {
+          "x": 5,
+          "y": 4,
+          "z": 7
+        }
+      ],
       "ground_offset": 0,
       "id": "gaboo_house",
       "label": "Gaboo house",
@@ -555,7 +579,7 @@
         "z": 13
       },
       "verified_nodes": 1430,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
     },
     {
       "entrance": {
@@ -682,7 +706,7 @@
         "z": 11
       },
       "verified_nodes": 1452,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
     },
     {
       "entrance": {
@@ -701,6 +725,7 @@
         "mcl_colorblocks:hardened_clay_red",
         "mcl_core:dirt",
         "mcl_core:dirt_with_grass",
+        "mcl_core:sprucewood",
         "mcl_core:stripped_acacia",
         "mcl_crafting_table:crafting_table",
         "mcl_doors:acacia_trapdoor_open",
@@ -737,7 +762,7 @@
         "z": 9
       },
       "verified_nodes": 567,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
     },
     {
       "entrance": {
@@ -1088,16 +1113,16 @@
         "z": 50
       },
       "verified_nodes": 105300,
-      "snapshot_sha256": "701f48def2ff405e9507619222187b25d6a0e8adad2d5f06d600ebe004b8fc1c"
+      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
     },
     {
       "entrance": {
         "x": 35,
-        "y": 5,
+        "y": 6,
         "z": 8
       },
       "entrance_kind": "door",
-      "ground_offset": 1,
+      "ground_offset": 2,
       "id": "cathedral",
       "label": "Cathedral and monastery",
       "required_nodes": [
@@ -1131,13 +1156,15 @@
         "mcl_core:glass_silver",
         "mcl_core:granite",
         "mcl_core:granite_smooth",
-        "mcl_core:grass_path",
         "mcl_core:gravel",
         "mcl_core:ladder",
+        "mcl_core:leaves",
+        "mcl_core:spruceleaves",
         "mcl_core:stone",
         "mcl_core:stone_smooth",
         "mcl_core:stone_with_coal",
         "mcl_core:stonebrick",
+        "mcl_core:vine",
         "mcl_core:water_flowing",
         "mcl_core:water_source",
         "mcl_core:wood",
@@ -1149,6 +1176,7 @@
         "mcl_decor:chair_wooden",
         "mcl_decor:table_acacia",
         "mcl_decor:table_wooden",
+        "mcl_decor:white_fence",
         "mcl_deepslate:deepslate_cobbled",
         "mcl_doors:dark_oak_door_b_1",
         "mcl_doors:dark_oak_door_b_2",
@@ -1164,13 +1192,23 @@
         "mcl_doors:wooden_door_t_1",
         "mcl_doors:wooden_door_t_2",
         "mcl_farming:beetroot",
+        "mcl_farming:beetroot_2",
         "mcl_farming:carrot",
         "mcl_farming:hay_block",
         "mcl_farming:melon",
+        "mcl_farming:melontige_5",
+        "mcl_farming:melontige_7",
         "mcl_farming:melontige_linked_b",
         "mcl_farming:melontige_linked_l",
+        "mcl_farming:melontige_linked_r",
         "mcl_farming:melontige_linked_t",
+        "mcl_farming:melontige_unconnect",
         "mcl_farming:potato",
+        "mcl_farming:pumpkin",
+        "mcl_farming:pumpkin_5",
+        "mcl_farming:pumpkin_6",
+        "mcl_farming:pumpkintige_linked_r",
+        "mcl_farming:pumpkintige_unconnect",
         "mcl_farming:soil_wet",
         "mcl_farming:wheat",
         "mcl_fences:birch_fence",
@@ -1180,8 +1218,18 @@
         "mcl_flowerpots:flower_pot",
         "mcl_flowerpots:flower_pot_azure_bluet",
         "mcl_flowerpots:flower_pot_blue_orchid",
+        "mcl_flowers:cornflower",
+        "mcl_flowers:dandelion",
         "mcl_flowers:double_grass",
         "mcl_flowers:double_grass_top",
+        "mcl_flowers:lilac",
+        "mcl_flowers:lilac_top",
+        "mcl_flowers:lily_of_the_valley",
+        "mcl_flowers:peony",
+        "mcl_flowers:peony_top",
+        "mcl_flowers:poppy",
+        "mcl_flowers:rose_bush",
+        "mcl_flowers:rose_bush_top",
         "mcl_flowers:tallgrass",
         "mcl_furnaces:furnace",
         "mcl_itemframes:frame",
@@ -1235,9 +1283,11 @@
         "mcl_walls:diorite_1",
         "mcl_walls:diorite_12",
         "mcl_walls:diorite_2",
+        "mcl_walls:diorite_3",
         "mcl_walls:diorite_4",
         "mcl_walls:diorite_6",
         "mcl_walls:diorite_8",
+        "mcl_walls:diorite_9",
         "mcl_walls:prismarine_1",
         "mcl_walls:prismarine_12",
         "mcl_walls:prismarine_2",
@@ -1259,7 +1309,7 @@
       "rotation": 90,
       "size": {
         "x": 55,
-        "y": 35,
+        "y": 36,
         "z": 59
       },
       "source_max": {
@@ -1269,16 +1319,16 @@
       },
       "source_min": {
         "x": 100,
-        "y": 7,
+        "y": 6,
         "z": 96
       },
       "source_size": {
         "x": 59,
-        "y": 35,
+        "y": 36,
         "z": 55
       },
-      "verified_nodes": 113575,
-      "snapshot_sha256": "701f48def2ff405e9507619222187b25d6a0e8adad2d5f06d600ebe004b8fc1c"
+      "verified_nodes": 116820,
+      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
     },
     {
       "entrance": {
@@ -1664,12 +1714,63 @@
       },
       "verified_nodes": 441,
       "snapshot_sha256": "8a96b86de525077e0da3b6d45c109b17efd234b3eb73641931106e6f28795c86"
+    },
+    {
+      "entrance": {
+        "x": 4,
+        "y": 1,
+        "z": 2
+      },
+      "entrance_kind": "door",
+      "ground_offset": 0,
+      "id": "armory",
+      "label": "Armory",
+      "required_nodes": [
+        "mcl_chests:chest_small",
+        "mcl_core:diorite_smooth",
+        "mcl_core:stone_smooth",
+        "mcl_doors:spruce_door_b_1",
+        "mcl_doors:spruce_door_t_1",
+        "mcl_grindstone:grindstone",
+        "mcl_lanterns:lantern_ceiling",
+        "mcl_smithing_table:table",
+        "mcl_stairs:slab_granite_smooth",
+        "mcl_stairs:slab_granite_smooth_double",
+        "mcl_stairs:slab_granite_smooth_top",
+        "mcl_stairs:stair_diorite_smooth",
+        "mcl_stairs:stair_diorite_smooth_outer",
+        "xpanes:bar_flat"
+      ],
+      "role": "workshop",
+      "rotation": 0,
+      "size": {
+        "x": 9,
+        "y": 6,
+        "z": 10
+      },
+      "source_max": {
+        "x": 218,
+        "y": 14,
+        "z": 310
+      },
+      "source_min": {
+        "x": 210,
+        "y": 9,
+        "z": 301
+      },
+      "source_size": {
+        "x": 9,
+        "y": 6,
+        "z": 10
+      },
+      "verified_nodes": 540,
+      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
     }
   ],
   "runtime_validation": {
-    "inventory_slots": 6256,
+    "inventory_slots": 6524,
     "mismatches": 0,
-    "nodes": 1030748,
-    "placements": 88
+    "nodes": 1045888,
+    "placements": 92
   }
 }

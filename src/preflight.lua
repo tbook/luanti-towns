@@ -125,11 +125,19 @@ local function resolve(entries, ground_y, bounds, id, kind, role, rotation, rect
 	if rect.x1 < bounds.x1 or rect.x2 > bounds.x2 or rect.z1 < bounds.z1 or rect.z2 > bounds.z2 then
 		return nil, label .. " lies outside the town bounds (" .. fmt_rect(rect) .. ")", "out_of_bounds"
 	end
+	local excluded_beds = {}
+	for _, p in ipairs(e.excluded_resident_beds or {}) do
+		local x, z = p.x, p.z
+		if g.rotation == 90 then x, z = z, s.x - 1 - x
+		elseif g.rotation == 180 then x, z = s.x - 1 - x, s.z - 1 - z
+		elseif g.rotation == 270 then x, z = s.z - 1 - z, x end
+		excluded_beds[#excluded_beds + 1] = {x = g.min.x + x, y = g.min.y + p.y, z = g.min.z + z}
+	end
 	return {
 		id = id, kind = kind, role = role or kind, rotation = g.rotation,
 		rect = {x1 = rect.x1, z1 = rect.z1, x2 = rect.x2, z2 = rect.z2},
 		min = g.min, max = g.max, size = g.size, entrance = g.entrance,
-		ground_offset = go,
+		ground_offset = go, excluded_beds = excluded_beds,
 	}
 end
 

@@ -52,7 +52,7 @@ M.REASONS = {
 	orphan_top = "malformed", missing_top = "malformed", bad_orientation = "malformed",
 	straddles_box = "malformed",
 	blocked_above = "inaccessible", no_standing_space = "inaccessible",
-	not_loaded = "inaccessible",
+	not_loaded = "inaccessible", excluded_bed = "inaccessible",
 }
 
 -- M.enumerate(boxes, env) -> report
@@ -109,6 +109,8 @@ function M.enumerate(boxes, env)
 			sum.skipped = sum.skipped + 1
 		end
 		local bottoms, tops = {}, {}
+		local excluded = {}
+		for _, p in ipairs(box.excluded_beds or {}) do excluded[pkey(p)] = true end
 		for _, p in ipairs(env.find_beds(box.min, box.max)) do
 			if not seen[pkey(p)] then
 				seen[pkey(p)] = true
@@ -128,38 +130,52 @@ function M.enumerate(boxes, env)
 		local consumed = {}
 		for _, b in ipairs(bottoms) do
 			local p, node = b.p, b.node
-			local dir = DIRS[node.param2]
-			if not dir then
-				skip(p, node.name, "bad_orientation")
+			if excluded[pkey(p)] then
+				local dir = DIRS[node.param2]
+				if dir then
+					local tp = {x = p.x + dir.x, y = p.y, z = p.z + dir.z}
+					local top = env.get_node(tp)
+					if top and top.name == node.name:gsub("_bottom$", "_top")
+							and top.param2 == node.param2 then
+						consumed[pkey(tp)] = true
+						seen[pkey(tp)] = true
+					end
+				end
+				skip(p, node.name, "excluded_bed")
 			else
-				local tp = {x = p.x + dir.x, y = p.y, z = p.z + dir.z}
-				local top = env.get_node(tp)
-				local base = node.name:gsub("_bottom$", "")
-				if not top then
-					skip(p, node.name, "not_loaded")
-				elseif env.bed_part(top.name) ~= 2 or top.name ~= base .. "_top"
-						or top.param2 ~= node.param2 then
-					skip(p, node.name, "missing_top")
-				elseif not inside(box, tp) then
-					skip(p, node.name, "straddles_box")
+				local dir = DIRS[node.param2]
+				if not dir then
+					skip(p, node.name, "bad_orientation")
 				else
-					consumed[pkey(tp)] = true
-					seen[pkey(tp)] = true
-					local spawn
-					if not (passable({x = p.x, y = p.y + 1, z = p.z})
-							and passable({x = tp.x, y = tp.y + 1, z = tp.z})) then
-						skip(p, node.name, "blocked_above")
+					local tp = {x = p.x + dir.x, y = p.y, z = p.z + dir.z}
+					local top = env.get_node(tp)
+					local base = node.name:gsub("_bottom$", "")
+					if not top then
+						skip(p, node.name, "not_loaded")
+					elseif env.bed_part(top.name) ~= 2 or top.name ~= base .. "_top"
+							or top.param2 ~= node.param2 then
+						skip(p, node.name, "missing_top")
+					elseif not inside(box, tp) then
+						skip(p, node.name, "straddles_box")
 					else
-						spawn = standing_cell(p, tp) or standing_cell(tp, p)
-						if not spawn then
-							-- Maybe usable through a sibling bed; decided below.
-							pending[#pending + 1] = {p = p, tp = tp, node = node, base = base,
-								box = box, sum = sum, skip = skip}
+						consumed[pkey(tp)] = true
+						seen[pkey(tp)] = true
+						local spawn
+						if not (passable({x = p.x, y = p.y + 1, z = p.z})
+								and passable({x = tp.x, y = tp.y + 1, z = tp.z})) then
+							skip(p, node.name, "blocked_above")
 						else
-							report.beds[#report.beds + 1] = {pos = p, top = tp, name = node.name,
-								param2 = node.param2, spawn = spawn, id = box.id, kind = box.kind}
-							sum.valid = sum.valid + 1
-							report.by_color[base] = (report.by_color[base] or 0) + 1
+							spawn = standing_cell(p, tp) or standing_cell(tp, p)
+							if not spawn then
+								-- Maybe usable through a sibling bed; decided below.
+								pending[#pending + 1] = {p = p, tp = tp, node = node, base = base,
+									box = box, sum = sum, skip = skip}
+							else
+								report.beds[#report.beds + 1] = {pos = p, top = tp, name = node.name,
+									param2 = node.param2, spawn = spawn, id = box.id, kind = box.kind}
+								sum.valid = sum.valid + 1
+								report.by_color[base] = (report.by_color[base] or 0) + 1
+							end
 						end
 					end
 				end
