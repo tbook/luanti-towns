@@ -81,6 +81,14 @@ do
 	local good = fixture({x1 = 0, z1 = 15, x2 = 7, z2 = 26},
 		{x1 = 17, z1 = 0, x2 = 20, z2 = 49}, {x1 = 39, z1 = 0, x2 = 43, z2 = 49}, 52)
 	eq(#streets.narrow_gaps(good, C), 0, "derived gaps pass")
+	local apron_plan = fixture({x1 = 0, z1 = 15, x2 = 7, z2 = 26},
+		{x1 = 17, z1 = 0, x2 = 20, z2 = 49}, {x1 = 39, z1 = 0, x2 = 43, z2 = 49}, 63)
+	eq(#streets.narrow_gaps(apron_plan, C), 0, "far boundary leaves enough room without an apron")
+	apron_plan.sites.castle.gate_apron = {x1 = 52, z1 = 20, x2 = 57, z2 = 24}
+	local apron_runs = streets.narrow_gaps(apron_plan, C)
+	local sees_apron = false
+	for _, run in ipairs(apron_runs) do if run.street == 2 then sees_apron = true end end
+	eq(sees_apron, true, "spacing metric treats the gate apron as pavement")
 
 	-- Boundary exactly one row from a street passes, one node less is narrow.
 	local edge_ok = fixture({x1 = 0, z1 = 15, x2 = 7, z2 = 26},
@@ -103,7 +111,8 @@ do
 	for _, r in ipairs(runs) do eq(r.street ~= 1, true, "joined street has no narrow run") end
 end
 
--- Stock plans: the accepted layouts keep no narrow run (gate), while the
+-- Stock plans: accepted layouts keep no narrow run, including around the
+-- gate apron (which uses the square-like one-row gap rule), while the
 -- same seeds planned without the policy do (it is not vacuous).
 do
 	local policy = planner.depth_policy(base)
@@ -112,8 +121,8 @@ do
 	local without_total = 0
 	for _, seed in ipairs({1, 2, 3, 4, 5, 6}) do
 		local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
-		eq(#streets.narrow_gaps(plan, planner.resolve_constants({landmarks = base})), 0,
-			"seed " .. seed .. " has no narrow run")
+			eq(#streets.narrow_gaps(plan, planner.resolve_constants({landmarks = base})), 0,
+			"seed " .. seed .. " has no narrow run with gate apron")
 		local plain = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = civic}))
 		local Cp = planner.resolve_constants({landmarks = civic})
 		for k, v in pairs(policy) do Cp[k] = v end

@@ -136,8 +136,10 @@ end
 ------------------------------------------------------------------------
 -- gap_scan(n, B, F, R, S, C) -> {ray, narrow, runs} over n*n envelope-local
 -- layers (flat, cell (x, z) at z * n + x + 1): B inside the boundary, F free
--- ground (inside the boundary, not a landmark), R pavement, S square
--- pavement (market, parvis). The layers are read live, so a caller that adds
+-- ground (inside the boundary, not a landmark), R pavement, S square-like
+-- pavement (market, parvis, and the dedicated castle gate apron). The apron
+-- uses the one-row square gap rule at its intentional road junction. The
+-- layers are read live, so a caller that adds
 -- streets to R sees them. A ray leaves a street side over open ground (free
 -- and unpaved) and ends at pavement (road or square), a landmark, or the
 -- boundary edge; the gap is narrow when it is shorter than the depth the
@@ -268,7 +270,7 @@ function M.fill(plan, rng, C)
 
 	-- Row-depth policy (ticket #86). Active only when the planner supplied
 	-- ROW_DEPTH (catalog-derived, planner.row_depth); legacy plans skip it.
-	-- B: inside the boundary; S: square pavement (market, parvis).
+	-- B: inside the boundary; S: square-like pavement (market, parvis, apron).
 	-- A ray leaves a street side over open ground (free, unpaved) and ends at
 	-- pavement (road or square), a landmark, or the boundary edge; the gap is
 	-- narrow when it is shorter than the depth the ending needs: two opposing
@@ -530,6 +532,24 @@ function M.fill(plan, rng, C)
 	path = route(network_sources(), cgoal, cpos, true)
 	if not path then return nil, "no street-wide route from the network to the castle approach" end
 	pave(path, "network>castle")
+	-- The castle gate is six nodes wide; the normal-width route reaches its
+	-- centre, then a short apron covers the complete authored opening.
+	local gate_apron = sites.castle.gate_apron
+	local gate_apron_local
+	if gate_apron then
+		local ar = lrect(gate_apron)
+		for z = ar.z1, ar.z2 do
+			for x = ar.x1, ar.x2 do
+				if x < 0 or z < 0 or x >= n or z >= n or F[idx(x, z)] ~= 1 then
+					return nil, "castle gate apron conflicts with a reservation or boundary"
+				end
+			end
+		end
+		gate_apron_local = ar
+		set_rect(R, n, ar, 1)
+		if S then set_rect(S, n, ar, 1) end
+		rcount = make_count(R, n)
+	end
 
 	local function avail(x, z)
 		return x >= 0 and z >= 0 and x < n and z < n
@@ -723,6 +743,11 @@ function M.fill(plan, rng, C)
 				return nil, ("street %d keeps a strip too narrow for a building row"):format(s.id)
 			end
 		end
+	end
+	if gate_apron_local then
+		-- Reserve this dedicated pavement before block carving, after street
+		-- spacing checks; R already records it for routing and the depth gate.
+		set_rect(F, n, gate_apron_local, 0)
 	end
 
 	local U = new_layer(n, 0)
@@ -922,7 +947,7 @@ end
 ------------------------------------------------------------------------
 -- Returns a list of {street = id, a1, a2} for runs of ground beside a street
 -- that are too shallow for a building row (see gap_scan), measured from the
--- plan's streets, squares, landmarks and boundary alone. Needs the depth
+-- plan's streets, squares, gate apron, landmarks and boundary. Needs the depth
 -- policy constants (C.ROW_DEPTH and friends, planner.depth_policy); returns
 -- an empty list without them. The street-end exemption (one street width at
 -- each end) and the shortest reported run (MIN_FRONTAGE_RUN) are the same
@@ -948,6 +973,10 @@ function M.narrow_gaps(plan, C)
 	local hall = plan.sites.city_hall
 	if hall then set_rect(R, n, lr(hall.rect), 0) end
 	for _, st in ipairs(plan.streets) do set_rect(R, n, lr(st.rect), 1) end
+	if plan.sites.castle and plan.sites.castle.gate_apron then
+		set_rect(R, n, lr(plan.sites.castle.gate_apron), 1)
+		set_rect(S, n, lr(plan.sites.castle.gate_apron), 1)
+	end
 	local gap = gap_scan(n, B, F, R, S, C)
 	for _, st in ipairs(plan.streets) do
 		for _, run in ipairs(gap.runs(lr(st.rect))) do
@@ -988,6 +1017,33 @@ function M.validate(plan, C)
 				or type(st.approach.pos) ~= "table" or not is_int(st.approach.pos.x)
 				or not is_int(st.approach.pos.z) or not is_rect(st.approach.edge) then
 			return bad("site " .. name .. " is missing or malformed")
+		end
+	end
+	local castle_site = plan.sites.castle
+	if castle_site.gate_span ~= nil or castle_site.gate_apron ~= nil then
+		if not is_rect(castle_site.gate_span) or not is_rect(castle_site.gate_apron) then
+			return bad("castle gate span or apron is malformed")
+		end
+		local gs = castle_site.gate_span
+		local sx, sz = gs.x2 - gs.x1 + 1, gs.z2 - gs.z1 + 1
+		if type(castle_site.facing) ~= "table"
+				or not ((castle_site.facing.x == 0 and (castle_site.facing.z == -1 or castle_site.facing.z == 1))
+					or (castle_site.facing.z == 0 and (castle_site.facing.x == -1 or castle_site.facing.x == 1))) then
+			return bad("castle gate facing is malformed")
+		end
+		local r, f = castle_site.rect, castle_site.facing
+		if f.x == 0 then
+			if sx ~= 6 or sz ~= 1 or gs.z1 ~= gs.z2
+					or gs.x1 < r.x1 or gs.x2 > r.x2
+					or (f.z < 0 and gs.z1 ~= r.z1) or (f.z > 0 and gs.z2 ~= r.z2) then
+				return bad("castle gate span is not a six-node line on the outer facing wall")
+			end
+		else
+			if sx ~= 1 or sz ~= 6 or gs.x1 ~= gs.x2
+					or gs.z1 < r.z1 or gs.z2 > r.z2
+					or (f.x < 0 and gs.x1 ~= r.x1) or (f.x > 0 and gs.x2 ~= r.x2) then
+				return bad("castle gate span is not a six-node line on the outer facing wall")
+			end
 		end
 	end
 	if type(plan.approaches) ~= "table" or #plan.approaches < 2 then
@@ -1096,6 +1152,54 @@ function M.validate(plan, C)
 			end
 		end
 	end
+	if sites.castle.gate_apron then
+		local apron = sites.castle.gate_apron
+		for z = apron.z1, apron.z2 do
+			for x = apron.x1, apron.x2 do
+				if not inenv(x, z) or inb[idx(x, z)] ~= 1 or reserved[idx(x, z)] == 1 then
+					return false, "castle gate apron leaves clear boundary"
+				end
+				local k = idx(x, z)
+				road[k], principal[k], owner[k] = 1, 1, "castle_gate_apron"
+			end
+		end
+		mats.castle_gate_apron = C.PRINCIPAL_MATERIAL
+	end
+	if sites.castle.gate_span or sites.castle.gate_apron then
+		local span, apron = sites.castle.gate_span, sites.castle.gate_apron
+		local f = sites.castle.facing
+		if (f.x ~= 0 and (span.z1 < apron.z1 or span.z2 > apron.z2))
+				or (f.z ~= 0 and (span.x1 < apron.x1 or span.x2 > apron.x2)) then
+			return false, "castle gate apron does not cover the full opening span"
+		end
+		local r = sites.castle.rect
+		if f.z < 0 then
+			if span.z1 ~= r.z1 or apron.z2 ~= r.z1 - 1 then return false, "castle gate apron is not outside the gate wall" end
+		elseif f.z > 0 then
+			if span.z2 ~= r.z2 or apron.z1 ~= r.z2 + 1 then return false, "castle gate apron is not outside the gate wall" end
+		elseif f.x < 0 then
+			if span.x1 ~= r.x1 or apron.x2 ~= r.x1 - 1 then return false, "castle gate apron is not outside the gate wall" end
+		elseif span.x2 ~= r.x2 or apron.x1 ~= r.x2 + 1 then
+			return false, "castle gate apron is not outside the gate wall"
+		end
+		local apron_x, apron_z = apron.x2 - apron.x1 + 1, apron.z2 - apron.z1 + 1
+		local expected_apron
+		if f.x ~= 0 then expected_apron = apron_x == 5 and apron_z == 6
+		else expected_apron = apron_x == 6 and apron_z == 5 end
+		if not expected_apron then return false, "castle gate apron has unexpected dimensions" end
+		local p = sites.castle.approach.pos
+		if p.x < apron.x1 or p.x > apron.x2 or p.z < apron.z1 or p.z > apron.z2 then
+			return false, "castle approach does not enter the gate apron"
+		end
+		for z = apron.z1, apron.z2 do
+			for x = apron.x1, apron.x2 do
+				if not inenv(x, z) or inb[idx(x, z)] ~= 1 or reserved[idx(x, z)] == 1
+						or principal[idx(x, z)] ~= 1 then
+					return false, "castle gate apron is not fully paved inside clear boundary"
+				end
+			end
+		end
+	end
 
 	-- Pedestrian connectivity over the pavement, from both approaches.
 	local function flood(layer, sx, sz)
@@ -1196,6 +1300,15 @@ function M.validate(plan, C)
 	for i, s in ipairs(plan.streets) do
 		if not seen[idx(s.rect.x1, s.rect.z1)] then
 			return false, "street " .. i .. " is not connected to the network"
+		end
+	end
+	if sites.castle.gate_apron then
+		local connected = flood(principal, a1.pos.x, a1.pos.z)
+		local apron = sites.castle.gate_apron
+		for z = apron.z1, apron.z2 do
+			for x = apron.x1, apron.x2 do
+				if not connected[idx(x, z)] then return false, "castle gate apron is disconnected from the principal route" end
+			end
 		end
 	end
 

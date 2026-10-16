@@ -104,6 +104,25 @@ for _, rot in ipairs(geometry.ROTATIONS) do
 		true, rot .. " outside out of bounds")
 end
 
+-- The captured castle gate stays a six-node line on the outer wall in every
+-- rotation. Canonical gate coordinates are X=21..26 on the -Z edge.
+local canonical_gate = {x1 = 21, z1 = 0, x2 = 26, z2 = 0}
+local rotated_gates = {
+	[0] = {x1 = 21, z1 = 0, x2 = 26, z2 = 0},
+	[90] = {x1 = 0, z1 = 23, x2 = 0, z2 = 28},
+	[180] = {x1 = 23, z1 = 53, x2 = 28, z2 = 53},
+	[270] = {x1 = 53, z1 = 21, x2 = 53, z2 = 26},
+}
+for _, rotation in ipairs(geometry.ROTATIONS) do
+	local actual, expected = geometry.rotate_rect({x = 50, z = 54}, canonical_gate, rotation), rotated_gates[rotation]
+	for _, k in ipairs({"x1", "z1", "x2", "z2"}) do
+		eq(actual[k], expected[k], "castle gate rotation " .. rotation .. " " .. k)
+	end
+end
+fails(function()
+	geometry.rotate_rect({x = 50, z = 54}, {x1 = 21, z = 0, x2 = 50, z2 = 0}, 0)
+end, "invalid local rectangle", "gate rotation rejects out-of-bounds span")
+
 -- Recessed entrance: 5x4x3 box, door at x=2, z=1 (one node in from the -Z edge).
 local rec = {size = {x = 5, y = 4, z = 3}, entrance = {x = 2, z = 1}}
 r = geometry.place(rec, pos, 0)

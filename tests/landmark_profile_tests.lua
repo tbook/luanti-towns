@@ -41,11 +41,80 @@ eq(profile.castle.size.z, 54, "castle size z")
 eq(profile.castle.entrance.x, 24, "castle entrance x")
 eq(profile.castle.entrance.z, 3, "castle entrance z")
 eq(profile.castle.ground_offset, 5, "castle ground offset")
+eq(profile.castle.gate_span.x1, 21, "castle gate starts at canonical x 21")
+eq(profile.castle.gate_span.z1, 0, "castle gate is on canonical z 0")
+eq(profile.castle.gate_span.x2, 26, "castle gate ends at canonical x 26")
+
+local rotated_gate = {
+	[0] = {x1 = 21, z1 = 0, x2 = 26, z2 = 0},
+	[90] = {x1 = 0, z1 = 23, x2 = 0, z2 = 28},
+	[180] = {x1 = 23, z1 = 53, x2 = 28, z2 = 53},
+	[270] = {x1 = 53, z1 = 21, x2 = 53, z2 = 26},
+}
+local rotated_apron = {
+	[0] = {x1 = 21, z1 = -5, x2 = 26, z2 = -1},
+	[90] = {x1 = -5, z1 = 23, x2 = -1, z2 = 28},
+	[180] = {x1 = 23, z1 = 54, x2 = 28, z2 = 58},
+	[270] = {x1 = 54, z1 = 21, x2 = 58, z2 = 26},
+}
+for _, rotation in ipairs(geometry.ROTATIONS) do
+	local actual = geometry.rotate_rect(profile.castle.size, profile.castle.gate_span, rotation)
+	for _, axis in ipairs({"x1", "z1", "x2", "z2"}) do
+		eq(actual[axis], rotated_gate[rotation][axis], "gate span rotation " .. rotation .. " " .. axis)
+	end
+	local placed = geometry.place({size = profile.castle.size, entrance = profile.castle.entrance},
+		{x = 0, y = 0, z = 0}, rotation)
+	local apron = geometry.exterior_apron({x1 = 0, z1 = 0, x2 = placed.size.x - 1, z2 = placed.size.z - 1},
+		actual, placed.front, 5)
+	for _, axis in ipairs({"x1", "z1", "x2", "z2"}) do
+		eq(apron[axis], rotated_apron[rotation][axis], "gate apron rotation " .. rotation .. " " .. axis)
+	end
+end
 
 do
 	local p, why = planner.landmark_profile({})
 	eq(p, nil, "empty catalog has no profile")
 	eq(type(why), "string", "empty catalog reason")
+end
+
+do
+	local bad = catalog.snapshot()
+	bad.castle.gate_span = {x1 = 21, z1 = 1, x2 = 26, z2 = 1}
+	local prof, why = planner.landmark_profile(bad)
+	eq(prof, nil, "profile rejects gate span off canonical wall")
+	eq(type(why), "string", "profile returns gate span reason")
+	bad.castle.gate_span = {x1 = 21, z1 = 0, x2 = 25, z2 = 0}
+	prof = planner.landmark_profile(bad)
+	eq(prof, nil, "profile rejects five-node gate span")
+end
+
+local function clone(v)
+	if type(v) ~= "table" then return v end
+	local out = {}
+	for k, x in pairs(v) do out[k] = clone(x) end
+	return out
+end
+
+do
+	local base = assert(planner.plan({x = 100, z = -40}, 1, {landmarks = profile}))
+	local bad = clone(base)
+	bad.sites.castle.gate_span.z2 = bad.sites.castle.gate_span.z2 + 1
+	eq(planner.validate(bad), nil, "validator rejects a two-dimensional gate span")
+	bad = clone(base)
+	local f, apron = bad.sites.castle.facing, bad.sites.castle.gate_apron
+	if f.x ~= 0 then apron.z1 = apron.z1 + 1 else apron.x1 = apron.x1 + 1 end
+	eq(planner.validate(bad), nil, "validator rejects apron that misses gate-span end")
+	bad = clone(base)
+	-- Remove the castle route while leaving the authored opening and apron
+	-- unchanged; validation must reject the disconnected apron/door route.
+	for i, road in ipairs(bad.streets) do
+		if road.route == "network>castle" then table.remove(bad.streets, i); break end
+	end
+	for i, road in ipairs(bad.streets) do road.id = i end
+	local valid, why = planner.validate(bad)
+	eq(valid, nil, "validator rejects disconnected gate apron")
+	eq(type(why) == "string" and why:find("castle approach", 1, true) ~= nil, true,
+		"disconnected apron is rejected by full-width castle route validation")
 end
 
 -- Check one plan against the real boxes.
@@ -88,6 +157,13 @@ local function check_plan(plan, prof, label)
 		-- the landmark obstacle, not street.
 		eq(in_rect(site.rect, site.door.outside.x, site.door.outside.z), true,
 			tag .. " outside-door cell inside box")
+		if name == "castle" then
+			local span, apron = site.gate_span, site.gate_apron
+			local span_width = (span.x2 - span.x1 + 1) + (span.z2 - span.z1 + 1) - 1
+			eq(span_width, 6, tag .. " transformed gate span remains six nodes")
+			eq(rect_in_boundary(plan, apron), true, tag .. " apron inside boundary")
+			eq(in_rect(site.rect, apron.x1, apron.z1), false, tag .. " apron starts outside the building")
+		end
 	end
 	eq(plan.sites.castle.door.recess, 3, label .. " castle recess")
 	eq(plan.sites.castle.door.rise, 1, label .. " castle rise")

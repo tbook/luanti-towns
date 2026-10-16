@@ -37,6 +37,10 @@ local modpath = source:match("^(.*)/src/catalog.lua$") or "."
 local imported = dofile(modpath .. "/schematics/templates/catalog.lua")
 for id, entry in pairs(imported) do entries[id] = entry end
 
+-- The castle's six-node gate is wider than its entrance marker. Coordinates
+-- are canonical template X/Z and were measured from the captured gate.
+entries.castle.gate_span = {x1 = 21, z1 = 0, x2 = 26, z2 = 0}
+
 for id, e in pairs(entries) do
 	e.id = id
 	-- Normalize entrance.y to default of 1 if not provided.
@@ -101,6 +105,10 @@ function M.snapshot()
 			end
 			if e.excluded_resident_beds then
 				snap[id].excluded_resident_beds = e.excluded_resident_beds
+			end
+			if e.gate_span then
+				snap[id].gate_span = {x1 = e.gate_span.x1, z1 = e.gate_span.z1,
+					x2 = e.gate_span.x2, z2 = e.gate_span.z2}
 			end
 		end
 	end
