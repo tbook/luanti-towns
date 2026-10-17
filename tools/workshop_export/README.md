@@ -81,10 +81,10 @@ not schematic contents. Gaboo and the townhouses require **mcl_decor**.
 The chapel requires **mcl_decor** for chairs and **living_villages** for its
 pulpit. The command reports unavailable nodes before changing the destination.
 
-Raw Home captures and workshop placement records in `schematics/captures/`
-are historical references. They are never used to overwrite workshop edits.
-The full town generator still uses its existing blockouts; these templates
-are registered for the building catalog and test command.
+The exporter reads the selected world from a consistent, read-only snapshot.
+It never overwrites workshop edits. The full town generator still uses its
+existing blockouts; these templates are registered for the building catalog
+and test command.
 
 ## Cleaned landmarks
 
@@ -103,14 +103,13 @@ above the outside ground because authored stairs remain in the box. Bounds
 checks inspect architecture above outside ground and fail if it escapes the
 chosen capture. Update these bounds if the user extends the compound.
 
-The active castle keeps its authored optional-mod furnishings; the previous
-core-only converted castle and older source captures remain historical files.
-Both landmarks require mcl_decor and Living Villages for authored furnishings.
+The active castle keeps its authored optional-mod furnishings. Both landmarks
+require mcl_decor and Living Villages for authored furnishings.
 Foliage constructors that would recompute palette/flags are skipped, preserving
 saved colors while functional node initialization and inventories still run.
 
-Detailed records: `docs/castle_capture.md`,
-`docs/cathedral_monastery_capture.md`, and the generated template manifest.
+Landmark bounds and source settings are recorded in `buildings.json` and the
+generated template manifest.
 
 ## Reimports from issue #130
 

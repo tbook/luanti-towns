@@ -209,14 +209,11 @@ Agreed scope:
   entrance and rotations. Additional variants are separate content tasks;
   code work can proceed with synthetic fixtures while buildings are authored.
 - **Existing landmarks and town scale.** Import the intended complete castle
-  and current cathedral from TownsWorkshop. The existing captures are roughly
-  54x50 for the castle and 64x53 for the cathedral’s raw capture in X/Z,
-  much larger than the Phase 2 reservations. The edited cathedral working
-  capture is 59x53; confirm its intended revision under #31 before registration.
-  Enlargement
-  of the town is authorized. Derive reservations and approaches from the
-  actual schematics, preserving the stepped boundary, parvis and connected
-  streets. Engineering trials began at a 192-node envelope; the profile envelope is
+  and current cathedral from TownsWorkshop. Their footprints are much larger
+  than the Phase 2 reservations. Derive reservations and approaches from the
+  current schematics, preserving the stepped boundary, parvis and connected
+  streets. Enlargement of the town is authorized. Engineering trials began at
+  a 192-node envelope; the profile envelope is
   now 208 (#89) with principal streets 5 wide (#88), wider-spaced secondary
   streets (#86); the street spacing and minimum block side are derived
   from the catalog's ordinary building depth (#86, `docs/layout_comparison.md`). Tune the size for usable
