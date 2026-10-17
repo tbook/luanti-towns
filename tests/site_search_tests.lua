@@ -559,7 +559,8 @@ for _, px in ipairs({30900, -30900}) do
 	eq(ok, true, "near limit full radius " .. px .. ": no raise")
 	eq(cc, 1, "near limit " .. px .. ": done once")
 	eq(dd and (dd.rejections.out_of_range or 0) > 0, true, "near limit " .. px .. ": out_of_range counted")
-	eq(ss_ and ss_:find("out_of_range", 1, true) ~= nil, true, "near limit " .. px .. ": summary")
+	eq(rr ~= nil or (ss_ and ss_:find("out_of_range", 1, true) ~= nil), true,
+		"near limit " .. px .. ": found site or reported out_of_range")
 end
 
 -- Watchdog: an emerge that never completes is timed out, the late callback

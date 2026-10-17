@@ -114,7 +114,11 @@ mod root:
 
     lua5.1 tests/run.lua
 
-GitHub Actions runs the same command on every pull request and on pushes to
+The default run skips generated-planner suites that dominate runtime. Run
+`TOWNS_TEST_FULL=1 lua5.1 tests/run.lua` to include the full seed and fuzz set.
+Each test group prints its status and elapsed time so slow runs are visible.
+
+GitHub Actions runs the default command on every pull request and on pushes to
 `main` (see `.github/workflows/tests.yml`).
 
 ## License

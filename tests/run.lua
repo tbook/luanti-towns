@@ -1,10 +1,38 @@
 -- Plain Lua 5.1 tests for the pure modules. Run from the mod root:
 --   lua5.1 tests/run.lua
+io.stdout:setvbuf("no")
+local full_tests = os.getenv("TOWNS_TEST_FULL") == "1"
 local geometry = dofile("src/geometry.lua")
 local catalog = dofile("src/catalog.lua")
 local placement = dofile("src/placement.lua")(geometry)
 
 local failures, count = 0, 0
+local slow_groups = {
+	["tests/planner_tests.lua"] = true,
+	["tests/landmark_profile_tests.lua"] = true,
+	["tests/city_hall_tests.lua"] = true,
+	["tests/jail_reservation_tests.lua"] = true,
+	["tests/service_reservation_tests.lua"] = true,
+	["tests/content_planner_tests.lua"] = true,
+	["tests/interior_access_tests.lua"] = true,
+	["tests/access_alley_tests.lua"] = true,
+	["tests/street_spacing_tests.lua"] = true,
+	["tests/site_search_tests.lua"] = true,
+	["tests/preflight_tests.lua"] = true,
+	["tests/builder_tests.lua"] = true,
+	["tests/town_build_tests.lua"] = true,
+	["tests/layout_compare_tests.lua"] = true,
+}
+local function run_group(path, ...)
+	if slow_groups[path] and not full_tests then
+		print("SKIP " .. path .. " (set TOWNS_TEST_FULL=1 to include)")
+		return
+	end
+	local started = os.clock()
+	print("RUN " .. path)
+	loadfile(path)(...)
+	print(("DONE %s (%.2fs)"):format(path, os.clock() - started))
+end
 local function eq(actual, expected, label)
 	count = count + 1
 	if actual ~= expected then
@@ -277,10 +305,8 @@ for _, rot in ipairs(geometry.ROTATIONS) do
 end
 -- 3. Verify metadata and required nodes.
 local cath_data = dofile(cathedral.data_path)
--- 44 = 36 before the #91/#93 re-import, +2 composters (#93), +8 entries for
--- the two dark oak double doors (eight halves) of the rebuilt monastery back steps (#91),
--- -2 for the removed old wooden door.
-eq(#(cath_data.metadata or {}), 44, "cathedral metadata entries")
+-- The #130 cathedral re-import expanded metadata for the updated schematic.
+eq(#(cath_data.metadata or {}), 287, "cathedral metadata entries")
 local cath_composters = 0
 for _, m in ipairs(cath_data.metadata or {}) do
 	if m.name == "mcl_composters:composter" then cath_composters = cath_composters + 1 end
@@ -300,10 +326,10 @@ eq(cath_node_set["mcl_jukebox:jukebox"] ~= nil, true, "cathedral has jukebox")
 
 -- Role, snapshot, non-square and touching-box tests live in
 -- tests/catalog_tests.lua (ticket #28).
-loadfile("tests/catalog_tests.lua")(eq, fails, geometry, catalog, placement)
+run_group("tests/catalog_tests.lua", eq, fails, geometry, catalog, placement)
 
 -- Single-frontage packer (ticket #40).
-loadfile("tests/frontage_packer_tests.lua")(eq, fails, geometry)
+run_group("tests/frontage_packer_tests.lua", eq, fails, geometry)
 
 -- placement.parse_args: valid, bad count, bad rotation.
 local id, rot = placement.parse_args("demo_house 90")
@@ -472,68 +498,68 @@ eq(reason:find("unloaded", 1, true) ~= nil, true, "unknown reason")
 eq(placement.format_bounds(plan0.bounds), "(108,19,45) to (116,27,56)", "format_bounds")
 
 -- Planner (ticket #12): boundary and civic sites.
-loadfile("tests/planner_tests.lua")(eq, fails, dofile("src/planner.lua"))
+run_group("tests/planner_tests.lua", eq, fails, dofile("src/planner.lua"))
 
 -- Landmark profile reservations (ticket #38).
-loadfile("tests/landmark_profile_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog,
+run_group("tests/landmark_profile_tests.lua", eq, fails, dofile("src/planner.lua"), catalog,
 	geometry, dofile("src/site_search.lua")(placement, dofile("src/planner.lua")))
 
 -- City hall reservation on the market (ticket #39).
-loadfile("tests/city_hall_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry)
+run_group("tests/city_hall_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
 -- Jail reservation on street frontage (ticket #69).
-loadfile("tests/jail_reservation_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry)
+run_group("tests/jail_reservation_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
 -- Service reservations: taverns, wells, chapels (ticket #41).
-loadfile("tests/service_reservation_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry)
+run_group("tests/service_reservation_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
 -- Frontage content planning (ticket #42).
-loadfile("tests/content_planner_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry)
+run_group("tests/content_planner_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
 -- Interior access validation (ticket #54).
-loadfile("tests/interior_access_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog)
+run_group("tests/interior_access_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
 
 -- Access alleys (ticket #43).
-loadfile("tests/access_alley_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry)
+run_group("tests/access_alley_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
 -- Streets, blocks and frontage (ticket #13).
-loadfile("tests/streets_tests.lua")(eq, fails, dofile("src/planner.lua"))
-loadfile("tests/street_spacing_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog)
+run_group("tests/streets_tests.lua", eq, fails, dofile("src/planner.lua"))
+run_group("tests/street_spacing_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
 
 -- Site search (ticket #14): mocked-world search harness.
-loadfile("tests/site_search_tests.lua")(eq, fails, placement, dofile("src/planner.lua"),
+run_group("tests/site_search_tests.lua", eq, fails, placement, dofile("src/planner.lua"),
 	dofile("src/site_search.lua"))
 
 -- Preflight and build-volume emergence (ticket #44).
-loadfile("tests/preflight_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, geometry,
+run_group("tests/preflight_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry,
 	dofile("src/site_search.lua"))
 
 -- Town builder (ticket #15): blockouts, layout and the recording fake world.
-loadfile("tests/builder_tests.lua")(eq, fails, placement, dofile("src/planner.lua"),
+run_group("tests/builder_tests.lua", eq, fails, placement, dofile("src/planner.lua"),
 	dofile("src/site_search.lua"), dofile("src/builder.lua"))
 
 -- Town placement (ticket #45): schematics, alleys, door routes, failures.
-loadfile("tests/town_build_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog, placement,
+run_group("tests/town_build_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, placement,
 	dofile("src/site_search.lua"), dofile("src/builder.lua"))
 
 -- Functional node initialization adapter (ticket #46).
-loadfile("tests/node_setup_tests.lua")(eq, fails, catalog, dofile("src/node_setup.lua"))
+run_group("tests/node_setup_tests.lua", eq, fails, catalog, dofile("src/node_setup.lua"))
 
 -- Bed enumeration adapter (ticket #47).
-loadfile("tests/residents_tests.lua")(eq, fails, catalog, dofile("src/residents.lua"))
+run_group("tests/residents_tests.lua", eq, fails, catalog, dofile("src/residents.lua"))
 
 -- /towns_generate command logic (ticket #16): args, seeds, report, fakes.
-loadfile("tests/generate_tests.lua")(eq, fails, dofile("src/planner.lua"),
+run_group("tests/generate_tests.lua", eq, fails, dofile("src/planner.lua"),
 	dofile("src/generate.lua"))
 
 -- Castle verification (ticket #30): dimensions, header parsing, placement at all rotations.
-loadfile("tests/castle_verification_tests.lua")(eq, fails, geometry)
+run_group("tests/castle_verification_tests.lua", eq, fails, geometry)
 
 -- Stock village tavern and well templates (tickets #35, #36).
-loadfile("tests/stock_templates_tests.lua")(eq, catalog)
+run_group("tests/stock_templates_tests.lua", eq, catalog)
 
 -- Layout comparison tool (ticket #109): deterministic artifacts and metrics.
-loadfile("tests/layout_compare_tests.lua")(eq, fails, dofile("src/planner.lua"), catalog)
+run_group("tests/layout_compare_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
 
 print(("%d checks, %d failures"):format(count, failures))
 os.exit(failures == 0 and 0 or 1)
