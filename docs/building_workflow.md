@@ -11,8 +11,8 @@ Principles:
 
 - Capture only structures the user supplied. Do not procedurally invent the
   building library.
-- WorldEdit is a capture-time tool (legacy raw captures only); Towns must not
-  depend on it at runtime.
+- Towns must not depend on WorldEdit at runtime. For new or changed buildings,
+  use the workshop export workflow documented below.
 - The planner does not alter architecture or add clearance. Side windows,
   eaves and setbacks must be designed inside the captured box so that
   buildings work when placed next to each other.
@@ -214,20 +214,6 @@ exported file has the front on -Z. Never `//rotate` the source build.
 - [ ] Place two copies adjacent in a disposable destination and check walls,
       windows, doors and eaves do not collide or look misaligned.
 - [ ] Commit `buildings.json` and regenerated `schematics/templates/` files.
-
-## Legacy raw capture (WorldEdit)
-
-Only for structures outside the workshop pipeline (historical raw captures in
-`schematics/captures/`, and `demo_house`). Enable WorldEdit in the world copy's
-`world.mt` (`load_mod_worldedit`, `load_mod_worldedit_commands`,
-`load_mod_worldedit_shortcommands`, with paths under your Luanti `mods/`),
-select the box with `//fixedpos set1/set2` (or `//pos1`/`//pos2`), run
-`//mtschemcreate <id>`, and copy `<world>/schems/<id>.mts` to `schematics/`.
-The area must be loaded (emerged) first or unloaded blocks capture as air.
-Headless capture can be driven from a throwaway world mod that calls the
-registered `/mtschemcreate` command after `minetest.emerge_area`; use its own
-`--port` and `--logfile`, and remove the helper afterwards. Raw captures are
-historical references and are never used to overwrite workshop edits.
 
 ## Inspecting a schematic
 
