@@ -122,6 +122,19 @@ eq(pav[8][3], "m:cobble", "secondary where alone")
 eq(pav[12][9], "m:brick", "principal street end")
 eq(pav[13], nil, "no pavement outside")
 
+local gate_pavement = TL.pavement_map({
+	sites = {
+		market = {rect = {x1 = 0, z1 = 0, x2 = 0, z2 = 0}, material = "m:square"},
+		parvis = {rect = {x1 = 20, z1 = 20, x2 = 20, z2 = 20}, material = "m:square"},
+		castle = {rect = {x1 = 30, z1 = 30, x2 = 35, z2 = 35},
+			gate_apron = {x1 = 30, z1 = 24, x2 = 35, z2 = 28}},
+	},
+	streets = {{id = 1, kind = "principal", rect = {x1 = 28, z1 = 26, x2 = 32, z2 = 30},
+		material = "m:brick"}},
+})
+eq(gate_pavement[30][24], "m:brick", "gate apron is paved")
+eq(gate_pavement[35][28], "m:brick", "far corner of gate apron is paved")
+
 -- Column semantics: cut, fill, level, with a one-rect plan.
 do
 	local plan = {

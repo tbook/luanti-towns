@@ -483,9 +483,22 @@ local function check_landmark(name, L)
 	if not (is_int(go) and go >= 0 and go < sz.y) then
 		return nil, name .. " ground_offset lies outside its box"
 	end
+	local gs = L.gate_span
+	if gs ~= nil and (type(gs) ~= "table" or not is_int(gs.x1) or not is_int(gs.z1)
+			or not is_int(gs.x2) or not is_int(gs.z2) or gs.x1 < 0 or gs.z1 < 0
+			or gs.x1 > gs.x2 or gs.z1 > gs.z2 or gs.x2 >= sz.x or gs.z2 >= sz.z) then
+		return nil, name .. " gate span lies outside its box or is malformed"
+	end
+	if gs ~= nil and name == "castle" then
+		if gs.z1 ~= 0 or gs.z2 ~= 0 or gs.x2 - gs.x1 + 1 ~= 6
+				or e.x < gs.x1 or e.x > gs.x2 then
+			return nil, "castle gate span must be a six-node line on the canonical -Z wall containing the entrance"
+		end
+	end
 	return {
 		id = L.id, size = {x = sz.x, y = sz.y, z = sz.z},
 		entrance = {x = e.x, y = ey, z = e.z}, ground_offset = go,
+		gate_span = L.gate_span,
 	}
 end
 
@@ -514,7 +527,7 @@ function M.landmark_profile(snapshot, ids)
 			return nil, "catalog has no entry '" .. tostring(id) .. "' for the " .. name
 		end
 		local L, why = check_landmark(name, {id = id, size = e.size,
-			entrance = e.entrance, ground_offset = e.ground_offset})
+			entrance = e.entrance, ground_offset = e.ground_offset, gate_span = e.gate_span})
 		if not L then return nil, why end
 		profile[name] = L
 	end
@@ -1032,6 +1045,12 @@ local function shape_site(name, kind, r, side, L)
 			rise = L.entrance.y - L.ground_offset,
 			outside = {x = ent.x + s.facing.x, z = ent.z + s.facing.z},
 		}
+		if name == "castle" and L.gate_span then
+			local rotated = geometry.rotate_rect(L.size, L.gate_span, s.rotation)
+			s.gate_span = {x1 = r.x1 + rotated.x1, z1 = r.z1 + rotated.z1,
+				x2 = r.x1 + rotated.x2, z2 = r.z1 + rotated.z2}
+			s.gate_apron = geometry.exterior_apron(r, s.gate_span, s.facing, 5)
+		end
 	elseif kind == "landmark" then
 		local p = {x = pos.x, z = pos.z}
 		if side == "-z" then p.z = r.z1 elseif side == "+z" then p.z = r.z2
@@ -1804,6 +1823,8 @@ local function to_world(local_plan, seed, center, C, attempts)
 			out.door = {recess = s.door.recess, rise = s.door.rise,
 				outside = xz_pos(s.door.outside, ox, oz)}
 		end
+		if s.gate_span then out.gate_span = xz_rect(s.gate_span, ox, oz) end
+		if s.gate_apron then out.gate_apron = xz_rect(s.gate_apron, ox, oz) end
 		if s.parvis then out.parvis = s.parvis end
 		if s.square then out.square = s.square end
 		if s.outer_side then
@@ -1877,7 +1898,7 @@ function M.plan(center, seed, opts)
 			for _, name in ipairs(names) do
 				local L, why = check_landmark(name, lm[name] and {
 					id = lm[name].id, size = lm[name].size, entrance = lm[name].entrance,
-					ground_offset = lm[name].ground_offset})
+					ground_offset = lm[name].ground_offset, gate_span = lm[name].gate_span})
 				if not L then
 					error("towns planner: opts.landmarks: " .. tostring(why or name .. " missing"), 2)
 				end

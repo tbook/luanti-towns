@@ -70,6 +70,54 @@ local function rotate_local(sx, sz, x, z, rotation)
 	end
 end
 
+-- Rotate an inclusive file-local X/Z rectangle into the rotated footprint's
+-- local coordinates. Used for authored subfeatures such as a gate opening.
+function M.rotate_rect(size, r, rotation)
+	rotation = check_rotation(rotation)
+	if type(size) ~= "table" or type(r) ~= "table"
+		or type(size.x) ~= "number" or type(size.z) ~= "number"
+		or type(r.x1) ~= "number" or type(r.z1) ~= "number"
+		or type(r.x2) ~= "number" or type(r.z2) ~= "number"
+		or r.x1 < 0 or r.z1 < 0 or r.x1 > r.x2 or r.z1 > r.z2
+		or r.x2 >= size.x or r.z2 >= size.z then
+		error("towns: invalid local rectangle", 2)
+	end
+	local x1, z1 = rotate_local(size.x, size.z, r.x1, r.z1, rotation)
+	local x2, z2 = rotate_local(size.x, size.z, r.x2, r.z2, rotation)
+	return {x1 = math.min(x1, x2), z1 = math.min(z1, z2),
+		x2 = math.max(x1, x2), z2 = math.max(z1, z2)}
+end
+
+-- Exterior apron adjoining the full gate wall. `box`, `span` are in the
+-- same world/local coordinate space; front points outward from the box.
+function M.exterior_apron(box, span, front, depth)
+	local function rect_ok(r)
+		return type(r) == "table" and type(r.x1) == "number" and type(r.z1) == "number"
+			and type(r.x2) == "number" and type(r.z2) == "number"
+			and r.x1 <= r.x2 and r.z1 <= r.z2
+	end
+	if not rect_ok(box) or not rect_ok(span) or type(front) ~= "table"
+			or not ((front.x == 0 and math.abs(front.z) == 1)
+				or (front.z == 0 and math.abs(front.x) == 1))
+			or type(depth) ~= "number" or depth < 1 or depth ~= math.floor(depth) then
+		error("towns: invalid gate apron geometry", 2)
+	end
+	if front.x ~= 0 then
+		local edge = (front.x < 0) and box.x1 or box.x2
+		if span.x1 ~= edge or span.x2 ~= edge or span.z1 < box.z1 or span.z2 > box.z2 then
+			error("towns: gate span is not on the outward box edge", 2)
+		end
+		if front.x < 0 then return {x1 = box.x1 - depth, z1 = span.z1, x2 = box.x1 - 1, z2 = span.z2} end
+		return {x1 = box.x2 + 1, z1 = span.z1, x2 = box.x2 + depth, z2 = span.z2}
+	end
+	local edge = (front.z < 0) and box.z1 or box.z2
+	if span.z1 ~= edge or span.z2 ~= edge or span.x1 < box.x1 or span.x2 > box.x2 then
+		error("towns: gate span is not on the outward box edge", 2)
+	end
+	if front.z < 0 then return {x1 = span.x1, z1 = box.z1 - depth, x2 = span.x2, z2 = box.z1 - 1} end
+	return {x1 = span.x1, z1 = box.z2 + 1, x2 = span.x2, z2 = box.z2 + depth}
+end
+
 -- entry:    {size = {x=,y=,z=}, entrance = {x=,y=,z=}} (extra fields ignored)
 -- pos:      minimum corner {x,y,z} of the rotated footprint, as passed to
 --           core.place_schematic
