@@ -324,8 +324,8 @@ for _, rot in ipairs(geometry.ROTATIONS) do
 end
 -- 3. Verify metadata and required nodes.
 local cath_data = dofile(cathedral.data_path)
--- The #130 cathedral re-import expanded metadata for the updated schematic.
-eq(#(cath_data.metadata or {}), 287, "cathedral metadata entries")
+-- The #139 cathedral/monastery re-import includes the current workshop edit.
+eq(#(cath_data.metadata or {}), 289, "cathedral metadata entries")
 local cath_composters = 0
 for _, m in ipairs(cath_data.metadata or {}) do
 	if m.name == "mcl_composters:composter" then cath_composters = cath_composters + 1 end

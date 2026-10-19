@@ -40,6 +40,8 @@ end
 
 -- Privileged Phase 1 test command (overwrites its site; Testlandia only).
 loadfile(modpath .. "/src/test_command.lua")(towns)
+-- Manual Issue 139 imports, separate from the town generation catalog.
+loadfile(modpath .. "/src/roman_import_command.lua")(towns)
 
 -- Privileged populated-town command: search near the player and build at once
 -- (overwrites its site; disposable Creative worlds only).
