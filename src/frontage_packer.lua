@@ -64,6 +64,8 @@ local function reserved_rect(rect, front, clearance)
 	return r
 end
 
+M.reserved_rect = reserved_rect
+
 local function is_rect(r)
 	return type(r) == "table" and type(r.x1) == "number" and type(r.z1) == "number"
 		and type(r.x2) == "number" and type(r.z2) == "number"

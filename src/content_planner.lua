@@ -63,6 +63,10 @@ local function intersects(a, b)
 	return a.x1 <= b.x2 and b.x1 <= a.x2 and a.z1 <= b.z2 and b.z1 <= a.z2
 end
 
+local function same_rect(a, b)
+	return a.x1 == b.x1 and a.z1 == b.z1 and a.x2 == b.x2 and a.z2 == b.z2
+end
+
 local function inside(r, o)
 	return r.x1 >= o.x1 and r.x2 <= o.x2 and r.z1 >= o.z1 and r.z2 <= o.z2
 end
@@ -113,7 +117,11 @@ end
 -- solid (hall, jail, services, other buildings); `paved` = pavement rects.
 local function check_building(b, entry, run, block, solid, paved)
 	local r = b.rect
-	local reserved = b.reserved_rect or r
+	local reserved = b.reserved_rect
+	local expected = packer.reserved_rect(r, run.facing, entry.clearance)
+	if not reserved or not same_rect(reserved, expected) then
+		return nil, "reserved area does not match building clearance"
+	end
 	if not inside(reserved, block.rect) then return nil, "box or clearance leaves its block" end
 	local g = geometry.place(entry, {x = r.x1, y = 0, z = r.z1}, b.rotation)
 	if g.min.x ~= r.x1 or g.min.z ~= r.z1 or g.max.x ~= r.x2 or g.max.z ~= r.z2 then
@@ -160,7 +168,7 @@ local function unused_for(run, buildings, alleys, out)
 		for c = math.max(a1, lo), math.min(a2, hi) do covered[c] = true end
 	end
 	for _, b in ipairs(buildings) do
-		if b.frontage == run.id then cover(b.rect) end
+		if b.frontage == run.id then cover(b.reserved_rect or b.rect) end
 	end
 	for _, a in ipairs(alleys or {}) do cover(a.rect) end
 	local gap
@@ -498,7 +506,8 @@ function M.open_alleys(plan, result, pool, roles, seed, opts)
 		local solid = solid_rects(plan)
 		for _, rr in ipairs(extra or {}) do solid[#solid + 1] = rr end
 		for _, b in ipairs(result.buildings) do
-			occ[#occ + 1] = b.rect; solid[#solid + 1] = b.rect
+			local reserved = b.reserved_rect or b.rect
+			occ[#occ + 1] = reserved; solid[#solid + 1] = reserved
 		end
 		for _, a in ipairs(result.alleys) do
 			occ[#occ + 1] = a.rect; solid[#solid + 1] = a.rect
@@ -516,10 +525,11 @@ function M.open_alleys(plan, result, pool, roles, seed, opts)
 					added[#added + 1] = {
 						building_id = p.building_id, role = roles[p.building_id],
 						block = p.block, frontage = p.frontage, rect = p.rect,
+						reserved_rect = p.reserved_rect,
 						rotation = p.rotation, entrance = p.entrance, approach = a,
 					}
-					occ[#occ + 1] = p.rect
-					solid[#solid + 1] = p.rect
+					occ[#occ + 1] = p.reserved_rect
+					solid[#solid + 1] = p.reserved_rect
 				end
 			end
 		end
@@ -557,8 +567,10 @@ function M.validate(plan, result, entries)
 		if not run or not block or run.street == nil or run.block ~= b.block then
 			return nil, "building " .. i .. " names a bad run or block"
 		end
-		local entry = entries[b.building_id]
-		if not entry then return nil, "building " .. i .. " has an unknown entry" end
+		local source_entry = entries[b.building_id]
+		if not source_entry then return nil, "building " .. i .. " has an unknown entry" end
+		local entry = {size = source_entry.size, entrance = source_entry.entrance,
+			clearance = b.building_id == "blacksmith" and 1 or nil}
 		local others = {}
 		for _, o in ipairs(solid) do others[#others + 1] = o end
 		for j, o in ipairs(list) do
