@@ -237,6 +237,7 @@ function M.plan(plan, entries, opts)
 
 	local occupied = occupied_rects(plan, opts.occupied)
 	local solid, paved = solid_rects(plan), pavement(plan)
+	local library_placed = false
 	for _, r in ipairs(opts.occupied or {}) do solid[#solid + 1] = r end
 
 	for _, run in ipairs(plan.frontage) do
@@ -250,22 +251,29 @@ function M.plan(plan, entries, opts)
 					seed = seed * 31 + M.CONTENT_SALT + run.id * 104729,
 				}
 				for _, p in ipairs(res.placements) do
-					local a, why = check_building(p, pool[p.building_id], run, block,
-						solid, paved)
-					if a then
-						local b = {
-							building_id = p.building_id, role = roles[p.building_id],
-							block = p.block, frontage = p.frontage, rect = p.rect,
-							rotation = p.rotation, entrance = p.entrance, approach = a,
-						}
-						result.buildings[#result.buildings + 1] = b
-						occupied[#occupied + 1] = b.rect
-						solid[#solid + 1] = b.rect
-						placed = placed + 1
-						result.counts[b.role] = (result.counts[b.role] or 0) + 1
-					else
-						result.rejected[#result.rejected + 1] = {frontage = run.id,
-							building_id = p.building_id, reason = why}
+					-- The catalog's library is ordinary shop content, but a town
+					-- should have at most one. Keep it in the existing frontage
+					-- selection so it can appear wherever it fits; just ignore any
+					-- later picks after the first accepted placement.
+					if not (p.building_id == "library" and library_placed) then
+						local a, why = check_building(p, pool[p.building_id], run, block,
+							solid, paved)
+						if a then
+							local b = {
+								building_id = p.building_id, role = roles[p.building_id],
+								block = p.block, frontage = p.frontage, rect = p.rect,
+								rotation = p.rotation, entrance = p.entrance, approach = a,
+							}
+							result.buildings[#result.buildings + 1] = b
+							if b.building_id == "library" then library_placed = true end
+							occupied[#occupied + 1] = b.rect
+							solid[#solid + 1] = b.rect
+							placed = placed + 1
+							result.counts[b.role] = (result.counts[b.role] or 0) + 1
+						else
+							result.rejected[#result.rejected + 1] = {frontage = run.id,
+								building_id = p.building_id, reason = why}
+						end
 					end
 				end
 				-- Recompute unused from the kept buildings only: the packer
