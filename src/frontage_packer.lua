@@ -49,6 +49,21 @@ local function intersects(a, b)
 	return a.x1 <= b.x2 and b.x1 <= a.x2 and a.z1 <= b.z2 and b.z1 <= a.z2
 end
 
+-- Clearance occupies the sides and rear of a building, keeping the street
+-- face available for its entrance. The schematic rect remains unchanged.
+local function reserved_rect(rect, front, clearance)
+	if not clearance or clearance <= 0 then return rect end
+	local r = {x1 = rect.x1, z1 = rect.z1, x2 = rect.x2, z2 = rect.z2}
+	if front.x ~= 0 then
+		r.z1, r.z2 = r.z1 - clearance, r.z2 + clearance
+		if front.x < 0 then r.x2 = r.x2 + clearance else r.x1 = r.x1 - clearance end
+	else
+		r.x1, r.x2 = r.x1 - clearance, r.x2 + clearance
+		if front.z < 0 then r.z2 = r.z2 + clearance else r.z1 = r.z1 - clearance end
+	end
+	return r
+end
+
 local function is_rect(r)
 	return type(r) == "table" and type(r.x1) == "number" and type(r.z1) == "number"
 		and type(r.x2) == "number" and type(r.z2) == "number"
@@ -106,10 +121,10 @@ function M.pack(args)
 		return {x1 = r.x2 - d + 1, x2 = r.x2, z1 = c, z2 = c + w - 1}
 	end
 
-	local function free(b)
-		if b.x1 < br.x1 or b.x2 > br.x2 or b.z1 < br.z1 or b.z2 > br.z2 then return false end
+	local function free(b, reserve)
+		if reserve.x1 < br.x1 or reserve.x2 > br.x2 or reserve.z1 < br.z1 or reserve.z2 > br.z2 then return false end
 		for _, o in ipairs(occupied) do
-			if intersects(b, o) then return false end
+			if intersects(reserve, o) then return false end
 		end
 		return true
 	end
@@ -139,7 +154,8 @@ function M.pack(args)
 			local w, d = s.x, s.z
 			if c + w - 1 <= hi then
 				local b = box(c, w, d)
-				if free(b) then cands[#cands + 1] = {id = id, rect = b, w = w} end
+				local reserve = reserved_rect(b, run.facing, entries[id].clearance)
+				if free(b, reserve) then cands[#cands + 1] = {id = id, rect = b, reserved_rect = reserve, w = w} end
 			end
 		end
 		if #cands == 0 then
@@ -151,10 +167,10 @@ function M.pack(args)
 			local g = geometry.place(entries[pick.id], {x = pick.rect.x1, y = 0, z = pick.rect.z1}, rotation)
 			placements[#placements + 1] = {
 				building_id = pick.id, block = block.id, frontage = run.id,
-				rect = pick.rect, rotation = rotation,
+				rect = pick.rect, reserved_rect = pick.reserved_rect, rotation = rotation,
 				entrance = {x = g.entrance.x, z = g.entrance.z},
 			}
-			occupied[#occupied + 1] = pick.rect
+			occupied[#occupied + 1] = pick.reserved_rect
 			placed_length = placed_length + pick.w
 			c = c + pick.w
 		end

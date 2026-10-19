@@ -113,7 +113,8 @@ end
 -- solid (hall, jail, services, other buildings); `paved` = pavement rects.
 local function check_building(b, entry, run, block, solid, paved)
 	local r = b.rect
-	if not inside(r, block.rect) then return nil, "box leaves its block" end
+	local reserved = b.reserved_rect or r
+	if not inside(reserved, block.rect) then return nil, "box or clearance leaves its block" end
 	local g = geometry.place(entry, {x = r.x1, y = 0, z = r.z1}, b.rotation)
 	if g.min.x ~= r.x1 or g.min.z ~= r.z1 or g.max.x ~= r.x2 or g.max.z ~= r.z2 then
 		return nil, "box does not match the rotated footprint"
@@ -125,7 +126,7 @@ local function check_building(b, entry, run, block, solid, paved)
 		return nil, "entrance does not match the rotated door"
 	end
 	for _, o in ipairs(solid) do
-		if intersects(r, o) then return nil, "box overlaps a reserved or placed box" end
+		if intersects(reserved, o) then return nil, "box or clearance overlaps a reserved or placed box" end
 	end
 	-- The door may be recessed (geometry.place().outside can lie inside the
 	-- box): walk out through the box to the first node beyond it. That node
@@ -223,7 +224,9 @@ function M.plan(plan, entries, opts)
 	local pool, roles = {}, {}
 	for id, e in pairs(entries) do
 		if type(e) == "table" and M.ROLES[e.role] then
-			pool[id] = {size = e.size, entrance = e.entrance}
+			-- Leave a firebreak around the stock smithy's enclosed lava hearth.
+			pool[id] = {size = e.size, entrance = e.entrance,
+				clearance = id == "blacksmith" and 1 or nil}
 			roles[id] = e.role
 		end
 	end
@@ -262,12 +265,13 @@ function M.plan(plan, entries, opts)
 							local b = {
 								building_id = p.building_id, role = roles[p.building_id],
 								block = p.block, frontage = p.frontage, rect = p.rect,
+								reserved_rect = p.reserved_rect,
 								rotation = p.rotation, entrance = p.entrance, approach = a,
 							}
 							result.buildings[#result.buildings + 1] = b
 							if b.building_id == "library" then library_placed = true end
-							occupied[#occupied + 1] = b.rect
-							solid[#solid + 1] = b.rect
+							occupied[#occupied + 1] = b.reserved_rect or b.rect
+							solid[#solid + 1] = b.reserved_rect or b.rect
 							placed = placed + 1
 							result.counts[b.role] = (result.counts[b.role] or 0) + 1
 						else
@@ -558,7 +562,7 @@ function M.validate(plan, result, entries)
 		local others = {}
 		for _, o in ipairs(solid) do others[#others + 1] = o end
 		for j, o in ipairs(list) do
-			if j ~= i then others[#others + 1] = o.rect end
+			if j ~= i then others[#others + 1] = o.reserved_rect or o.rect end
 		end
 		local a, why = check_building(b, entry, run, block, others, paved)
 		if not a then return nil, "building " .. i .. ": " .. why end
