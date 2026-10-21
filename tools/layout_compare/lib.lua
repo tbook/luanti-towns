@@ -292,18 +292,21 @@ function M.analyze(plan, profile)
 	local counts = content.counts or {}
 	m.houses, m.shops, m.workshops = counts.house or 0, counts.shop or 0, counts.workshop or 0
 	m.ordinary = m.houses + m.shops + m.workshops
-	local used = 0
+	local used, square_used = 0, 0
 	for _, bd in ipairs(content.buildings or {}) do
 		local run = run_by_id[bd.frontage]
 		if run then
+			local width
 			if run.side == "+z" or run.side == "-z" then
-				used = used + (bd.rect.x2 - bd.rect.x1 + 1)
+				width = bd.rect.x2 - bd.rect.x1 + 1
 			else
-				used = used + (bd.rect.z2 - bd.rect.z1 + 1)
+				width = bd.rect.z2 - bd.rect.z1 + 1
 			end
+			if run.square then square_used = square_used + width
+			else used = used + width end
 		end
 	end
-	m.frontage_used = used
+	m.frontage_used, m.frontage_square_used = used, square_used
 	m.alleys = #(content.alleys or {})
 	m.empty_runs = #(content.empty_runs or {})
 	local unused = 0
@@ -484,6 +487,7 @@ local COLUMNS = {
 	"street_cells_principal", "street_cells_secondary", "street_rect_run_sum",
 	"blocks", "blocks_single_row", "block_cells", "free_cells",
 	"frontage_ordinary", "frontage_usable", "frontage_square", "frontage_used",
+	"frontage_square_used",
 	"ordinary", "houses", "shops", "workshops", "jail", "services", "shortages",
 	"alleys", "empty_runs", "unused_len",
 	"row_depth", "strips", "strip_cells", "specks", "speck_cells",

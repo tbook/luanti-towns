@@ -20,14 +20,14 @@ end
 local function square()
 	return {
 		seed = 7,
-		sites = {market = {kind = "square", rect = R(100, 100, 110, 110)}},
-		streets = {{rect = R(-4, -4, 23, -1)}, {rect = R(-4, 20, 23, 23)},
-			{rect = R(-4, 0, -1, 19)}, {rect = R(20, 0, 23, 19)}},
+		sites = {market = {kind = "square", rect = R(-4, -4, 23, -1)},
+			parvis = {kind = "square", rect = R(-4, 20, 23, 23)}},
+		streets = {{rect = R(-4, 0, -1, 19)}, {rect = R(20, 0, 23, 19)}},
 		reservations = {services = {}},
 		blocks = {{id = 1, rect = R(0, 0, 19, 19)}},
 		frontage = {
-			{id = 1, block = 1, street = 1, facing = {x = 0, z = -1}, rect = R(0, 0, 19, 0)},
-			{id = 2, block = 1, street = 2, facing = {x = 0, z = 1}, rect = R(0, 19, 19, 19)},
+			{id = 1, block = 1, square = "market", facing = {x = 0, z = -1}, rect = R(0, 0, 19, 0)},
+			{id = 2, block = 1, square = "parvis", facing = {x = 0, z = 1}, rect = R(0, 19, 19, 19)},
 			{id = 3, block = 1, street = 3, facing = {x = -1, z = 0}, rect = R(0, 0, 0, 19)},
 			{id = 4, block = 1, street = 4, facing = {x = 1, z = 0}, rect = R(19, 0, 19, 19)},
 		},

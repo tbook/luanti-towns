@@ -19,19 +19,20 @@ end
 -- Square block 0..19 with a street on every side.
 local function square_fixture()
 	local streets = {
-		{rect = {x1 = -4, z1 = -4, x2 = 23, z2 = -1}},
-		{rect = {x1 = -4, z1 = 20, x2 = 23, z2 = 23}},
 		{rect = {x1 = -4, z1 = 0, x2 = -1, z2 = 19}},
 		{rect = {x1 = 20, z1 = 0, x2 = 23, z2 = 19}},
 	}
 	return {
 		seed = 7,
-		sites = {market = {kind = "square", rect = {x1 = 100, z1 = 100, x2 = 110, z2 = 110}}},
+		sites = {
+			market = {kind = "square", rect = {x1 = -4, z1 = -4, x2 = 23, z2 = -1}},
+			parvis = {kind = "square", rect = {x1 = -4, z1 = 20, x2 = 23, z2 = 23}},
+		},
 		streets = streets,
 		blocks = {{id = 1, rect = {x1 = 0, z1 = 0, x2 = 19, z2 = 19}}},
 		frontage = {
-			{id = 1, block = 1, street = 1, facing = {x = 0, z = -1}, rect = {x1 = 0, z1 = 0, x2 = 19, z2 = 0}},
-			{id = 2, block = 1, street = 2, facing = {x = 0, z = 1}, rect = {x1 = 0, z1 = 19, x2 = 19, z2 = 19}},
+			{id = 1, block = 1, square = "market", facing = {x = 0, z = -1}, rect = {x1 = 0, z1 = 0, x2 = 19, z2 = 0}},
+			{id = 2, block = 1, square = "parvis", facing = {x = 0, z = 1}, rect = {x1 = 0, z1 = 19, x2 = 19, z2 = 19}},
 			{id = 3, block = 1, street = 3, facing = {x = -1, z = 0}, rect = {x1 = 0, z1 = 0, x2 = 0, z2 = 19}},
 			{id = 4, block = 1, street = 4, facing = {x = 1, z = 0}, rect = {x1 = 19, z1 = 0, x2 = 19, z2 = 19}},
 		},
@@ -48,9 +49,16 @@ do
 	eq(#r.rejected, 0, "square: none rejected")
 	eq(content.validate(plan, r, entries), true, "square validates")
 	for i, b in ipairs(r.buildings) do
+		local run = plan.frontage[b.frontage]
 		local g = geometry.place(entries.h, {x = b.rect.x1, y = 0, z = b.rect.z1}, b.rotation)
-		local f = plan.frontage[b.frontage].facing
+		local f = run.facing
 		eq(g.front.x == f.x and g.front.z == f.z, true, "square facing " .. i)
+		if run.square then
+			local pavement = plan.sites[run.square].rect
+			eq(b.approach.x >= pavement.x1 and b.approach.x <= pavement.x2
+				and b.approach.z >= pavement.z1 and b.approach.z <= pavement.z2,
+				true, "square door reaches named pavement " .. i)
+		end
 		-- Recessed door: the approach is not geometry.place().outside.
 		eq(b.approach.x ~= g.outside.x or b.approach.z ~= g.outside.z, true, "square recessed " .. i)
 		for j = i + 1, #r.buildings do
@@ -66,7 +74,7 @@ do
 	for _, b in ipairs(r.buildings) do
 		if b.rect.x1 == 0 and b.rect.z1 == 0 then owner = b.frontage end
 	end
-	eq(owner, 1, "first face owns the corner")
+	eq(owner, 1, "square face owns the corner")
 end
 
 -- A reserved jail and service are never overlapped.
@@ -90,6 +98,8 @@ do
 	local r = content.plan(plan, {t = entry("tavern", 5, 5)}, {seed = 1})
 	eq(#r.buildings, 0, "no content: no buildings")
 	eq(#r.empty_runs, 4, "no content: four empty runs")
+	eq(r.empty_runs[1], 1, "no content: first square run reported empty")
+	eq(r.empty_runs[2], 2, "no content: second square run reported empty")
 	eq(#r.unused, 4, "no content: unused intervals")
 	eq(type(r.reason), "string", "no content: reason")
 	local big = content.plan(plan, {h = entry("house", 30, 5)}, {seed = 1})
@@ -118,6 +128,7 @@ local civic = {cathedral = base.cathedral, castle = base.castle,
 -- so a profile without content plans without it. Pass the derived values
 -- explicitly to isolate "content leaves civic planning alone".
 local depth_policy = planner.depth_policy(base)
+local square_placed = false
 
 for _, seed in ipairs({1, 2, 3, 4, 5, 6, 7, 8}) do
 	local label = "content seed " .. seed
@@ -142,6 +153,9 @@ for _, seed in ipairs({1, 2, 3, 4, 5, 6, 7, 8}) do
 	eq(#c.buildings > 0, true, label .. " has buildings")
 	eq(#c.rejected, 0, label .. " no rejected picks")
 	eq(content.validate(plan, c, base.content), true, label .. " content validates")
+	for _, b in ipairs(c.buildings) do
+		if plan.frontage[b.frontage].square then square_placed = true end
+	end
 	local again = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
 	eq(#again.content.buildings, #c.buildings, label .. " repeat count")
 	for i, b in ipairs(c.buildings) do
@@ -158,12 +172,14 @@ for _, seed in ipairs({1, 2, 3, 4, 5, 6, 7, 8}) do
 		end
 	end
 end
+eq(square_placed, true, "fixed catalog seeds place square-facing content")
 
 -- Rejection path: picks whose door approach is not on pavement are dropped
 -- and the frontage they would have covered is reported as unused.
 do
 	local plan = square_fixture()
 	plan.streets = {}
+	plan.sites = {}
 	local entries = {h = entry("house", 6, 5, 2)}
 	local r = content.plan(plan, entries, {seed = 3})
 	eq(#r.buildings, 0, "rejected: no buildings")

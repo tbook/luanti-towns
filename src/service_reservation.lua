@@ -19,10 +19,9 @@
 -- Roles are processed in the fixed order tavern, well, chapel; each box is
 -- added to the shared occupancy before the next is chosen, so nothing ever
 -- overlaps a landmark, the hall, the jail or another service. Candidates come
--- from the frontage packer over every ordinary street frontage run (never a
--- market or parvis face), in frontage order. The first pick of a role with no
--- existing instance is a seeded draw over the candidates; later picks take
--- the candidate whose entrance has the greatest minimum squared X/Z distance
+-- from the frontage packer over street and square frontage runs, square faces
+-- first. The first pick of a role is a seeded draw over the candidates; later
+-- picks take the candidate whose entrance has the greatest minimum squared X/Z distance
 -- to the entrances already chosen for that role, the first in frontage order
 -- winning ties. Chapels additionally start from the cathedral entrance as an
 -- existing church and must be at least chapel_min_cathedral from it and
@@ -68,6 +67,13 @@ function M.reserve(plan, services, opts)
 	local cathedral = plan.sites.cathedral and plan.sites.cathedral.entrance
 
 	local placements, shortages, counts = {}, {}, {}
+	local frontage = {}
+	for _, run in ipairs(plan.frontage) do
+		if run.square ~= nil then frontage[#frontage + 1] = run end
+	end
+	for _, run in ipairs(plan.frontage) do
+		if run.street ~= nil then frontage[#frontage + 1] = run end
+	end
 	for ri, role in ipairs(M.ROLES) do
 		local entry = services[role]
 		local wanted = targets[role] or 0
@@ -78,8 +84,8 @@ function M.reserve(plan, services, opts)
 			local reason
 			while #chosen < wanted do
 				local cands, runs = {}, 0
-				for _, run in ipairs(plan.frontage) do
-					if run.street ~= nil then
+				for _, run in ipairs(frontage) do
+					if run.street ~= nil or run.square ~= nil then
 						runs = runs + 1
 						local res = packer.pack{
 							run = {id = run.id, facing = run.facing, rect = run.rect},
@@ -89,9 +95,9 @@ function M.reserve(plan, services, opts)
 						for _, p in ipairs(res.placements) do cands[#cands + 1] = p end
 					end
 				end
-				if runs == 0 then reason = "no ordinary street frontage"; break end
+				if runs == 0 then reason = "no street or square frontage"; break end
 				if #cands == 0 then
-					reason = "no street frontage run has room for the " .. role
+					reason = "no street or square frontage run has room for the " .. role
 						.. " box (" .. entry.size.x .. "x" .. entry.size.z .. ")"
 					break
 				end

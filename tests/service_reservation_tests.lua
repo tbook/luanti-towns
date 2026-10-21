@@ -12,18 +12,41 @@ end
 local function d2(a, b) return (a.x - b.x) ^ 2 + (a.z - b.z) ^ 2 end
 
 -- Pure fixture: one 100x12 block with one street run along z = 0.
-local function fixture(extra_sites)
+local function fixture(extra_sites, square_face)
 	local sites = {market = {rect = {x1 = 200, z1 = 200, x2 = 210, z2 = 210}}}
 	for k, v in pairs(extra_sites or {}) do sites[k] = v end
+	local run = {id = 1, block = 1, facing = {x = 0, z = -1},
+		rect = {x1 = 0, z1 = 0, x2 = 99, z2 = 0}}
+	if square_face then
+		run.square = "market"
+		sites.market = {kind = "square", rect = {x1 = 0, z1 = -4, x2 = 99, z2 = -1}}
+	else run.street = 1 end
 	return {
 		seed = 5, sites = sites,
 		blocks = {{id = 1, rect = {x1 = 0, z1 = 0, x2 = 99, z2 = 11}}},
-		frontage = {{id = 1, block = 1, street = 1, facing = {x = 0, z = -1},
-			rect = {x1 = 0, z1 = 0, x2 = 99, z2 = 0}}},
+		frontage = {run},
 	}
 end
 local function entry(id, w, d, ex)
 	return {id = id, size = {x = w, y = 5, z = d}, entrance = {x = ex or 0, y = 1, z = 0}}
+end
+
+-- Services can reserve an eligible square frontage when no street run exists.
+do
+	local plan = fixture(nil, true)
+	local pl, sh = svc.reserve(plan, {tavern = entry("t", 10, 4)},
+		{targets = {tavern = 2}})
+	eq(#pl, 2, "square services placed")
+	eq(#sh, 0, "square services no shortage")
+	for i, p in ipairs(pl) do
+		local run = plan.frontage[p.frontage]
+		eq(run.square, "market", "square service face")
+		local placed = geometry.place(entry("t", 10, 4),
+			{x = p.rect.x1, y = 0, z = p.rect.z1}, p.rotation)
+		eq(placed.front.x, run.facing.x, "square service faces pavement x " .. i)
+		eq(placed.front.z, run.facing.z, "square service faces pavement z " .. i)
+		eq(placed.outside.z, -1, "square service reaches pavement " .. i)
+	end
 end
 
 -- Separated choices: ten 10-wide slots, three taverns; after the seeded

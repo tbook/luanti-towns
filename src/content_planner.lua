@@ -10,8 +10,8 @@
 --            workshop are used, iterated in sorted id order
 --   opts     {seed = integer (default plan.seed), occupied = extra rects}
 --
--- Every ordinary street frontage run (run.street ~= nil; never a market or
--- parvis face) is packed in plan.frontage order with the frontage packer.
+-- Every street or square frontage run is packed with the frontage packer,
+-- square faces first so ordinary rows cannot consume their corner space.
 -- One shared occupancy list (sites, jail, services, then every building
 -- already placed) is passed to each run, so a later face of a block respects
 -- the boxes of earlier faces: the first valid placement wins a corner and a
@@ -24,10 +24,10 @@
 -- Returns a data-only table
 --   buildings    list of {building_id, role, block, frontage, rect, rotation,
 --                entrance, approach = {x, z}} (approach is the first node
---                outside the box along the door's front, on the street)
+--                outside the box along the door's front, on the pavement)
 --   unused       list of {frontage, block, rect, length}: run intervals no
 --                box covers, in run then coordinate order
---   empty_runs   ids of ordinary runs that received no building
+--   empty_runs   ids of street or square runs that received no building
 --   counts       {[role] = n} placed buildings per role
 --   rejected     list of {frontage, building_id, reason} for packer picks that
 --                failed validation (dropped, never emitted)
@@ -65,6 +65,23 @@ end
 
 local function same_rect(a, b)
 	return a.x1 == b.x1 and a.z1 == b.z1 and a.x2 == b.x2 and a.z2 == b.z2
+end
+
+local function eligible(run)
+	return run.street ~= nil or run.square ~= nil
+end
+
+local function ordered_frontage(plan)
+	local out = {}
+	for _, run in ipairs(plan.frontage) do
+		if eligible(run) then out[#out + 1] = run end
+	end
+	table.sort(out, function(a, b)
+		local as, bs = a.square ~= nil, b.square ~= nil
+		if as ~= bs then return as end
+		return a.id < b.id
+	end)
+	return out
 end
 
 local function inside(r, o)
@@ -128,7 +145,7 @@ local function check_building(b, entry, run, block, solid, paved)
 		return nil, "box does not match the rotated footprint"
 	end
 	if g.front.x ~= run.facing.x or g.front.z ~= run.facing.z then
-		return nil, "front does not face the street"
+		return nil, "front does not face its frontage"
 	end
 	if g.entrance.x ~= b.entrance.x or g.entrance.z ~= b.entrance.z then
 		return nil, "entrance does not match the rotated door"
@@ -138,7 +155,7 @@ local function check_building(b, entry, run, block, solid, paved)
 	end
 	-- The door may be recessed (geometry.place().outside can lie inside the
 	-- box): walk out through the box to the first node beyond it. That node
-	-- must be street pavement and not inside any solid box.
+	-- must be street or square pavement and not inside any solid box.
 	local a = first_outside(r, g.entrance, g.front)
 	if not a then return nil, "door approach not found" end
 	if has(block.rect, a.x, a.z) then return nil, "door approach lies inside the block" end
@@ -251,8 +268,8 @@ function M.plan(plan, entries, opts)
 	local library_placed = false
 	for _, r in ipairs(opts.occupied or {}) do solid[#solid + 1] = r end
 
-	for _, run in ipairs(plan.frontage) do
-		if run.street ~= nil then
+	for _, run in ipairs(ordered_frontage(plan)) do
+		if eligible(run) then
 			local block = plan.blocks[run.block]
 			local placed = 0
 			if have then
@@ -330,8 +347,8 @@ function M.open_alleys(plan, result, pool, roles, seed, opts)
 		local c = base.components[1]
 		result.buildings, result.unused, result.empty_runs = {}, {}, {}
 		result.counts = {}
-		for _, run in ipairs(plan.frontage) do
-			if run.street ~= nil then
+		for _, run in ipairs(ordered_frontage(plan)) do
+			if eligible(run) then
 				result.unused[#result.unused + 1] = {frontage = run.id,
 					block = run.block, rect = run.rect, length = run.length}
 				result.empty_runs[#result.empty_runs + 1] = run.id
@@ -497,8 +514,8 @@ function M.open_alleys(plan, result, pool, roles, seed, opts)
 	-- Refill runs that lost a building, keeping alleys clear; kept only when
 	-- the validator still reports no sealed ground.
 	local touched = {}
-	for _, run in ipairs(plan.frontage) do
-		if run.street ~= nil and dirty[run.id] then touched[#touched + 1] = run end
+	for _, run in ipairs(ordered_frontage(plan)) do
+		if eligible(run) and dirty[run.id] then touched[#touched + 1] = run end
 	end
 	if #touched > 0 and next(pool) ~= nil then
 		local added = {}
@@ -549,8 +566,8 @@ function M.open_alleys(plan, result, pool, roles, seed, opts)
 		result.counts[b.role] = (result.counts[b.role] or 0) + 1
 		has_run[b.frontage] = true
 	end
-	for _, run in ipairs(plan.frontage) do
-		if run.street ~= nil then
+	for _, run in ipairs(ordered_frontage(plan)) do
+		if eligible(run) then
 			unused_for(run, result.buildings, result.alleys, result.unused)
 			if not has_run[run.id] then
 				result.empty_runs[#result.empty_runs + 1] = run.id
@@ -564,7 +581,7 @@ function M.validate(plan, result, entries)
 	local list = result.buildings
 	for i, b in ipairs(list) do
 		local run, block = plan.frontage[b.frontage], plan.blocks[b.block]
-		if not run or not block or run.street == nil or run.block ~= b.block then
+		if not run or not block or not eligible(run) or run.block ~= b.block then
 			return nil, "building " .. i .. " names a bad run or block"
 		end
 		local source_entry = entries[b.building_id]
