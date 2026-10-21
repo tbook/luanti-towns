@@ -27,6 +27,8 @@ local row = r1.rows[1]
 eq(row.status, "ok", "seed 42 plans")
 eq(row.ordinary, row.houses + row.shops + row.workshops, "ordinary count is the role sum")
 eq(row.frontage_usable <= row.frontage_ordinary, true, "usable frontage within theoretical")
+eq(row.frontage_square_used > 0, true, "square frontage has placed content")
+eq(row.frontage_square_used <= row.frontage_square, true, "square use within theoretical frontage")
 eq(row.market_open <= row.market_area, true, "open market within market")
 
 -- The centre only translates the layout: the metrics (not the centre

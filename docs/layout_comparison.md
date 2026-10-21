@@ -103,10 +103,13 @@ free ground, since buildings can sit on it).
   an improvement, and a shorter network with the same placed buildings is not
   a regression; judge rows by `ordinary` (placed buildings), `frontage_used`
   and the strip and unused figures together.
+- `frontage_square_used`: summed width of ordinary buildings facing square
+  pavement, in the same units as `frontage_square`. Square runs are packed
+  before street runs and measured separately.
 - `ordinary`, `houses`, `shops`, `workshops`: actual placed ordinary
   buildings from `plan.content.counts` (after alleys). `jail`, `services`,
   `shortages` count reservations and unmet targets. `alleys` is the number
-  of access alleys; `empty_runs` the ordinary runs that received no building;
+  of access alleys; `empty_runs` the street and square runs that received no building;
   `unused_len` the total length of run intervals no building covers
   (continuity of rows: lower is more continuous).
 - `blocks`, `block_cells`: planner blocks and their area. `blocks_single_row`

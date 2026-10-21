@@ -12,7 +12,7 @@ do
 	local depths = {}
 	for _, e in pairs(base.content) do depths[#depths + 1] = e.size.z end
 	table.sort(depths)
-	eq(#depths, 14, "eligible ordinary entries")
+	eq(#depths, 15, "eligible ordinary entries")
 	eq(depths[1], 7, "smallest depth is the demo house")
 	eq(planner.row_depth(base), 9, "row depth is the lower median")
 	-- At least half of the eligible entries fit a block this deep.

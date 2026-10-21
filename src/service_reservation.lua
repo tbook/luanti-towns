@@ -19,12 +19,13 @@
 -- Roles are processed in the fixed order tavern, well, chapel; each box is
 -- added to the shared occupancy before the next is chosen, so nothing ever
 -- overlaps a landmark, the hall, the jail or another service. Candidates come
--- from the frontage packer over every ordinary street frontage run (never a
--- market or parvis face), in frontage order. The first pick of a role with no
--- existing instance is a seeded draw over the candidates; later picks take
--- the candidate whose entrance has the greatest minimum squared X/Z distance
--- to the entrances already chosen for that role, the first in frontage order
--- winning ties. Chapels additionally start from the cathedral entrance as an
+-- from the frontage packer over street and square frontage runs. Street boxes
+-- that would consume a viable square candidate's shared corner are excluded,
+-- while non-conflicting street options remain available. The first pick is a
+-- seeded draw within those candidates; later picks take the candidate whose
+-- entrance has the greatest minimum squared X/Z distance to the entrances
+-- already chosen for that role, the first in frontage order winning ties.
+-- Chapels additionally start from the cathedral entrance as an
 -- existing church and must be at least chapel_min_cathedral from it and
 -- chapel_min_between from every other chapel (hard filters).
 --
@@ -55,6 +56,10 @@ local function d2(a, b)
 	return dx * dx + dz * dz
 end
 
+local function overlaps(a, b)
+	return a.x1 <= b.x2 and b.x1 <= a.x2 and a.z1 <= b.z2 and b.z1 <= a.z2
+end
+
 function M.reserve(plan, services, opts)
 	assert(type(plan) == "table" and type(plan.sites) == "table", "service: plan required")
 	assert(type(services) == "table", "service: services required")
@@ -68,6 +73,13 @@ function M.reserve(plan, services, opts)
 	local cathedral = plan.sites.cathedral and plan.sites.cathedral.entrance
 
 	local placements, shortages, counts = {}, {}, {}
+	local frontage = {}
+	for _, run in ipairs(plan.frontage) do
+		if run.square ~= nil then frontage[#frontage + 1] = run end
+	end
+	for _, run in ipairs(plan.frontage) do
+		if run.street ~= nil then frontage[#frontage + 1] = run end
+	end
 	for ri, role in ipairs(M.ROLES) do
 		local entry = services[role]
 		local wanted = targets[role] or 0
@@ -77,41 +89,59 @@ function M.reserve(plan, services, opts)
 			local chosen = {} -- placements of this role
 			local reason
 			while #chosen < wanted do
-				local cands, runs = {}, 0
-				for _, run in ipairs(plan.frontage) do
-					if run.street ~= nil then
+				local square_cands, street_cands, runs = {}, {}, 0
+				for _, run in ipairs(frontage) do
+					if run.street ~= nil or run.square ~= nil then
 						runs = runs + 1
 						local res = packer.pack{
 							run = {id = run.id, facing = run.facing, rect = run.rect},
 							block = plan.blocks[run.block], entries = {[id] = pe},
 							seed = seed, occupied = occupied,
 						}
+						local cands = run.square and square_cands or street_cands
 						for _, p in ipairs(res.placements) do cands[#cands + 1] = p end
 					end
 				end
-				if runs == 0 then reason = "no ordinary street frontage"; break end
-				if #cands == 0 then
-					reason = "no street frontage run has room for the " .. role
+				if runs == 0 then reason = "no street or square frontage"; break end
+				if #square_cands + #street_cands == 0 then
+					reason = "no street or square frontage run has room for the " .. role
 						.. " box (" .. entry.size.x .. "x" .. entry.size.z .. ")"
 					break
 				end
 				if role == "chapel" then
-					local kept = {}
-					for _, p in ipairs(cands) do
-						local ok = cathedral == nil or d2(p.entrance, cathedral) >= min_cath * min_cath
-						for _, c in ipairs(chosen) do
-							if d2(p.entrance, c.entrance) < min_between * min_between then ok = false end
+					local function keep_distant(cands)
+						local kept = {}
+						for _, p in ipairs(cands) do
+							local ok = cathedral == nil or d2(p.entrance, cathedral) >= min_cath * min_cath
+							for _, c in ipairs(chosen) do
+								if d2(p.entrance, c.entrance) < min_between * min_between then ok = false end
+							end
+							if ok then kept[#kept + 1] = p end
 						end
-						if ok then kept[#kept + 1] = p end
+						return kept
 					end
-					if #kept == 0 then
+					square_cands = keep_distant(square_cands)
+					street_cands = keep_distant(street_cands)
+					if #square_cands + #street_cands == 0 then
 						reason = "no fitting chapel is at least " .. min_cath
 							.. " nodes from the cathedral entrance and " .. min_between
 							.. " from another chapel"
 						break
 					end
-					cands = kept
 				end
+				-- Keep street service boxes that do not consume a viable square
+				-- candidate's shared corner. When every street candidate conflicts,
+				-- the square candidate wins that frontage space.
+				local safe_street_cands = {}
+				for _, street in ipairs(street_cands) do
+					local conflicts = false
+					for _, square in ipairs(square_cands) do
+						if overlaps(street.rect, square.rect) then conflicts = true; break end
+					end
+					if not conflicts then safe_street_cands[#safe_street_cands + 1] = street end
+				end
+				local cands = #safe_street_cands > 0 and safe_street_cands
+					or (#square_cands > 0 and square_cands or street_cands)
 				local refs = {}
 				for _, c in ipairs(chosen) do refs[#refs + 1] = c.entrance end
 				if role == "chapel" and cathedral then refs[#refs + 1] = cathedral end
