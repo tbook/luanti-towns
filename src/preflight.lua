@@ -21,9 +21,8 @@
 -- the legacy command calls this module.
 --
 -- compose: every civic and content placement of a finished plan resolved to
--- an exact XYZ box. Sources, in this deterministic order: plan.sites
--- cathedral, castle, city_hall (kind "landmark", with the catalog id in
--- site.id), plan.reservations.jail, plan.reservations.services, then
+-- an exact XYZ box. Sources, in this deterministic order: named sites
+-- (landmarks), plan.reservations.jail, plan.reservations.services, then
 -- plan.content.buildings. `entries` is id -> {size, entrance, ground_offset,
 -- path, data_path} (catalog.entries, or the planner landmark profile when
 -- only heights are needed). The rotated box is placed with geometry.place at
@@ -73,11 +72,11 @@ local function load_sibling(name)
 	return dofile("src/" .. name)
 end
 local geometry = load_sibling("geometry.lua")
+local plan_sites = load_sibling("plan_sites.lua")
 
 M.LIMIT = 31000
 M.PLAYER_MARGIN = 4
 M.EMERGE_TIMEOUT = 30
-M.SITE_NAMES = {"cathedral", "castle", "city_hall"}
 M.NOTE = " Nothing was changed."
 
 local function is_int(v)
@@ -157,8 +156,8 @@ function M.compose(plan, entries, ground_y)
 		local st, why, wcode = resolve(entries, ground_y, plan.bounds, id, kind, role, rotation, rect)
 		if not st then err, code = why, wcode else list[#list + 1] = st end
 	end
-	for _, name in ipairs(M.SITE_NAMES) do
-		local s = plan.sites[name]
+	for _, item in ipairs(plan_sites.list(plan)) do
+		local name, s = item.name, item.site
 		if type(s) == "table" and s.kind == "landmark" then
 			add(s.id, name, name, s.rotation, s.rect)
 		end

@@ -45,7 +45,8 @@
 --             every column has solid support under the finished ground even
 --             over a cave or overhang
 --   deeper existing rows : untouched
--- Pavement: market and parvis squares first, then principal streets, then
+-- Pavement: legacy market/parvis squares first, then other named squares,
+-- then principal streets,
 -- secondary streets, each in id order; the first claim on a cell wins, so
 -- squares and principal streets always beat secondary streets.
 
@@ -62,6 +63,15 @@ TL.AIR = "air"
 local function in_rect(r, x, z)
 	return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2
 end
+
+local function load_sibling(name)
+	local c = rawget(_G, "core")
+	if c and c.get_modpath and c.get_current_modname then
+		return dofile(c.get_modpath(c.get_current_modname()) .. "/src/" .. name)
+	end
+	return dofile("src/" .. name)
+end
+local plan_sites = load_sibling("plan_sites.lua")
 
 -- Pavement map {[x] = {[z] = material}} from the plan's squares and streets.
 -- `extra` (optional, town placement, ticket #45):
@@ -85,7 +95,7 @@ function TL.pavement_map(plan, extra)
 	-- City hall foundation (profile plans): never paved. It lies beside the
 	-- market (#106), so this is a guard rather than a cut-out of the square.
 	local holes = {}
-	local hall = plan.sites.city_hall and plan.sites.city_hall.rect
+	local hall = plan.sites and plan.sites.city_hall and plan.sites.city_hall.rect
 	if hall then holes[#holes + 1] = hall end
 	for _, h in ipairs(extra.holes or {}) do holes[#holes + 1] = h end
 	local function is_hole(x, z)
@@ -109,17 +119,34 @@ function TL.pavement_map(plan, extra)
 			end
 		end
 	end
-	for _, name in ipairs({"market", "parvis"}) do
-		local site = plan.sites[name]
-		claim(site.rect, site.material, 0)
+	local ordered_sites = plan_sites.list(plan)
+	local square_names, square_lookup = {}, {}
+	for _, item in ipairs(ordered_sites) do
+		if item.site.kind == "square" or
+				(item.site.kind == nil and (item.name == "market" or item.name == "parvis")) then
+			square_names[#square_names + 1] = item.name
+			square_lookup[item.name] = item.site
+		end
+	end
+	local claimed = {}
+	local function claim_square(name)
+		local site = square_lookup[name]
+		if site then claim(site.rect, site.material, 0); claimed[name] = true end
+	end
+	-- Keep the medieval market-over-parvis precedence while allowing any
+	-- additional named squares to participate after those legacy sites.
+	claim_square("market")
+	claim_square("parvis")
+	for _, name in ipairs(square_names) do
+		if not claimed[name] then claim_square(name) end
 	end
 	for _, kind in ipairs({"principal", "secondary"}) do
 		for _, s in ipairs(plan.streets) do
 			if s.kind == kind then claim(s.rect, s.material, kind == "principal" and 1 or 2) end
 		end
 	end
-	local castle = plan.sites.castle
-	if castle.gate_apron then
+	local castle = plan.sites and plan.sites.castle
+	if castle and castle.gate_apron then
 		local material
 		for _, street in ipairs(plan.streets) do
 			if street.kind == "principal" then material = street.material; break end
@@ -177,8 +204,8 @@ function TL.new(plan, ground_y, opts)
 	local lm_names = {}
 	local real = opts.real or {}
 	for _, spec in ipairs({{"cathedral", blockouts.cathedral}, {"castle", blockouts.castle}}) do
-		if not real[spec[1]] then
-			local site = plan.sites[spec[1]]
+		local site = plan.sites and plan.sites[spec[1]]
+		if site and not real[spec[1]] then
 			local blk = spec[2](site)
 			openings[spec[1]] = blk.opening
 			if blk.max_dy > max_height then
