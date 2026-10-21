@@ -47,6 +47,7 @@ local function nodes_table()
 		[GRASS] = {walkable = true}, [DIRT] = {walkable = true}, [STONE] = {walkable = true},
 		["mcl_core:stonebrick"] = {walkable = true}, ["mcl_core:cobble"] = {walkable = true},
 		["fake:wall"] = {walkable = true}, ["fake:door"] = {walkable = true, door = true},
+		["test:paving"] = {walkable = true}, ["test:road"] = {walkable = true},
 	}
 	for _, n in ipairs(blockouts.names()) do t[n] = {walkable = true} end
 	return t
@@ -143,6 +144,34 @@ local function run(spec)
 	local summary, msg, code, extra = builder.build_town(make_result(),
 		{entries = entries, log = false}, w.env)
 	return w, summary, msg, code, extra
+end
+
+-- Exercise arbitrary authored site names through the real plan validator,
+-- preparation, placement, and summary paths (without a planner stub).
+do
+	local authored = dofile("tests/authored_plan_fixture.lua")({x = 500, z = 500}, 1)
+	eq(planner.validate(authored), true, "authored build fixture passes real planner validation")
+	local authored_comp = assert(builder.preflight.compose(authored, entries, GROUND_Y))
+	local heights = {}
+	for _, c in ipairs(ss.boundary_columns(authored.boundary.rects)) do
+		heights[c.x] = heights[c.x] or {}
+		heights[c.x][c.z] = GROUND_Y
+	end
+	local C = {}
+	for k, v in pairs(ss.CONSTANTS) do C[k] = v end
+	local bb = ss.build_bounds(authored.bounds, GROUND_Y, GROUND_Y, GROUND_Y, C, authored_comp)
+	local result = {plan = authored, ground_y = GROUND_Y, heights = heights,
+		build_bounds = bb, build_volume = ss.build_volume(bb, C)}
+	local w = new_world()
+	local summary, message, code = builder.build_town(result,
+		{entries = entries, log = false}, w.env)
+	eq(message, nil, "authored build: no error")
+	eq(code, nil, "authored build: no failure code")
+	eq(summary ~= nil, true, "authored build: success")
+	eq(summary and summary.sites.forum ~= nil, true, "authored build: forum in summary")
+	eq(summary and summary.sites.temple ~= nil, true, "authored build: arbitrary landmark in summary")
+	eq(summary and summary.sites.market, nil, "authored build: no synthetic market summary")
+	eq(#w.placed, 1, "authored build: arbitrary landmark placed")
 end
 
 ------------------------------------------------------------------------
