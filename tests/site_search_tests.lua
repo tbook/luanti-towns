@@ -885,3 +885,65 @@ end
 -- Lava is matched by exact node name (ticket #104).
 eq(ss.LAVA_NODES["mcl_core:lava_source"], true, "lava source listed")
 eq(ss.LAVA_NODES["mcl_decor:lava_lamp"], nil, "unrelated lava-named node is not lava")
+
+-- Authored plans use their actual extent and explicit catalog entries for
+-- composition; tall and below-ground structures expand the accepted volume.
+do
+	local function authored_plan(center)
+		local dx, dz = center.x, center.z
+		local function rect(x1, z1, x2, z2)
+			return {x1 = x1 + dx, z1 = z1 + dz, x2 = x2 + dx, z2 = z2 + dz}
+		end
+		local function point(x, z) return {x = x + dx, z = z + dz} end
+		return {
+			town_type = "roman", seed = SEED, center = {x = dx, z = dz},
+			bounds = rect(0, 0, 15, 8), envelope = rect(0, 0, 15, 8),
+			boundary = {rects = {rect(0, 0, 15, 8)}},
+			site_order = {"forum", "tower"},
+			sites = {
+				forum = {name = "forum", kind = "square", material = "test:paving",
+					rect = rect(0, 0, 2, 6), approach = {pos = point(2, 3)}},
+				tower = {name = "tower", kind = "landmark", id = "test:tower", rotation = 0,
+					rect = rect(6, 1, 8, 3), entrance = point(7, 1),
+					approach = {pos = point(7, 0)}},
+			},
+			streets = {{kind = "principal", material = "test:road", rect = rect(3, 0, 6, 6)}},
+			blocks = {}, frontage = {},
+		}
+	end
+	local selected = {
+		SEED_LIMIT = planner.SEED_LIMIT,
+		LEGACY_ENVELOPE = planner.LEGACY_ENVELOPE,
+		check_seed = planner.check_seed,
+		resolve_constants = planner.resolve_constants,
+		validate = function() return true end,
+		plan = function(center) return authored_plan(center) end,
+	}
+	local authored_search = factory(placement, selected)
+	local entry = {size = {x = 3, y = 90, z = 3}, entrance = {x = 1, y = 1, z = 0},
+		ground_offset = 12}
+	local result, failure, _, done_calls = (function(world, opts)
+		local calls, found, why, details = 0
+		authored_search.search(PLAYER, SEED, opts, function(r, s, d)
+			calls, found, why, details = calls + 1, r, s, d
+		end, world.env)
+		return found, why, details, calls
+	end)(new_world({}), {max_radius = 16, entries = {["test:tower"] = entry}})
+	eq(done_calls, 1, "authored search: callback once")
+	eq(failure, nil, "authored search: accepted")
+	eq(result and result.plan.town_type, "roman", "authored search: preserves selected plan")
+	eq(result and result.structures[1].min.y, 8, "authored search: basement included")
+	eq(result and result.build_bounds.max.y, 97, "authored search: tall structure included")
+	eq(result and result.plan.sites.tower.rect.x1, 6 + result.center.x,
+		"authored search: translated landmark geometry retained")
+	local failed_result, failed_summary, _, failed_calls = (function(world)
+		local calls, found, why, details = 0
+		authored_search.search(PLAYER, SEED, {max_radius = 16, entries = {}}, function(r, s, d)
+			calls, found, why, details = calls + 1, r, s, d
+		end, world.env)
+		return found, why, details, calls
+	end)(new_world({}))
+	eq(failed_calls, 1, "authored preflight: callback once")
+	eq(failed_result, nil, "authored preflight: missing entry rejected")
+	eq(type(failed_summary), "string", "authored preflight: useful failure")
+end

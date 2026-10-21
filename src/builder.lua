@@ -86,6 +86,7 @@ end
 local blockouts = load_sibling("blockouts.lua")
 local TL = load_sibling("town_layout.lua")(blockouts)
 local preflight = load_sibling("preflight.lua")
+local plan_sites = load_sibling("plan_sites.lua")
 M.blockouts = blockouts
 M.layout = TL
 M.preflight = preflight
@@ -343,7 +344,12 @@ local function build_impl(result, opts, env, st)
 	if not st.town then
 		for _, n in ipairs(blockouts.names()) do static[#static + 1] = n end
 	end
-	for _, name in ipairs({"market", "parvis"}) do static[#static + 1] = plan.sites[name].material end
+	for _, item in ipairs(plan_sites.list(plan)) do
+		if item.site.kind == "square" or item.site.kind == nil
+				and (item.name == "market" or item.name == "parvis") then
+			static[#static + 1] = item.site.material
+		end
+	end
 	for _, s in ipairs(plan.streets) do static[#static + 1] = s.material end
 	for _, n in ipairs(static) do
 		if type(n) ~= "string" then return fail("invalid_plan", "pavement without a material name") end
@@ -647,8 +653,8 @@ local function build_impl(result, opts, env, st)
 
 	-- 8. Summary.
 	local sites = {}
-	for _, name in ipairs(plan.site_order) do
-		local s = plan.sites[name]
+	for _, item in ipairs(plan_sites.list(plan)) do
+		local name, s = item.name, item.site
 		sites[name] = {rect = s.rect, side = s.side, entrance = s.entrance,
 			opening = L.openings[name]}
 	end

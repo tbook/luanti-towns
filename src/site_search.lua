@@ -16,11 +16,15 @@
 --                 max_range, ...) and `planner_opts` (forwarded to
 --                 planner.plan). When planner_opts selects a larger envelope
 --                 (a landmark profile), the default max_radius grows by
---                 half the extra envelope; terrain limits never change.
---                 opts.structure_bounds = true (ticket #44, needs a landmark
---                 profile in planner_opts): build_bounds then come from the
---                 selected structures instead of the 40-node blockout
---                 clearance: Y runs from the lowest of surface, ground and
+--                 half the extra envelope. Once planned, actual plan extents
+--                 can grow it further for authored plans; terrain limits
+--                 never change.
+--                 opts.entries = catalog entries for arbitrary named plans.
+--                 When supplied, build_bounds come from the composed
+--                 structures. Legacy plans may still use
+--                 opts.structure_bounds = true with a landmark profile:
+--                 build_bounds then come from the composed structures.
+--                 In either route Y runs from the lowest of surface, ground and
 --                 every foundation (ground - ground_offset) up to the top
 --                 node of the tallest placed structure (or the highest
 --                 surface), result.structures lists the composed boxes
@@ -165,7 +169,7 @@ local function constants(opts)
 						.. tostring(v), 3)
 				end
 				C[key] = v
-			elseif k ~= "planner_opts" then
+			elseif k ~= "planner_opts" and k ~= "entries" then
 				error("towns site_search: unknown option '" .. tostring(k) .. "'", 3)
 			end
 		end
@@ -214,11 +218,15 @@ local function constants(opts)
 			end
 		end
 	end
-	if C.STRUCTURE_BOUNDS and not (type(popts) == "table"
-			and type(popts.landmarks) == "table") then
-		error("towns site_search: opts.structure_bounds requires opts.planner_opts.landmarks "
-			.. "(a landmark profile)", 3)
+	if type(opts) == "table" and opts.entries ~= nil and type(opts.entries) ~= "table" then
+		error("towns site_search: opts.entries must be a catalog-entry table", 3)
 	end
+	if C.STRUCTURE_BOUNDS and not (type(opts) == "table" and type(opts.entries) == "table")
+			and not (type(popts) == "table" and type(popts.landmarks) == "table") then
+		error("towns site_search: opts.structure_bounds requires opts.planner_opts.landmarks "
+			.. "or opts.entries", 3)
+	end
+	if type(opts) == "table" and type(opts.entries) == "table" then C.STRUCTURE_BOUNDS = true end
 	C.BLOCKOUT_CLEARANCE = C.LANDMARK_BLOCKOUT_HEIGHT + C.BLOCKOUT_MARGIN
 	return C
 end
@@ -527,6 +535,26 @@ local function same_rect(a, b)
 	return a.x1 == b.x1 and a.z1 == b.z1 and a.x2 == b.x2 and a.z2 == b.z2
 end
 
+local TRANSLATED_POINTS = {center = true, pos = true, entrance = true, outside = true}
+local function same_translation(base, actual, dx, dz, key)
+	if type(base) ~= type(actual) then return false end
+	if type(base) ~= "table" then return base == actual end
+	if type(base.x1) == "number" and type(base.z1) == "number"
+			and type(base.x2) == "number" and type(base.z2) == "number" then
+		return actual.x1 == base.x1 + dx and actual.x2 == base.x2 + dx
+			and actual.z1 == base.z1 + dz and actual.z2 == base.z2 + dz
+	end
+	if TRANSLATED_POINTS[key] and type(base.x) == "number" and type(base.z) == "number" then
+		return actual.x == base.x + dx and actual.z == base.z + dz
+			and same_translation(base.y, actual.y, 0, 0)
+	end
+	for k, v in pairs(base) do
+		if actual[k] == nil or not same_translation(v, actual[k], dx, dz, k) then return false end
+	end
+	for k in pairs(actual) do if base[k] == nil then return false end end
+	return true
+end
+
 -- Exact lava node names (wet mode reports them as "lava", not "water").
 M.LAVA_NODES = {
 	["mcl_core:lava_source"] = true, ["mcl_core:lava_flowing"] = true,
@@ -680,6 +708,26 @@ function M.search(player_pos, seed, opts, done, env)
 			else
 				base, base_why = false, p
 			end
+			if base then
+				-- Size search reach from the selected plan's actual footprint.
+				-- This also covers authored plans with no medieval envelope.
+				local c = base.center or {x = 0, z = 0}
+				local b = base.bounds
+				local edge = math.max(c.x - b.x1, b.x2 - c.x, c.z - b.z1, b.z2 - c.z)
+				local legacy_half = (planner.LEGACY_ENVELOPE or 96) / 2
+				local growth = math.max(0, math.floor(edge - legacy_half))
+				local explicit = false
+				for k in pairs(opts) do
+					if type(k) == "string" and k:upper() == "MAX_RADIUS" then explicit = true end
+				end
+				local target_radius = M.CONSTANTS.MAX_RADIUS + growth
+				if growth > 0 and not explicit and target_radius > C.MAX_RADIUS then
+					C.MAX_RADIUS = target_radius
+					offsets = M.candidate_offsets(C.STEP, C.MAX_RADIUS)
+					index = 0
+					return
+				end
+			end
 		end
 		if not base then
 			-- The layout depends only on the seed, so every centre fails
@@ -733,13 +781,7 @@ function M.search(player_pos, seed, opts, done, env)
 			-- Real plan for the accepted site; it must be exactly the
 			-- translated layout that was inspected.
 			local pok, plan, pwhy = pcall(planner.plan, center, seed, opts.planner_opts)
-			local same = pok and plan and same_rect(plan.bounds, bounds)
-				and #plan.boundary.rects == #rects
-			if same then
-				for k, r in ipairs(rects) do
-					if not same_rect(plan.boundary.rects[k], r) then same = false end
-				end
-			end
+			local same = pok and plan and same_translation(base, plan, sx, sz)
 			if not same then
 				return reject("plan_failed", (not pok and tostring(plan)) or (pwhy and tostring(pwhy))
 					or "plan is not a translation of the seed's layout")
@@ -749,8 +791,8 @@ function M.search(player_pos, seed, opts, done, env)
 			local comp
 			if C.STRUCTURE_BOUNDS then
 				local lm = type(opts.planner_opts) == "table" and opts.planner_opts.landmarks
-				local entries = {}
-				if type(lm) == "table" then
+				local entries = opts.entries or {}
+				if type(opts.entries) ~= "table" and type(lm) == "table" then
 					for _, n in ipairs({"cathedral", "castle", "city_hall", "jail"}) do
 						if lm[n] then entries[lm[n].id] = lm[n] end
 					end
