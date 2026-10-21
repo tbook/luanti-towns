@@ -397,3 +397,15 @@ villager pathfinding across a large town, and generation time. Address each
 when its phase reaches it. Avoid a general-purpose zoning engine, economy,
 complex lot model, river crossing, or theme framework until the first town
 is fun to explore.
+
+### Planner town types
+
+`planner.plan(center, seed, opts)` and `planner.validate(plan)` remain the
+shared entry points. Generated plans carry `town_type = "medieval"`; omitting
+the field when validating an older plan also selects the medieval validator.
+An authored Roman plan sets `town_type = "roman"` and supplies an envelope,
+boundary rectangles, named sites, streets, blocks, and frontage. Roman
+validation checks those authored fields and public pavement access to each
+landmark approach without requiring medieval civic sites. Roman generation is
+not part of this interface yet. Any other explicit type is rejected with a
+reason.

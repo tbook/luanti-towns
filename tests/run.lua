@@ -519,6 +519,9 @@ eq(placement.format_bounds(plan0.bounds), "(108,19,45) to (116,27,56)", "format_
 -- Planner (ticket #12): boundary and civic sites.
 run_group("tests/planner_tests.lua", eq, fails, dofile("src/planner.lua"))
 
+-- Type-dispatched validation for authored non-medieval plans (issue #145).
+run_group("tests/authored_plan_tests.lua", eq, fails, dofile("src/planner.lua"))
+
 -- Landmark profile reservations (ticket #38).
 run_group("tests/landmark_profile_tests.lua", eq, fails, dofile("src/planner.lua"), catalog,
 	geometry, dofile("src/site_search.lua")(placement, dofile("src/planner.lua")))
