@@ -572,6 +572,7 @@ run_group("tests/generate_tests.lua", eq, fails, dofile("src/planner.lua"),
 	dofile("src/generate.lua"))
 
 -- Castle verification (ticket #30): dimensions, header parsing, placement at all rotations.
+run_group("tests/shared_sites_tests.lua", eq)
 run_group("tests/castle_verification_tests.lua", eq, fails, geometry)
 
 -- Stock village tavern and well templates (tickets #35, #36).
