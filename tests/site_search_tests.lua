@@ -23,6 +23,7 @@ for i, o in ipairs(offs) do
 	if o.d2 > 320 * 320 then within = false end
 	if o.dx % 16 ~= 0 or o.dz % 16 ~= 0 then mult = false end
 end
+
 eq(sorted, true, "offsets nearest first")
 eq(within, true, "offsets within radius")
 eq(mult, true, "offsets multiples of step")
@@ -173,6 +174,31 @@ end
 
 local PLAYER = {x = 0.4, y = 21, z = -0.3}  -- node (0,0), standing on y=20
 local SMALL = {max_radius = 64}               -- keep failure runs quick
+
+-- Medieval content buildings store approach as a direct {x, z} point,
+-- unlike named sites' approach.pos. Search must recognize both layouts as
+-- translated copies of the seed plan.
+do
+	local catalog = dofile("src/catalog.lua")
+	local profile = assert(planner.landmark_profile(catalog.snapshot()))
+	local opts = {step = 160, max_radius = 160,
+		planner_opts = {landmarks = profile}, structure_bounds = true}
+	local content_plan = assert(planner.plan({x = 0, z = 0}, 101, opts.planner_opts))
+	eq(content_plan.content and #content_plan.content.buildings > 0, true,
+		"populated catalog fixture includes content buildings")
+	local result, summary, details = run(new_world({}), {x = 0, y = 21, z = 0}, opts, 101)
+	eq(result ~= nil, true, "populated catalog search accepts translated plan")
+	if result then
+		eq(result.candidate.dx ~= 0 or result.candidate.dz ~= 0, true,
+			"populated catalog search excludes player-overlapping origin")
+		eq(result.plan.content and #result.plan.content.buildings > 0, true,
+			"populated catalog result retains content buildings")
+	else
+		eq(type(summary), "string", "populated catalog search failure summary")
+		eq(details.rejections.plan_failed or 0, 0,
+			"populated catalog translation does not reject plans")
+	end
+end
 
 -- The first candidate (in search order) whose bounds are clear of the player,
 -- computed independently from the search.

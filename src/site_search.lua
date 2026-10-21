@@ -535,7 +535,9 @@ local function same_rect(a, b)
 	return a.x1 == b.x1 and a.z1 == b.z1 and a.x2 == b.x2 and a.z2 == b.z2
 end
 
-local TRANSLATED_POINTS = {center = true, pos = true, entrance = true, outside = true}
+local TRANSLATED_POINTS = {
+	center = true, pos = true, entrance = true, outside = true, approach = true,
+}
 local function same_translation(base, actual, dx, dz, key)
 	if type(base) ~= type(actual) then return false end
 	if type(base) ~= "table" then return base == actual end
