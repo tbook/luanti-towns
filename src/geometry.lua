@@ -5,9 +5,10 @@
 -- -----------
 -- File orientation (shared with ticket #2): the schematic origin is its
 -- minimum X/Z corner and bottom Y; size = {x, y, z}; the main entrance is on
--- the -Z edge, at file-local offset entrance = {x = ex, y = ey, z = ez}.
+-- the -Z edge by default, at file-local offset entrance = {x = ex, y = ey, z = ez}.
 -- ez is 0 for a door flush with the edge; ey defaults to 1.
--- The entrance faces -Z in the file orientation.
+-- The entrance faces -Z in the file orientation unless entrance.facing names
+-- another outward axis (-X, +Z, +X). This preserves noncanonical captures.
 --
 -- World axes: +X east, +Z north, +Y up. So -Z is geographically SOUTH in
 -- Luanti; the issue text calls the entrance side "north", which is just a
@@ -39,6 +40,7 @@ local FRONT = {
 	[180] = {x =  0, z =  1}, -- +Z
 	[270] = {x =  1, z =  0}, -- +X
 }
+local FACING = {["-Z"] = 0, ["-X"] = 90, ["+Z"] = 180, ["+X"] = 270}
 
 local function check_rotation(rotation)
 	local n = rotation
@@ -139,7 +141,11 @@ function M.place(entry, pos, rotation)
 	end
 
 	local lx, lz = rotate_local(sx, sz, entry.entrance.x, entry.entrance.z or 0, rotation)
-	local front = FRONT[rotation]
+	local facing_name = entry.entrance.facing
+	if facing_name == nil then facing_name = "-Z" end
+	local facing = FACING[facing_name]
+	if not facing then error("towns: invalid entrance facing", 2) end
+	local front = FRONT[(rotation + facing) % 360]
 	local entrance = {x = pos.x + lx, y = pos.y + (entry.entrance.y or 1), z = pos.z + lz}
 	return {
 		rotation = rotation,

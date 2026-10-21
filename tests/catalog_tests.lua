@@ -61,7 +61,7 @@ for _, role in ipairs({"house", "shop", "workshop", "tavern", "well", "cathedral
 		"castle", "city_hall", "chapel", "jail"}) do
 	eq(catalog.VALID_ROLES[role], true, role .. " is a valid role")
 end
-eq(catalog.VALID_ROLES.landmark, nil, "landmark is no longer a role")
+eq(catalog.VALID_ROLES.landmark, true, "generic fixed landmark role")
 eq(catalog.VALID_ROLES.invalid_role, nil, "invalid_role is not a role")
 
 -- Role filtering over the real catalog.

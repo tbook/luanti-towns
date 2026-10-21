@@ -1,14 +1,15 @@
 -- Towns: minimal building catalog.
 -- Pure Lua apart from the reader function passed to verify().
 --
--- To add a building: capture it in the canonical orientation (origin at the
--- min X/Z corner and bottom Y, entrance on the -Z edge), put the .mts
--- in schematics/, and add one entry below.
+-- To add a building: capture it with origin at the min X/Z corner and bottom
+-- Y, put the .mts in schematics/, and add a catalog entry. Prefer a -Z entrance;
+-- entrance.facing supports unchanged captures facing another axis.
 -- entrance = file-local offset of the entrance node (x and z are required;
 --            y is the door bottom height and defaults to 1).
 -- ground_offset = optional depth of the captured foundation below site ground.
+-- entrance.facing = optional file-local outward axis: -Z (default), -X, +Z, +X.
 -- role = one of "house", "shop", "workshop", "tavern", "well", "cathedral",
---        "castle", "city_hall", "chapel", or "jail" (optional; required for
+--        "castle", "city_hall", "chapel", "jail", or "landmark" (optional; required for
 --        hand-authored entries, omitted by the generated templates).
 
 local M = {}
@@ -17,7 +18,7 @@ local M = {}
 M.VALID_ROLES = {
 	house = true, shop = true, workshop = true, tavern = true,
 	well = true, cathedral = true, castle = true, city_hall = true,
-	chapel = true, jail = true,
+	chapel = true, jail = true, landmark = true,
 }
 
 local entries = {
@@ -36,6 +37,8 @@ local source = debug.getinfo(1, "S").source:sub(2)
 local modpath = source:match("^(.*)/src/catalog.lua$") or "."
 local imported = dofile(modpath .. "/schematics/templates/catalog.lua")
 for id, entry in pairs(imported) do entries[id] = entry end
+local roman = dofile(modpath .. "/schematics/imports/roman/catalog.lua")
+for id, entry in pairs(roman) do entries[id] = entry end
 
 -- The castle's six-node gate is wider than its entrance marker. Coordinates
 -- are canonical template X/Z and were measured from the captured gate.
@@ -103,6 +106,9 @@ function M.snapshot()
 			if e.ground_offset then
 				snap[id].ground_offset = e.ground_offset
 			end
+			if e.entrance.facing then
+				snap[id].entrance.facing = e.entrance.facing
+			end
 			if e.excluded_resident_beds then
 				snap[id].excluded_resident_beds = e.excluded_resident_beds
 			end
@@ -143,6 +149,9 @@ function M.verify(read, modpath)
 			msg = "entrance x/z not integers"
 		elseif e.entrance.y and (type(e.entrance.y) ~= "number" or e.entrance.y ~= math.floor(e.entrance.y)) then
 			msg = "entrance y not an integer"
+		elseif e.entrance.facing ~= nil and e.entrance.facing ~= "-Z" and e.entrance.facing ~= "-X"
+				and e.entrance.facing ~= "+Z" and e.entrance.facing ~= "+X" then
+			msg = "invalid entrance facing"
 		end
 
 		if not msg then
