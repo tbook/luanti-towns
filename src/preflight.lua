@@ -135,7 +135,7 @@ local function resolve(entries, ground_y, bounds, id, kind, role, rotation, rect
 	return {
 		id = id, kind = kind, role = role or kind, rotation = g.rotation,
 		rect = {x1 = rect.x1, z1 = rect.z1, x2 = rect.x2, z2 = rect.z2},
-		min = g.min, max = g.max, size = g.size, entrance = g.entrance,
+		min = g.min, max = g.max, size = g.size, entrance = g.entrance, front = g.front,
 		ground_offset = go, excluded_beds = excluded_beds,
 	}
 end

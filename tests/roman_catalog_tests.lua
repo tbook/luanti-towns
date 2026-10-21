@@ -2,6 +2,8 @@
 local eq, fails, geometry, catalog, placement = ...
 local read = dofile("tests/mts_reader.lua")
 local preflight = dofile("src/preflight.lua")
+local planner = dofile("src/planner.lua")
+local builder = dofile("src/builder.lua")(placement, planner)
 local fixtures = {
 	-- size, entrance Y, ground depth, rotated entrance X/Z, rotated fronts
 	arch = {{12,11,8}, 1, 0, {{5,0},{0,6},{6,7},{7,5}}, 1},
@@ -65,16 +67,55 @@ for id, f in pairs(fixtures) do
 		eq(st.entrance.x, b.entrance.x, label .. " shared composition entrance x")
 		eq(st.entrance.y, b.entrance.y, label .. " shared composition entrance y")
 		eq(st.entrance.z, b.entrance.z, label .. " shared composition entrance z")
+		eq(st.front.x, b.front.x, label .. " shared composition front x")
+		eq(st.front.z, b.front.z, label .. " shared composition front z")
 	end
 end
 eq(table.concat(catalog.ids_for_role("landmark"), ","),
 	"amphitheater,arch,bath,domus,temple,theatre", "exactly six fixed Roman templates")
 eq(catalog.entries.villa, nil, "villa remains import only")
 eq(catalog.entries.aqueduct, nil, "aqueduct remains import only")
-local planner = dofile("src/planner.lua")
 local profile = assert(planner.landmark_profile(snapshot))
 for id in pairs(fixtures) do
 	eq(profile.content[id], nil, id .. " absent from medieval random pool")
+end
+
+-- Integration regression: composition preserves a +Z facing and the shared
+-- builder checks that edge. Block the other three footprint edges completely.
+do
+	local entry = {size={x=3,y=3,z=3}, ground_offset=0,
+		entrance={x=1,y=1,z=2,facing="+Z"}}
+	local entries = {oriented_test=entry}
+	local g = 40
+	for _, rotation in ipairs(geometry.ROTATIONS) do
+		local placed = geometry.place(entry, {x=100,y=g,z=100}, rotation)
+		local rect = {x1=placed.min.x,z1=placed.min.z,x2=placed.max.x,z2=placed.max.z}
+		local comp = assert(preflight.compose({bounds=rect,sites={
+			monument={kind="landmark",id="oriented_test",rotation=rotation,rect=rect},
+		}}, entries, g))
+		local st = comp.structures[1]
+		eq(st.front.x, placed.front.x, "shared front x at " .. rotation)
+		eq(st.front.z, placed.front.z, "shared front z at " .. rotation)
+		local function node(x,y,z)
+			local ring = (x == rect.x1-1 or x == rect.x2+1) and z >= rect.z1-1 and z <= rect.z2+1
+				or (z == rect.z1-1 or z == rect.z2+1) and x >= rect.x1-1 and x <= rect.x2+1
+			if ring and not (x == placed.outside.x and z == placed.outside.z)
+					and (y == g+1 or y == g+2) then
+				return {walkable=true}, "mcl_walls:stone"
+			end
+			if y <= g then return {walkable=true}, "mcl_core:stone" end
+			if x == placed.entrance.x and z == placed.entrance.z and y == placed.entrance.y then
+				return {walkable=true,door=true}, "mcl_doors:wooden_door_b_1"
+			end
+			return {walkable=false}, "air"
+		end
+		local route, why = builder.check_door(st, g, node)
+		eq(route ~= nil, true, "builder finds facing approach at " .. rotation .. ": " .. tostring(why))
+		if route then
+			eq(route.approach.x, placed.outside.x, "builder approach x at " .. rotation)
+			eq(route.approach.z, placed.outside.z, "builder approach z at " .. rotation)
+		end
+	end
 end
 
 -- The whole arch opening has headroom, including above its half-slab floor.

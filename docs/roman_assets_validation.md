@@ -75,7 +75,8 @@ bed at `(44,1,35)` below site ground. Six basement beds remained valid.
 No new bed exclusions were justified by the engine check. Villa/aqueduct
 remain outside the catalog, and medieval role pools retain their existing IDs.
 
-`lua5.1 tests/run.lua` passed **4,501 checks, zero failures**, including the
-new real-file verification, four-rotation geometry/composition checks, role
-pool exclusions, and malformed-facing tests. This uses the runner's default
-suite; the optional `TOWNS_TEST_FULL=1` slow groups were not run.
+`lua5.1 tests/run.lua` passed **4,569 checks, zero failures**, including the
+real-file verification, four-rotation geometry/composition checks, a shared
+composition-to-builder door-route check with the unrelated edges blocked,
+role-pool exclusions, and malformed-facing tests. This uses the runner's
+default suite; the optional `TOWNS_TEST_FULL=1` slow groups were not run.
