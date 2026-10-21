@@ -19,13 +19,13 @@
 -- Roles are processed in the fixed order tavern, well, chapel; each box is
 -- added to the shared occupancy before the next is chosen, so nothing ever
 -- overlaps a landmark, the hall, the jail or another service. Candidates come
--- from the frontage packer over street and square frontage runs. Selection
--- prefers square candidates, falling back to street candidates only when no
--- square candidate fits the role's constraints. The first pick is a seeded
--- draw within that priority; later picks take the candidate whose entrance
--- has the greatest minimum squared X/Z distance to the entrances already
--- chosen for that role, the first in frontage order winning ties. Chapels
--- additionally start from the cathedral entrance as an
+-- from the frontage packer over street and square frontage runs. Street boxes
+-- that would consume a viable square candidate's shared corner are excluded,
+-- while non-conflicting street options remain available. The first pick is a
+-- seeded draw within those candidates; later picks take the candidate whose
+-- entrance has the greatest minimum squared X/Z distance to the entrances
+-- already chosen for that role, the first in frontage order winning ties.
+-- Chapels additionally start from the cathedral entrance as an
 -- existing church and must be at least chapel_min_cathedral from it and
 -- chapel_min_between from every other chapel (hard filters).
 --
@@ -54,6 +54,10 @@ end
 local function d2(a, b)
 	local dx, dz = a.x - b.x, a.z - b.z
 	return dx * dx + dz * dz
+end
+
+local function overlaps(a, b)
+	return a.x1 <= b.x2 and b.x1 <= a.x2 and a.z1 <= b.z2 and b.z1 <= a.z2
 end
 
 function M.reserve(plan, services, opts)
@@ -125,9 +129,19 @@ function M.reserve(plan, services, opts)
 						break
 					end
 				end
-				-- Preserve the square priority after role-specific distance filters;
-				-- street candidates remain a fallback when no square candidate fits.
-				local cands = #square_cands > 0 and square_cands or street_cands
+				-- Keep street service boxes that do not consume a viable square
+				-- candidate's shared corner. When every street candidate conflicts,
+				-- the square candidate wins that frontage space.
+				local safe_street_cands = {}
+				for _, street in ipairs(street_cands) do
+					local conflicts = false
+					for _, square in ipairs(square_cands) do
+						if overlaps(street.rect, square.rect) then conflicts = true; break end
+					end
+					if not conflicts then safe_street_cands[#safe_street_cands + 1] = street end
+				end
+				local cands = #safe_street_cands > 0 and safe_street_cands
+					or (#square_cands > 0 and square_cands or street_cands)
 				local refs = {}
 				for _, c in ipairs(chosen) do refs[#refs + 1] = c.entrance end
 				if role == "chapel" and cathedral then refs[#refs + 1] = cathedral end
