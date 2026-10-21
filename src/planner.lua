@@ -227,6 +227,7 @@ local service_reservation = load_sibling("service_reservation.lua")(
 local interior_access = load_sibling("interior_access.lua")
 local content_planner = load_sibling("content_planner.lua")(
 	geometry, frontage_packer, jail_reservation.occupied_rects, interior_access)
+local authored_plan = load_sibling("authored_plan.lua")
 
 M.CONSTANTS = {
 	ENVELOPE = 96,            -- town envelope, nodes per side
@@ -1687,6 +1688,12 @@ local function validate_with(plan, constants, base_only)
 end
 
 function M.validate(plan, constants)
+	if type(plan) == "table" and plan.town_type ~= nil then
+		if plan.town_type == "roman" then return authored_plan.validate(plan) end
+		if plan.town_type ~= "medieval" then
+			return nil, "unknown town type " .. tostring(plan.town_type)
+		end
+	end
 	return validate_with(plan, constants, false)
 end
 
@@ -1875,6 +1882,12 @@ function M.plan(center, seed, opts)
 		if type(opts) ~= "table" then
 			error("towns planner: opts must be a table", 2)
 		end
+		if opts.town_type ~= nil and opts.town_type ~= "medieval" then
+			if opts.town_type == "roman" then
+				error("towns planner: Roman generation is not available yet", 2)
+			end
+			error("towns planner: unknown town type " .. tostring(opts.town_type), 2)
+		end
 		if opts.constants then
 			for k in pairs(opts.constants) do
 				if M.CONSTANTS[k] == nil and DEPTH_POLICY_KEYS[k] == nil then
@@ -1970,6 +1983,7 @@ function M.plan(center, seed, opts)
 		local p, stage, why = attempt(rng, C, profile)
 		if p then
 			local world = to_world(p, seed, center, C, i)
+			world.town_type = "medieval"
 			local ok, vwhy = validate_with(world, C, true)
 			if ok then
 				local full, swhy = streets.fill(world, rng, C)
