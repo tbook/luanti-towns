@@ -46,7 +46,12 @@ function M.validate(plan)
 	if type(sites) ~= "table" then return bad("sites must be a table") end
 	local names, landmarks, squares = {}, {}, {}
 	local site_names = {}
-	for name in pairs(sites) do site_names[#site_names + 1] = name end
+	for name in pairs(sites) do
+		if type(name) ~= "string" or name == "" then
+			return bad("site identities must be nonempty strings")
+		end
+		site_names[#site_names + 1] = name
+	end
 	table.sort(site_names)
 	for _, name in ipairs(site_names) do
 		local s = sites[name]
@@ -160,9 +165,18 @@ function M.validate(plan)
 			if pavement[k] and not seen[k] then seen[k] = true; queue[#queue + 1] = {x=x,z=z} end
 		end
 	end
+	for _, s in ipairs(squares) do
+		local p = s.approach.pos
+		if not pavement[key(p.x, p.z)] or not seen[key(p.x, p.z)] then
+			return bad("public pavement is disconnected from square " .. s.name .. " approach")
+		end
+	end
 	for _, s in ipairs(landmarks) do
 		local p = s.approach.pos
 		if not pavement[key(p.x,p.z)] or not seen[key(p.x,p.z)] then return bad("public pavement is disconnected from landmark " .. s.name .. " approach") end
+	end
+	for k in pairs(pavement) do
+		if not seen[k] then return bad("public pavement contains a disconnected section") end
 	end
 	return true
 end

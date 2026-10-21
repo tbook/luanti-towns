@@ -45,9 +45,18 @@ rejected(function(p) p.streets[1].rect.x1 = 12; p.streets[1].rect.x2 = 16 end,
 	"boundary", "street outside boundary")
 rejected(function(p) p.streets[1].rect.z2 = 2 end,
 	"disconnected", "disconnected landmark pavement")
+rejected(function(p)
+	p.streets[#p.streets + 1] = {kind = "secondary", material = "test:road",
+		rect = {x1 = 14, z1 = 0, x2 = 15, z2 = 1}}
+end, "disconnected", "disconnected extra street")
+rejected(function(p)
+	p.sites.annex = {name = "annex", kind = "square", material = "test:paving",
+		rect = {x1 = 14, z1 = 7, x2 = 15, z2 = 8}, approach = {pos = {x = 14, z = 7}}}
+end, "disconnected", "disconnected extra square")
 rejected(function(p) p.blocks[1].frontage = {99} end,
 	"frontage", "invalid frontage reference")
 rejected(function(p) p.frontage[1].square = "missing" end, "reference", "unknown frontage square")
+rejected(function(p) p.sites[1] = {} end, "site identities", "non-string site identity")
 
 fails(function() planner.plan({x = 0, z = 0}, 1, {town_type = "unknown"}) end,
 	"unknown town type", "planner rejects unknown explicit type")
