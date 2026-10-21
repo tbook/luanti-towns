@@ -37,7 +37,8 @@ function M.validate(plan)
 	if type(plan) ~= "table" then return bad("plan must be a table") end
 	if type(plan.envelope) ~= "table" or not rect(plan.envelope) then return bad("invalid envelope rectangle") end
 	local env = plan.envelope
-	local boundary = plan.boundary and plan.boundary.rects
+	if type(plan.boundary) ~= "table" then return bad("boundary must be a table") end
+	local boundary = plan.boundary.rects
 	if type(boundary) ~= "table" or #boundary == 0 then return bad("boundary needs rectangles") end
 	for i, r in ipairs(boundary) do
 		if not rect(r) or not inside(r, env) then return bad("boundary rectangle " .. i .. " is invalid or outside envelope") end
@@ -126,8 +127,11 @@ function M.validate(plan)
 	local function key(x, z) return x .. "," .. z end
 	for i, b in ipairs(plan.blocks) do
 		if type(b) ~= "table" or not rect(b.rect) or type(b.frontage) ~= "table" or not inside(b.rect, env) then return bad("block " .. i .. " is malformed") end
+		for z = b.rect.z1, b.rect.z2 do for x = b.rect.x1, b.rect.x2 do
+			if not contains(boundary, x, z) then return bad("block " .. i .. " leaves boundary") end
+		end end
 		for _, f in ipairs(b.frontage) do
-			if not integer(f) or not plan.frontage[f] or plan.frontage[f].block ~= i then
+			if not integer(f) or type(plan.frontage[f]) ~= "table" or plan.frontage[f].block ~= i then
 				return bad("block " .. i .. " references invalid frontage")
 			end
 		end
@@ -143,6 +147,7 @@ function M.validate(plan)
 		local surface
 		if f.square ~= nil then
 			surface = type(f.square) == "string" and sites[f.square] or nil
+			if surface and surface.kind ~= "square" then surface = nil end
 		elseif integer(f.street) then
 			surface = plan.streets[f.street]
 		end

@@ -56,6 +56,17 @@ end, "disconnected", "disconnected extra square")
 rejected(function(p) p.blocks[1].frontage = {99} end,
 	"frontage", "invalid frontage reference")
 rejected(function(p) p.frontage[1].square = "missing" end, "reference", "unknown frontage square")
+rejected(function(p)
+	p.boundary.rects[1].x2 = 11
+	p.blocks[2] = {rect = {x1 = 14, z1 = 7, x2 = 15, z2 = 8}, frontage = {}}
+end, "boundary", "block outside authored boundary")
+rejected(function(p)
+	p.frontage[1].square = "temple"
+	p.frontage[1].material = nil
+	p.frontage[1].rect = {x1 = 5, z1 = 0, x2 = 5, z2 = 0}
+end, "reference", "frontage cannot reference a landmark as a square")
+rejected(function(p) p.frontage[1] = 42 end, "frontage", "non-table frontage reference")
+rejected(function(p) p.boundary = 42 end, "boundary", "malformed boundary container")
 rejected(function(p) p.sites[1] = {} end, "site identities", "non-string site identity")
 
 fails(function() planner.plan({x = 0, z = 0}, 1, {town_type = "unknown"}) end,
