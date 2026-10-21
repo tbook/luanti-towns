@@ -54,15 +54,17 @@ support({"mcl_brewing:stand_000"}, {construct = true})
 support({"mcl_books:bookshelf"}, {construct = true})
 support({"mcl_composters:composter"}, {construct = true})
 support({"mcl_grindstone:grindstone"}, {construct = true})
+support({"mcl_smithing_table:table"}, {construct = true})
 support({"mcl_itemframes:frame", "mcl_itemframes:glow_frame", "mcl_itemframes:invisible_frame",
 	"mcl_itemframes:plate"}, {construct = true, refresh = "itemframe"})
-support({"mcl_fences:fence_gate", "mcl_crimson:warped_fence_gate"}, {construct = true})
+support({"mcl_fences:fence_gate", "mcl_crimson:warped_fence_gate",
+	"mcl_fences:dark_oak_fence_gate"}, {construct = true})
 support({"mesecons_pressureplates:pressure_plate_wood_off"}, {construct = true})
 -- The constructor adds a particle spawner each call; its id is stored in meta.
 support({"mcl_campfires:campfire_lit"}, {construct = true, skip_if_field = "particle_spawner_id"})
 -- The constructor adds a chest entity each call.
 support({"mcl_chests:black_shulker_box_small"}, {construct = true, skip_if_entity = "mcl_chests:"})
-support({"mcl_dispensers:dispenser"}, {after_place = true})
+support({"mcl_dispensers:dispenser", "mcl_dispensers:dispenser_up"}, {after_place = true})
 support({"mcl_armor_stand:armor_stand"}, {refresh = "armor_stand"})
 support({"mcl_chests:chest_small", "mcl_chests:chest_left", "mcl_chests:chest_right",
 	"mcl_chests:trapped_chest_small", "mcl_chests:trapped_chest_left",
@@ -72,6 +74,7 @@ support({"mcl_chests:chest_small", "mcl_chests:chest_left", "mcl_chests:chest_ri
 -- Nodes that have an on_construct (or are containers) but need nothing here.
 -- Lua patterns against the node name; the reason is documentation.
 M.NOT_REQUIRED = {
+	{"^mcl_enchanting:table$", "constructor adds only a decorative book; right-click respawns it"},
 	{"leaves$", "palette/orphan check only; the authored param2 is kept"},
 	{"leaves_orphan$", "palette/orphan check only; the authored param2 is kept"},
 	{"^mcl_core:vine$", "palette only; the authored param2 is kept"},

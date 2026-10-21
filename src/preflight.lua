@@ -114,7 +114,7 @@ local function resolve(entries, ground_y, bounds, id, kind, role, rotation, rect
 	end
 	if not valid_rect(rect) then return nil, label .. " has no valid planned rect", "geometry" end
 	local ok, g = pcall(geometry.place, {size = s, entrance = {x = e.entrance.x or 0,
-		y = e.entrance.y or 1, z = e.entrance.z or 0}},
+		y = e.entrance.y or 1, z = e.entrance.z or 0, facing = e.entrance.facing}},
 		{x = rect.x1, y = ground_y - go, z = rect.z1}, rotation)
 	if not ok then return nil, label .. ": " .. tostring(g), "geometry" end
 	if g.max.x ~= rect.x2 or g.max.z ~= rect.z2 then
@@ -135,7 +135,7 @@ local function resolve(entries, ground_y, bounds, id, kind, role, rotation, rect
 	return {
 		id = id, kind = kind, role = role or kind, rotation = g.rotation,
 		rect = {x1 = rect.x1, z1 = rect.z1, x2 = rect.x2, z2 = rect.z2},
-		min = g.min, max = g.max, size = g.size, entrance = g.entrance,
+		min = g.min, max = g.max, size = g.size, entrance = g.entrance, front = g.front,
 		ground_offset = go, excluded_beds = excluded_beds,
 	}
 end

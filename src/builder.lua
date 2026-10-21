@@ -235,9 +235,11 @@ local FRONTS = {[0] = {0, -1}, [90] = {-1, 0}, [180] = {0, 1}, [270] = {1, 0}}
 function M.check_door(st, g, node)
 	local r, e = st.rect, st.entrance
 	local f = FRONTS[st.rotation]
+	local fx, fz = f[1], f[2]
+	if st.front then fx, fz = st.front.x, st.front.z end
 	local ax, az = e.x, e.z
 	for _ = 1, 1000 do
-		ax, az = ax + f[1], az + f[2]
+		ax, az = ax + fx, az + fz
 		if ax < r.x1 or ax > r.x2 or az < r.z1 or az > r.z2 then break end
 	end
 	local cache = {}

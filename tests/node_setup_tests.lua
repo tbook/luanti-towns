@@ -348,6 +348,8 @@ do
 		"mcl_grindstone:grindstone", "mcl_itemframes:frame", "mcl_itemframes:glow_frame",
 		"mcl_itemframes:invisible_frame", "mcl_itemframes:plate", "mcl_jukebox:jukebox",
 		"mcl_smoker:smoker", "mcl_torches:torch", "mcl_torches:torch_wall",
+		"mcl_dispensers:dispenser_up", "mcl_fences:dark_oak_fence_gate", "mcl_enchanting:table",
+		"mcl_smithing_table:table",
 		"mesecons_pressureplates:pressure_plate_wood_off", "mesecons_torch:mesecon_torch_off_wall",
 		"mesecons_torch:mesecon_torch_on_wall",
 	}

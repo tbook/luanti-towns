@@ -346,6 +346,7 @@ eq(cath_node_set["mcl_jukebox:jukebox"] ~= nil, true, "cathedral has jukebox")
 -- Role, snapshot, non-square and touching-box tests live in
 -- tests/catalog_tests.lua (ticket #28).
 run_group("tests/catalog_tests.lua", eq, fails, geometry, catalog, placement)
+run_group("tests/roman_catalog_tests.lua", eq, fails, geometry, catalog, placement)
 
 -- Single-frontage packer (ticket #40).
 run_group("tests/frontage_packer_tests.lua", eq, fails, geometry)
