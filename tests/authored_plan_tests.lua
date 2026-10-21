@@ -43,7 +43,8 @@ rejected(function(p) p.sites.temple.entrance.x = 6 end, "entrance", "wrong landm
 rejected(function(p) p.sites.forum.material = nil end, "material", "square without material")
 rejected(function(p) p.streets[1].rect.x1 = 12; p.streets[1].rect.x2 = 16 end,
 	"boundary", "street outside boundary")
-rejected(function(p) p.sites.temple.approach.pos.x = 14 end, "disconnected", "disconnected landmark pavement")
+rejected(function(p) p.streets[1].rect.z2 = 2 end,
+	"disconnected", "disconnected landmark pavement")
 rejected(function(p) p.blocks[1].frontage = {99} end,
 	"frontage", "invalid frontage reference")
 rejected(function(p) p.frontage[1].square = "missing" end, "reference", "unknown frontage square")
