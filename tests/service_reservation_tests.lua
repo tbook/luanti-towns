@@ -27,8 +27,31 @@ local function fixture(extra_sites, square_face)
 		frontage = {run},
 	}
 end
+local function mixed_frontage_fixture()
+	return {
+		seed = 1,
+		sites = {market = {kind = "square", rect = {x1 = 0, z1 = -4, x2 = 11, z2 = -1}}},
+		blocks = {{id = 1, rect = {x1 = 0, z1 = 0, x2 = 11, z2 = 11}}},
+		frontage = {
+			{id = 1, block = 1, square = "market", facing = {x = 0, z = -1},
+				rect = {x1 = 0, z1 = 0, x2 = 11, z2 = 0}},
+			{id = 2, block = 1, street = 1, facing = {x = -1, z = 0},
+				rect = {x1 = 0, z1 = 0, x2 = 0, z2 = 11}},
+		},
+	}
+end
 local function entry(id, w, d, ex)
 	return {id = id, size = {x = w, y = 5, z = d}, entrance = {x = ex or 0, y = 1, z = 0}}
+end
+
+-- Square candidates win shared corner space even when the seeded draw over
+-- all candidates would otherwise select the street-facing placement.
+do
+	local plan = mixed_frontage_fixture()
+	local pl = svc.reserve(plan, {tavern = entry("t", 12, 6)},
+		{seed = 1, targets = {tavern = 1}})
+	eq(#pl, 1, "mixed frontage service placed")
+	eq(plan.frontage[pl[1].frontage].square, "market", "mixed frontage prefers square")
 end
 
 -- Services can reserve an eligible square frontage when no street run exists.
@@ -173,7 +196,8 @@ for seed = 1, 8 do
 		local b = plan.blocks[p.block].rect
 		eq(p.rect.x1 >= b.x1 and p.rect.x2 <= b.x2 and p.rect.z1 >= b.z1
 			and p.rect.z2 <= b.z2, true, label .. " in block " .. i)
-		eq(plan.frontage[p.frontage].street ~= nil, true, label .. " street run " .. i)
+		eq(plan.frontage[p.frontage].street ~= nil or plan.frontage[p.frontage].square ~= nil,
+			true, label .. " eligible frontage run " .. i)
 		for _, r in ipairs(all) do
 			eq(overlaps(p.rect, r), false, label .. " clear of reserved " .. i)
 		end
