@@ -1886,7 +1886,8 @@ function M.plan(center, seed, opts)
 		if opts.town_type ~= nil and opts.town_type ~= "medieval" then
 			if opts.town_type == "roman" then
 				-- Fixed authored civic plan; medieval-only options do not apply.
-				return roman_planner.plan(center, seed)
+				return roman_planner.plan(center, seed, nil,
+					M.row_depth(roman_planner.content_profile()))
 			end
 			error("towns planner: unknown town type " .. tostring(opts.town_type), 2)
 		end
