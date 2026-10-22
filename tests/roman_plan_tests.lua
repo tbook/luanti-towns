@@ -2,6 +2,7 @@
 local eq, fails, planner = ...
 local roman = dofile("src/roman_planner.lua")
 
+local row_depth = planner.row_depth(roman.content_profile())
 local function copy(t)
 	if type(t) ~= "table" then return t end
 	local out = {}
@@ -129,6 +130,67 @@ for _, name in ipairs({"temple_east", "temple_west", "bath"}) do
 	eq((a.x - e.x) * s.facing.x + (a.z - e.z) * s.facing.z > 1, true, name .. " door is recessed")
 end
 
+-- Blocks and frontage (issue #149).
+eq(#plan.blocks > 0 and #plan.frontage > 0, true, "plan has blocks and frontage")
+eq(row_depth, 9, "catalog row depth for ordinary templates")
+local function in_rect(r, x, z) return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 end
+local function owner_rect(f)
+	if f.square then return plan.sites[f.square].rect, plan.sites[f.square].material end
+	return plan.streets[f.street].rect, plan.streets[f.street].material
+end
+local arms_faced, forum_runs = {}, 0
+for i, b in ipairs(plan.blocks) do
+	eq(b.id, i, "block " .. i .. " id is contiguous")
+	for _, s in ipairs(list) do
+		eq(overlap(b.rect, s.rect), false, b.name .. " avoids " .. s.name)
+		local a = s.approach.pos
+		eq(in_rect(b.rect, a.x, a.z), false, b.name .. " leaves " .. s.name .. " approach open")
+	end
+	eq(overlap(b.rect, plan.sites.forum.rect), false, b.name .. " avoids the forum")
+	for _, st in ipairs(plan.streets) do eq(overlap(b.rect, st.rect), false, b.name .. " avoids " .. st.name) end
+	for j = 1, i - 1 do eq(overlap(b.rect, plan.blocks[j].rect), false, b.name .. " disjoint from block " .. j) end
+	for _, fid in ipairs(b.frontage) do eq(plan.frontage[fid].block, i, "frontage " .. fid .. " belongs to " .. b.name) end
+end
+for i, f in ipairs(plan.frontage) do
+	eq(f.id, i, "frontage " .. i .. " id is contiguous")
+	local b = plan.blocks[f.block]
+	local dx, dz = f.facing.x, f.facing.z
+	eq(f.side, ({["0,-1"] = "-z", ["0,1"] = "+z", ["-1,0"] = "-x", ["1,0"] = "+x"})[dx .. "," .. dz],
+		"frontage " .. i .. " side matches facing")
+	eq((f.rect.x2 - f.rect.x1 + 1) * (f.rect.z2 - f.rect.z1 + 1), f.length, "frontage " .. i .. " length")
+	local depth = dx == 0 and b.size.z or b.size.x
+	eq(depth >= row_depth, true, "frontage " .. i .. " block is at least one row deep")
+	local sr, material = owner_rect(f)
+	eq(f.material, material, "frontage " .. i .. " material")
+	for z = f.rect.z1, f.rect.z2 do for x = f.rect.x1, f.rect.x2 do
+		eq(in_rect(b.rect, x, z), true, "frontage " .. i .. " lies in its block")
+		eq(in_rect(sr, x + dx, z + dz), true, "frontage " .. i .. " faces its pavement")
+		eq((dx == 0 and (z == (dz < 0 and b.rect.z1 or b.rect.z2)))
+			or (dz == 0 and (x == (dx < 0 and b.rect.x1 or b.rect.x2))), true,
+			"frontage " .. i .. " is on the block edge")
+	end end
+	if f.square then
+		eq(f.square, "forum", "square frontage names the forum")
+		forum_runs = forum_runs + 1
+	else
+		arms_faced[plan.streets[f.street].arm] = true
+	end
+end
+for _, arm in ipairs({"north", "south", "east", "west"}) do
+	eq(arms_faced[arm], true, arm .. " arm has street frontage")
+end
+eq(forum_runs >= 4, true, "forum edges carry frontage")
+local forum_sides = {}
+for _, f in ipairs(plan.frontage) do if f.square then forum_sides[f.side] = true end end
+eq(forum_sides["-x"] and forum_sides["+x"] and forum_sides["+z"], true,
+	"east, west and south forum edges carry frontage")
+eq(plan_at(5, 5, 1).blocks[1].rect.x1 - 5, plan.blocks[1].rect.x1 - 100, "blocks translate with the centre")
+local none0, why0 = roman.plan({x = 0, z = 0}, 1)
+eq(none0, nil, "blocks need a catalog row depth")
+eq(why0:find("row depth", 1, true) ~= nil, true, "missing row depth reason")
+local shallow = roman.plan({x = 0, z = 0}, 1, nil, row_depth - 1)
+eq(shallow.blocks[1].size.x, row_depth - 1, "block depth follows the row depth policy")
+
 -- Same arrangement for every seed; a different centre only translates it.
 local function normalise(p, dx, dz)
 	local out = copy(p)
@@ -164,18 +226,18 @@ eq(plan_at(0, 0, 9).seed, 9, "seed is recorded")
 -- Bad layouts are reported, not built.
 local bad_layout = copy(roman.layout)
 bad_layout.landmarks[1].rotation = 90
-local none, why = roman.plan({x = 0, z = 0}, 1, bad_layout)
+local none, why = roman.plan({x = 0, z = 0}, 1, bad_layout, row_depth)
 eq(none, nil, "a door turned away from its street is rejected")
 eq(why:find("does not face its street", 1, true) ~= nil, true, "rotation mismatch reason")
 bad_layout = copy(roman.layout)
 bad_layout.landmarks[1].at = bad_layout.landmarks[4].at
-none, why = roman.plan({x = 0, z = 0}, 1, bad_layout)
+none, why = roman.plan({x = 0, z = 0}, 1, bad_layout, row_depth)
 eq(none, nil, "overlapping monuments fail validation")
 eq(why:find("overlap", 1, true) ~= nil, true, "overlap reason")
 bad_layout = copy(roman.layout)
 bad_layout.landmarks[2].name = bad_layout.landmarks[1].name
 local detail
-none, why, detail = roman.plan({x = 0, z = 0}, 1, bad_layout)
+none, why, detail = roman.plan({x = 0, z = 0}, 1, bad_layout, row_depth)
 eq(none, nil, "duplicate monument names are rejected")
 eq(detail and detail.code, "invalid_layout", "duplicate monument name reports invalid_layout")
 eq(why:find("duplicate site name", 1, true) ~= nil, true, "duplicate name reason")

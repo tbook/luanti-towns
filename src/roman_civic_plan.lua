@@ -46,4 +46,23 @@ return {
 		{name = "theatre", id = "theatre", arm = "west", side = "-z", at = 10, rotation = 0},
 		{name = "bath", id = "bath", arm = "south", side = "-x", at = 8, rotation = 180},
 	},
+
+	-- Buildable blocks for ordinary buildings: explicit rectangles in the
+	-- same arm terms as landmarks. from..to: nodes outward from the forum
+	-- edge (both inclusive); side: which side of the arm. The block is flush
+	-- against the street and as deep as the shared catalog row depth (the
+	-- planner derives it), so retuning a catalog never needs edits here. One
+	-- block per free stretch: a monument interrupts a row, so the stretches
+	-- on either side of it are separate blocks. Stretches narrower than the
+	-- smallest building are left open. A block that starts at 0 also borders
+	-- the forum edge; its frontage faces the forum there.
+	blocks = {
+		{name = "north_end_east", arm = "north", side = "+x", from = 40, to = 49},
+		{name = "east_forum_north", arm = "east", side = "+z", from = 0, to = 58},
+		{name = "east_forum_south", arm = "east", side = "-z", from = 0, to = 8},
+		{name = "south_east", arm = "south", side = "+x", from = 0, to = 58},
+		{name = "west_forum_south", arm = "west", side = "-z", from = 0, to = 9},
+		{name = "west_end_south", arm = "west", side = "-z", from = 31, to = 47},
+		{name = "west_forum_north", arm = "west", side = "+z", from = 0, to = 22},
+	},
 }

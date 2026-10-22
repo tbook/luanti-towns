@@ -406,6 +406,10 @@ the field when validating an older plan also selects the medieval validator.
 An authored Roman plan sets `town_type = "roman"` and supplies an envelope,
 boundary rectangles, named sites, streets, blocks, and frontage. Roman
 validation checks those authored fields and public pavement access to each
-landmark approach without requiring medieval civic sites. Roman generation is
+landmark approach without requiring medieval civic sites. Authored frontage
+runs use the shared run schema from `planner.lua` (the one-node block edge row,
+facing the street or square it borders). The Roman planner derives its blocks
+from explicit rectangles in `roman_civic_plan.lua`, one catalog row depth
+deep, and its runs from the pavement along their edges. Roman generation is
 not part of this interface yet. Any other explicit type is rejected with a
 reason.

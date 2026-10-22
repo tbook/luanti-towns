@@ -27,8 +27,9 @@ return function(center, seed)
 			},
 		},
 		streets = {{kind = "principal", material = "test:road", rect = rect(3, 0, 4, 6)}},
-		blocks = {{rect = rect(0, 7, 1, 8), frontage = {1}}},
-		frontage = {{block = 1, square = "forum", material = "test:paving",
-			rect = rect(0, 6, 1, 6)}},
+		blocks = {{id = 1, rect = rect(0, 7, 1, 8), frontage = {1}}},
+		frontage = {{id = 1, block = 1, side = "-z", facing = {x = 0, z = -1},
+			square = "forum", material = "test:paving", length = 2,
+			rect = rect(0, 7, 1, 7)}},
 	}
 end

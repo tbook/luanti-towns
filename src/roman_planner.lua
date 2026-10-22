@@ -6,8 +6,16 @@
 --   local plan, reason, detail = roman.plan({x = cx, z = cz}, seed)
 --
 -- Every seed gives the same civic geometry; the seed is only recorded. The
--- centre merely translates the layout. Ordinary blocks and frontage are empty
--- until later tickets. Plans are returned only after authored validation.
+-- centre merely translates the layout. Plans are returned only after authored
+-- validation.
+--
+-- Blocks (issue #149) are the layout's explicit rectangles, as deep as the
+-- shared catalog row depth (planner.row_depth, passed in as `row_depth`).
+-- Frontage is derived from them: along each block side, every maximal stretch
+-- of edge nodes whose outer neighbour is the forum or one street becomes a run
+-- (the shared run schema in planner.lua). Stretches facing a monument, an arch
+-- or open ground get none, so runs never touch monuments or their approaches.
+-- Ids follow layout order, then sides -z, +z, -x, +x, then coordinate.
 local function sibling(name)
 	local c = rawget(_G, "core")
 	if c and c.get_modpath and c.get_current_modname then
@@ -83,7 +91,97 @@ local function footprint(id, rotation)
 	return size.x, size.z
 end
 
-function M.build(layout, center, seed)
+-- Ordinary content profile for planner.row_depth: the house, shop and
+-- workshop catalog entries (the roles content_planner packs).
+function M.content_profile()
+	local content = {}
+	for id, e in pairs(catalog.snapshot()) do
+		if e.role == "house" or e.role == "shop" or e.role == "workshop" then
+			content[id] = {id = id, size = e.size, role = e.role}
+		end
+	end
+	return {content = content}
+end
+
+local SIDE_ORDER = {
+	{side = "-z", x = 0, z = -1}, {side = "+z", x = 0, z = 1},
+	{side = "-x", x = -1, z = 0}, {side = "+x", x = 1, z = 0},
+}
+
+-- Adds plan.blocks and plan.frontage from the layout's block rectangles.
+local function add_blocks(layout, plan, row_depth, dx, dz)
+	local half = math.floor(layout.street_width / 2)
+	if type(row_depth) ~= "number" or row_depth < 1 or row_depth ~= math.floor(row_depth) then
+		layout_error("blocks need a catalog row depth")
+	end
+	local forum = plan.sites.forum
+	local function surface(x, z)
+		local r = forum.rect
+		if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return "forum", forum.material end
+		for i, st in ipairs(plan.streets) do
+			r = st.rect
+			if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return i, st.material end
+		end
+	end
+	local seen = {}
+	for _, spec in ipairs(layout.blocks or {}) do
+		local d = ARMS[spec.arm]
+		local toward = TOWARD[spec.side]
+		if seen[spec.name] then layout_error("duplicate block name " .. tostring(spec.name)) end
+		seen[spec.name] = true
+		if not d or not toward or (toward[1] ~= 0) == (d.x ~= 0) or not layout.arms[spec.arm] then
+			layout_error("block " .. tostring(spec.name) .. " has an invalid arm or side")
+		end
+		local l1, l2
+		if spec.side:sub(1, 1) == "+" then l1, l2 = half, half + row_depth - 1
+		else l1, l2 = -half - row_depth, -half - 1 end
+		local r = translate(arm_rect(layout, spec.arm, spec.from, spec.to, l1, l2), dx, dz)
+		local block = {
+			id = #plan.blocks + 1, name = spec.name, arm = spec.arm, side = spec.side,
+			rect = r, size = {x = r.x2 - r.x1 + 1, z = r.z2 - r.z1 + 1},
+			area = (r.x2 - r.x1 + 1) * (r.z2 - r.z1 + 1), frontage = {},
+		}
+		plan.blocks[#plan.blocks + 1] = block
+		for _, s in ipairs(SIDE_ORDER) do
+			-- Edge nodes of this side in ascending coordinate order.
+			local cells = {}
+			if s.x == 0 then
+				local z = s.z < 0 and r.z1 or r.z2
+				for x = r.x1, r.x2 do cells[#cells + 1] = {x, z} end
+			else
+				local x = s.x < 0 and r.x1 or r.x2
+				for z = r.z1, r.z2 do cells[#cells + 1] = {x, z} end
+			end
+			local i = 1
+			while i <= #cells do
+				local owner, material = surface(cells[i][1] + s.x, cells[i][2] + s.z)
+				local j = i
+				if owner ~= nil then
+					while j < #cells do
+						local o = surface(cells[j + 1][1] + s.x, cells[j + 1][2] + s.z)
+						if o ~= owner then break end
+						j = j + 1
+					end
+					local a, b = cells[i], cells[j]
+					local run = {
+						id = #plan.frontage + 1, block = block.id, side = s.side,
+						facing = {x = s.x, z = s.z},
+						rect = {x1 = a[1], z1 = a[2], x2 = b[1], z2 = b[2]},
+						length = j - i + 1, material = material,
+					}
+					if owner == "forum" then run.square = "forum"
+					else run.street = owner; run.street_name = plan.streets[owner].name end
+					plan.frontage[run.id] = run
+					block.frontage[#block.frontage + 1] = run.id
+				end
+				i = j + 1
+			end
+		end
+		if #block.frontage == 0 then layout_error("block " .. spec.name .. " has no frontage") end
+	end
+end
+
+function M.build(layout, center, seed, row_depth)
 	local W, h = layout.street_width, math.floor(layout.forum_size / 2)
 	if W % 2 ~= 0 or layout.forum_size % 2 ~= 0 then
 		layout_error("street_width and forum_size must be even")
@@ -149,7 +247,7 @@ function M.build(layout, center, seed)
 	end
 	local m = layout.margin
 	bounds = {x1 = bounds.x1 - m, z1 = bounds.z1 - m, x2 = bounds.x2 + m, z2 = bounds.z2 + m}
-	return {
+	local plan = {
 		town_type = "roman", seed = seed, center = {x = dx, z = dz},
 		envelope = {x1 = bounds.x1, z1 = bounds.z1, x2 = bounds.x2, z2 = bounds.z2},
 		bounds = bounds,
@@ -159,16 +257,20 @@ function M.build(layout, center, seed)
 		streets = streets, blocks = {}, frontage = {},
 		attempts = 1,
 	}
+	add_blocks(layout, plan, row_depth, dx, dz)
+	return plan
 end
 
 -- Inputs are already checked by planner.plan. Returns plan or nil, reason, detail.
-function M.plan(center, seed, layout)
-	local ok, plan = pcall(M.build, layout or M.layout, center, seed)
+-- row_depth is the shared catalog row depth (planner.row_depth over
+-- content_profile()); blocks are built that deep and validated against it.
+function M.plan(center, seed, layout, row_depth)
+	local ok, plan = pcall(M.build, layout or M.layout, center, seed, row_depth)
 	if not ok then
 		local why = tostring(plan)
 		return nil, why, {code = "invalid_layout", attempts = 0, rejections = {}, last = why}
 	end
-	local valid, why = authored_plan.validate(plan)
+	local valid, why = authored_plan.validate(plan, {min_block_depth = row_depth})
 	if not valid then
 		return nil, why, {code = "invalid_layout", attempts = 0, rejections = {}, last = why}
 	end
