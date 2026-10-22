@@ -91,6 +91,19 @@ rejected(function(p)
 	p.blocks[2] = {id = 2, rect = {x1 = 1, z1 = 7, x2 = 2, z2 = 8}, frontage = {}}
 end, "overlaps block", "overlapping blocks")
 rejected(function(p) p.frontage[1] = 42 end, "frontage", "non-table frontage reference")
+rejected(function(p)
+	local f = copy(p.frontage[1])
+	f.id, f.length, f.material = 4, 5, "test:road"
+	p.frontage[4] = f
+	p.blocks[1].frontage[2] = 4
+end, "frontage", "invalid run stored past a hole in the frontage array")
+rejected(function(p)
+	local f = copy(p.frontage[1])
+	f.id = 2
+	p.frontage[2] = f
+	p.blocks[1].frontage[2] = 2
+end, "overlaps", "duplicate copy of a run on the same block edge")
+rejected(function(p) p.blocks[1].frontage = {1, 1} end, "twice", "duplicate frontage id in a block list")
 rejected(function(p) p.boundary = 42 end, "boundary", "malformed boundary container")
 rejected(function(p) p.sites[1] = {} end, "site identities", "non-string site identity")
 

@@ -151,13 +151,22 @@ function M.validate(plan, opts)
 		for j = 1, i - 1 do
 			if overlap(b.rect, plan.blocks[j].rect) then return bad("block " .. i .. " overlaps block " .. j) end
 		end
+		local listed = {}
 		for _, f in ipairs(b.frontage) do
 			if not integer(f) or type(plan.frontage[f]) ~= "table" or plan.frontage[f].block ~= i then
 				return bad("block " .. i .. " references invalid frontage")
 			end
+			if listed[f] then return bad("block " .. i .. " lists frontage " .. f .. " twice") end
+			listed[f] = true
 		end
 	end
+	-- Every entry must be reached by the sequence loop below; a stray entry
+	-- stored past a hole in the array would otherwise escape validation.
+	local frontage_count, checked = 0, 0
+	for _ in pairs(plan.frontage) do frontage_count = frontage_count + 1 end
+	local occupied = {}
 	for i, f in ipairs(plan.frontage) do
+		checked = checked + 1
 		if type(f) ~= "table" or not rect(f.rect) or not inside(f.rect, env)
 				or not integer(f.block) or not plan.blocks[f.block] then
 			return bad("frontage " .. i .. " has invalid block reference")
@@ -199,6 +208,9 @@ function M.validate(plan, opts)
 			return bad("frontage " .. i .. " has invalid street or square reference")
 		end
 		for z = fr.z1, fr.z2 do for x = fr.x1, fr.x2 do
+			local ok_key = f.block .. "," .. f.side .. "," .. key(x, z)
+			if occupied[ok_key] then return bad("frontage " .. i .. " overlaps another run on its block edge") end
+			occupied[ok_key] = true
 			local nx, nz = x + d.x, z + d.z
 			if nx < surface.rect.x1 or nx > surface.rect.x2 or nz < surface.rect.z1 or nz > surface.rect.z2 then
 				return bad("frontage " .. i .. " does not face its street or square")
@@ -206,6 +218,7 @@ function M.validate(plan, opts)
 		end end
 		if f.material ~= surface.material then return bad("frontage " .. i .. " has wrong material") end
 	end
+	if checked ~= frontage_count then return bad("frontage entries must form a gap-free sequence") end
 	local start
 	for _, s in ipairs(squares) do start = s.approach.pos; break end
 	if not start then return bad("public pavement needs a square approach") end
