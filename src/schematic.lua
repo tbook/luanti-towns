@@ -14,44 +14,33 @@ function M.rotate_offset(size, p, rotation)
  return {x = x, y = p.y, z = z}
 end
 
--- Bit -> world (dx, dz) it points at, unrotated.
-local BIT_DIR = {[1] = {1, 0}, [2] = {0, 1}, [4] = {-1, 0}, [8] = {0, -1}}
--- A direction vector turned by a schematic rotation (the linear part of
--- geometry.lua's rotate_local).
-local function turn(dx, dz, rotation)
- if rotation == 90 then return dz, -dx
- elseif rotation == 180 then return -dx, -dz
- elseif rotation == 270 then return -dz, dx end
- return dx, dz
-end
-local function bit_of(dx, dz)
- if dx == 1 then return 1 elseif dz == 1 then return 2 elseif dx == -1 then return 4 end
- return 8
-end
-
 -- VoxeLibre walls (mcl_walls) keep their connections in the node NAME:
 -- "<base>_N", N a bitmask of connected neighbours (+X=1, +Z=2, -X=4, -Z=8),
--- plus 11 for a straight wall with a solid node or torch above (16 = along
--- X, 21 = along Z). Walls use no param2, so core.place_schematic's rotation
--- leaves a rotated wall with its unrotated connections, which reads as short
--- unconnected segments. Returns the name the wall takes at `rotation`.
-function M.rotate_wall_name(name, rotation)
- rotation = tonumber(rotation)
- local base, n = name:match('^(.*)_(%d+)$')
- n = tonumber(n)
- if not base or not n or rotation == 0 then return name end
- local tall = false
- if n == 16 then n, tall = 5, true elseif n == 21 then n, tall = 10, true end
- if n > 15 then return name end
- local mask = 0
- for bit, d in pairs(BIT_DIR) do
-  if n % (bit * 2) >= bit then mask = mask + bit_of(turn(d[1], d[2], rotation)) end
+-- plus 11 for a straight wall (5 or 10) with a solid node or torch above
+-- (16 = along X, 21 = along Z). The game recomputes N from the neighbours
+-- only when a player places or digs a node (mcl_walls update_wall), so
+-- nothing refreshes a wall that a schematic wrote. Rotation leaves the names
+-- as captured, and templates exported with a rotation (tools/workshop_export)
+-- carry names that were never turned, so their walls read as short unconnected
+-- segments. Placement therefore recomputes every wall's name from the placed
+-- neighbours, as update_wall does. `at(dx, dy, dz)` returns the name of the
+-- node at that offset from the wall, or nil outside the structure.
+local WALL_DIRS = {{1, 0, 1}, {0, 1, 2}, {-1, 0, 4}, {0, -1, 8}}
+function M.wall_name(name, at)
+ local base = name:match('^(.*_)%d+$')
+ if not base then return name end
+ local function connects(n)
+  return n ~= nil and (core.get_item_group(n, 'wall') == 1 or core.get_item_group(n, 'solid') == 1)
  end
- if tall then
-  if mask ~= 5 and mask ~= 10 then return name end
-  mask = mask + 11
+ local sum = 0
+ for _, d in ipairs(WALL_DIRS) do
+  if connects(at(d[1], 0, d[2])) then sum = sum + d[3] end
  end
- return base .. '_' .. mask
+ if sum == 5 or sum == 10 then
+  local above = at(0, 1, 0)
+  if connects(above) or (above ~= nil and core.get_item_group(above, 'torch') == 1) then sum = sum + 11 end
+ end
+ return base .. sum
 end
 
 local function data(entry, modpath)
@@ -105,17 +94,27 @@ function M.place(entry, pos, rotation, modpath, opts)
   return nil, 'Schematic placement failed'
  end
  local positions = {}
+ local sx, sz = s.size.x, s.size.z
+ if tonumber(rotation) == 90 or tonumber(rotation) == 270 then sx, sz = sz, sx end
+ -- Neighbours count only inside the placed structure, as at capture time.
+ local function inside(p)
+  return p.x >= pos.x and p.x < pos.x + sx and p.y >= pos.y and p.y < pos.y + s.size.y
+   and p.z >= pos.z and p.z < pos.z + sz
+ end
  for z = 0, s.size.z - 1 do for y = 0, s.size.y - 1 do for x = 0, s.size.x - 1 do
   local p = vector.add(pos, M.rotate_offset(s.size, {x=x,y=y,z=z}, rotation))
   local node = core.get_node(p)
   if node.name ~= 'air' then
    positions[#positions + 1] = p
-   -- Walls take their connections from the name, which the engine does not
-   -- rotate; rename them to match the rotated template (no neighbour update).
    if core.get_item_group(node.name, 'wall') > 0 then
-    local turned = M.rotate_wall_name(node.name, rotation)
-    if turned ~= node.name then
-     core.swap_node(p, {name = turned, param2 = node.param2})
+    local name = M.wall_name(node.name, function(dx, dy, dz)
+     local q = {x = p.x + dx, y = p.y + dy, z = p.z + dz}
+     if not inside(q) then return nil end
+     local n = core.get_node(q).name
+     return n ~= 'air' and n or nil
+    end)
+    if name ~= node.name then
+     core.swap_node(p, {name = name, param2 = node.param2})
      node = core.get_node(p)
     end
    end
