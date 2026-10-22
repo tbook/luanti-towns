@@ -45,7 +45,8 @@ end
 local function nodes_table()
 	local t = {
 		[GRASS] = {walkable = true}, [DIRT] = {walkable = true}, [STONE] = {walkable = true},
-		["mcl_core:stonebrick"] = {walkable = true}, ["mcl_core:cobble"] = {walkable = true},
+		["mcl_core:cobble"] = {walkable = true},
+		["mcl_core:gravel"] = {walkable = true, falling = true},
 		["fake:wall"] = {walkable = true}, ["fake:door"] = {walkable = true, door = true},
 		["test:paving"] = {walkable = true}, ["test:road"] = {walkable = true},
 	}
@@ -204,7 +205,7 @@ if summary then
 	local bad_blk, under = 0, 0
 	for _, wr in ipairs(w.writes) do
 		if blk[wr.name] then bad_blk = bad_blk + 1 end
-		if wr.y == GROUND_Y and (wr.name == "mcl_core:cobble" or wr.name == "mcl_core:stonebrick") then
+		if wr.y == GROUND_Y and (wr.name == "mcl_core:cobble" or wr.name == "mcl_core:gravel") then
 			for _, st in ipairs(comp.structures) do
 				if in_rect(st.rect, wr.x, wr.z) then under = under + 1 end
 			end
@@ -222,7 +223,7 @@ if summary then
 				alley_cells = alley_cells + 1
 				local n = w.get(x, GROUND_Y, z)
 				-- (street pavement may already own a cell)
-				if n == material or n == "mcl_core:stonebrick" then alley_paved = alley_paved + 1 end
+				if n == material or n == "mcl_core:cobble" then alley_paved = alley_paved + 1 end
 			end
 		end
 	end

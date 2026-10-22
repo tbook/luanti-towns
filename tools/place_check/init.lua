@@ -346,7 +346,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
     report.plan_alleys = #alleys
     for _, a in ipairs(alleys) do
      local cell = core.get_node({x = a.rect.x1, y = g, z = a.rect.z1}).name
-     check(cell == 'mcl_core:cobble' or cell == 'mcl_core:stonebrick', 'alley ' .. a.id .. ' paved: ' .. cell)
+     check(cell == 'mcl_core:cobble' or cell == 'mcl_core:gravel', 'alley ' .. a.id .. ' paved: ' .. cell)
      local above = core.get_node({x = a.rect.x1, y = g + 1, z = a.rect.z1}).name
      check(above == 'air', 'alley ' .. a.id .. ' open above: ' .. above)
     end
@@ -364,13 +364,13 @@ core.register_on_mods_loaded(function() core.after(0, function()
      for i, e in ipairs(ends) do
       local n = core.get_node({x = e[1], y = g, z = e[2]}).name
       report['hall_facade_end_' .. i] = n
-      check(n ~= 'mcl_core:stonebrick' and n ~= 'mcl_core:cobble',
+      check(n ~= 'mcl_core:cobble' and n ~= 'mcl_core:gravel',
        'city hall facade end ' .. i .. ' not pavement: ' .. n)
      end
      local p = hall.approach.pos
      local n = core.get_node({x = p.x, y = g, z = p.z}).name
      report.hall_approach = n
-     check(n == 'mcl_core:stonebrick', 'market node in front of the hall door is pavement: ' .. n)
+     check(n == 'mcl_core:cobble', 'market node in front of the hall door is pavement: ' .. n)
     end
     -- Functional node initialization (ticket #46), verified in the engine.
     local setup = town.setup
