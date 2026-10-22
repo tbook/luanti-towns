@@ -140,6 +140,8 @@ end
 -- cells with the alley pass disabled; #121 adds square-facing content and
 -- packs those runs before street rows. Seeds 6, 13, 16 and 19 seal 22, 14,
 -- 116 and 83 cells; all other tested seeds leave no sealed component.
+-- (#114: with tavern_2 among the tavern variants, seeds 6 and 13 place it and
+-- seal nothing; seeds 16 and 19 are unchanged.)
 do
 	local geometry = dofile("src/geometry.lua")
 	local packer = dofile("src/frontage_packer.lua")(geometry)
@@ -147,7 +149,7 @@ do
 	local content = dofile("src/content_planner.lua")(geometry, packer,
 		jailmod.occupied_rects, access)
 	local base = assert(planner.landmark_profile(catalog.snapshot()))
-	local pinned = {[6] = 22, [13] = 14, [16] = 116, [19] = 83}
+	local pinned = {[16] = 116, [19] = 83}
 	for seed = 1, 22 do pinned[seed] = pinned[seed] or 0 end
 	local function inside(r, x, z)
 		return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2

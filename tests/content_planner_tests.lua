@@ -122,7 +122,8 @@ end
 local base = assert(planner.landmark_profile(catalog.snapshot()))
 eq(base.content ~= nil, true, "profile carries content")
 local civic = {cathedral = base.cathedral, castle = base.castle,
-	city_hall = base.city_hall, jail = base.jail, services = base.services}
+	city_hall = base.city_hall, jail = base.jail, services = base.services,
+	service_variants = base.service_variants}
 
 -- The street spacing depth (ticket #86) is derived from the catalog content,
 -- so a profile without content plans without it. Pass the derived values

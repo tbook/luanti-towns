@@ -13,7 +13,8 @@ local GROUND_Y = 40
 
 local entries = catalog.entries
 local profile = assert(planner.landmark_profile(catalog.snapshot()))
-local plan = assert(planner.plan({x = 0, z = 0}, 101, {landmarks = profile}))
+-- Seed 103 keeps an alley now that tavern_2 is among the tavern variants (#114).
+local plan = assert(planner.plan({x = 0, z = 0}, 103, {landmarks = profile}))
 eq(#plan.content.alleys >= 1, true, "fixture plan has an alley")
 eq(#plan.content.buildings >= 2, true, "fixture plan has buildings")
 eq(plan.sites.city_hall ~= nil, true, "fixture plan has a city hall")

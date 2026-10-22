@@ -167,8 +167,71 @@ do
 	eq(#sh2, 1, "third chapel is a shortage")
 end
 
+-- Variants (#114): every id of a role shares its slots. Over seeds 1-8 both
+-- tavern templates are chosen, each placement is a variant, and a fixed seed
+-- repeats exactly.
+do
+	local pool = {entry("ta", 10, 4), entry("tb", 10, 4)}
+	local seen = {}
+	for seed = 1, 8 do
+		local label = "variant seed " .. seed
+		local pl, sh = svc.reserve(fixture(), {tavern = pool[1]},
+			{seed = seed, targets = {tavern = 3}, variants = {tavern = pool}})
+		eq(#pl, 3, label .. " placed")
+		eq(#sh, 0, label .. " no shortage")
+		local again = svc.reserve(fixture(), {tavern = pool[1]},
+			{seed = seed, targets = {tavern = 3}, variants = {tavern = pool}})
+		for i, p in ipairs(pl) do
+			seen[p.building_id] = true
+			eq(p.role, "tavern", label .. " role " .. i)
+			eq(p.building_id == "ta" or p.building_id == "tb", true, label .. " variant " .. i)
+			eq(again[i].building_id == p.building_id and again[i].rect.x1 == p.rect.x1, true,
+				label .. " repeatable " .. i)
+		end
+	end
+	eq(seen.ta and seen.tb, true, "both variants appear across seeds")
+end
+
+-- Fallback (#114): the preferred variant may be too wide for the only block;
+-- the other variant fills the slots before any shortage is reported.
+do
+	local pool = {entry("big", 30, 4), entry("small", 10, 4)}
+	for seed = 1, 8 do
+		local plan = fixture()
+		plan.blocks[1].rect.x2 = 24
+		plan.frontage[1].rect.x2 = 24
+		local pl, sh = svc.reserve(plan, {tavern = pool[2]},
+			{seed = seed, targets = {tavern = 2}, variants = {tavern = pool}})
+		eq(#pl, 2, "fallback seed " .. seed .. " placed")
+		eq(#sh, 0, "fallback seed " .. seed .. " no shortage")
+		for _, p in ipairs(pl) do eq(p.building_id, "small", "fallback uses small") end
+	end
+end
+
+-- No variant fits: one shortage naming the role, nothing placed.
+do
+	local pool = {entry("big", 30, 4), entry("wide", 40, 4)}
+	local plan = fixture()
+	plan.blocks[1].rect.x2 = 24
+	plan.frontage[1].rect.x2 = 24
+	local pl, sh = svc.reserve(plan, {tavern = pool[1]},
+		{seed = 1, targets = {tavern = 1}, variants = {tavern = pool}})
+	eq(#pl, 0, "no variant fits: none placed")
+	eq(#sh, 1, "no variant fits: one shortage")
+	eq(sh[1].role, "tavern", "no variant fits: role")
+	eq(sh[1].placed, 0, "no variant fits: placed")
+	eq(type(sh[1].reason) == "string" and sh[1].reason:find("has room for the tavern") ~= nil,
+		true, "no variant fits: reason")
+end
+
 -- Stock catalog plans.
 local base = assert(planner.landmark_profile(catalog.snapshot()))
+eq(#base.service_variants.tavern, 2, "stock tavern variants")
+eq(base.service_variants.tavern[1].id, "tavern", "first tavern variant is services.tavern")
+eq(base.service_variants.tavern[2].id, "tavern_2", "second tavern variant")
+eq(base.services.tavern.id, "tavern", "services.tavern stays the first variant")
+local one = assert(planner.landmark_profile(catalog.snapshot(), {tavern = "tavern"}))
+eq(#one.service_variants.tavern, 1, "explicit tavern id is the only variant")
 eq(base.services ~= nil, true, "profile carries services")
 eq(base.services.tavern.id, "tavern", "tavern id")
 eq(base.services.well.id, "well", "well id")
@@ -223,6 +286,20 @@ for seed = 1, 8 do
 		same = same and a[i].rect.x1 == b[i].rect.x1 and a[i].rect.z1 == b[i].rect.z1
 	end
 	eq(same, true, label .. " reproduces")
+end
+
+-- Stock catalog: across seeds 1-8 both tavern templates are placed as
+-- tavern slots, and the three taverns of a town stay three.
+do
+	local seen = {}
+	for seed = 1, 8 do
+		local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
+		eq(plan.reservations.service_counts.tavern.placed, 3, "stock taverns seed " .. seed)
+		for _, p in ipairs(plan.reservations.services) do
+			if p.role == "tavern" then seen[p.building_id] = true end
+		end
+	end
+	eq(seen.tavern and seen.tavern_2, true, "stock both tavern templates appear")
 end
 
 -- Impossible chapel minimums are diagnostics, not failed plans.
