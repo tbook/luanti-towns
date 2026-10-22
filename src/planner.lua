@@ -228,6 +228,7 @@ local interior_access = load_sibling("interior_access.lua")
 local content_planner = load_sibling("content_planner.lua")(
 	geometry, frontage_packer, jail_reservation.occupied_rects, interior_access)
 local authored_plan = load_sibling("authored_plan.lua")
+local roman_planner = load_sibling("roman_planner.lua")
 
 M.CONSTANTS = {
 	ENVELOPE = 96,            -- town envelope, nodes per side
@@ -1884,7 +1885,8 @@ function M.plan(center, seed, opts)
 		end
 		if opts.town_type ~= nil and opts.town_type ~= "medieval" then
 			if opts.town_type == "roman" then
-				error("towns planner: Roman generation is not available yet", 2)
+				-- Fixed authored civic plan; medieval-only options do not apply.
+				return roman_planner.plan(center, seed)
 			end
 			error("towns planner: unknown town type " .. tostring(opts.town_type), 2)
 		end

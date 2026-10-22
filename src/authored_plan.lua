@@ -85,7 +85,13 @@ function M.validate(plan)
 					or not integer(s.approach.pos.x) or not integer(s.approach.pos.z) then
 				return bad("landmark " .. name .. " needs an approach position")
 			end
-			if s.approach.pos.x ~= placed.outside.x or s.approach.pos.z ~= placed.outside.z then
+			-- The approach is the first node outside the footprint along the
+			-- entrance front; a recessed door's own outside node is inside it.
+			local ax, az = placed.outside.x, placed.outside.z
+			while ax >= s.rect.x1 and ax <= s.rect.x2 and az >= s.rect.z1 and az <= s.rect.z2 do
+				ax, az = ax + placed.front.x, az + placed.front.z
+			end
+			if s.approach.pos.x ~= ax or s.approach.pos.z ~= az then
 				return bad("landmark " .. name .. " approach does not match its entrance")
 			end
 			landmarks[#landmarks + 1] = s

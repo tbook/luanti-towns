@@ -522,6 +522,7 @@ run_group("tests/planner_tests.lua", eq, fails, dofile("src/planner.lua"))
 
 -- Type-dispatched validation for authored non-medieval plans (issue #145).
 run_group("tests/authored_plan_tests.lua", eq, fails, dofile("src/planner.lua"))
+run_group("tests/roman_plan_tests.lua", eq, fails, dofile("src/planner.lua"))
 
 -- Landmark profile reservations (ticket #38).
 run_group("tests/landmark_profile_tests.lua", eq, fails, dofile("src/planner.lua"), catalog,
