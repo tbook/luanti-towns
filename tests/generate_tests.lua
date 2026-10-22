@@ -45,6 +45,25 @@ eq(has(msg, "Too many"), true, "extra args message")
 r = generate.parse_args("12 abc")
 eq(r, nil, "rejects seed plus word")
 
+-- Legacy error strings (pre-#151) pinned exactly. USAGE itself gained the
+-- type syntax; the legacy prefix/wording must not change.
+eq(generate.USAGE, "Usage: /towns_generate [medieval|roman] [seed], where seed is an integer from -"
+	.. LIMIT .. " to " .. LIMIT .. ".", "usage text")
+local _, legacy = generate.parse_args("abc")
+eq(legacy, "Invalid seed 'abc': it must be an integer. " .. generate.USAGE, "legacy: word seed")
+_, legacy = generate.parse_args("1.5")
+eq(legacy, "Invalid seed '1.5': it must be an integer. " .. generate.USAGE, "legacy: fractional seed")
+_, legacy = generate.parse_args("1 2")
+eq(legacy, "Too many arguments (2). " .. generate.USAGE, "legacy: two numbers")
+_, legacy = generate.parse_args("abc def")
+eq(legacy, "Too many arguments (2). " .. generate.USAGE, "legacy: two words")
+_, legacy = generate.parse_args("1.5 2")
+eq(legacy, "Too many arguments (2). " .. generate.USAGE, "legacy: fractional then number")
+_, legacy = generate.parse_args("12 abc")
+eq(legacy, "Too many arguments (2). " .. generate.USAGE, "legacy: seed then word")
+_, legacy = generate.parse_args("roman 1 2")
+eq(legacy, "Too many arguments (3). " .. generate.USAGE, "type plus two numbers counts the type")
+
 -- Out of range (including a 64-bit world seed): rejected, never folded, and
 -- the message shows the allowed range from planner.check_seed.
 for _, big in ipairs({tostring(LIMIT + 1), tostring(-LIMIT - 1), "9223372036854775807",
@@ -76,7 +95,7 @@ do
 	eq(has(msg, "integer") and has(msg, "roman"), true, "single word message names the types")
 	r, msg = generate.parse_args("castle 5")
 	eq(r, nil, "unknown type with seed rejected")
-	eq(has(msg, "Unknown town type 'castle'"), true, "unknown type message")
+	eq(msg, "Too many arguments (2). " .. generate.USAGE, "castle 5: legacy too-many message")
 	eq(has(msg, "[medieval|roman]"), true, "usage shows the types")
 	r, msg = generate.parse_args("roman abc")
 	eq(r, nil, "roman with non-integer seed rejected")
@@ -696,14 +715,39 @@ do -- controller: omitted Roman seed is generated, printed and repeated with the
 		"roman without seed: repeat instruction")
 end
 
-do -- controller: a Roman build that fails before any write says so
-	local f = fakes({build_result = function() return nil, "stale surface", "inspection_failed",
-		{reason = "stale"} end})
-	f.c.run("alice", "roman 5")
+-- Build failures: the Roman run goes through the same failure formatter as
+-- medieval, so for the same failure the chat text is identical and equals
+-- format_build_failure's output (the type does not change the wording).
+local function build_failure(param, code, msg, extra)
+	local f = fakes({build_result = function() return nil, msg, code, extra end})
+	f.c.run("alice", param)
 	f.searches[1].done({build_bounds = summary.bounds}, nil, {})
-	eq(has(sent_text(f), "Nothing was changed"), true, "roman: preflight failure says nothing changed")
-	eq(has(sent_text(f), "Roman"), false, "roman: failure is not a success report")
+	return sent_text(f), f
+end
+do -- controller: a Roman build that fails before any write says so
+	local rom, f = build_failure("roman 5", "inspection_failed", "stale surface", {reason = "stale"})
+	local med = build_failure("5", "inspection_failed", "stale surface", {reason = "stale"})
+	eq(rom, med, "roman: preflight failure text identical to medieval")
+	eq(rom, "Error: " .. generate.format_build_failure("stale surface", "inspection_failed",
+		{build_bounds = summary.bounds}, {reason = "stale"}), "roman: preflight failure from the shared formatter")
+	eq(has(rom, "Nothing was changed"), true, "roman: preflight failure says nothing changed")
+	eq(has(rom, "PARTIALLY"), false, "roman: preflight failure not partial")
 	eq(f.c.busy(), false, "roman: preflight failure releases the lock")
+end
+for _, code in ipairs({"bad_result", "invalid_plan", "invalid_palette", "inspection_failed"}) do
+	local rom, f = build_failure("roman 5", code, "reason for " .. code)
+	eq(rom, (build_failure("5", code, "reason for " .. code)), "roman: " .. code .. " identical to medieval")
+	eq(has(rom, code) and has(rom, "Nothing was changed"), true, "roman: " .. code .. " says nothing changed")
+	eq(f.c.busy(), false, "roman: " .. code .. " releases")
+end
+do -- roman write_failed: honest partial report, same wording as medieval
+	local rom, f = build_failure("roman 5", "write_failed", "engine said no")
+	local med = build_failure("5", "write_failed", "engine said no")
+	eq(rom, med, "roman write_failed: text identical to medieval")
+	eq(has(rom, "PARTIALLY written") and has(rom, "Site bounds ("), true, "roman write_failed: partial report")
+	eq(has(rom, "Nothing was changed"), false, "roman write_failed: no false reassurance")
+	eq(has(logs_text(f), "PARTIALLY"), true, "roman write_failed logged")
+	eq(f.c.busy(), false, "roman write_failed releases")
 end
 
 do -- one job at a time across types
@@ -723,4 +767,37 @@ do -- one job at a time across types
 	eq(ok, false, "across types: roman refused while medieval runs")
 	f.searches[2].done(nil, "failed", {})
 	eq((f.c.run("alice", "roman 3")), true, "across types: roman runs after medieval")
+end
+
+------------------------------------------------------------------------
+-- Real search wiring (src/generate_command.lua) for each type. The chunk is
+-- loaded with a stub `core` and a stub `towns`; only site_search.search is
+-- captured, so no map or engine is needed.
+------------------------------------------------------------------------
+do
+	local captured
+	local entries = {marker = true}
+	local towns = {
+		planner = planner,
+		generate = generate,
+		catalog = {snapshot = function() return {} end, entries = entries},
+		site_search = {
+			search = function(pos, seed, opts) captured = {pos = pos, seed = seed, opts = opts} end,
+			WET_DEFAULTS = {wet_probe = true},
+		},
+		residents = {core_store = function() return {} end},
+	}
+	local stub_core = {get_mod_storage = function() return {} end,
+		register_chatcommand = function() end}
+	local env = setmetatable({core = stub_core}, {__index = _G})
+	local chunk = assert(loadfile("src/generate_command.lua"))
+	setfenv(chunk, env)
+	chunk(towns)
+	towns.populated.search({x = 1, y = 2, z = 3}, 11, "roman", function() end)
+	eq(captured.seed, 11, "wiring roman: seed passed")
+	eq(captured.opts.planner_opts.town_type, "roman", "wiring roman: planner_opts.town_type")
+	eq(captured.opts.entries, entries, "wiring roman: opts.entries is the catalog entries")
+	eq(captured.opts.planner_opts.landmarks, nil, "wiring roman: no medieval landmark profile")
+	eq(captured.opts.structure_bounds, true, "wiring roman: structure bounds")
+	eq(captured.opts.wet_probe, true, "wiring roman: wet defaults merged")
 end

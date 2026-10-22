@@ -80,24 +80,19 @@ function M.parse_args(param)
 	local s = tostring(param or ""):gsub("^%s+", ""):gsub("%s+$", "")
 	local tokens = {}
 	for t in s:gmatch("%S+") do tokens[#tokens + 1] = t end
+	local count = #tokens -- legacy count, including a leading type word
 	local town_type = "medieval"
-	if #tokens > 0 and M.TOWN_TYPES[tokens[1]:lower()] then
+	if count > 0 and M.TOWN_TYPES[tokens[1]:lower()] then
 		town_type = tokens[1]:lower()
 		table.remove(tokens, 1)
-	elseif #tokens > 1 then
-		if tokens[1]:match("^[+-]?%d+$") then
-			return nil, "Too many arguments (" .. #tokens .. "). " .. M.USAGE
-		end
-		return nil, "Unknown town type '" .. tokens[1] .. "': use medieval or roman. " .. M.USAGE
 	end
 	if #tokens > 1 then
-		return nil, "Too many arguments (" .. (#tokens + 1) .. "). " .. M.USAGE
+		return nil, "Too many arguments (" .. count .. "). " .. M.USAGE
 	end
 	if #tokens == 0 then return {town_type = town_type} end
 	local tok = tokens[1]
 	if not tok:match("^[+-]?%d+$") then
-		return nil, "Invalid seed '" .. tok .. "': it must be an integer (or a town type: "
-			.. "medieval or roman). " .. M.USAGE
+		return nil, "Invalid seed '" .. tok .. "': it must be an integer. " .. M.USAGE
 	end
 	local n = tonumber(tok)
 	if not n then
