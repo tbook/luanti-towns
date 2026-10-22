@@ -192,6 +192,25 @@ do
 	eq(seen.ta and seen.tb, true, "both variants appear across seeds")
 end
 
+-- Pattern balance (#114): over seeds 1-300 all eight variant patterns of two
+-- variants across three slots occur, none dominating (expected 37.5 each).
+do
+	local pool = {entry("ta", 10, 4), entry("tb", 10, 4)}
+	local count = {}
+	for seed = 1, 300 do
+		local pl = svc.reserve(fixture(), {tavern = pool[1]},
+			{seed = seed, targets = {tavern = 3}, variants = {tavern = pool}})
+		local code = {}
+		for i, p in ipairs(pl) do code[i] = p.building_id == "ta" and "a" or "b" end
+		local key = table.concat(code)
+		count[key] = (count[key] or 0) + 1
+	end
+	for _, pat in ipairs({"aaa", "aab", "aba", "abb", "baa", "bab", "bba", "bbb"}) do
+		local c = count[pat] or 0
+		eq(c >= 15 and c <= 60, true, "pattern " .. pat .. " rate " .. c)
+	end
+end
+
 -- Fallback (#114): the preferred variant may be too wide for the only block;
 -- the other variant fills the slots before any shortage is reported.
 do

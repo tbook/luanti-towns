@@ -56,6 +56,27 @@ local function draw(seed, n)
 	return 1 + math.floor(s * n / MOD)
 end
 
+-- a * b mod MOD for 0 <= a, b < MOD, exact in doubles (split b into 16-bit halves).
+local function mulmod(a, b)
+	local bh, bl = math.floor(b / 65536), b % 65536
+	local t = (a * bh) % MOD
+	t = (t * 65536) % MOD
+	return (t + a * bl) % MOD
+end
+
+-- Variant draw (#114): a nonlinear hash of (seed, role index, slot), so the
+-- choices of successive slots are not affine in the seed (an affine draw gives
+-- structured patterns). Returns an integer in [1, n].
+local function hash_draw(seed, a, b, n)
+	local h = 1
+	for _, v in ipairs({seed % MOD, a, b}) do
+		h = (mulmod(h, h) + v + 1) % MOD
+		h = (mulmod(h, 48271) + 1013904223) % MOD
+	end
+	for _ = 1, 3 do h = (mulmod(h, h) + 12345) % MOD end
+	return 1 + math.floor(h * n / MOD)
+end
+
 local function d2(a, b)
 	local dx, dz = a.x - b.x, a.z - b.z
 	return dx * dx + dz * dz
@@ -175,8 +196,7 @@ function M.reserve(plan, services, opts)
 				local slot = #chosen + 1
 				-- Seeded preferred variant for this slot, then the others in
 				-- cyclic order as fallbacks. A single variant draws nothing.
-				local first = #pool == 1 and 1
-					or draw(seed + ri * 7919 + slot * 104729, #pool)
+				local first = #pool == 1 and 1 or hash_draw(seed, ri, slot, #pool)
 				local out, slot_reason
 				for j = 0, #pool - 1 do
 					local v = pool[(first - 1 + j) % #pool + 1]

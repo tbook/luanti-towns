@@ -47,6 +47,9 @@ eq(profile.castle, nil, "Roman profile has no castle")
 eq(profile.city_hall, nil, "Roman profile has no city hall")
 eq(profile.services.chapel, nil, "Roman profile has no chapel")
 eq(profile.services.tavern ~= nil and profile.services.well ~= nil, true, "tavern and well stay")
+eq(profile.service_variants.chapel, nil, "Roman profile has no chapel variants")
+eq(profile.service_variants.tavern ~= nil and #profile.service_variants.tavern >= 1, true,
+	"Roman tavern variants kept")
 eq(profile.jail ~= nil, true, "jail stays")
 for id, e in pairs(profile.content) do
 	eq(e.role == "house" or e.role == "shop" or e.role == "workshop", true,
