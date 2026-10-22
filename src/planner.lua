@@ -48,6 +48,9 @@
 --                  plan gets plan.reservations.services (list of placements),
 --                  plan.reservations.service_counts and unmet targets appended
 --                  to plan.shortages. Plans without services carry none of it.
+--                  service_variants = {role -> list of entries} (#114) lists
+--                  every catalog id of a role; the variants share that role's
+--                  slots. Without it each role has only services[role].
 --                  A profile may also carry content = {id -> {id, size,
 --                  entrance, role}} with roles house, shop and workshop
 --                  (ticket #42, src/content_planner.lua): after the services
@@ -576,24 +579,35 @@ function M.landmark_profile(snapshot, ids)
 		profile.jail = L
 	end
 	-- Distributed services (ticket #41): tavern, well and chapel, each
-	-- optional; the first id of each role in sorted order.
+	-- optional. Every catalog id of a role is a variant (#114) sharing the
+	-- role's slots; profile.services[role] stays the first id in sorted
+	-- order, and profile.service_variants[role] lists all of them.
 	for _, role in ipairs(service_reservation.ROLES) do
 		local list = {}
-		for k, e in pairs(snapshot) do
-			if type(e) == "table" and e.role == role then list[#list + 1] = k end
-		end
-		table.sort(list)
-		local sid = (ids and ids[role]) or list[1]
-		if sid ~= nil then
-			local e = snapshot[sid]
-			if type(e) ~= "table" then
-				return nil, "catalog has no entry '" .. tostring(sid) .. "' for the " .. role
+		if ids and ids[role] ~= nil then
+			list[1] = ids[role]
+		else
+			for k, e in pairs(snapshot) do
+				if type(e) == "table" and e.role == role then list[#list + 1] = k end
 			end
-			local L, why = check_landmark(role, {id = sid, size = e.size,
-				entrance = e.entrance, ground_offset = e.ground_offset})
-			if not L then return nil, why end
+			table.sort(list)
+		end
+		if #list > 0 then
+			local variants = {}
+			for _, sid in ipairs(list) do
+				local e = snapshot[sid]
+				if type(e) ~= "table" then
+					return nil, "catalog has no entry '" .. tostring(sid) .. "' for the " .. role
+				end
+				local L, why = check_landmark(role, {id = sid, size = e.size,
+					entrance = e.entrance, ground_offset = e.ground_offset})
+				if not L then return nil, why end
+				variants[#variants + 1] = L
+			end
 			profile.services = profile.services or {}
-			profile.services[role] = L
+			profile.services[role] = variants[1]
+			profile.service_variants = profile.service_variants or {}
+			profile.service_variants[role] = variants
 		end
 	end
 	-- Ordinary content (ticket #42): every house, shop and workshop entry.
@@ -621,6 +635,7 @@ function M.roman_profile(snapshot)
 	if not profile then return nil, why end
 	profile.cathedral, profile.castle, profile.city_hall = nil, nil, nil
 	if profile.services then profile.services.chapel = nil end
+	if profile.service_variants then profile.service_variants.chapel = nil end
 	return profile
 end
 
@@ -1902,6 +1917,7 @@ function M.populate(full, profile, seed, C)
 	if profile.services then
 		local placed, shorts, counts = service_reservation.reserve(
 			full, profile.services, {seed = seed,
+				variants = profile.service_variants,
 				targets = {tavern = C.SERVICE_TAVERNS,
 					well = C.SERVICE_WELLS, chapel = C.SERVICE_CHAPELS},
 				chapel_min_cathedral = C.CHAPEL_MIN_FROM_CATHEDRAL,
@@ -1990,6 +2006,21 @@ function M.plan(center, seed, opts)
 							error("towns planner: opts.landmarks.services: " .. tostring(why), 2)
 						end
 						profile.services[role] = L
+						-- Variants (#114) default to the one given entry.
+						local given = lm.service_variants and lm.service_variants[role]
+						if type(given) ~= "table" or #given == 0 then given = {sv} end
+						local variants = {}
+						for _, v in ipairs(given) do
+							local V, vwhy = check_landmark(role, {id = v.id, size = v.size,
+								entrance = v.entrance, ground_offset = v.ground_offset})
+							if not V then
+								error("towns planner: opts.landmarks.service_variants: "
+									.. tostring(vwhy), 2)
+							end
+							variants[#variants + 1] = V
+						end
+						profile.service_variants = profile.service_variants or {}
+						profile.service_variants[role] = variants
 					end
 				end
 			end

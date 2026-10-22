@@ -631,7 +631,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
       local well_mod = dofile(lv .. '/well.lua')
       local taverns, jukeboxes, claimed, wells, recognized_wells = 0, 0, 0, 0, 0
       for _, b in ipairs(town.structures) do
-       if b.id == 'tavern' then
+       if b.role == 'tavern' then
         taverns = taverns + 1
         for _, p in ipairs(core.find_nodes_in_area(b.min, b.max, {'mcl_jukebox:jukebox'})) do
          jukeboxes = jukeboxes + 1
@@ -644,7 +644,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
          end
          meta:set_string('villager', before)
         end
-       elseif b.id == 'well' then
+       elseif b.role == 'well' then
         wells = wells + 1
         local found = false
         for _, p in ipairs(core.find_nodes_in_area(b.min, b.max, {'mcl_core:water_source'})) do

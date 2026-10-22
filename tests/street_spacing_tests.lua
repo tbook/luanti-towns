@@ -117,7 +117,8 @@ end
 do
 	local policy = planner.depth_policy(base)
 	local civic = {cathedral = base.cathedral, castle = base.castle,
-		city_hall = base.city_hall, jail = base.jail, services = base.services}
+		city_hall = base.city_hall, jail = base.jail, services = base.services,
+		service_variants = base.service_variants}
 	local without_total = 0
 	for _, seed in ipairs({1, 2, 3, 4, 5, 6}) do
 		local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))

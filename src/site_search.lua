@@ -799,6 +799,9 @@ function M.search(player_pos, seed, opts, done, env)
 						if lm[n] then entries[lm[n].id] = lm[n] end
 					end
 					for _, sv in pairs(lm.services or {}) do entries[sv.id] = sv end
+					for _, list in pairs(lm.service_variants or {}) do
+						for _, sv in ipairs(list) do entries[sv.id] = sv end
+					end
 					for id, e in pairs(lm.content or {}) do entries[id] = e end
 				end
 				local cwhy

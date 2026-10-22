@@ -11,11 +11,16 @@
 --             A well's box includes its apron.
 --   opts      {seed = integer (default plan.seed),
 --              targets = {tavern = n, well = n, chapel = n},
+--              variants = {tavern = {entry, ...}, ...} (optional; each
+--              role's catalog ids, sorted; default {services[role]}),
 --              chapel_min_cathedral = nodes, chapel_min_between = nodes,
 --              occupied = extra rects to avoid}
 --   occupied_rects(plan, extra) -> list of rects (sites, jail, earlier
 --             reservations); see jail_reservation.occupied_rects.
 --
+-- Variants (#114): the slots of a role are shared by all its variants. For
+-- each slot a seeded draw picks the preferred variant; when it has no fitting
+-- candidate the others are tried in cyclic order before a shortage is reported.
 -- Roles are processed in the fixed order tavern, well, chapel; each box is
 -- added to the shared occupancy before the next is chosen, so nothing ever
 -- overlaps a landmark, the hall, the jail or another service. Candidates come
@@ -51,6 +56,27 @@ local function draw(seed, n)
 	return 1 + math.floor(s * n / MOD)
 end
 
+-- a * b mod MOD for 0 <= a, b < MOD, exact in doubles (split b into 16-bit halves).
+local function mulmod(a, b)
+	local bh, bl = math.floor(b / 65536), b % 65536
+	local t = (a * bh) % MOD
+	t = (t * 65536) % MOD
+	return (t + a * bl) % MOD
+end
+
+-- Variant draw (#114): a nonlinear hash of (seed, role index, slot), so the
+-- choices of successive slots are not affine in the seed (an affine draw gives
+-- structured patterns). Returns an integer in [1, n].
+local function hash_draw(seed, a, b, n)
+	local h = 1
+	for _, v in ipairs({seed % MOD, a, b}) do
+		h = (mulmod(h, h) + v + 1) % MOD
+		h = (mulmod(h, 48271) + 1013904223) % MOD
+	end
+	for _ = 1, 3 do h = (mulmod(h, h) + 12345) % MOD end
+	return 1 + math.floor(h * n / MOD)
+end
+
 local function d2(a, b)
 	local dx, dz = a.x - b.x, a.z - b.z
 	return dx * dx + dz * dz
@@ -84,29 +110,31 @@ function M.reserve(plan, services, opts)
 		local entry = services[role]
 		local wanted = targets[role] or 0
 		if entry and wanted > 0 then
-			local id = entry.id or role
-			local pe = {size = entry.size, entrance = entry.entrance}
+			-- Catalog variants of the role (#114) share the same slots. Without
+			-- opts.variants the role has just its one entry.
+			local pool = opts.variants and opts.variants[role]
+			if pool == nil or #pool == 0 then pool = {entry} end
 			local chosen = {} -- placements of this role
 			local reason
-			while #chosen < wanted do
+			-- Candidate for one variant in the slot: a placement or nil plus a reason.
+			local function choose(v)
+				local id = v.id or role
+				local pe = {size = v.size, entrance = v.entrance}
 				local square_cands, street_cands, runs = {}, {}, 0
 				for _, run in ipairs(frontage) do
-					if run.street ~= nil or run.square ~= nil then
-						runs = runs + 1
-						local res = packer.pack{
-							run = {id = run.id, facing = run.facing, rect = run.rect},
-							block = plan.blocks[run.block], entries = {[id] = pe},
-							seed = seed, occupied = occupied,
-						}
-						local cands = run.square and square_cands or street_cands
-						for _, p in ipairs(res.placements) do cands[#cands + 1] = p end
-					end
+					runs = runs + 1
+					local res = packer.pack{
+						run = {id = run.id, facing = run.facing, rect = run.rect},
+						block = plan.blocks[run.block], entries = {[id] = pe},
+						seed = seed, occupied = occupied,
+					}
+					local cands = run.square and square_cands or street_cands
+					for _, p in ipairs(res.placements) do cands[#cands + 1] = p end
 				end
-				if runs == 0 then reason = "no street or square frontage"; break end
+				if runs == 0 then return nil, "no street or square frontage" end
 				if #square_cands + #street_cands == 0 then
-					reason = "no street or square frontage run has room for the " .. role
-						.. " box (" .. entry.size.x .. "x" .. entry.size.z .. ")"
-					break
+					return nil, "no street or square frontage run has room for the " .. role
+						.. " box (" .. v.size.x .. "x" .. v.size.z .. ")"
 				end
 				if role == "chapel" then
 					local function keep_distant(cands)
@@ -123,10 +151,9 @@ function M.reserve(plan, services, opts)
 					square_cands = keep_distant(square_cands)
 					street_cands = keep_distant(street_cands)
 					if #square_cands + #street_cands == 0 then
-						reason = "no fitting chapel is at least " .. min_cath
+						return nil, "no fitting chapel is at least " .. min_cath
 							.. " nodes from the cathedral entrance and " .. min_between
 							.. " from another chapel"
-						break
 					end
 				end
 				-- Keep street service boxes that do not consume a viable square
@@ -159,11 +186,25 @@ function M.reserve(plan, services, opts)
 						if best == nil or m > best then best, pick = m, p end
 					end
 				end
-				local out = {
+				return {
 					building_id = id, role = role, block = pick.block,
 					frontage = pick.frontage, rect = pick.rect,
 					rotation = pick.rotation, entrance = pick.entrance,
 				}
+			end
+			while #chosen < wanted do
+				local slot = #chosen + 1
+				-- Seeded preferred variant for this slot, then the others in
+				-- cyclic order as fallbacks. A single variant draws nothing.
+				local first = #pool == 1 and 1 or hash_draw(seed, ri, slot, #pool)
+				local out, slot_reason
+				for j = 0, #pool - 1 do
+					local v = pool[(first - 1 + j) % #pool + 1]
+					local p, why = choose(v)
+					if p then out = p; break end
+					slot_reason = slot_reason or why
+				end
+				if out == nil then reason = slot_reason; break end
 				chosen[#chosen + 1] = out
 				placements[#placements + 1] = out
 				occupied[#occupied + 1] = out.rect
