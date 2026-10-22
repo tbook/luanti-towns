@@ -22,6 +22,9 @@ To compare a change against the baseline, write to a scratch directory and diff:
 
 `metrics.tsv` has one row per seed and is the easiest file to diff;
 `report.md` holds the readable table, the totals and the layout constants.
+When a layout ticket lands deliberately, regenerate `docs/layout_baseline/`
+into a new directory (for example `docs/layout_after_86/`) rather than
+overwriting the baseline, and record the before/after in the PR.
 
 ## Roman plans (issue #152)
 
@@ -60,9 +63,6 @@ Medieval-only metrics (`parvis_*`, `market_*`) are `n/a` in Roman rows and are
 left out of the Roman totals. Roman streets use their own widths (6 nodes) for
 `street_len_*`, while the medieval 5 and 4 divisors stay as defined below. All
 other metrics apply to both town types.
-When a layout ticket lands deliberately, regenerate `docs/layout_baseline/`
-into a new directory (for example `docs/layout_after_86/`) rather than
-overwriting the baseline, and record the before/after in the PR.
 
 ## Inputs
 
