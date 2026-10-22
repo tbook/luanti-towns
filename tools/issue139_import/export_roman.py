@@ -20,7 +20,10 @@ def main():
     ap.add_argument('--world', type=Path, default=WORKSHOP)
     ap.add_argument('--engine', default='/Applications/luanti.app/Contents/MacOS/luanti')
     ap.add_argument('--port', type=int, default=39489)
+    ap.add_argument('--only', nargs='+', choices=IDS,
+                    help='re-export just these buildings, keeping the other manifest records')
     args = ap.parse_args()
+    wanted = tuple(args.only) if args.only else IDS
     source = args.world.resolve()
     opened = subprocess.run(['lsof', '-F', 'n', str(source / 'map.sqlite')], capture_output=True, text=True)
     if opened.returncode != 1 or opened.stdout:
@@ -30,7 +33,7 @@ def main():
     if set(records) != set(IDS):
         raise SystemExit('Issue 139 workshop report does not contain exactly the expected eight buildings.')
     jobs = []
-    for name in IDS:
+    for name in wanted:
         r = records[name]
         lo = dict(r['origin'])
         size = dict(r['size'])
@@ -38,6 +41,9 @@ def main():
         if name == 'bath':
             # Keep the authored two-layer dirt pad and full basement air volume.
             lo, hi = {'x': 97, 'y': 7, 'z': 397}, {'x': 191, 'y': 27, 'z': 444}
+        if name == 'temple':
+            # Keep the terrain row below the quartz platform so the floor stands on it (#134).
+            lo = {**lo, 'y': lo['y'] - 1}
         jobs.append({'id': name, 'min': lo, 'max': hi, 'building_origin': r['origin'],
                      'building_size': r['size']})
     work = Path(tempfile.mkdtemp(prefix='towns-roman-export-'))
@@ -62,7 +68,7 @@ def main():
     if p.returncode or not result_path.exists():
         raise SystemExit('Roman capture failed; inspect ' + str(work / 'engine.log'))
     results = json.loads(result_path.read_text())
-    if {r['id'] for r in results} != set(IDS):
+    if {r['id'] for r in results} != set(wanted):
         raise SystemExit('Roman capture report is incomplete: ' + str(work))
     output = ROOT / 'schematics/imports/roman'
     output.mkdir(parents=True, exist_ok=True)
@@ -81,6 +87,13 @@ def main():
             'non_air_node_types': len(required_nodes),
             'metadata_nodes': len(metadata),
             'required_nodes': required_nodes})
+    if args.only:
+        # Selective run: keep the top-level provenance and the other records.
+        manifest_path = output / 'manifest.json'
+        kept = json.loads(manifest_path.read_text())
+        fresh = {b['id']: b for b in manifest['buildings']}
+        kept['buildings'] = [fresh.get(b['id'], b) for b in kept['buildings']]
+        manifest = kept
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     print(json.dumps({'output': str(output), 'snapshot_sha256': snapshot_sha,
                       'buildings': len(results), 'metadata_nodes': sum(len(r.get('metadata') or []) for r in results)}, indent=2))

@@ -42,7 +42,7 @@ axis **before** placement rotation; omitted facing defaults to `-Z`.
 | ID | Size X×Y×Z | Entrance X,Y,Z | Facing | Ground offset | Measured evidence |
 | --- | --- | --- | --- | --- | --- |
 | arch | 12×11×8 | 5,1,0 | -Z | 0 | Cobble path at Y=0, open feet/head at the -Z mouth. |
-| temple | 18×10×12 | 3,1,5 | -X | 0 | Spruce double door at X=3; quartz platform and first stair at Y=0, X=0. |
+| temple | 18×11×12 | 3,2,5 | -X | 0 | Spruce double door at X=3 on the quartz platform (Y=1, first stair at X=0); terrain row (dirt, grass at the edge) at Y=0 (#134). |
 | domus | 38×11×22 | 1,2,9 | -X | 1 | Spruce double front door; grass/path surface at Y=1. |
 | theatre | 21×11×14 | 10,5,13 | +Z | 3 | Open central front apron over cobble at Y=4; perimeter grass at Y=3. |
 | amphitheater | 29×9×29 | 15,3,0 | -Z | 2 | Grass-path approach at X=15, Y=2; open entrance under outer structure. |

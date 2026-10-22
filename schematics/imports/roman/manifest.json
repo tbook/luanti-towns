@@ -418,7 +418,7 @@
       "id": "temple",
       "min": {
         "x": 305,
-        "y": 9,
+        "y": 8,
         "z": 350
       },
       "max": {
@@ -438,12 +438,14 @@
       },
       "size": {
         "x": 18,
-        "y": 10,
+        "y": 11,
         "z": 12
       },
-      "non_air_node_types": 20,
+      "non_air_node_types": 22,
       "metadata_nodes": 4,
       "required_nodes": [
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
         "mcl_core:lapisblock",
         "mcl_core:stone",
         "mcl_core:stripped_spruce_bark",
