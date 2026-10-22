@@ -229,6 +229,7 @@ local content_planner = load_sibling("content_planner.lua")(
 	geometry, frontage_packer, jail_reservation.occupied_rects, interior_access)
 local authored_plan = load_sibling("authored_plan.lua")
 local roman_planner = load_sibling("roman_planner.lua")
+local catalog = load_sibling("catalog.lua")
 
 M.CONSTANTS = {
 	ENVELOPE = 96,            -- town envelope, nodes per side
@@ -606,6 +607,20 @@ function M.landmark_profile(snapshot, ids)
 			profile.content[k] = L
 		end
 	end
+	return profile
+end
+
+-- Roman population profile (issue #150): the shared profile for a catalog
+-- snapshot minus the medieval-only roles. Ordinary house, shop and workshop
+-- entries, tavern, well and jail stay; the cathedral, castle, city hall and
+-- chapel are dropped (no chapel stands in for a temple), and monument entries
+-- (role "landmark") are never ordinary content. Returns profile, or nil plus
+-- a message.
+function M.roman_profile(snapshot)
+	local profile, why = M.landmark_profile(snapshot)
+	if not profile then return nil, why end
+	profile.cathedral, profile.castle, profile.city_hall = nil, nil, nil
+	if profile.services then profile.services.chapel = nil end
 	return profile
 end
 
@@ -1867,6 +1882,43 @@ local function to_world(local_plan, seed, center, C, attempts)
 	}
 end
 
+-- Shared frontage population for every town type (tickets #69, #41, #42, #150):
+-- jail, distributed services, then ordinary content, each best effort. Runs on
+-- a finished plan with plan.frontage; sets plan.reservations, plan.shortages
+-- and plan.content. A shortage never fails the plan. `profile` is a landmark
+-- profile (jail, services and content are optional) and C the constants.
+function M.populate(full, profile, seed, C)
+	if not (profile and (profile.jail or profile.services or profile.content)) then
+		return
+	end
+	full.reservations = {}
+	full.shortages = {}
+	if profile.jail then
+		local placed, short = jail_reservation.reserve(full,
+			profile.jail, {seed = seed, bias = C.JAIL_MARKET_BIAS})
+		full.reservations.jail = placed
+		if short then full.shortages[1] = short end
+	end
+	if profile.services then
+		local placed, shorts, counts = service_reservation.reserve(
+			full, profile.services, {seed = seed,
+				targets = {tavern = C.SERVICE_TAVERNS,
+					well = C.SERVICE_WELLS, chapel = C.SERVICE_CHAPELS},
+				chapel_min_cathedral = C.CHAPEL_MIN_FROM_CATHEDRAL,
+				chapel_min_between = C.CHAPEL_MIN_BETWEEN})
+		full.reservations.services = placed
+		full.reservations.service_counts = counts
+		for _, sh in ipairs(shorts) do
+			full.shortages[#full.shortages + 1] = sh
+		end
+	end
+	if profile.content then
+		-- Private random stream: derived from the seed, never drawn from the
+		-- planner's `rng`.
+		full.content = content_planner.plan(full, profile.content, {seed = seed})
+	end
+end
+
 function M.plan(center, seed, opts)
 	if type(center) ~= "table" or not is_int(center.x) or not is_int(center.z)
 			or math.abs(center.x) > 31000 or math.abs(center.z) > 31000 then
@@ -1886,8 +1938,12 @@ function M.plan(center, seed, opts)
 		if opts.town_type ~= nil and opts.town_type ~= "medieval" then
 			if opts.town_type == "roman" then
 				-- Fixed authored civic plan; medieval-only options do not apply.
-				return roman_planner.plan(center, seed, nil,
-					M.row_depth(roman_planner.content_profile()))
+				local profile, pwhy = M.roman_profile(catalog.snapshot())
+				if not profile then error("towns planner: " .. tostring(pwhy), 2) end
+				local plan, why, detail = roman_planner.plan(center, seed, nil,
+					M.row_depth(profile))
+				if plan then M.populate(plan, profile, seed, M.resolve_constants(nil)) end
+				return plan, why, detail
 			end
 			error("towns planner: unknown town type " .. tostring(opts.town_type), 2)
 		end
@@ -1993,37 +2049,7 @@ function M.plan(center, seed, opts)
 				if full then
 					ok, vwhy = M.validate(full, C)
 					if ok then
-						-- Jail (ticket #69): reserved after the landmarks and
-						-- hall, best effort; a shortage never fails the plan.
-						if profile and (profile.jail or profile.services or profile.content) then
-							full.reservations = {}
-							full.shortages = {}
-							if profile.jail then
-								local placed, short = jail_reservation.reserve(full,
-									profile.jail, {seed = seed, bias = C.JAIL_MARKET_BIAS})
-								full.reservations.jail = placed
-								if short then full.shortages[1] = short end
-							end
-							if profile.services then
-								local placed, shorts, counts = service_reservation.reserve(
-									full, profile.services, {seed = seed,
-										targets = {tavern = C.SERVICE_TAVERNS,
-											well = C.SERVICE_WELLS, chapel = C.SERVICE_CHAPELS},
-										chapel_min_cathedral = C.CHAPEL_MIN_FROM_CATHEDRAL,
-										chapel_min_between = C.CHAPEL_MIN_BETWEEN})
-								full.reservations.services = placed
-								full.reservations.service_counts = counts
-								for _, sh in ipairs(shorts) do
-									full.shortages[#full.shortages + 1] = sh
-								end
-							end
-							if profile.content then
-								-- Private random stream: derived from the seed,
-								-- never drawn from the planner's `rng`.
-								full.content = content_planner.plan(full, profile.content,
-									{seed = seed})
-							end
-						end
+						M.populate(full, profile, seed, C)
 						return full
 					end
 					stage, why = "validate", vwhy
