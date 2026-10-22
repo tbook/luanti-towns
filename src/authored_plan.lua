@@ -32,7 +32,13 @@ local function contains(rects, x, z)
 	return false
 end
 
-function M.validate(plan)
+local SIDES = {["-z"] = {x = 0, z = -1}, ["+z"] = {x = 0, z = 1},
+	["-x"] = {x = -1, z = 0}, ["+x"] = {x = 1, z = 0}}
+
+-- opts.min_block_depth (optional): the catalog row depth; every frontage run
+-- must have a block at least that deep behind it. MIN_FRONTAGE_RUN is a
+-- medieval constant and is deliberately not applied to authored runs.
+function M.validate(plan, opts)
 	local function bad(reason) return nil, "authored plan: " .. reason end
 	if type(plan) ~= "table" then return bad("plan must be a table") end
 	if type(plan.envelope) ~= "table" or not rect(plan.envelope) then return bad("invalid envelope rectangle") end
@@ -131,11 +137,20 @@ function M.validate(plan)
 		local ok, why = pave(s.rect, s.material, "street " .. i); if not ok then return bad(why) end
 	end
 	local function key(x, z) return x .. "," .. z end
+	local min_depth = opts and opts.min_block_depth
 	for i, b in ipairs(plan.blocks) do
 		if type(b) ~= "table" or not rect(b.rect) or type(b.frontage) ~= "table" or not inside(b.rect, env) then return bad("block " .. i .. " is malformed") end
+		if b.id ~= nil and b.id ~= i then return bad("block " .. i .. " has wrong id") end
 		for z = b.rect.z1, b.rect.z2 do for x = b.rect.x1, b.rect.x2 do
 			if not contains(boundary, x, z) then return bad("block " .. i .. " leaves boundary") end
+			if pavement[key(x, z)] then return bad("block " .. i .. " overlaps pavement") end
 		end end
+		for _, s in ipairs(landmarks) do
+			if overlap(b.rect, s.rect) then return bad("block " .. i .. " overlaps landmark " .. s.name) end
+		end
+		for j = 1, i - 1 do
+			if overlap(b.rect, plan.blocks[j].rect) then return bad("block " .. i .. " overlaps block " .. j) end
+		end
 		for _, f in ipairs(b.frontage) do
 			if not integer(f) or type(plan.frontage[f]) ~= "table" or plan.frontage[f].block ~= i then
 				return bad("block " .. i .. " references invalid frontage")
@@ -147,19 +162,48 @@ function M.validate(plan)
 				or not integer(f.block) or not plan.blocks[f.block] then
 			return bad("frontage " .. i .. " has invalid block reference")
 		end
+		if f.id ~= i then return bad("frontage " .. i .. " has wrong id") end
+		local b = plan.blocks[f.block]
 		local linked = false
-		for _, fid in ipairs(plan.blocks[f.block].frontage) do if fid == i then linked = true end end
+		for _, fid in ipairs(b.frontage) do if fid == i then linked = true end end
 		if not linked then return bad("frontage " .. i .. " is missing from its block") end
+		local d = SIDES[f.side]
+		if not d or type(f.facing) ~= "table" or f.facing.x ~= d.x or f.facing.z ~= d.z then
+			return bad("frontage " .. i .. " side and facing disagree")
+		end
+		-- The run is the one-node-thick row of block edge nodes on its side.
+		local br, fr = b.rect, f.rect
+		local edge = inside(fr, br)
+		if f.side == "-z" then edge = edge and fr.z1 == br.z1 and fr.z2 == br.z1
+		elseif f.side == "+z" then edge = edge and fr.z1 == br.z2 and fr.z2 == br.z2
+		elseif f.side == "-x" then edge = edge and fr.x1 == br.x1 and fr.x2 == br.x1
+		else edge = edge and fr.x1 == br.x2 and fr.x2 == br.x2 end
+		if not edge then return bad("frontage " .. i .. " is not on its block's edge") end
+		if f.length ~= (fr.x2 - fr.x1 + 1) * (fr.z2 - fr.z1 + 1) then
+			return bad("frontage " .. i .. " has wrong length")
+		end
+		local depth = (f.side == "-z" or f.side == "+z") and b.rect.z2 - b.rect.z1 + 1
+			or b.rect.x2 - b.rect.x1 + 1
+		if min_depth and depth < min_depth then
+			return bad("frontage " .. i .. " block is shallower than the row depth")
+		end
 		local surface
 		if f.square ~= nil then
+			if f.street ~= nil then return bad("frontage " .. i .. " has invalid street or square reference") end
 			surface = type(f.square) == "string" and sites[f.square] or nil
 			if surface and surface.kind ~= "square" then surface = nil end
 		elseif integer(f.street) then
 			surface = plan.streets[f.street]
 		end
-		if not surface or not rect(surface.rect) or not inside(f.rect, surface.rect) then
+		if not surface or not rect(surface.rect) then
 			return bad("frontage " .. i .. " has invalid street or square reference")
 		end
+		for z = fr.z1, fr.z2 do for x = fr.x1, fr.x2 do
+			local nx, nz = x + d.x, z + d.z
+			if nx < surface.rect.x1 or nx > surface.rect.x2 or nz < surface.rect.z1 or nz > surface.rect.z2 then
+				return bad("frontage " .. i .. " does not face its street or square")
+			end
+		end end
 		if f.material ~= surface.material then return bad("frontage " .. i .. " has wrong material") end
 	end
 	local start
