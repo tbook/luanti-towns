@@ -172,6 +172,13 @@ bad_layout.landmarks[1].at = bad_layout.landmarks[4].at
 none, why = roman.plan({x = 0, z = 0}, 1, bad_layout)
 eq(none, nil, "overlapping monuments fail validation")
 eq(why:find("overlap", 1, true) ~= nil, true, "overlap reason")
+bad_layout = copy(roman.layout)
+bad_layout.landmarks[2].name = bad_layout.landmarks[1].name
+local detail
+none, why, detail = roman.plan({x = 0, z = 0}, 1, bad_layout)
+eq(none, nil, "duplicate monument names are rejected")
+eq(detail and detail.code, "invalid_layout", "duplicate monument name reports invalid_layout")
+eq(why:find("duplicate site name", 1, true) ~= nil, true, "duplicate name reason")
 
 -- Input checks are shared with the medieval entry point; medieval stays default.
 fails(function() planner.plan({x = 0.5, z = 0}, 1, {town_type = "roman"}) end,

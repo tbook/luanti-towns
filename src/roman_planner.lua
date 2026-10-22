@@ -99,7 +99,10 @@ function M.build(layout, center, seed)
 		approach = {pos = {x = dx, z = dz}},
 	}
 
-	local function add(site) sites[site.name] = site; order[#order + 1] = site.name end
+	local function add(site)
+		if sites[site.name] then layout_error("duplicate site name " .. tostring(site.name)) end
+		sites[site.name] = site; order[#order + 1] = site.name
+	end
 	local arm_names = {"north", "south", "east", "west"}
 	for _, arm in ipairs(arm_names) do
 		local spec = layout.arms[arm]
