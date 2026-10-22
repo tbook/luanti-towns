@@ -99,6 +99,11 @@ rejected(function(p)
 end, "gap-free", "invalid run stored past a hole in the frontage array")
 rejected(function(p) p.frontage.x = {} end, "gap-free", "string-keyed frontage entry")
 rejected(function(p)
+	p.streets[3] = {kind = "secondary", material = "test:road",
+		rect = {x1 = 0, z1 = 5, x2 = 1, z2 = 6}}
+	p.frontage[1].square, p.frontage[1].street, p.frontage[1].material = nil, 3, "test:road"
+end, "gap-free", "frontage run facing a street stored past a hole in the street array")
+rejected(function(p)
 	p.blocks[3] = {id = 3, rect = {x1 = 14, z1 = 7, x2 = 15, z2 = 8}, frontage = {}}
 end, "gap-free", "block stored past a hole in the block array")
 rejected(function(p)

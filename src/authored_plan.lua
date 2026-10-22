@@ -132,10 +132,16 @@ function M.validate(plan, opts)
 		return true
 	end
 	for _, s in ipairs(squares) do local ok, why = pave(s.rect, s.material, "square " .. s.name); if not ok then return bad(why) end end
+	-- A street stored past a hole in the array would escape the ipairs loop
+	-- yet remain reachable by index from a frontage run.
+	local street_count, street_seen = 0, 0
+	for _ in pairs(plan.streets) do street_count = street_count + 1 end
 	for i, s in ipairs(plan.streets) do
+		street_seen = street_seen + 1
 		if type(s) ~= "table" or (s.kind ~= "principal" and s.kind ~= "secondary") then return bad("street " .. i .. " is malformed") end
 		local ok, why = pave(s.rect, s.material, "street " .. i); if not ok then return bad(why) end
 	end
+	if street_seen ~= street_count then return bad("street entries must form a gap-free sequence") end
 	local function key(x, z) return x .. "," .. z end
 	local min_depth = opts and opts.min_block_depth
 	-- A block stored past a hole in the array would escape the ipairs loop.
