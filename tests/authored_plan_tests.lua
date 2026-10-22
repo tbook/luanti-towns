@@ -96,7 +96,21 @@ rejected(function(p)
 	f.id, f.length, f.material = 4, 5, "test:road"
 	p.frontage[4] = f
 	p.blocks[1].frontage[2] = 4
-end, "frontage", "invalid run stored past a hole in the frontage array")
+end, "gap-free", "invalid run stored past a hole in the frontage array")
+rejected(function(p) p.frontage.x = {} end, "gap-free", "string-keyed frontage entry")
+rejected(function(p)
+	p.blocks[3] = {id = 3, rect = {x1 = 14, z1 = 7, x2 = 15, z2 = 8}, frontage = {}}
+end, "gap-free", "block stored past a hole in the block array")
+rejected(function(p)
+	local f = copy(p.frontage[1])
+	f.id, f.length, f.rect = 2, 1, {x1 = 0, z1 = 7, x2 = 0, z2 = 7}
+	p.frontage[2] = f
+	p.blocks[1].frontage[2] = 2
+end, "overlaps another run", "run sharing a single node with an existing run")
+rejected(function(p)
+	p.blocks[2] = {id = 2, rect = {x1 = 14, z1 = 7, x2 = 15, z2 = 8}, frontage = {}}
+	p.frontage[1].block = 2
+end, "invalid frontage", "block listing a run whose block field disagrees")
 rejected(function(p)
 	local f = copy(p.frontage[1])
 	f.id = 2

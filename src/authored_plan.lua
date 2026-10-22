@@ -138,7 +138,11 @@ function M.validate(plan, opts)
 	end
 	local function key(x, z) return x .. "," .. z end
 	local min_depth = opts and opts.min_block_depth
+	-- A block stored past a hole in the array would escape the ipairs loop.
+	local block_count, block_seen = 0, 0
+	for _ in pairs(plan.blocks) do block_count = block_count + 1 end
 	for i, b in ipairs(plan.blocks) do
+		block_seen = block_seen + 1
 		if type(b) ~= "table" or not rect(b.rect) or type(b.frontage) ~= "table" or not inside(b.rect, env) then return bad("block " .. i .. " is malformed") end
 		if b.id ~= nil and b.id ~= i then return bad("block " .. i .. " has wrong id") end
 		for z = b.rect.z1, b.rect.z2 do for x = b.rect.x1, b.rect.x2 do
@@ -160,6 +164,7 @@ function M.validate(plan, opts)
 			listed[f] = true
 		end
 	end
+	if block_seen ~= block_count then return bad("block entries must form a gap-free sequence") end
 	-- Every entry must be reached by the sequence loop below; a stray entry
 	-- stored past a hole in the array would otherwise escape validation.
 	local frontage_count, checked = 0, 0
