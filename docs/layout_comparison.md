@@ -10,8 +10,9 @@ From the mod root (needs only `lua5.1`; about 7 seconds):
 
     lua5.1 tools/layout_compare/run.lua docs/layout_baseline
 
-Arguments: `[OUTDIR] [seed,seed,...]`. Without a seed list the documented set
-below is used. The committed baseline in `docs/layout_baseline/` was produced
+Arguments: `[OUTDIR] [seed,seed,...] [--town-type=medieval|roman]`. Without a
+seed list the documented set below is used (the medieval set; Roman has its own,
+see "Roman plans"). The committed baseline in `docs/layout_baseline/` was produced
 by exactly that command on the planner before any of the tickets above.
 
 To compare a change against the baseline, write to a scratch directory and diff:
@@ -24,6 +25,44 @@ To compare a change against the baseline, write to a scratch directory and diff:
 When a layout ticket lands deliberately, regenerate `docs/layout_baseline/`
 into a new directory (for example `docs/layout_after_86/`) rather than
 overwriting the baseline, and record the before/after in the PR.
+
+## Roman plans (issue #152)
+
+The same tool renders and measures the authored Roman plan (`src/roman_planner.lua`,
+layout in `src/roman_civic_plan.lua`, populated as in `tests/roman_population_tests.lua`).
+Select it with `--town-type=roman`; the default stays medieval, so every
+invocation above is unchanged.
+
+Reproducible command, writing to a scratch directory (the Roman output has no
+default location and must not go under `docs/`, so the historical medieval
+baselines are never overwritten):
+
+    lua5.1 tools/layout_compare/run.lua /tmp/layout_roman --town-type=roman
+
+Seed set: `1, 2, 3, 7` (the seeds of `tests/roman_population_tests.lua`), with
+the same round-robin centres. A narrower run takes a seed list as usual:
+
+    lua5.1 tools/layout_compare/run.lua /tmp/layout_roman 1,2 --town-type=roman
+
+What a Roman run shows, in `seed_N.svg` and `seed_N.txt`: the forum square
+(`Q`, labelled `forum`), every landmark instance (`L`, labelled by its unique
+site name, such as `temple_east`, `temple_west`, `domus_1` to `domus_4`, the
+four arches, `amphitheater`, `theatre`, `bath`), the streets and ring, ordinary
+buildings, the tavern, well and jail, and access alleys. The ASCII header lists
+each site instance with its kind, catalog id and extent. Medieval-only classes
+(market, parvis, cathedral, castle, city hall, chapel, approach window) are not
+in the Roman legend.
+
+Roman reports state the town type, seeds, catalog identity and the authored
+layout settings: every value of `src/roman_civic_plan.lua`, flattened into
+sorted `key.sub = value` lines with a hash over them. That hash is the layout
+version for comparisons; a changed hash means the authored plan changed and
+the outputs are not comparable.
+
+Medieval-only metrics (`parvis_*`, `market_*`) are `n/a` in Roman rows and are
+left out of the Roman totals. Roman streets use their own widths (6 nodes) for
+`street_len_*`, while the medieval 5 and 4 divisors stay as defined below. All
+other metrics apply to both town types.
 
 ## Inputs
 
@@ -78,7 +117,8 @@ free ground, since buildings can sit on it).
 
 - `street_len`: estimated centreline length of the ordinary street network.
   Counting convention: unique pavement nodes of principal streets divided by 5
-  plus unique pavement nodes of secondary streets divided by 4, in both cases
+  plus unique pavement nodes of secondary streets divided by 4 (Roman plans
+  divide by their street widths, 6 and 6), in both cases
   excluding nodes covered by the market or parvis and counting a node covered
   by both kinds as principal. Junctions and bends are counted once; it is an
   estimate, not a graph length. `street_len_principal`, `street_len_secondary`
