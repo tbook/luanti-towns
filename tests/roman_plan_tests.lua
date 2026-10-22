@@ -191,10 +191,12 @@ eq(why0:find("row depth", 1, true) ~= nil, true, "missing row depth reason")
 local shallow = roman.plan({x = 0, z = 0}, 1, nil, row_depth - 1)
 eq(shallow.blocks[1].size.x, row_depth - 1, "block depth follows the row depth policy")
 
--- Same arrangement for every seed; a different centre only translates it.
+-- Same civic arrangement for every seed; a different centre only translates it.
+-- Population (issue #150) is seeded and is compared in roman_population_tests.
 local function normalise(p, dx, dz)
 	local out = copy(p)
 	out.seed, out.center = nil, nil
+	out.reservations, out.shortages, out.content = nil, nil, nil
 	local function shift(t)
 		if type(t) ~= "table" then return end
 		for _, k in ipairs({"x", "x1", "x2"}) do if t[k] then t[k] = t[k] - dx end end

@@ -73,7 +73,8 @@ function M.reserve(plan, entry, opts)
 
 	local occupied = M.occupied_rects(plan, opts.occupied)
 
-	local market = plan.sites.market and plan.sites.market.rect
+	-- The forum is a Roman plan's central square (issue #150).
+	local market = (plan.sites.market or plan.sites.forum or {}).rect
 	if not market then return shortage("plan has no market square") end
 	local mx = (market.x1 + market.x2) / 2
 	local mz = (market.z1 + market.z2) / 2
