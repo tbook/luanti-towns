@@ -19,26 +19,30 @@ M.CENTERS = {{x = 0, z = 0}, {x = 1500, z = -2500}, {x = -4200, z = 3100}}
 
 -- Paint order (later wins): {name, glyph, SVG colour, legend text, flags}.
 -- overlay classes never affect metrics. hook = reserved for later tickets:
--- drawn only when the plan carries the named field.
+-- drawn only when the plan carries the named field. Legend filters (issue
+-- #152): roman = true classes are listed for Roman plans only, medieval = true
+-- classes for medieval plans only, so each town type gets its own legend.
 local CLASSES = {
 	{"boundary", ".", "#e9efe2", "town boundary (free ground)"},
 	{"block", ",", "#cfe3b4", "block (free ground behind frontage)"},
 	{"secondary", "=", "#b9a98a", "secondary street (4 wide)"},
 	{"principal", "#", "#8a7a5e", "principal street (5 wide)"},
-	{"market", "M", "#f0d98c", "market square"},
-	{"parvis", "p", "#e8c4a0", "parvis (cathedral square)"},
-	{"cathedral", "C", "#7b5ea7", "cathedral compound"},
-	{"castle", "K", "#5b6b8c", "castle compound"},
-	{"city_hall", "H", "#c0392b", "city hall"},
+	{"market", "M", "#f0d98c", "market square", medieval = true},
+	{"parvis", "p", "#e8c4a0", "parvis (cathedral square)", medieval = true},
+	{"cathedral", "C", "#7b5ea7", "cathedral compound", medieval = true},
+	{"castle", "K", "#5b6b8c", "castle compound", medieval = true},
+	{"square", "Q", "#f2c879", "square (Roman forum, all squares)", roman = true},
+	{"landmark", "L", "#6f9f3f", "named landmark instance (labelled in SVG)", roman = true},
+	{"city_hall", "H", "#c0392b", "city hall", medieval = true},
 	{"jail", "J", "#444444", "jail"},
 	{"tavern", "T", "#d4802a", "tavern"},
 	{"well", "O", "#2a8fd4", "well"},
-	{"chapel", "Y", "#a64ca6", "chapel"},
+	{"chapel", "Y", "#a64ca6", "chapel", medieval = true},
 	{"house", "h", "#f7f7f7", "ordinary house"},
 	{"shop", "s", "#9fd8d0", "ordinary shop"},
 	{"workshop", "w", "#d8c19f", "ordinary workshop"},
 	{"alley", "a", "#bbbbbb", "access alley"},
-	{"approach", "A", "#ffd400", "boundary approach window", overlay = true},
+	{"approach", "A", "#ffd400", "boundary approach window", overlay = true, medieval = true},
 	{"core", "o", "#ff8c00", "town core (HOOK: plan.core, not yet planned)", overlay = true},
 	{"footprint", "f", "#000000", "construction footprint (HOOK: plan.footprint)", overlay = true, outline = true},
 	{"exit", "x", "#00a000", "designated exit (HOOK: plan.exits)", overlay = true},
@@ -91,7 +95,8 @@ end
 -- Ordered paint list {class, rect} for a finished plan.
 local function layers(plan)
 	local L = {}
-	local function add(class, r) L[#L + 1] = {class = class, rect = r} end
+	-- label (optional) names a site instance; the SVG prints it on the rect.
+	local function add(class, r, label) L[#L + 1] = {class = class, rect = r, label = label} end
 	for _, r in ipairs(plan.boundary.rects) do add("boundary", r) end
 	for _, b in ipairs(plan.blocks) do add("block", b.rect) end
 	for _, kind in ipairs({"secondary", "principal"}) do
@@ -99,18 +104,28 @@ local function layers(plan)
 			if s.kind == kind then add(kind, s.rect) end
 		end
 	end
-	add("market", plan.sites.market.rect)
-	add("parvis", plan.sites.parvis.rect)
-	add("cathedral", plan.sites.cathedral.rect)
-	add("castle", plan.sites.castle.rect)
-	if plan.sites.city_hall then add("city_hall", plan.sites.city_hall.rect) end
+	if plan.town_type == "roman" then
+		-- Roman sites (issue #152): every square and every landmark instance,
+		-- each labelled by its unique site name (temple_east, domus_2, ...).
+		for _, name in ipairs(plan.site_order) do
+			local s = plan.sites[name]
+			if s.kind == "square" then add("square", s.rect, name)
+			else add("landmark", s.rect, name) end
+		end
+	else
+		add("market", plan.sites.market.rect)
+		add("parvis", plan.sites.parvis.rect)
+		add("cathedral", plan.sites.cathedral.rect)
+		add("castle", plan.sites.castle.rect)
+		if plan.sites.city_hall then add("city_hall", plan.sites.city_hall.rect) end
+	end
 	local res = plan.reservations or {}
 	if res.jail then add("jail", res.jail.rect) end
 	for _, s in ipairs(res.services or {}) do add(s.role, s.rect) end
 	local content = plan.content or {}
 	for _, b in ipairs(content.buildings or {}) do add(b.role, b.rect) end
 	for _, a in ipairs(content.alleys or {}) do add("alley", a.rect) end
-	for _, a in ipairs(plan.approaches) do add("approach", a.edge) end
+	for _, a in ipairs(plan.approaches or {}) do add("approach", a.edge) end
 	-- Hooks for later layout tickets; field names are provisional.
 	if type(plan.core) == "table" and plan.core.x1 then add("core", plan.core) end
 	if type(plan.footprint) == "table" and plan.footprint.x1 then add("footprint", plan.footprint) end
@@ -220,6 +235,14 @@ end
 local FREE = {boundary = true, block = true, house = true, shop = true,
 	workshop = true, alley = true}
 
+-- Width of the first street of `kind`; `fallback` when the plan has none.
+local function kind_width(plan, kind, fallback)
+	for _, s in ipairs(plan.streets) do
+		if s.kind == kind then return s.width end
+	end
+	return fallback
+end
+
 -- Classify a finished plan. Returns metrics table, class grid, paint list
 -- (including the narrow-strip overlay).
 function M.analyze(plan, profile)
@@ -248,8 +271,14 @@ function M.analyze(plan, profile)
 	-- Streets: unique pavement cells not covered by a square.
 	m.street_cells_principal = count.principal or 0
 	m.street_cells_secondary = count.secondary or 0
-	m.street_len_principal = m.street_cells_principal / 5
-	m.street_len_secondary = m.street_cells_secondary / 4
+	-- Medieval streets are 5 and 4 nodes wide; Roman streets carry their own width.
+	local PW, SW = 5, 4
+	if plan.town_type == "roman" then
+		PW = kind_width(plan, "principal", 1)
+		SW = kind_width(plan, "secondary", 1)
+	end
+	m.street_len_principal = m.street_cells_principal / PW
+	m.street_len_secondary = m.street_cells_secondary / SW
 	m.street_len = m.street_len_principal + m.street_len_secondary
 	local sum = 0
 	for _, s in ipairs(plan.streets) do
@@ -362,32 +391,34 @@ function M.analyze(plan, profile)
 		open_runs = now
 	end
 
-	-- Parvis and market.
-	local pv = plan.sites.parvis
-	m.parvis_x, m.parvis_z, m.parvis_area = pv.size.x, pv.size.z, rect_cells(pv.rect)
-	local mk = plan.sites.market.rect
-	m.market_x, m.market_z = plan.sites.market.size.x, plan.sites.market.size.z
-	m.market_area = rect_cells(mk)
-	local open, dp, best = 0, {}, 0
-	for z = mk.z1, mk.z2 do
-		dp[z] = {}
-		for x = mk.x1, mk.x2 do
-			if grid[z][x] == "market" then
-				open = open + 1
-				local v = 1
-				if z > mk.z1 and x > mk.x1 then
-					v = 1 + math.min(dp[z - 1][x], dp[z][x - 1], dp[z - 1][x - 1])
+	-- Parvis and market are medieval-only; Roman rows mark them not applicable.
+	if plan.town_type ~= "roman" then
+		local pv = plan.sites.parvis
+		m.parvis_x, m.parvis_z, m.parvis_area = pv.size.x, pv.size.z, rect_cells(pv.rect)
+		local mk = plan.sites.market.rect
+		m.market_x, m.market_z = plan.sites.market.size.x, plan.sites.market.size.z
+		m.market_area = rect_cells(mk)
+		local open, dp, best = 0, {}, 0
+		for z = mk.z1, mk.z2 do
+			dp[z] = {}
+			for x = mk.x1, mk.x2 do
+				if grid[z][x] == "market" then
+					open = open + 1
+					local v = 1
+					if z > mk.z1 and x > mk.x1 then
+						v = 1 + math.min(dp[z - 1][x], dp[z][x - 1], dp[z - 1][x - 1])
+					end
+					dp[z][x] = v
+					if v > best then best = v end
+				else
+					dp[z][x] = 0
 				end
-				dp[z][x] = v
-				if v > best then best = v end
-			else
-				dp[z][x] = 0
 			end
 		end
+		m.market_open = open
+		m.market_open_share = open / m.market_area
+		m.market_open_square = best
 	end
-	m.market_open = open
-	m.market_open_share = open / m.market_area
-	m.market_open_square = best
 	return m, grid, over
 end
 
@@ -439,11 +470,26 @@ local function esc(s)
 	return (s:gsub("&", "&amp;"):gsub("<", "&lt;"))
 end
 
+-- Legend entries for a plan: Roman-only classes appear for Roman plans only,
+-- and medieval-only classes (market, parvis, cathedral, ...) for medieval ones.
+local function legend_classes(roman)
+	local out = {}
+	for _, c in ipairs(CLASSES) do
+		if roman then
+			if not c.medieval then out[#out + 1] = c end
+		elseif not c.roman then
+			out[#out + 1] = c
+		end
+	end
+	return out
+end
+
 local function svg(plan, over, title)
 	local b = plan.bounds
 	local W, H = b.x2 - b.x1 + 1, b.z2 - b.z1 + 1
 	local LW = 80
-	local legend_h = #CLASSES * 4 + 4
+	local legend = legend_classes(plan.town_type == "roman")
+	local legend_h = #legend * 4 + 4
 	if legend_h > H then H = legend_h end
 	local out = {}
 	local function P(s) out[#out + 1] = s end
@@ -465,9 +511,17 @@ local function svg(plan, over, title)
 			P(('<rect x="%d" y="%d" width="%d" height="%d" fill="%s"/>'):format(x, y, w, h, c[3]))
 		end
 	end
+	-- Named instances (Roman squares and landmarks) are labelled on the rect.
+	for _, l in ipairs(over) do
+		if l.label then
+			local r = l.rect
+			P(('<text x="%.1f" y="%.1f" font-size="2.2" text-anchor="middle" fill="#000000">%s</text>'):format(
+				(r.x1 + r.x2 + 1) / 2 - b.x1, top + (1 - r.z1 - r.z2) / 2 + 0.8, esc(l.label)))
+		end
+	end
 	P(('<circle cx="%.1f" cy="%.1f" r="1.5" fill="none" stroke="#000000" stroke-width="0.6"/>'):format(
 		plan.center.x - b.x1 + 0.5, top - plan.center.z + 0.5))
-	for i, c in ipairs(CLASSES) do
+	for i, c in ipairs(legend) do
 		local y = 2 + (i - 1) * 4
 		P(('<rect x="%d" y="%d" width="3" height="3" fill="%s" stroke="#000000" stroke-width="0.2"/>'):format(
 			W + 3, y, c.outline and "#ffffff" or c[3]))
@@ -505,10 +559,26 @@ local function fmt(v)
 	return tostring(v)
 end
 
+-- Columns that do not apply to Roman plans (no market, no parvis).
+local MEDIEVAL_ONLY = {"parvis_x", "parvis_z", "parvis_area", "market_x", "market_z",
+	"market_area", "market_open", "market_open_share", "market_open_square"}
+M.MEDIEVAL_ONLY = MEDIEVAL_ONLY
+
+-- Planner call per town type: medieval uses the landmark profile, Roman the
+-- authored plan (planner.roman_profile only feeds the row depth).
+local function plan_seed(planner, profile, town_type, seed, center)
+	if town_type == "roman" then return planner.plan(center, seed, {town_type = "roman"}) end
+	return planner.plan(center, seed, {landmarks = profile})
+end
+
 -- One seed at one centre -> row, files. Never raises on planning failure.
-function M.one(planner, profile, seed, center)
+function M.one(planner, profile, seed, center, town_type)
+	town_type = town_type or "medieval"
 	local row = {seed = seed, center = ("%d,%d"):format(center.x, center.z)}
-	local plan, why, detail = planner.plan(center, seed, {landmarks = profile})
+	if town_type == "roman" then
+		for _, c in ipairs(MEDIEVAL_ONLY) do row[c] = "n/a" end
+	end
+	local plan, why, detail = plan_seed(planner, profile, town_type, seed, center)
 	if not plan then
 		row.status = "FAILED"
 		row.failure = tostring(why)
@@ -524,25 +594,74 @@ function M.one(planner, profile, seed, center)
 	local title = ("seed %d centre (%d,%d)"):format(seed, center.x, center.z)
 	local head = {title .. (" bounds %dx%d attempts %d"):format(plan.width, plan.depth, plan.attempts),
 		"scale: 1 char = 2x2 nodes, north (+Z) up, east (+X) right", "legend:"}
-	for _, c in ipairs(CLASSES) do head[#head + 1] = ("  %s  %s"):format(c[2], c[4]) end
+	for _, c in ipairs(legend_classes(plan.town_type == "roman")) do
+		head[#head + 1] = ("  %s  %s"):format(c[2], c[4])
+	end
+	if plan.town_type == "roman" then
+		-- Instances in text form too: the ASCII glyphs cannot carry names.
+		head[#head + 1] = "site instances (name, kind, catalog id, x1,z1..x2,z2):"
+		for _, name in ipairs(plan.site_order) do
+			local s, r = plan.sites[name], plan.sites[name].rect
+			head[#head + 1] = ("  %s  %s  %s  %d,%d..%d,%d"):format(name, s.kind,
+				tostring(s.id or "-"), r.x1, r.z1, r.x2, r.z2)
+		end
+	end
 	return row, {
 		txt = table.concat(head, "\n") .. "\n\n" .. ascii(plan, grid, over) .. "\n",
 		svg = svg(plan, over, title),
 	}
 end
 
+-- Roman seed set (issue #152): the seeds of tests/roman_population_tests.lua.
+-- Every seed shares the civic layout; only ordinary content varies.
+M.ROMAN_SEEDS = {1, 2, 3, 7}
+
+-- Flattens a nested layout table into sorted "key.sub = value" lines.
+local function flatten(t, prefix, out)
+	for _, k in ipairs(sorted_keys(t)) do
+		local v = t[k]
+		if type(v) == "table" then flatten(v, prefix .. tostring(k) .. ".", out)
+		else out[#out + 1] = ("%s%s = %s"):format(prefix, tostring(k), tostring(v)) end
+	end
+	return out
+end
+
+-- Authored Roman layout settings (src/roman_civic_plan.lua): sorted lines and
+-- a hash over them. The hash is the layout's version: the file has no field.
+function M.roman_settings()
+	local lines = flatten(dofile("src/roman_civic_plan.lua"), "", {})
+	return lines, hash(table.concat(lines, "\n"))
+end
+
+-- Runs a whole set. opts: seeds, centers, town_type ("medieval" default or
+-- "roman"). One run has one town type.
 function M.run(planner, catalog, opts)
 	opts = opts or {}
-	local seeds = opts.seeds or M.SEEDS
+	local town_type = opts.town_type or "medieval"
+	if town_type ~= "medieval" and town_type ~= "roman" then
+		error("unknown town type " .. tostring(town_type), 2)
+	end
+	local roman = town_type == "roman"
+	local seeds = opts.seeds or (roman and M.ROMAN_SEEDS or M.SEEDS)
 	local centers = opts.centers or M.CENTERS
 	local snapshot = catalog.snapshot()
-	local profile = assert(planner.landmark_profile(snapshot))
+	local profile
+	if roman then
+		profile = assert(planner.roman_profile(snapshot))
+	else
+		profile = assert(planner.landmark_profile(snapshot))
+	end
 	local chash, ncat = M.catalog_hash(snapshot)
-	local C = planner.resolve_constants({landmarks = profile})
+	local C, layout_lines, layout_hash
+	if roman then
+		layout_lines, layout_hash = M.roman_settings()
+	else
+		C = planner.resolve_constants({landmarks = profile})
+	end
 	local files, rows = {}, {}
 	for i, seed in ipairs(seeds) do
 		local center = centers[(i - 1) % #centers + 1]
-		local row, f = M.one(planner, profile, seed, center)
+		local row, f = M.one(planner, profile, seed, center, town_type)
 		rows[#rows + 1] = row
 		if f then
 			files[("seed_%d.txt"):format(seed)] = f.txt
@@ -564,22 +683,45 @@ function M.run(planner, catalog, opts)
 	local function P(s) R[#R + 1] = s end
 	P("# Layout comparison report")
 	P("")
-	P("Generated by `tools/layout_compare/run.lua` (ticket #109). Definitions: `docs/layout_comparison.md`.")
+	P("Generated by `tools/layout_compare/run.lua` (tickets #109, #152). Definitions: `docs/layout_comparison.md`.")
 	P("")
+	P(("- Town type: %s"):format(roman
+		and "roman (fixed authored civic plan, `src/roman_civic_plan.lua`; the seed only varies ordinary content)"
+		or "medieval"))
 	P(("- Catalog: %d entries, hash `%s` (definition in the docs)"):format(ncat, chash))
 	P(("- Row depth D (catalog-derived, lower median of eligible ordinary building depths) = %d"):format(M.row_depth(profile) or 0))
+	if roman then
+		P(("- Authored layout settings: %d lines, hash `%s` (printed below)"):format(#layout_lines, layout_hash))
+	end
 	P(("- Seeds: %s"):format(table.concat(seeds, ", ")))
 	local cs = {}
 	for i, c in ipairs(centers) do cs[i] = ("(%d,%d)"):format(c.x, c.z) end
 	P(("- Centres (round-robin by seed index): %s"):format(table.concat(cs, " ")))
-	P("- Planner call: `planner.plan(center, seed, {landmarks = planner.landmark_profile(catalog.snapshot())})`, default max_attempts")
+	if roman then
+		P("- Planner call: `planner.plan(center, seed, {town_type = \"roman\"})`")
+	else
+		P("- Planner call: `planner.plan(center, seed, {landmarks = planner.landmark_profile(catalog.snapshot())})`, default max_attempts")
+	end
 	P("")
-	P("## Layout constants (planner.resolve_constants with the landmark profile)")
-	P("")
-	P("```")
-	for _, k in ipairs(sorted_keys(C)) do P(("%s = %s"):format(k, tostring(C[k]))) end
-	P("```")
-	P("")
+	if roman then
+		P("## Authored layout settings (src/roman_civic_plan.lua)")
+		P("")
+		P("```")
+		for _, line in ipairs(layout_lines) do P(line) end
+		P("```")
+		P("")
+		P("## Not applicable to Roman plans")
+		P("")
+		P("Medieval-only metrics are `n/a` in `metrics.tsv` and this report: " .. table.concat(MEDIEVAL_ONLY, ", ") .. ". Roman plans have no market, parvis, cathedral, castle, city hall or chapel.")
+		P("")
+	else
+		P("## Layout constants (planner.resolve_constants with the landmark profile)")
+		P("")
+		P("```")
+		for _, k in ipairs(sorted_keys(C)) do P(("%s = %s"):format(k, tostring(C[k]))) end
+		P("```")
+		P("")
+	end
 	P("## Planning failures")
 	P("")
 	local nfail = 0
@@ -605,8 +747,11 @@ function M.run(planner, catalog, opts)
 	P("| " .. table.concat(sep, " | ") .. " |")
 	local ok_rows, tot = 0, {}
 	local sums = {"street_len", "frontage_ordinary", "frontage_usable", "frontage_used",
-		"ordinary", "blocks", "blocks_single_row", "strips", "strip_cells", "parvis_area",
-		"market_open_share"}
+		"ordinary", "blocks", "blocks_single_row", "strips", "strip_cells"}
+	if not roman then
+		sums[#sums + 1] = "parvis_area"
+		sums[#sums + 1] = "market_open_share"
+	end
 	for _, r in ipairs(rows) do
 		local cells = {}
 		for j, c in ipairs(show) do
@@ -639,11 +784,47 @@ function M.run(planner, catalog, opts)
 			tot.street_len / ok_rows, tot.frontage_ordinary / ok_rows,
 			tot.frontage_usable / ok_rows, tot.frontage_used / ok_rows))
 		P(("- Placed ordinary buildings: total %d, mean %.1f."):format(tot.ordinary, tot.ordinary / ok_rows))
-		P(("- Parvis area mean %.0f; market open share mean %.2f."):format(
-			tot.parvis_area / ok_rows, tot.market_open_share / ok_rows))
+		if not roman then
+			P(("- Parvis area mean %.0f; market open share mean %.2f."):format(
+				tot.parvis_area / ok_rows, tot.market_open_share / ok_rows))
+		end
 	end
 	files["report.md"] = table.concat(R, "\n") .. "\n"
-	return {files = files, rows = rows, catalog_hash = chash, constants = C}
+	return {files = files, rows = rows, catalog_hash = chash, constants = C,
+		layout_settings = layout_lines, layout_hash = layout_hash}
+end
+
+-- Command-line arguments of run.lua (issue #152): [OUTDIR] [seed,seed,...]
+-- [--town-type=medieval|roman]. Existing invocations keep their meaning.
+-- Medieval defaults to docs/layout_baseline. Roman needs an explicit scratch
+-- OUTDIR outside docs/, so historical medieval baselines are never overwritten.
+function M.parse_args(argv)
+	local town_type, pos = "medieval", {}
+	for i = 1, #argv do
+		local a = argv[i]
+		local t = a:match("^%-%-town%-type=(.+)$")
+		if t then town_type = t
+		elseif a:sub(1, 2) == "--" then error("unknown option " .. a, 0)
+		else pos[#pos + 1] = a end
+	end
+	if town_type ~= "medieval" and town_type ~= "roman" then
+		error("unknown town type " .. town_type, 0)
+	end
+	local outdir = pos[1]
+	if town_type == "roman" then
+		if outdir == nil then
+			error("roman output needs an OUTDIR scratch directory (for example /tmp/layout_roman)", 0)
+		end
+		if outdir:match("^%.?/?docs/") then
+			error("roman output must not be written under docs/; use a scratch directory", 0)
+		end
+	end
+	local seeds
+	if pos[2] then
+		seeds = {}
+		for s in pos[2]:gmatch("[^,]+") do seeds[#seeds + 1] = assert(tonumber(s)) end
+	end
+	return {outdir = outdir or "docs/layout_baseline", seeds = seeds, town_type = town_type}
 end
 
 return M
