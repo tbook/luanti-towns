@@ -584,6 +584,9 @@ run_group("tests/castle_verification_tests.lua", eq, fails, geometry)
 -- Stock village tavern and well templates (tickets #35, #36).
 run_group("tests/stock_templates_tests.lua", eq, catalog)
 
+-- Rotated walls (#166): wall connections in the node name follow the rotation.
+run_group("tests/wall_rotation_tests.lua", eq, dofile("src/schematic.lua"))
+
 -- Layout comparison tool (ticket #109): deterministic artifacts and metrics.
 run_group("tests/layout_compare_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
 
