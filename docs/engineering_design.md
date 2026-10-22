@@ -411,5 +411,6 @@ runs use the shared run schema from `planner.lua` (the one-node block edge row,
 facing the street or square it borders). The Roman planner derives its blocks
 from explicit rectangles in `roman_civic_plan.lua`, one catalog row depth
 deep, and its runs from the pavement along their edges. Roman generation is
-not part of this interface yet. Any other explicit type is rejected with a
-reason.
+selected through `/towns_generate roman [seed]`, which passes `town_type =
+"roman"` to the shared search and build (issue #151). Any other explicit type
+is rejected with a reason.

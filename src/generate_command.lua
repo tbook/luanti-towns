@@ -20,14 +20,19 @@ local function profile()
 end
 
 -- Search and build halves, exposed for headless validation
--- (tools/place_check) as towns.populated.
-local function search(pos, seed, _, done)
+-- (tools/place_check) as towns.populated. `town_type` is "medieval" (nil
+-- means medieval) or "roman"; both share every stage after the plan.
+local function search(pos, seed, town_type, done)
 	-- Ticket #104: wet sites (shallow ponds, rivers, ice) are landfilled under
 	-- the conservative towns.site_search.WET_DEFAULTS.
-	local opts = {
-		structure_bounds = true,
-		planner_opts = {landmarks = profile()},
-	}
+	local opts = {structure_bounds = true}
+	if town_type == "roman" then
+		-- Authored plan (issue #148); composition needs the catalog entries.
+		opts.planner_opts = {town_type = "roman"}
+		opts.entries = towns.catalog.entries
+	else
+		opts.planner_opts = {landmarks = profile()}
+	end
 	for k, v in pairs(towns.site_search.WET_DEFAULTS) do opts[k] = v end
 	return towns.site_search.search(pos, seed, opts, done)
 end
@@ -119,7 +124,7 @@ local controller = towns.generate.new({
 towns.generate_run = controller.run
 
 core.register_chatcommand("towns_generate", {
-	params = "[seed]",
+	params = "[medieval|roman] [seed]",
 	description = towns.generate.HELP,
 	privs = {server = true},
 	func = function(name, param)

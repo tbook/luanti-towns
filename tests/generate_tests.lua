@@ -45,6 +45,25 @@ eq(has(msg, "Too many"), true, "extra args message")
 r = generate.parse_args("12 abc")
 eq(r, nil, "rejects seed plus word")
 
+-- Legacy error strings (pre-#151) pinned exactly. USAGE itself gained the
+-- type syntax; the legacy prefix/wording must not change.
+eq(generate.USAGE, "Usage: /towns_generate [medieval|roman] [seed], where seed is an integer from -"
+	.. LIMIT .. " to " .. LIMIT .. ".", "usage text")
+local _, legacy = generate.parse_args("abc")
+eq(legacy, "Invalid seed 'abc': it must be an integer. " .. generate.USAGE, "legacy: word seed")
+_, legacy = generate.parse_args("1.5")
+eq(legacy, "Invalid seed '1.5': it must be an integer. " .. generate.USAGE, "legacy: fractional seed")
+_, legacy = generate.parse_args("1 2")
+eq(legacy, "Too many arguments (2). " .. generate.USAGE, "legacy: two numbers")
+_, legacy = generate.parse_args("abc def")
+eq(legacy, "Too many arguments (2). " .. generate.USAGE, "legacy: two words")
+_, legacy = generate.parse_args("1.5 2")
+eq(legacy, "Too many arguments (2). " .. generate.USAGE, "legacy: fractional then number")
+_, legacy = generate.parse_args("12 abc")
+eq(legacy, "Too many arguments (2). " .. generate.USAGE, "legacy: seed then word")
+_, legacy = generate.parse_args("roman 1 2")
+eq(legacy, "Too many arguments (3). " .. generate.USAGE, "type plus two numbers counts the type")
+
 -- Out of range (including a 64-bit world seed): rejected, never folded, and
 -- the message shows the allowed range from planner.check_seed.
 for _, big in ipairs({tostring(LIMIT + 1), tostring(-LIMIT - 1), "9223372036854775807",
@@ -54,6 +73,46 @@ for _, big in ipairs({tostring(LIMIT + 1), tostring(-LIMIT - 1), "92233720368547
 	eq(has(msg, tostring(LIMIT)), true, "range in message for " .. big)
 	eq(has(msg, big), true, "message echoes " .. big)
 	eq(has(msg, "-" .. LIMIT), true, "lower bound in message for " .. big)
+end
+
+-- Town type (leading token): legacy forms unchanged, default medieval.
+do
+	local p = generate.parse_args("")
+	eq(p.town_type, "medieval", "legacy: empty means medieval")
+	eq(generate.parse_args("42").town_type, "medieval", "legacy: plain seed means medieval")
+	eq(generate.parse_args("42").seed, 42, "legacy: plain seed kept")
+	eq(generate.parse_args("medieval").town_type, "medieval", "explicit medieval")
+	eq(generate.parse_args("medieval").seed, nil, "explicit medieval: no seed")
+	eq(generate.parse_args("roman").town_type, "roman", "explicit roman")
+	eq(generate.parse_args("  roman  ").seed, nil, "roman alone: seed omitted")
+	eq(generate.parse_args("roman 42").town_type, "roman", "roman with seed: type")
+	eq(generate.parse_args("roman 42").seed, 42, "roman with seed: seed")
+	eq(generate.parse_args("medieval -7").seed, -7, "medieval with seed")
+	eq(generate.parse_args("ROMAN 3").town_type, "roman", "type is case-insensitive")
+	eq(generate.parse_args("roman " .. LIMIT).seed, LIMIT, "roman with upper limit")
+	local r, msg = generate.parse_args("castle")
+	eq(r, nil, "unknown single word rejected")
+	eq(has(msg, "integer") and has(msg, "roman"), true, "single word message names the types")
+	r, msg = generate.parse_args("castle 5")
+	eq(r, nil, "unknown type with seed rejected")
+	eq(msg, "Too many arguments (2). " .. generate.USAGE, "castle 5: legacy too-many message")
+	eq(has(msg, "[medieval|roman]"), true, "usage shows the types")
+	r, msg = generate.parse_args("roman abc")
+	eq(r, nil, "roman with non-integer seed rejected")
+	eq(has(msg, "integer"), true, "roman bad seed message")
+	r, msg = generate.parse_args("roman roman")
+	eq(r, nil, "type word as seed rejected")
+	r, msg = generate.parse_args("roman 1 2")
+	eq(r, nil, "roman with two seeds rejected")
+	eq(has(msg, "Too many"), true, "roman extra args message")
+	r, msg = generate.parse_args("roman 1.5")
+	eq(r, nil, "roman with fractional seed rejected")
+	r, msg = generate.parse_args("roman " .. (LIMIT + 1))
+	eq(r, nil, "roman with out-of-range seed rejected")
+	eq(has(msg, tostring(LIMIT)), true, "roman out-of-range message shows range")
+	r, msg = generate.parse_args("medieval roman 1")
+	eq(r, nil, "two types rejected")
+	eq(has(msg, "Too many"), true, "two types: too many")
 end
 
 ------------------------------------------------------------------------
@@ -207,8 +266,8 @@ local function fakes(opts)
 			if name == "ghost" then return nil end
 			return f.pos
 		end,
-		search = function(pos, seed, o, done)
-			f.searches[#f.searches + 1] = {pos = pos, seed = seed, opts = o, done = done}
+		search = function(pos, seed, town_type, done)
+			f.searches[#f.searches + 1] = {pos = pos, seed = seed, town_type = town_type, done = done}
 			if opts.search_raises then error(opts.search_raises) end
 			if opts.sync_search then opts.sync_search(done) end
 		end,
@@ -254,7 +313,7 @@ end
 do
 	local f = fakes()
 	f.c.run("alice", "31337")
-	eq(f.searches[1].opts, nil, "controller leaves search options to the wiring")
+	eq(f.searches[1].town_type, "medieval", "controller passes the default town type")
 end
 
 -- Offline player.
@@ -543,4 +602,202 @@ do -- builder raising after the search keeps the lock honest
 	f.searches[1].done({}, nil, {})
 	eq(f.c.busy(), false, "raise: lock released")
 	eq((f.c.run("bob", "6")), true, "raise: next command allowed")
+end
+
+------------------------------------------------------------------------
+-- Town type selection (issue #151)
+------------------------------------------------------------------------
+-- Help and usage name both types.
+eq(has(generate.HELP, "roman"), true, "help: roman type")
+eq(has(generate.USAGE, "[medieval|roman] [seed]"), true, "usage: type syntax")
+
+-- Invalid type/seed/extra argument combinations never search or build.
+for _, bad in ipairs({"castle", "castle 5", "roman abc", "roman 1 2", "roman " .. (LIMIT + 1),
+		"medieval roman 1", "roman roman"}) do
+	local f = fakes()
+	local ok, m = f.c.run("alice", bad)
+	eq(ok, false, "type: invalid '" .. bad .. "' fails")
+	eq(type(m) == "string" and m ~= "", true, "type: invalid '" .. bad .. "' has message")
+	eq(#f.searches + #f.builds, 0, "type: invalid '" .. bad .. "': no search or build")
+	eq(f.c.busy(), false, "type: invalid '" .. bad .. "': not busy")
+end
+
+-- Roman plan from the real planner, reported through the same summary shape.
+local rplan = assert(planner.plan({x = 3000, z = 2952}, 11, {town_type = "roman"}))
+local function roman_summary(extra)
+	local s = {
+		seed = rplan.seed, center = {x = 3000, z = 2952}, ground_y = 104,
+		bounds = {min = {x = rplan.bounds.x1, y = 100, z = rplan.bounds.z1},
+			max = {x = rplan.bounds.x2, y = 148, z = rplan.bounds.z2}},
+		plan_bounds = rplan.bounds, sites = sites_summary(rplan), approaches = rplan.approaches,
+		counts = {streets = #rplan.streets, principal = 4, secondary = 0,
+			blocks = #rplan.blocks, frontage = #rplan.frontage},
+		nodes = {changed = 999}, town_type = "roman",
+		town = {placed = 4, alleys = 0, doors = {1, 2, 3, 4},
+			structures = {box("temple", "temple_east", "temple_east", 0),
+				box("domus", "domus_1", "domus_1", 10), box("tavern_a", "service", "tavern", 20),
+				box("home_a", "content", "house", 30)},
+			beds = {count = 4, skipped = {}},
+			setup = {initialized = 2, placements = 3, unhandled = {}},
+			residents = {summary = "Residents: 4 spawned, 0 skipped, 0 failed", spawned = 4,
+				failed = 0, interrupted = 0}},
+	}
+	for k, v in pairs(extra or {}) do s.town[k] = v end
+	return s
+end
+
+do -- report names the Roman sites, no medieval sites, repeat includes the type
+	local s = roman_summary()
+	eq(#generate.report_problems(s), 0, "roman: no problems")
+	local t = table.concat(generate.format_report(s), "\n")
+	eq(has(t, "Roman town built. Seed 11 (repeat it with /towns_generate roman 11 from the same place)."),
+		true, "roman: header and repeat instruction")
+	local forum = rplan.sites.forum.rect
+	eq(has(t, ("Forum: x %d..%d, z %d..%d."):format(forum.x1, forum.x2, forum.z1, forum.z2)), true,
+		"roman: forum square listed")
+	local te = rplan.sites.temple_east
+	eq(has(t, ("Temple east: x %d..%d, z %d..%d; entrance at (%d,"):format(te.rect.x1, te.rect.x2,
+		te.rect.z1, te.rect.z2, te.entrance.x)), true, "roman: named monument with entrance")
+	eq(has(t, "Arch north: "), true, "roman: arch listed")
+	eq(has(t, "Amphitheater: "), true, "roman: amphitheater listed")
+	eq(has(t, "Domus 1: "), true, "roman: domus listed")
+	eq(has(t, "Cathedral:"), false, "roman: no cathedral")
+	eq(has(t, "Castle:"), false, "roman: no castle")
+	eq(has(t, "Parvis:"), false, "roman: no parvis")
+	eq(has(t, "Market:"), false, "roman: no market")
+	eq(has(t, "City hall:"), false, "roman: no city hall")
+	eq(has(t, "Buildings: 2 landmarks/city hall/jail, 1 services, 1 houses/shops/workshops, 0 alleys."),
+		true, "roman: landmark counts include monuments")
+	eq(has(t, "Node setup: 2 functional nodes initialized"), true, "roman: setup reported")
+	eq(has(t, "Residents: 4 spawned"), true, "roman: residents reported")
+	local inc = roman_summary({residents = false, residents_error = "boom"})
+	eq(has(table.concat(generate.format_report(inc), "\n"),
+		"Roman town built but INCOMPLETE (resident initialization failed)"), true,
+		"roman: incomplete build flagged")
+	local seedless = roman_summary()
+	eq(has(table.concat(generate.format_report(seedless, "/towns_generate"), "\n"), "/towns_generate roman 11"),
+		true, "roman: repeat with the explicit command")
+	local med = make_summary()
+	eq(has(table.concat(generate.format_report(med), "\n"), "Town built. Seed 11 (repeat it with /towns_generate 11 from the same place)."),
+		true, "medieval: header and repeat unchanged")
+end
+
+do -- controller: roman passed to the search; success reaches build and reports
+	local f = fakes({build_result = function() return roman_summary() end})
+	local ok, m = f.c.run("alice", "roman 11")
+	eq(ok, true, "roman: starts")
+	eq(f.searches[1].town_type, "roman", "roman: type passed to the search")
+	eq(f.searches[1].seed, 11, "roman: seed passed to the search")
+	eq(has(m, "Roman town site") and has(m, "11"), true, "roman: started message names the type")
+	f.searches[1].done({build_bounds = summary.bounds}, nil, {})
+	eq(#f.builds, 1, "roman: shared build hook called once")
+	local s = sent_text(f)
+	eq(has(s, "Roman town built. Seed 11"), true, "roman: success reported")
+	eq(has(s, "Temple east:"), true, "roman: landmarks reported")
+	eq(has(s, "Cathedral:"), false, "roman: no fabricated medieval sites")
+	eq(has(s, "Error:"), false, "roman: success is not an error")
+	eq(f.c.busy(), false, "roman: lock released")
+end
+
+do -- controller: omitted Roman seed is generated, printed and repeated with the type
+	local f = fakes({rng = function() return 2468 end, build_result = function()
+		local r = roman_summary()
+		r.seed = 2468
+		return r
+	end})
+	local ok, m = f.c.run("alice", "roman")
+	eq(ok, true, "roman without seed starts")
+	eq(f.searches[1].town_type, "roman", "roman without seed: type")
+	eq(f.searches[1].seed, 2468, "roman without seed: generated seed")
+	eq(has(m, "2468") and has(m, "generated"), true, "roman without seed: printed")
+	f.searches[1].done({build_bounds = summary.bounds}, nil, {})
+	eq(has(sent_text(f), "repeat it with /towns_generate roman 2468"), true,
+		"roman without seed: repeat instruction")
+end
+
+-- Build failures: the Roman run goes through the same failure formatter as
+-- medieval, so for the same failure the chat text is identical and equals
+-- format_build_failure's output (the type does not change the wording).
+local function build_failure(param, code, msg, extra)
+	local f = fakes({build_result = function() return nil, msg, code, extra end})
+	f.c.run("alice", param)
+	f.searches[1].done({build_bounds = summary.bounds}, nil, {})
+	return sent_text(f), f
+end
+do -- controller: a Roman build that fails before any write says so
+	local rom, f = build_failure("roman 5", "inspection_failed", "stale surface", {reason = "stale"})
+	local med = build_failure("5", "inspection_failed", "stale surface", {reason = "stale"})
+	eq(rom, med, "roman: preflight failure text identical to medieval")
+	eq(rom, "Error: " .. generate.format_build_failure("stale surface", "inspection_failed",
+		{build_bounds = summary.bounds}, {reason = "stale"}), "roman: preflight failure from the shared formatter")
+	eq(has(rom, "Nothing was changed"), true, "roman: preflight failure says nothing changed")
+	eq(has(rom, "PARTIALLY"), false, "roman: preflight failure not partial")
+	eq(f.c.busy(), false, "roman: preflight failure releases the lock")
+end
+for _, code in ipairs({"bad_result", "invalid_plan", "invalid_palette", "inspection_failed"}) do
+	local rom, f = build_failure("roman 5", code, "reason for " .. code)
+	eq(rom, (build_failure("5", code, "reason for " .. code)), "roman: " .. code .. " identical to medieval")
+	eq(has(rom, code) and has(rom, "Nothing was changed"), true, "roman: " .. code .. " says nothing changed")
+	eq(f.c.busy(), false, "roman: " .. code .. " releases")
+end
+do -- roman write_failed: honest partial report, same wording as medieval
+	local rom, f = build_failure("roman 5", "write_failed", "engine said no")
+	local med = build_failure("5", "write_failed", "engine said no")
+	eq(rom, med, "roman write_failed: text identical to medieval")
+	eq(has(rom, "PARTIALLY written") and has(rom, "Site bounds ("), true, "roman write_failed: partial report")
+	eq(has(rom, "Nothing was changed"), false, "roman write_failed: no false reassurance")
+	eq(has(logs_text(f), "PARTIALLY"), true, "roman write_failed logged")
+	eq(f.c.busy(), false, "roman write_failed releases")
+end
+
+do -- one job at a time across types
+	local f = fakes()
+	f.c.run("alice", "roman 1")
+	local ok, m = f.c.run("bob", "medieval 2")
+	eq(ok, false, "across types: medieval refused while roman runs")
+	eq(has(m, "already in progress") and has(m, "alice"), true, "across types: names the owner")
+	ok = f.c.run("bob", "roman")
+	eq(ok, false, "across types: roman refused while roman runs")
+	eq(#f.searches, 1, "across types: no second search")
+	f.searches[1].done(nil, "No suitable town site within 160 nodes", {})
+	eq(f.c.busy(), false, "across types: released after roman failure")
+	eq((f.c.run("bob", "medieval 2")), true, "across types: medieval runs after roman")
+	eq(f.searches[2].town_type, "medieval", "across types: second search is medieval")
+	ok = f.c.run("alice", "roman 3")
+	eq(ok, false, "across types: roman refused while medieval runs")
+	f.searches[2].done(nil, "failed", {})
+	eq((f.c.run("alice", "roman 3")), true, "across types: roman runs after medieval")
+end
+
+------------------------------------------------------------------------
+-- Real search wiring (src/generate_command.lua) for each type. The chunk is
+-- loaded with a stub `core` and a stub `towns`; only site_search.search is
+-- captured, so no map or engine is needed.
+------------------------------------------------------------------------
+do
+	local captured
+	local entries = {marker = true}
+	local towns = {
+		planner = planner,
+		generate = generate,
+		catalog = {snapshot = function() return {} end, entries = entries},
+		site_search = {
+			search = function(pos, seed, opts) captured = {pos = pos, seed = seed, opts = opts} end,
+			WET_DEFAULTS = {wet_probe = true},
+		},
+		residents = {core_store = function() return {} end},
+	}
+	local stub_core = {get_mod_storage = function() return {} end,
+		register_chatcommand = function() end}
+	local env = setmetatable({core = stub_core}, {__index = _G})
+	local chunk = assert(loadfile("src/generate_command.lua"))
+	setfenv(chunk, env)
+	chunk(towns)
+	towns.populated.search({x = 1, y = 2, z = 3}, 11, "roman", function() end)
+	eq(captured.seed, 11, "wiring roman: seed passed")
+	eq(captured.opts.planner_opts.town_type, "roman", "wiring roman: planner_opts.town_type")
+	eq(captured.opts.entries, entries, "wiring roman: opts.entries is the catalog entries")
+	eq(captured.opts.planner_opts.landmarks, nil, "wiring roman: no medieval landmark profile")
+	eq(captured.opts.structure_bounds, true, "wiring roman: structure bounds")
+	eq(captured.opts.wet_probe, true, "wiring roman: wet defaults merged")
 end

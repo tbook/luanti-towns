@@ -9,9 +9,9 @@
 -- Creative worlds only.
 --
 --   local generate = dofile(".../generate.lua")(planner)
---   generate.parse_args(param)         -> {seed = n|nil} | nil, message
+--   generate.parse_args(param)         -> {town_type, seed = n|nil} | nil, message
 --   generate.random_seed(entropy, rng) -> integer seed in 1..SEED_LIMIT
---   generate.format_report(summary)    -> {lines}   (success)
+--   generate.format_report(summary, command) -> {lines}   (success)
 --   generate.format_search_failure(message) -> string
 --   generate.format_build_failure(message, code, result) -> string
 --   generate.HELP                      -> help/description text
@@ -24,7 +24,7 @@
 --
 -- deps (all required unless noted):
 --   get_player_pos(name) -> {x,y,z} | nil   nil when the player is not online
---   search(pos, seed, opts, done)           site_search.search; done(result,
+--   search(pos, seed, town_type, done)      "medieval" | "roman"; done(result,
 --                                           nil, details) / done(nil, msg, details)
 --   build(result) -> summary | nil, message, code[, {bounds, planned}]   builder.build
 --   send(name, msg)    chat to the player; must tolerate an offline player
@@ -43,14 +43,22 @@ local LIMIT = planner.SEED_LIMIT
 M.SEED_LIMIT = LIMIT
 M.STALE_SECONDS = 600
 
-M.USAGE = "Usage: /towns_generate [seed], where seed is an integer from -"
+M.USAGE = "Usage: /towns_generate [medieval|roman] [seed], where seed is an integer from -"
 	.. LIMIT .. " to " .. LIMIT .. "."
+
+-- Town types selectable with the leading argument; medieval is the default.
+M.TOWN_TYPES = {medieval = true, roman = true}
 
 M.HELP = "WARNING: builds a town on the chosen site immediately, OVERWRITING it "
 	.. "with no preview and no confirmation; for disposable Creative worlds "
-	.. "only. Builds the populated town: cathedral, castle, city hall, jail, "
-	.. "services and houses/shops/workshops from the catalog, with alleys, "
-	.. "initialized nodes and one Living Villages resident per valid bed. "
+	.. "only. Builds a populated medieval town (the default), or a Roman town "
+	.. "with 'roman': the medieval town has cathedral, castle, city hall, jail, "
+	.. "services and houses/shops/workshops from the catalog; the Roman town "
+	.. "(first version) has the forum, four arches, temple, amphitheatre, "
+	.. "theatre, bath and domus monuments on authored streets, with blocks and "
+	.. "frontage, and the catalog's ordinary content where it fits (no "
+	.. "cathedral, castle or city hall). Both get initialized nodes and one "
+	.. "Living Villages resident per valid bed. "
 	.. "Searches near you (you must stand on solid ground) for a site "
 	.. "with no lava or deep water (shallow water and ice up to 6 nodes deep "
 	.. "is landfilled, over at most 25% of the footprint), a middle 95% "
@@ -61,19 +69,27 @@ M.HELP = "WARNING: builds a town on the chosen site immediately, OVERWRITING it 
 	.. "town at once. The seed is an integer from -" .. LIMIT .. " to " .. LIMIT
 	.. "; when omitted one is generated and printed. The same seed at the "
 	.. "same centre reproduces the layout. Requires the 'server' privilege. "
-	.. "Usage: /towns_generate [seed]"
+	.. "Usage: /towns_generate [medieval|roman] [seed]"
 
--- Parses the command parameter. Returns {seed = integer or nil} or nil plus
--- a message. Rejects non-integers (1.5, 1e3, 0x10, words), more than one
--- argument, and seeds outside planner.check_seed's range (never folded).
+-- Parses the command parameter: an optional leading town type (medieval or
+-- roman, case-insensitive; medieval when omitted), then an optional seed.
+-- Returns {town_type, seed = integer or nil} or nil plus a message. Rejects
+-- unknown types, non-integers (1.5, 1e3, 0x10, words), more than the allowed
+-- arguments, and seeds outside planner.check_seed's range (never folded).
 function M.parse_args(param)
 	local s = tostring(param or ""):gsub("^%s+", ""):gsub("%s+$", "")
-	if s == "" then return {} end
 	local tokens = {}
 	for t in s:gmatch("%S+") do tokens[#tokens + 1] = t end
-	if #tokens > 1 then
-		return nil, "Too many arguments (" .. #tokens .. "). " .. M.USAGE
+	local count = #tokens -- legacy count, including a leading type word
+	local town_type = "medieval"
+	if count > 0 and M.TOWN_TYPES[tokens[1]:lower()] then
+		town_type = tokens[1]:lower()
+		table.remove(tokens, 1)
 	end
+	if #tokens > 1 then
+		return nil, "Too many arguments (" .. count .. "). " .. M.USAGE
+	end
+	if #tokens == 0 then return {town_type = town_type} end
 	local tok = tokens[1]
 	if not tok:match("^[+-]?%d+$") then
 		return nil, "Invalid seed '" .. tok .. "': it must be an integer. " .. M.USAGE
@@ -87,7 +103,7 @@ function M.parse_args(param)
 	if not ok then
 		return nil, "Invalid seed '" .. tok .. "': " .. msg .. ". " .. M.USAGE
 	end
-	return {seed = n}
+	return {town_type = town_type, seed = n}
 end
 
 -- A generated seed in 1..SEED_LIMIT. `entropy` is any number (clock/world
@@ -147,20 +163,26 @@ end
 -- Success report: array of lines (also logged). `summary` is the builder's.
 -- `command` (optional) is the chat command name shown for repeating the
 -- seed; the town placement entry point (ticket #45) passes its own.
+-- `summary.town_type` (set by the controller; medieval when absent) selects
+-- the title, the named sites listed and the repeat instruction, which names
+-- the type unless it is the default.
 function M.format_report(summary, command)
 	local s = summary
+	local town = s.town_type or "medieval"
 	command = command or "/towns_generate"
+	if town ~= "medieval" then command = command .. " " .. town end
+	local title = town == "roman" and "Roman town" or "Town"
 	local g = s.ground_y
 	local lines = {}
 	local function add(fmt, ...) lines[#lines + 1] = fmt:format(...) end
 	local problems = M.report_problems(s)
 	if #problems > 0 then
-		add("Town built but INCOMPLETE (%s); the town itself is placed and the "
+		add("%s built but INCOMPLETE (%s); the town itself is placed and the "
 			.. "world was modified. Seed %d (repeat it with %s %d from the same place).",
-			table.concat(problems, "; "), s.seed, command, s.seed)
+			title, table.concat(problems, "; "), s.seed, command, s.seed)
 	else
-		add("Town built. Seed %d (repeat it with %s %d from the same place).",
-			s.seed, command, s.seed)
+		add("%s built. Seed %d (repeat it with %s %d from the same place).",
+			title, s.seed, command, s.seed)
 	end
 	add("Centre (%d,%d), ground level y=%d.", s.center.x, s.center.z, g)
 	add("Site bounds %s.", bounds_str(s.bounds))
@@ -169,21 +191,41 @@ function M.format_report(summary, command)
 	else
 		add("Modified area %s.", bounds_str(s.bounds))
 	end
-	local function landmark(label, key, door)
+	local function landmark(label, key, door, facing)
 		local site = s.sites[key]
 		if not site then return end
 		local e = site.entrance
-		add("%s: %s; %s at (%d,%d,%d) facing %s.", label, rect_str(site.rect), door,
-			e.x, site.entrance_y or (g + 1), e.z, SIDE_NAME[site.side] or tostring(site.side))
+		local where = ("%s at (%d,%d,%d)"):format(door, e.x, site.entrance_y or (g + 1), e.z)
+		if facing then
+			where = where .. " facing " .. (SIDE_NAME[site.side] or tostring(site.side))
+		end
+		add("%s: %s; %s.", label, rect_str(site.rect), where)
 	end
 	local function square(label, key)
 		local site = s.sites[key]
 		if site then add("%s: %s.", label, rect_str(site.rect)) end
 	end
-	landmark("Cathedral", "cathedral", "entrance")
-	square("Parvis", "parvis")
-	square("Market", "market")
-	landmark("Castle", "castle", "gate")
+	if town == "roman" then
+		-- The authored sites this plan actually has, by name (sorted). A site
+		-- with an entrance is a monument; one without is a square. Facing is
+		-- not listed: authored sides are not entrance directions.
+		local names = {}
+		for name in pairs(s.sites) do names[#names + 1] = name end
+		table.sort(names)
+		for _, name in ipairs(names) do
+			local label = name:gsub("_", " "):gsub("^%l", string.upper)
+			if s.sites[name].entrance then
+				landmark(label, name, "entrance", false)
+			else
+				square(label, name)
+			end
+		end
+	else
+		landmark("Cathedral", "cathedral", "entrance", true)
+		square("Parvis", "parvis")
+		square("Market", "market")
+		landmark("Castle", "castle", "gate", true)
+	end
 	for _, a in ipairs(s.approaches or {}) do
 		add("Boundary approach %s: (%d,%d) on side %s.", tostring(a.name), a.pos.x, a.pos.z,
 			SIDE_NAME[a.side] or tostring(a.side))
@@ -225,9 +267,10 @@ function M.format_report(summary, command)
 			end
 		end
 		if s.town.structures then
+			-- Every structure that is not a service or ordinary content is a
+			-- named landmark (or city hall/jail): this counts Roman monuments too.
 			add("Buildings: %d landmarks/city hall/jail, %d services, %d houses/shops/workshops, %d alleys.",
-				(kinds.cathedral or 0) + (kinds.castle or 0) + (kinds.city_hall or 0)
-					+ (kinds.jail or 0),
+				#s.town.structures - (kinds.service or 0) - (kinds.content or 0),
 				kinds.service or 0, kinds.content or 0, s.town.alleys)
 			table.sort(idorder)
 			local parts = {}
@@ -360,6 +403,7 @@ function M.new(deps)
 			generated = true
 		end
 
+		local town = args.town_type
 		local mine = {name = name, seed = seed, started = now()}
 		local returning, sync_ok, sync_msg = true
 		local function finish(ok, lines)
@@ -402,6 +446,7 @@ function M.new(deps)
 			if not summary then
 				return finish(false, {M.format_build_failure(bmsg, code, result, extra)})
 			end
+			summary.town_type = town
 			if type(summary.write_bounds) == "table" then
 				deps.log("action", "towns_generate (" .. name .. "): write bounds "
 					.. bounds_str(summary.write_bounds))
@@ -410,9 +455,9 @@ function M.new(deps)
 				M.format_report(summary, deps.command_name))
 		end
 
-		deps.log("action", ("towns_generate (%s): seed %d%s, searching near (%.1f,%.1f,%.1f)"):format(
-			name, seed, generated and " (generated)" or "", pos.x, pos.y, pos.z))
-		local searched, serr = pcall(deps.search, pos, seed, nil, on_done)
+		deps.log("action", ("towns_generate (%s): %s seed %d%s, searching near (%.1f,%.1f,%.1f)"):format(
+			name, town, seed, generated and " (generated)" or "", pos.x, pos.y, pos.z))
+		local searched, serr = pcall(deps.search, pos, seed, town, on_done)
 		if not searched then
 			release()
 			returning = false
@@ -422,10 +467,10 @@ function M.new(deps)
 		if sync_msg then
 			return sync_ok, sync_msg
 		end
-		return true, ("Searching for a town site near you with seed %d%s. This can take a "
+		return true, ("Searching for a %stown site near you with seed %d%s. This can take a "
 			.. "while; you will be told when it is done. It builds immediately on the "
 			.. "first suitable site, OVERWRITING it with no preview or confirmation."):format(
-			seed, generated and " (generated)" or "")
+			town == "roman" and "Roman " or "", seed, generated and " (generated)" or "")
 	end
 
 	return C
