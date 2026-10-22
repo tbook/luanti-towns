@@ -2,9 +2,7 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "banker_house",
-    "castle",
-    "cathedral"
+    "armory"
   ],
   "buildings": [
     {
@@ -1709,7 +1707,7 @@
     {
       "entrance": {
         "x": 4,
-        "y": 1,
+        "y": 2,
         "z": 2
       },
       "entrance_kind": "door",
@@ -1719,6 +1717,8 @@
       "required_nodes": [
         "mcl_chests:chest_small",
         "mcl_core:diorite_smooth",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
         "mcl_core:stone_smooth",
         "mcl_doors:spruce_door_b_1",
         "mcl_doors:spruce_door_t_1",
@@ -1736,7 +1736,7 @@
       "rotation": 0,
       "size": {
         "x": 9,
-        "y": 6,
+        "y": 7,
         "z": 10
       },
       "source_max": {
@@ -1746,22 +1746,16 @@
       },
       "source_min": {
         "x": 210,
-        "y": 9,
+        "y": 8,
         "z": 301
       },
       "source_size": {
         "x": 9,
-        "y": 6,
+        "y": 7,
         "z": 10
       },
-      "verified_nodes": 540,
-      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
+      "verified_nodes": 630,
+      "snapshot_sha256": "7e0e85f8e2decaa52b09ae11a68293d790e0f5d1cc6dcb4cabbbf921202e7c0c"
     }
-  ],
-  "runtime_validation": {
-    "inventory_slots": 6524,
-    "mismatches": 0,
-    "nodes": 1045888,
-    "placements": 92
-  }
+  ]
 }

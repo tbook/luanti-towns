@@ -29,8 +29,8 @@
         "y": 11,
         "z": 22
       },
-      "non_air_node_types": 63,
-      "metadata_nodes": 60,
+      "non_air_node_types": 64,
+      "metadata_nodes": 57,
       "required_nodes": [
         "mcl_amethyst:calcite",
         "mcl_anvils:anvil",
@@ -67,6 +67,7 @@
         "mcl_core:water_source",
         "mcl_core:wood",
         "mcl_crafting_table:crafting_table",
+        "mcl_decor:table_wooden",
         "mcl_doors:spruce_door_b_1",
         "mcl_doors:spruce_door_b_3",
         "mcl_doors:spruce_door_t_1",
