@@ -48,7 +48,7 @@ eq(#plan.site_order, 14, "forum plus 13 monuments in site order")
 
 -- Arms: the theatre and amphitheater differ, and the bath uses the south arm.
 eq(plan.sites.theatre.arm, "west", "theatre on the west arm")
-eq(plan.sites.amphitheater.arm, "north", "amphitheater on the north arm")
+eq(plan.sites.amphitheater.arm, "east", "amphitheater on the east arm, outside the ring")
 eq(plan.sites.bath.arm, "south", "bath on the south arm")
 for _, name in ipairs({"temple_east", "temple_west"}) do
 	eq(plan.sites[name].arm, "north", name .. " beside the cardo")
@@ -68,15 +68,86 @@ for i = 1, #solids do
 		eq(overlap(r, solids[j].rect), false, solids[i].name .. " / " .. solids[j].name .. " disjoint")
 	end
 end
-eq(#plan.streets, 4, "four street arms")
+-- Streets: four principal arms, then the four ring bands (issue #164).
+eq(#plan.streets, 8, "four arms and four ring bands")
+local arm_streets, ring_streets = {}, {}
+for i, st in ipairs(plan.streets) do
+	eq(st.kind, i <= 4 and "principal" or "secondary", st.name .. " kind")
+	if i <= 4 then arm_streets[st.arm] = st else ring_streets[st.ring] = st end
+end
 for _, st in ipairs(plan.streets) do
 	for _, s in ipairs(list) do
 		eq(overlap(st.rect, s.rect), false, st.name .. " does not enter " .. s.name)
 	end
 end
+-- Streets meet only at designed junctions: the ring crosses the north and
+-- east arms, and its south and west bands end beside their arms (T-junctions).
 for i = 1, #plan.streets do for j = i + 1, #plan.streets do
-	eq(overlap(plan.streets[i].rect, plan.streets[j].rect), false, "streets are disjoint")
+	local a, b = plan.streets[i], plan.streets[j]
+	local expect = {
+		["cardo_north/ring_north"] = true, ["decumanus_east/ring_east"] = true,
+		["ring_north/ring_east"] = true, ["ring_north/ring_west"] = true,
+		["ring_south/ring_east"] = true,
+	}
+	local name = a.name .. "/" .. b.name
+	eq(overlap(a.rect, b.rect), expect[name] == true, name .. " overlap only at designed crossings")
 end end
+local R = {n = ring_streets.north.rect, e = ring_streets.east.rect,
+	s = ring_streets.south.rect, w = ring_streets.west.rect}
+eq(R.n.x1 == R.w.x1 and R.n.x2 == R.e.x2, true, "north band spans west to east bands")
+eq(R.e.z1 == R.s.z1 and R.e.z2 == R.n.z2, true, "east band spans south to north bands")
+eq(R.n.z2 - R.n.z1 + 1, 6, "ring is one street wide")
+-- The ring is square-ish, behind the main streets.
+local rw, rh = R.e.x2 - R.w.x1 + 1, R.n.z2 - R.e.z1 + 1
+eq(math.abs(rw - rh) <= 2, true, "ring is square-ish")
+-- Crossings: the north and east arms pass through the ring.
+for _, arm in ipairs({"north", "east"}) do
+	local a, band = arm_streets[arm].rect, ring_streets[arm].rect
+	local beyond = arm == "north" and a.z2 > band.z2 or a.x2 > band.x2
+	eq(beyond, true, arm .. " arm continues past the ring")
+	eq(overlap(a, band), true, arm .. " arm crosses its ring band")
+end
+-- T-junctions: south and west bands abut their arm's side and do not cross it.
+local sa, wa = arm_streets.south.rect, arm_streets.west.rect
+eq(R.s.x1, sa.x2 + 1, "south band starts beside the south arm")
+eq(R.s.z1 >= sa.z1 and R.s.z2 <= sa.z2, true, "south band meets the south arm")
+eq(overlap(R.s, sa), false, "south band does not cross the south arm")
+eq(R.w.z1, wa.z2 + 1, "west band starts beside the west arm")
+eq(R.w.x1 >= wa.x1 and R.w.x2 <= wa.x2, true, "west band meets the west arm")
+eq(overlap(R.w, wa), false, "west band does not cross the west arm")
+-- The bath quadrant (south-west) is left out: no ring street, and clearance.
+local bath = plan.sites.bath.rect
+local cx0, cz0 = plan.center.x, plan.center.z
+for name, st in pairs(ring_streets) do
+	eq(overlap(st.rect, {x1 = bath.x1 - 3, z1 = bath.z1 - 3, x2 = bath.x2 + 3, z2 = bath.z2 + 3}), false,
+		"ring " .. name .. " keeps 3 nodes clear of the bath")
+	eq(st.rect.x2 >= cx0 - 3 or st.rect.z2 >= cz0 - 3, true, "ring " .. name .. " is outside the south-west quadrant")
+end
+
+-- Domus: domus_2 inside the ring, the others and the amphitheater outside.
+local function inside_ring(r)
+	return r.x1 > R.w.x2 and r.x2 < R.e.x1 and r.z1 > R.s.z2 and r.z2 < R.n.z1
+end
+local function outside_ring(r)
+	for _, b in pairs(R) do if overlap(r, b) then return false end end
+	return not inside_ring(r)
+end
+eq(inside_ring(plan.sites.domus_2.rect), true, "domus_2 is inside the ring")
+for _, name in ipairs({"domus_1", "domus_3", "domus_4", "amphitheater"}) do
+	eq(outside_ring(plan.sites[name].rect), true, name .. " is outside the ring")
+end
+eq(plan.sites.domus_1.arm, "north", "domus_1 on the north arm")
+eq(plan.sites.domus_2.arm, "east", "domus_2 on the east arm")
+eq(plan.sites.domus_3.arm, "east", "domus_3 on the east arm")
+eq(plan.sites.domus_4.arm, "west", "domus_4 on the west arm")
+-- The amphitheater stands in the north-east, beyond the ring's east band.
+local amph = plan.sites.amphitheater.rect
+eq(amph.x1 > R.e.x2 and amph.z1 > cz0, true, "amphitheater is in the north-east outside the ring")
+-- Arms are 59 nodes from the forum edge to the arch's near face.
+for arm, st in pairs(arm_streets) do
+	local r = st.rect
+	eq(math.max(r.x2 - r.x1 + 1, r.z2 - r.z1 + 1), 59, arm .. " arm is 59 nodes long")
+end
 
 -- Pavement: every approach node is paved and connected to the forum.
 local paved = {}
@@ -105,7 +176,7 @@ end
 -- Each street ends at its arch's near face with the opening on the centreline.
 local cx, cz = plan.center.x, plan.center.z
 local by_arm = {}
-for _, st in ipairs(plan.streets) do by_arm[st.arm] = st end
+for _, st in ipairs(plan.streets) do if st.arm then by_arm[st.arm] = st end end
 for arm, st in pairs(by_arm) do
 	local arch = plan.sites[roman.layout.arms[arm].arch]
 	local a = arch.approach.pos
@@ -153,7 +224,7 @@ local function owner_rect(f)
 	if f.square then return plan.sites[f.square].rect, plan.sites[f.square].material end
 	return plan.streets[f.street].rect, plan.streets[f.street].material
 end
-local arms_faced, forum_runs = {}, 0
+local arms_faced, ring_faced, forum_runs = {}, {}, 0
 for i, b in ipairs(plan.blocks) do
 	eq(b.id, i, "block " .. i .. " id is contiguous")
 	for _, s in ipairs(list) do
@@ -188,12 +259,36 @@ for i, f in ipairs(plan.frontage) do
 		eq(f.square, "forum", "square frontage names the forum")
 		forum_runs = forum_runs + 1
 	else
-		arms_faced[plan.streets[f.street].arm] = true
+		local st = plan.streets[f.street]
+		if st.arm then arms_faced[st.arm] = true else ring_faced[st.ring] = true end
 	end
 end
 for _, arm in ipairs({"north", "south", "east", "west"}) do
 	eq(arms_faced[arm], true, arm .. " arm has street frontage")
 end
+for _, band in ipairs({"north", "east", "south", "west"}) do
+	eq(ring_faced[band], true, band .. " ring band has frontage")
+end
+-- Ring-relative blocks stand flush against the ring's outer and inner sides.
+local ring_blocks = {}
+for _, b in ipairs(plan.blocks) do
+	if b.ring then
+		ring_blocks[#ring_blocks + 1] = b
+		local band = ring_streets[b.ring].rect
+		local side = b.side
+		local flush = (side == "+z" and b.rect.z1 == band.z2 + 1) or (side == "-z" and b.rect.z2 == band.z1 - 1)
+			or (side == "+x" and b.rect.x1 == band.x2 + 1) or (side == "-x" and b.rect.x2 == band.x1 - 1)
+		eq(flush, true, b.name .. " is flush against the ring")
+		local faces = false
+		for _, fid in ipairs(b.frontage) do
+			if plan.frontage[fid].street_name == "ring_" .. b.ring then faces = true end
+		end
+		eq(faces, true, b.name .. " has frontage facing the ring")
+	end
+end
+eq(#ring_blocks, 3, "three ring-relative blocks")
+eq(ring_blocks[1].side == "-z" and ring_blocks[2].side == "+z" and ring_blocks[3].side == "-z", true,
+	"ring blocks use inner and outer sides")
 eq(forum_runs >= 4, true, "forum edges carry frontage")
 local forum_sides = {}
 for _, f in ipairs(plan.frontage) do if f.square then forum_sides[f.side] = true end end

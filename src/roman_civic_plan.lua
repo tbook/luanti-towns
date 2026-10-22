@@ -25,12 +25,29 @@ return {
 	-- length: street nodes from the forum edge to the near face of the arch.
 	-- arch_rotation: turns the arch opening toward the forum.
 	arms = {
-		north = {street = "cardo_north", length = 50, arch = "arch_north", arch_rotation = 0},
+		north = {street = "cardo_north", length = 59, arch = "arch_north", arch_rotation = 0},
 		south = {street = "cardo_south", length = 59, arch = "arch_south", arch_rotation = 180},
 		east = {street = "decumanus_east", length = 59, arch = "arch_east", arch_rotation = 90},
-		west = {street = "decumanus_west", length = 48, arch = "arch_west", arch_rotation = 270},
+		west = {street = "decumanus_west", length = 59, arch = "arch_west", arch_rotation = 270},
 	},
 	arch_id = "arch",
+
+	-- Ring street (issue #164): a square-ish loop behind the main streets,
+	-- as four secondary bands one street wide. Each band is the node range
+	-- from..to outward from the forum edge (as arm positions), along the
+	-- axis of the arm it is named for. The north and east bands cross the
+	-- cardo and the decumanus; the south and west bands start beside the
+	-- south and west arms (T-junctions) and the south-west quadrant, where
+	-- the bath stands, is left out. Bands span the compass extent of their
+	-- neighbours: north from the west band's outer edge to the east band's,
+	-- east from the south band's outer edge to the north band's, and so on.
+	ring = {
+		material = "mcl_core:cobble",
+		north = {from = 18, to = 23},
+		east = {from = 22, to = 27},
+		south = {from = 26, to = 31},
+		west = {from = 22, to = 27},
+	},
 
 	-- arm/side: street arm and which side of it the building stands on.
 	-- at: nodes from the forum edge to the building's nearest edge; the
@@ -40,11 +57,13 @@ return {
 		-- puts the approach on the forum's north edge.
 		{name = "temple_east", id = "temple", arm = "north", side = "+x", at = 0, rotation = 270, faces = "forum"},
 		{name = "temple_west", id = "temple", arm = "north", side = "-x", at = 0, rotation = 270, faces = "forum"},
-		{name = "amphitheater", id = "amphitheater", arm = "north", side = "-x", at = 18, rotation = 270},
-		{name = "domus_1", id = "domus", arm = "north", side = "+x", at = 18, rotation = 0},
-		{name = "domus_2", id = "domus", arm = "east", side = "-z", at = 9, rotation = 90},
-		{name = "domus_3", id = "domus", arm = "east", side = "-z", at = 34, rotation = 90},
-		{name = "domus_4", id = "domus", arm = "west", side = "+z", at = 23, rotation = 270},
+		-- Outside the ring, east arm, north side: the north-east outer corner.
+		{name = "amphitheater", id = "amphitheater", arm = "east", side = "+z", at = 28, rotation = 0},
+		-- domus_2 stands inside the ring; the others stand outside it.
+		{name = "domus_1", id = "domus", arm = "north", side = "+x", at = 24, rotation = 0},
+		{name = "domus_2", id = "domus", arm = "east", side = "-z", at = 0, rotation = 90},
+		{name = "domus_3", id = "domus", arm = "east", side = "-z", at = 28, rotation = 90},
+		{name = "domus_4", id = "domus", arm = "west", side = "+z", at = 28, rotation = 270},
 		{name = "theatre", id = "theatre", arm = "west", side = "-z", at = 10, rotation = 0},
 		{name = "bath", id = "bath", arm = "south", side = "-x", at = 8, rotation = 180},
 	},
@@ -58,13 +77,24 @@ return {
 	-- on either side of it are separate blocks. Stretches narrower than the
 	-- smallest building are left open. A block that starts at 0 also borders
 	-- the forum edge; its frontage faces the forum there.
+	--
+	-- A block with ring = "north"|"east"|"south"|"west" instead of arm stands
+	-- flush against that ring band: side "outer" (away from the forum) or
+	-- "inner". from..to are compass coordinates along the band, relative to
+	-- the forum centre (x for north and south bands, z for east and west).
 	blocks = {
-		{name = "north_end_east", arm = "north", side = "+x", from = 40, to = 49},
-		{name = "east_forum_north", arm = "east", side = "+z", from = 0, to = 58},
-		{name = "east_forum_south", arm = "east", side = "-z", from = 0, to = 8},
-		{name = "south_east", arm = "south", side = "+x", from = 0, to = 58},
+		{name = "north_end_east", arm = "north", side = "+x", from = 46, to = 58},
+		{name = "north_outer_west", arm = "north", side = "-x", from = 24, to = 58},
+		{name = "east_forum_north", arm = "east", side = "+z", from = 0, to = 21},
+		{name = "east_end_south", arm = "east", side = "-z", from = 50, to = 58},
+		{name = "south_east_inner", arm = "south", side = "+x", from = 0, to = 25},
+		{name = "south_east_outer", arm = "south", side = "+x", from = 32, to = 58},
 		{name = "west_forum_south", arm = "west", side = "-z", from = 0, to = 9},
-		{name = "west_end_south", arm = "west", side = "-z", from = 31, to = 47},
-		{name = "west_forum_north", arm = "west", side = "+z", from = 0, to = 22},
+		{name = "west_end_south", arm = "west", side = "-z", from = 31, to = 58},
+		{name = "west_forum_north", arm = "west", side = "+z", from = 0, to = 21},
+		{name = "west_end_north", arm = "west", side = "+z", from = 50, to = 58},
+		{name = "ring_north_inner_east", ring = "north", side = "inner", from = 15, to = 36},
+		{name = "ring_north_outer_west", ring = "north", side = "outer", from = -43, to = -13},
+		{name = "ring_south_outer", ring = "south", side = "outer", from = 12, to = 42},
 	},
 }

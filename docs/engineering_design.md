@@ -410,7 +410,11 @@ landmark approach without requiring medieval civic sites. Authored frontage
 runs use the shared run schema from `planner.lua` (the one-node block edge row,
 facing the street or square it borders). The Roman planner derives its blocks
 from explicit rectangles in `roman_civic_plan.lua`, one catalog row depth
-deep, and its runs from the pavement along their edges. Roman generation is
+deep, and its runs from the pavement along their edges. A square-ish ring of
+four secondary bands (issue #164) surrounds the forum: it crosses the north and
+east arms, its south and west bands end beside their arms, and the south-west
+bath quadrant is left out. Blocks may stand flush against a ring band's inner or
+outer side. Roman generation is
 selected through `/towns_generate roman [seed]`, which passes `town_type =
 "roman"` to the shared search and build (issue #151). Any other explicit type
 is rejected with a reason.
