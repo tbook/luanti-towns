@@ -21,13 +21,29 @@ entrance choices, and inventory/decoration data.
 
 ## Town command
 
-`/towns_generate [seed]` (needs the `server` privilege) searches near you
-for a site and builds a populated town there: the real cathedral and its
-parvis, a market square with the city hall, the castle, a jail, taverns,
-wells and chapels, ordinary houses, shops and workshops on the street
-frontage, paved access alleys, initialized functional nodes (chests, item
-frames, jukebox, well), and then one villager spawned and bed-claimed per
-valid bed. The former opt-in `/towns_place_town` command and its
+`/towns_generate [medieval|roman] [seed]` (needs the `server` privilege)
+searches near you for a site and builds a populated town there. The town
+type is optional and defaults to `medieval`, so `/towns_generate` and
+`/towns_generate 42` behave as before. The medieval town has the real
+cathedral and its parvis, a market square with the city hall, the castle, a
+jail, taverns, wells and chapels, ordinary houses, shops and workshops on the
+street frontage, paved access alleys, initialized functional nodes (chests,
+item frames, jukebox, well), and then one villager spawned and bed-claimed
+per valid bed.
+
+`/towns_generate roman [seed]` builds the first-version Roman town through
+the same search, build, node setup and resident stages. Its civic layout is
+authored in `src/roman_civic_plan.lua`: a forum square, four arches at the
+ends of the cardo and decumanus streets, a temple on each side of the north
+street, an amphitheatre, a theatre, a bath and four domus monuments, with
+paved blocks and street frontage. Ordinary houses, shops, workshops,
+services and the jail come from the shared catalog where they fit,
+and any shortfall is reported. The Roman layout has no cathedral, castle,
+city hall or market square; the Roman report names only the sites it
+actually has. The layout is the same for every seed, so the seed only
+changes the surrounding content and is recorded for repeat instructions.
+
+The former opt-in `/towns_place_town` command and its
 `towns_enable_place_town` setting were removed; `/towns_generate` is the one
 production path.
 
@@ -47,13 +63,16 @@ production path.
   The search runs in the background; you are told when it starts and when it
   finishes. Only one search or build runs at a time on the server; a second
   command is refused until it finishes.
-- `seed` is an integer from -1073741823 to 1073741823. If omitted, a seed is
-  generated and printed. The same seed at the same chosen centre reproduces
-  the same layout. Anything else (decimals, words, extra arguments, or a
-  larger number such as a 64-bit world seed) is rejected with the allowed
-  range and nothing is changed.
+- `medieval` or `roman` (case-insensitive) may come first; anything else
+  before the seed is rejected. `seed` is an integer from -1073741823 to
+  1073741823. If omitted, a seed is generated and printed. The same type,
+  seed and chosen centre reproduce the same town. The success report repeats
+  the type and seed, e.g. `/towns_generate roman 42`. Anything else
+  (unknown types, decimals, words, extra arguments, or a larger number such
+  as a 64-bit world seed) is rejected with the usage and nothing is changed.
 - On success it reports and logs the seed, centre, ground level, bounds,
-  cathedral, parvis, market, castle and city hall coordinates, building,
+  cathedral, parvis, market, castle and city hall coordinates (for a Roman
+  town, each named monument and square it has), building,
   service and alley counts, the catalog ids used, valid and skipped beds,
   spawned residents and any unmet service targets. If a stage after the
   town was placed (bed enumeration or resident spawning) did not complete,
