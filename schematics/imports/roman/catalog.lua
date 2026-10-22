@@ -8,8 +8,8 @@ local entries = {
 		entrance_kind = "opening", ground_offset = 0,
 	},
 	temple = {
-		size = {x = 18, y = 10, z = 12},
-		entrance = {x = 3, y = 1, z = 5, facing = "-X"},
+		size = {x = 18, y = 11, z = 12},
+		entrance = {x = 3, y = 2, z = 5, facing = "-X"},
 		entrance_kind = "door", ground_offset = 0,
 	},
 	domus = {

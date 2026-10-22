@@ -29,8 +29,8 @@
         "y": 11,
         "z": 22
       },
-      "non_air_node_types": 63,
-      "metadata_nodes": 60,
+      "non_air_node_types": 64,
+      "metadata_nodes": 57,
       "required_nodes": [
         "mcl_amethyst:calcite",
         "mcl_anvils:anvil",
@@ -67,6 +67,7 @@
         "mcl_core:water_source",
         "mcl_core:wood",
         "mcl_crafting_table:crafting_table",
+        "mcl_decor:table_wooden",
         "mcl_doors:spruce_door_b_1",
         "mcl_doors:spruce_door_b_3",
         "mcl_doors:spruce_door_t_1",
@@ -417,7 +418,7 @@
       "id": "temple",
       "min": {
         "x": 305,
-        "y": 9,
+        "y": 8,
         "z": 350
       },
       "max": {
@@ -437,12 +438,14 @@
       },
       "size": {
         "x": 18,
-        "y": 10,
+        "y": 11,
         "z": 12
       },
-      "non_air_node_types": 20,
+      "non_air_node_types": 22,
       "metadata_nodes": 4,
       "required_nodes": [
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
         "mcl_core:lapisblock",
         "mcl_core:stone",
         "mcl_core:stripped_spruce_bark",

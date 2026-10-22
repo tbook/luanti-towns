@@ -233,3 +233,14 @@ for _, p in ipairs(lava) do
 		eq(n ~= nil and n ~= "air", true, ("lava %d,%d,%d side %d,%d is enclosed"):format(p.x, p.y, p.z, d[1], d[2]))
 	end
 end
+
+-- Armory (#134): captured with the terrain row below the floor, so the floor is
+-- row 1, the door sits on it, and the placer's row 0 is street level.
+local armory = read_mts("schematics/templates/armory.mts")
+local ae = dims("armory", armory)
+eq(catalog.get("armory").role, "workshop", "armory role")
+eq(ae.entrance.y, 2, "armory door sits on floor row 1 above the ground row")
+eq(ae.ground_offset or 0, 0, "armory ground row is row 0")
+eq(armory.node(ae.entrance.x, ae.entrance.y, ae.entrance.z), "mcl_doors:spruce_door_b_1", "armory entrance is the door")
+eq(armory.node(ae.entrance.x, ae.entrance.y, ae.entrance.z - 1), "air", "armory outside the door is open")
+eq(armory.node(ae.entrance.x, 0, ae.entrance.z - 1), "mcl_core:dirt", "armory ground row is dirt outside the door")

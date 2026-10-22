@@ -7,7 +7,7 @@ local builder = dofile("src/builder.lua")(placement, planner)
 local fixtures = {
 	-- size, entrance Y, ground depth, rotated entrance X/Z, rotated fronts
 	arch = {{12,11,8}, 1, 0, {{5,0},{0,6},{6,7},{7,5}}, 1},
-	temple = {{18,10,12}, 1, 0, {{3,5},{5,14},{14,6},{6,3}}, 2},
+	temple = {{18,11,12}, 2, 0, {{3,5},{5,14},{14,6},{6,3}}, 2},
 	domus = {{38,11,22}, 2, 1, {{1,9},{9,36},{36,12},{12,1}}, 2},
 	theatre = {{21,11,14}, 5, 3, {{10,13},{13,10},{10,0},{0,10}}, 3},
 	amphitheater = {{29,9,29}, 3, 2, {{15,0},{0,13},{13,28},{28,15}}, 1},
@@ -127,6 +127,17 @@ local bath = cache["./" .. catalog.get("bath").path]
 eq(bath.at(0,1,0), "mcl_core:dirt", "bath lower plinth layer")
 eq(bath.at(0,2,0), "mcl_core:dirt_with_grass", "bath surface datum")
 eq(bath.at(44,1,35), "mcl_beds:bed_brown_bottom", "bath basement retained below datum")
+
+-- Temple (#134): the terrain row sits below the quartz platform, so the floor
+-- is row 1, the door is on it, and row 0 (the ground datum) is dirt/grass.
+local temple = cache["./" .. catalog.get("temple").path]
+local te = catalog.get("temple").entrance
+eq(te.y, 2, "temple door sits on the platform row above the ground row")
+eq(catalog.get("temple").ground_offset, 0, "temple ground row is row 0")
+eq(temple.at(te.x, te.y, te.z), "mcl_doors:spruce_door_b_1", "temple entrance is the door")
+eq(temple.at(te.x - 1, te.y, te.z), "air", "temple outside the door is open")
+eq(temple.at(te.x - 1, 0, te.z), "mcl_core:dirt", "temple ground row is dirt outside the door")
+eq(temple.at(te.x, 1, te.z), "mcl_nether:quartz_smooth", "temple floor under the door is the platform")
 
 -- Malformed facing must be rejected before placement; explicit +X also works.
 local entrance = catalog.get("temple").entrance

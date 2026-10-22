@@ -58,7 +58,8 @@ bed at `(44,1,35)` below site ground. Six basement beds remained valid.
 - The temple capture has empty padding and no surrounding grass datum. Its
   first stair and platform are at local Y=0; the chosen placement embeds
   that first step at site-ground level. It does not infer a ground datum
-  from the source world's minimum Y.
+  from the source world's minimum Y. (#134 re-captured the temple with the
+  terrain row below the platform; the table above is the original run.)
 - The theatre includes uneven subsurface terrain/voids beneath its platform.
   Its perimeter grass is at Y=3 and front apron at Y=4; those are retained.
   The approach rises one node from site ground onto the apron.
