@@ -9,9 +9,9 @@
 -- street length or the forum size never requires editing other coordinates.
 --
 -- Rotations are geometry.lua rotations. A rotation must turn the template's
--- entrance toward the street (toward the forum for an arch); the planner
--- rejects the layout otherwise. Compass sides: "+x" east, "-x" west,
--- "+z" north, "-z" south.
+-- entrance toward the street (toward the forum for an arch, or for a landmark
+-- with faces = "forum"); the planner rejects the layout otherwise. Compass
+-- sides: "+x" east, "-x" west, "+z" north, "-z" south.
 return {
 	-- Even, so a two-node arch opening can sit exactly mid-street.
 	street_width = 6,
@@ -36,8 +36,10 @@ return {
 	-- at: nodes from the forum edge to the building's nearest edge; the
 	-- building is flush against the street so its entrance approach is paved.
 	landmarks = {
-		{name = "temple_east", id = "temple", arm = "north", side = "+x", at = 3, rotation = 0},
-		{name = "temple_west", id = "temple", arm = "north", side = "-x", at = 3, rotation = 180},
+		-- Temples face the forum: rotation 270 turns the door to -z, and at = 0
+		-- puts the approach on the forum's north edge.
+		{name = "temple_east", id = "temple", arm = "north", side = "+x", at = 0, rotation = 270, faces = "forum"},
+		{name = "temple_west", id = "temple", arm = "north", side = "-x", at = 0, rotation = 270, faces = "forum"},
 		{name = "amphitheater", id = "amphitheater", arm = "north", side = "-x", at = 18, rotation = 270},
 		{name = "domus_1", id = "domus", arm = "north", side = "+x", at = 18, rotation = 0},
 		{name = "domus_2", id = "domus", arm = "east", side = "-z", at = 9, rotation = 90},

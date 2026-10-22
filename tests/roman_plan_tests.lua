@@ -121,12 +121,27 @@ for arm, st in pairs(by_arm) do
 	eq(arch.size.x * arch.size.z, entry.size.x * entry.size.z, arm .. " arch uses the full catalog box")
 end
 
--- Doors face their streets, including the recessed temple and bath doors.
-for _, name in ipairs({"temple_east", "temple_west", "bath"}) do
+-- Doors face their streets, including the recessed bath door.
+for _, name in ipairs({"bath"}) do
 	local s = plan.sites[name]
 	local e, a = s.entrance, s.approach.pos
 	eq(overlap(s.rect, {x1 = a.x, z1 = a.z, x2 = a.x, z2 = a.z}), false,
 		name .. " approach is outside its box")
+	eq((a.x - e.x) * s.facing.x + (a.z - e.z) * s.facing.z > 1, true, name .. " door is recessed")
+end
+
+-- Temple doors face the forum (-z from the north arm) and their approach is
+-- forum pavement; the recessed door still sits inside its box.
+for _, name in ipairs({"temple_east", "temple_west"}) do
+	local s = plan.sites[name]
+	local e, a = s.entrance, s.approach.pos
+	local f = plan.sites.forum.rect
+	eq(s.rotation, 270, name .. " rotation turns the door to the forum")
+	eq(s.facing.x == 0 and s.facing.z == -1, true, name .. " door faces -z, the forum")
+	eq(overlap(f, {x1 = a.x, z1 = a.z, x2 = a.x, z2 = a.z}), true, name .. " approach lies on the forum")
+	eq(overlap(s.rect, {x1 = a.x, z1 = a.z, x2 = a.x, z2 = a.z}), false,
+		name .. " approach is outside its box")
+	eq(overlap(s.rect, {x1 = e.x, z1 = e.z, x2 = e.x, z2 = e.z}), true, name .. " entrance is inside its box")
 	eq((a.x - e.x) * s.facing.x + (a.z - e.z) * s.facing.z > 1, true, name .. " door is recessed")
 end
 
