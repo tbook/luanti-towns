@@ -228,6 +228,9 @@ function M.build(layout, center, seed, row_depth)
 		if not d or not toward or (toward[1] ~= 0) == (d.x ~= 0) then
 			layout_error(spec.name .. " has an invalid arm or side")
 		end
+		-- faces = "forum" turns the entrance toward the forum instead (temples).
+		if spec.faces == "forum" then toward = {-d.x, -d.z}
+		elseif spec.faces ~= nil then layout_error(spec.name .. " has an invalid faces") end
 		local sx, sz = footprint(spec.id, spec.rotation)
 		local along, across = sz, sx
 		if d.x ~= 0 then along, across = sx, sz end
