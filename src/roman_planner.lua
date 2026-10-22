@@ -15,6 +15,9 @@
 -- of edge nodes whose outer neighbour is the forum or one street becomes a run
 -- (the shared run schema in planner.lua). Stretches facing a monument, an arch
 -- or open ground get none, so runs never touch monuments or their approaches.
+-- A block may instead be flush against a ring band (issue #164): ring and side
+-- "inner" or "outer" replace arm and side, and from..to are compass coordinates
+-- along the band; frontage is derived the same way.
 -- Ids follow layout order, then sides -z, +z, -x, +x, then coordinate.
 local function sibling(name)
 	local c = rawget(_G, "core")
@@ -125,19 +128,43 @@ local function add_blocks(layout, plan, row_depth, dx, dz)
 	end
 	local seen = {}
 	for _, spec in ipairs(layout.blocks or {}) do
-		local d = ARMS[spec.arm]
-		local toward = TOWARD[spec.side]
 		if seen[spec.name] then layout_error("duplicate block name " .. tostring(spec.name)) end
 		seen[spec.name] = true
-		if not d or not toward or (toward[1] ~= 0) == (d.x ~= 0) or not layout.arms[spec.arm] then
-			layout_error("block " .. tostring(spec.name) .. " has an invalid arm or side")
+		local r, arm, side
+		if spec.ring ~= nil then
+			local band
+			for _, st in ipairs(plan.streets) do if st.ring == spec.ring then band = st end end
+			if not band or (spec.side ~= "inner" and spec.side ~= "outer") then
+				layout_error("block " .. tostring(spec.name) .. " has an invalid ring or side")
+			end
+			local d = ARMS[spec.ring]
+			local out = spec.side == "outer" and 1 or -1
+			local sign = (d.x + d.z) * out
+			local along = d.x ~= 0 and "x" or "z" -- the band's thin axis
+			local a1, a2 = band.rect[along .. "1"], band.rect[along .. "2"]
+			local lo, hi
+			if sign > 0 then lo, hi = a2 + 1, a2 + row_depth else lo, hi = a1 - row_depth, a1 - 1 end
+			if d.x ~= 0 then
+				r = {x1 = lo, z1 = spec.from + dz, x2 = hi, z2 = spec.to + dz}
+				side = sign > 0 and "+x" or "-x"
+			else
+				r = {x1 = spec.from + dx, z1 = lo, x2 = spec.to + dx, z2 = hi}
+				side = sign > 0 and "+z" or "-z"
+			end
+		else
+			local d = ARMS[spec.arm]
+			local toward = TOWARD[spec.side]
+			if not d or not toward or (toward[1] ~= 0) == (d.x ~= 0) or not layout.arms[spec.arm] then
+				layout_error("block " .. tostring(spec.name) .. " has an invalid arm or side")
+			end
+			local l1, l2
+			if spec.side:sub(1, 1) == "+" then l1, l2 = half, half + row_depth - 1
+			else l1, l2 = -half - row_depth, -half - 1 end
+			r = translate(arm_rect(layout, spec.arm, spec.from, spec.to, l1, l2), dx, dz)
+			arm, side = spec.arm, spec.side
 		end
-		local l1, l2
-		if spec.side:sub(1, 1) == "+" then l1, l2 = half, half + row_depth - 1
-		else l1, l2 = -half - row_depth, -half - 1 end
-		local r = translate(arm_rect(layout, spec.arm, spec.from, spec.to, l1, l2), dx, dz)
 		local block = {
-			id = #plan.blocks + 1, name = spec.name, arm = spec.arm, side = spec.side,
+			id = #plan.blocks + 1, name = spec.name, arm = arm, ring = spec.ring, side = side,
 			rect = r, size = {x = r.x2 - r.x1 + 1, z = r.z2 - r.z1 + 1},
 			area = (r.x2 - r.x1 + 1) * (r.z2 - r.z1 + 1), frontage = {},
 		}
@@ -220,6 +247,37 @@ function M.build(layout, center, seed, row_depth)
 			-math.floor(across / 2), math.floor(across / 2) - 1), dx, dz)
 		local toward = {-ARMS[arm].x, -ARMS[arm].z}
 		add(landmark(spec.arch, layout.arch_id, spec.arch_rotation, rect, toward, {arm = arm}))
+	end
+
+	-- Ring bands (issue #164): see the layout for which bands span what.
+	local ring = layout.ring
+	if ring then
+		local function span(arm)
+			local band = ring[arm]
+			if type(band) ~= "table" then layout_error("ring is missing the " .. arm .. " band") end
+			local r = arm_rect(layout, arm, band.from, band.to, 0, 0)
+			if ARMS[arm].x ~= 0 then return r.x1, r.x2 end
+			return r.z1, r.z2
+		end
+		local nlo, nhi = span("north")
+		local elo, ehi = span("east")
+		local slo, shi = span("south")
+		local wlo, whi = span("west")
+		local bands = {
+			north = {x1 = wlo, z1 = nlo, x2 = ehi, z2 = nhi},
+			east = {x1 = elo, z1 = slo, x2 = ehi, z2 = nhi},
+			-- Start beside the south and west arms: T-junctions, not crossings.
+			south = {x1 = half, z1 = slo, x2 = ehi, z2 = shi},
+			west = {x1 = wlo, z1 = half, x2 = whi, z2 = nhi},
+		}
+		for _, arm in ipairs(arm_names) do
+			streets[#streets + 1] = {
+				id = #streets + 1, name = "ring_" .. arm, ring = arm, kind = "secondary",
+				width = W, axis = ARMS[arm].x == 0 and "x" or "z",
+				material = ring.material or layout.street_material,
+				rect = translate(bands[arm], dx, dz),
+			}
+		end
 	end
 
 	for _, spec in ipairs(layout.landmarks) do
