@@ -142,8 +142,8 @@ for _, case in ipairs(cases) do
 		local road, principal = {}, {}
 		rect_cells(S.market.rect, function(x, z) road[key(x, z)] = true; principal[key(x, z)] = true end)
 		rect_cells(S.parvis.rect, function(x, z) road[key(x, z)] = true; principal[key(x, z)] = true end)
-		eq(S.market.material, "mcl_core:stonebrick", label .. " market material")
-		eq(S.parvis.material, "mcl_core:stonebrick", label .. " parvis material")
+		eq(S.market.material, "mcl_core:cobble", label .. " market material")
+		eq(S.parvis.material, "mcl_core:cobble", label .. " parvis material")
 
 		local npr, nsec = 0, 0
 		local ok_shape, ok_contained, ok_clear, ok_ids = true, true, true, true
@@ -155,7 +155,7 @@ for _, case in ipairs(cases) do
 			if s.id ~= i or s.width ~= width or math.min(ex, ez) ~= width then ok_shape = false end
 			if ex ~= width and ez ~= width then ok_shape = false end
 			if ex > ez and s.axis ~= "x" or ez > ex and s.axis ~= "z" then ok_shape = false end
-			local want = (s.kind == "principal") and "mcl_core:stonebrick" or "mcl_core:cobble"
+			local want = (s.kind == "principal") and "mcl_core:cobble" or "mcl_core:gravel"
 			if s.material ~= want then ok_shape = false end
 			material_names[s.material] = true
 			if s.kind == "principal" and type(s.route) ~= "string" then ok_shape = false end
@@ -240,7 +240,7 @@ for _, case in ipairs(cases) do
 				local owner_rects = {}
 				if f.square then
 					owner_rects[1] = S[f.square].rect
-					if f.material ~= "mcl_core:stonebrick" then ok_front = false end
+					if f.material ~= "mcl_core:cobble" then ok_front = false end
 				else
 					local st = plan.streets[f.street]
 					if not st or st.material ~= f.material then ok_front = false end
@@ -285,7 +285,7 @@ local nsig = 0
 for _ in pairs(sig) do nsig = nsig + 1 end
 eq(nsig, #seeds, "every seed gives distinct street layouts")
 eq(with_secondary >= 4, true, "secondary streets appear for many seeds")
-eq(material_names["mcl_core:stonebrick"] and material_names["mcl_core:cobble"], true,
+eq(material_names["mcl_core:cobble"] and material_names["mcl_core:gravel"], true,
 	"both street materials used")
 
 -- The centre only translates streets, blocks and frontage.
@@ -391,7 +391,7 @@ do
 		p.streets[1].rect.z2 = p.streets[1].rect.z2 + 1
 		p.streets[1].rect.x2 = p.streets[1].rect.x2 + 1
 	end)
-	rejects("street wrong material", function(p) p.streets[1].material = "mcl_core:cobble" end, "material")
+	rejects("street wrong material", function(p) p.streets[1].material = "mcl_core:gravel" end, "material")
 	rejects("frontage wrong street", function(p)
 		local f = p.frontage[1]
 		f.street = (f.street == 1) and 2 or 1

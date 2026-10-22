@@ -15,8 +15,8 @@
 return {
 	-- Even, so a two-node arch opening can sit exactly mid-street.
 	street_width = 6,
-	street_material = "mcl_core:stonebrick",
-	forum_material = "mcl_core:stonebrick",
+	street_material = "mcl_core:cobble",
+	forum_material = "mcl_core:cobble",
 	-- Even edge length; the forum is centred on the planner centre.
 	forum_size = 30,
 	-- Flat construction boundary: bounding box of the plan plus this margin.
@@ -42,7 +42,7 @@ return {
 	-- neighbours: north from the west band's outer edge to the east band's,
 	-- east from the south band's outer edge to the north band's, and so on.
 	ring = {
-		material = "mcl_core:cobble",
+		material = "mcl_core:gravel",
 		north = {from = 18, to = 23},
 		east = {from = 22, to = 27},
 		south = {from = 26, to = 31},

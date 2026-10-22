@@ -146,7 +146,7 @@
 --   width    = 5 | 4,                     -- equals the rect's short side
 --   rect     = rect,                      -- full-width straight run
 --   axis     = "x" | "z",                 -- long axis ("x" for a square corner)
---   material = "mcl_core:stonebrick" (principal) | "mcl_core:cobble",
+--   material = "mcl_core:cobble" (principal) | "mcl_core:gravel",
 --   route    = "approach_1>market" | "approach_2>market" | "network>parvis"
 --              | "network>castle" | "secondary",
 -- }
@@ -274,9 +274,9 @@ M.CONSTANTS = {
 	MAX_EDGE_FRACTION = 0.3,  -- secondary street: max share of a long side that
 	                          --  may be outside the boundary or a landmark
 	MIN_BLOCKS = 3,           -- fewer blocks with frontage reject the attempt
-	PRINCIPAL_MATERIAL = "mcl_core:stonebrick",
-	SECONDARY_MATERIAL = "mcl_core:cobble",
-	SQUARE_MATERIAL = "mcl_core:stonebrick",
+	PRINCIPAL_MATERIAL = "mcl_core:cobble",
+	SECONDARY_MATERIAL = "mcl_core:gravel",
+	SQUARE_MATERIAL = "mcl_core:cobble",
 	-- Jail reservation (profile planning only, ticket #69)
 	JAIL_MARKET_BIAS = 1,     -- 1: jail entrance farthest from the market
 	                          --  centre, -1: nearest

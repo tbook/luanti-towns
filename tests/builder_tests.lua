@@ -448,12 +448,21 @@ for _, spec in ipairs(SEEDS) do
 	eq(paved_cols > 300, true, label .. "substantial pavement")
 	eq(summary and summary.counts.paved_columns, paved_cols, label .. "paved column count")
 
-	-- Both principal-street materials and the cobble secondary appear.
+	-- Principal-street/square cobble always appears; gravel (secondary
+	-- streets) appears whenever the plan expects it on a non-landmark column.
 	local seen_mat = {}
 	for _, wr in ipairs(w.writes) do
 		if wr.y == g then seen_mat[wr.name] = true end
 	end
-	eq(seen_mat[STONEBRICK], true, label .. "stonebrick paved")
+	local want_gravel = false
+	for _, c in ipairs(ss.boundary_columns(plan.boundary.rects)) do
+		if not (site_cells_inside(plan, "cathedral", c.x, c.z) or site_cells_inside(plan, "castle", c.x, c.z))
+				and expected_pavement(plan, c.x, c.z) == "mcl_core:gravel" then
+			want_gravel = true
+		end
+	end
+	eq(seen_mat[COBBLE], true, label .. "cobble paved")
+	eq(not want_gravel or seen_mat["mcl_core:gravel"] == true, true, label .. "gravel paved where expected")
 
 	-- Walkable routes on the final world.
 	local function get(x, y, z) return w.get(x, y, z) end
