@@ -448,10 +448,7 @@ end
 -- cells beside the arm are gravel; the street's edge columns stay cobble.
 do
 	local function in_r(r, x, z) return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 end
-	local TLF = dofile("src/town_layout.lua")
-	local TL = TLF({MAX_HEIGHT = 40, names = function() return {} end,
-		cathedral = function() return {cols = {}, max_dy = 0, names = {}, opening = {}} end,
-		castle = function() return {cols = {}, max_dy = 0, names = {}, opening = {}} end})
+	local TL = dofile("src/town_layout.lua")
 	local p = planner.plan({x = 0, z = 0}, 1, {town_type = "roman"})
 	assert(p)
 	local pav = TL.pavement_map(p)

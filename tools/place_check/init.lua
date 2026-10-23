@@ -303,7 +303,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
     end
     report.compared_nodes, report.mismatched_nodes = compared, mismatches
     check(mismatches == 0, 'every schematic node matches (' .. mismatches .. ' of ' .. compared .. ' differ)')
-    -- Real landmarks present; no blockout palette leaked in as ground.
+    -- Real cathedral and castle schematics present.
     local kinds = {}
     for _, b in ipairs(town.structures) do kinds[b.kind] = (kinds[b.kind] or 0) + 1 end
     check(kinds.cathedral == 1 and kinds.castle == 1, 'real cathedral and castle placed')

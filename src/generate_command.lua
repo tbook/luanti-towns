@@ -25,7 +25,7 @@ end
 local function search(pos, seed, town_type, done)
 	-- Ticket #104: wet sites (shallow ponds, rivers, ice) are landfilled under
 	-- the conservative towns.site_search.WET_DEFAULTS.
-	local opts = {structure_bounds = true}
+	local opts = {}
 	if town_type == "roman" then
 		-- Authored plan (issue #148); composition needs the catalog entries.
 		opts.planner_opts = {town_type = "roman"}

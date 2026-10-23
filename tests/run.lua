@@ -407,7 +407,7 @@ run_group("tests/site_search_tests.lua", eq, fails, placement, dofile("src/plann
 run_group("tests/preflight_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry,
 	dofile("src/site_search.lua"))
 
--- Town builder (ticket #15): blockouts, layout and the recording fake world.
+-- Town builder (tickets #15, #45): ground layout and terrain writes on a small authored plan.
 run_group("tests/builder_tests.lua", eq, fails, placement, dofile("src/planner.lua"),
 	dofile("src/site_search.lua"), dofile("src/builder.lua"))
 

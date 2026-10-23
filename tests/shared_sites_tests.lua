@@ -2,8 +2,7 @@
 local eq = ...
 local sites = dofile("src/plan_sites.lua")
 local preflight = dofile("src/preflight.lua")
-local blockouts = dofile("src/blockouts.lua")
-local layout = dofile("src/town_layout.lua")(blockouts)
+local layout = dofile("src/town_layout.lua")
 
 local a = {kind = "landmark", id = "temple", rotation = 0,
 	rect = {x1 = 0, z1 = 0, x2 = 1, z2 = 1}}
@@ -29,11 +28,11 @@ eq(comp.structures[2].role, "temple_east", "reused catalog id stays a separate s
 
 local pave = layout.pavement_map(plan)
 eq(pave[2] and pave[2][1], "test:stone", "generic forum square is paved")
-local legacy = layout.pavement_map({sites = {
+local medieval = layout.pavement_map({sites = {
 	market = {rect = {x1 = 0, z1 = 0, x2 = 2, z2 = 2}, material = "test:market"},
 	parvis = {rect = {x1 = 2, z1 = 2, x2 = 4, z2 = 4}, material = "test:parvis"},
 }, streets = {}})
-eq(legacy[2][2], "test:market", "legacy market remains ahead of parvis")
+eq(medieval[2][2], "test:market", "market remains ahead of parvis")
 
 local bare = {
 	sites = {}, streets = {}, bounds = {x1 = 0, z1 = 0, x2 = 1, z2 = 1},
@@ -42,5 +41,4 @@ local bare = {
 local bare_comp = assert(preflight.compose(bare, {}, 10))
 eq(#bare_comp.structures, 0, "composition accepts a plan without medieval landmarks")
 local L = layout.new(bare, 10, {heights = function() return 10 end, max_y = 20})
-eq(L.landmark_dy(0, 0), nil, "missing medieval sites create no blockout")
 eq(L.node_at(0, 10, 0), nil, "bare plan keeps natural ground")

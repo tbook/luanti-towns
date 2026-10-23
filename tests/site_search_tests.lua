@@ -16,8 +16,24 @@ local small_planner = setmetatable({
 		return make_authored_plan(center, seed, {notched = true})
 	end,
 }, {__index = planner})
-local ss = factory(placement, small_planner)
+local ss_raw = factory(placement, small_planner)
 local ss_real = factory(placement, planner)
+local catalog = dofile("src/catalog.lua")
+
+-- Search always composes the plan's buildings, which needs catalog entries:
+-- these tests give the authored plan's catalog ids unless a test says otherwise.
+local ss = setmetatable({
+	search = function(player_pos, seed, opts, done, env)
+		if opts == nil then
+			opts = {entries = catalog.entries}
+		elseif type(opts) == "table" and opts.entries == nil then
+			local o = {entries = catalog.entries}
+			for k, v in pairs(opts) do o[k] = v end
+			opts = o
+		end
+		return ss_raw.search(player_pos, seed, opts, done, env)
+	end,
+}, {__index = ss_raw})
 
 local SEED = 20260101
 
@@ -197,7 +213,7 @@ do
 	local catalog = dofile("src/catalog.lua")
 	local profile = assert(planner.landmark_profile(catalog.snapshot()))
 	local opts = {step = 160, max_radius = 160,
-		planner_opts = {landmarks = profile}, structure_bounds = true}
+		planner_opts = {landmarks = profile}}
 	local content_plan = assert(planner.plan({x = 0, z = 0}, 101, opts.planner_opts))
 	eq(content_plan.content and #content_plan.content.buildings > 0, true,
 		"populated catalog fixture includes content buildings")
@@ -262,8 +278,9 @@ eq(r.build_bounds.max.x, bd.x2, "flat: build max x")
 eq(r.build_bounds.min.z, bd.z1, "flat: build min z")
 eq(r.build_bounds.max.z, bd.z2, "flat: build max z")
 eq(r.build_bounds.min.y, 20, "flat: build min y")
-eq(r.build_bounds.max.y, 20 + ss.CONSTANTS.LANDMARK_BLOCKOUT_HEIGHT
-	+ ss.CONSTANTS.BLOCKOUT_MARGIN, "flat: build max y includes blockout clearance")
+eq(r.build_bounds.max.y, 20 + catalog.get("demo_house").size.y - 1,
+	"flat: build max y is the top of the tallest placed structure")
+eq(#r.structures, 1, "flat: composed structures reported")
 local iv = r.inspection_volume
 eq(w.emerges[1].min.x, iv.min.x, "flat: emerged read volume min x")
 eq(w.emerges[1].max.y, iv.max.y, "flat: emerged read volume max y")
@@ -274,7 +291,7 @@ local bv = r.build_volume
 eq(w.emerges[2].min.x, bv.min.x, "flat: emerged build volume min x")
 eq(w.emerges[2].max.y, bv.max.y, "flat: emerged build volume max y")
 eq(bv.min.x, bd.x1 - ss.CONSTANTS.CUT_FILL_MARGIN, "flat: build volume has cut/fill margin")
-eq(bv.max.y, r.build_bounds.max.y, "flat: build volume covers blockout")
+eq(bv.max.y, r.build_bounds.max.y, "flat: build volume covers the structures")
 eq(bv.min.y, r.build_bounds.min.y - ss.CONSTANTS.CUT_FILL_MARGIN, "flat: build volume covers cut/fill")
 
 -- Every boundary column is in the height map, and nothing else.
@@ -328,7 +345,7 @@ eq(r ~= nil, true, "median: accepted")
 eq(r.ground_y, 20, "median: median of heights, not mean/max")
 eq(r.min_height, 20, "median: min")
 eq(r.max_height, 24, "median: max")
-eq(r.build_bounds.max.y, 20 + 44, "median: top is ground + clearance")
+eq(r.build_bounds.max.y, 27, "median: top is the tallest placed structure, above the highest surface")
 
 -- Whole site sits at 30 (high but inside the window): ground is 30.
 r = run(new_world({surface = function() return 30 end}), {x = 0, y = 31, z = 0}, nil)
@@ -778,6 +795,14 @@ fails(function() ss.search({x = 0, y = 21, z = -math.huge}, SEED, nil, function(
 	"player_pos.z must be finite", "-inf player z")
 fails(function() ss.search(PLAYER, SEED, "x", function() end, new_world({}).env) end,
 	"opts must be a table", "non-table opts")
+-- Real structure bounds are the only bounds: the old switch is gone and the
+-- search needs entries (or a landmark profile) to compose them.
+fails(function() ss.search(PLAYER, SEED, {structure_bounds = true}, function() end, new_world({}).env) end,
+	"unknown option 'structure_bounds'", "structure_bounds option removed")
+fails(function() ss_raw.search(PLAYER, SEED, {}, function() end, new_world({}).env) end,
+	"opts.entries or opts.planner_opts.landmarks is required", "no entries, no profile")
+fails(function() ss_raw.search(PLAYER, SEED, {entries = "x"}, function() end, new_world({}).env) end,
+	"opts.entries must be a catalog-entry table", "entries must be a table")
 do
 	-- planner_opts and upper-case constant names remain accepted.
 	local ok = pcall(run, new_world({}), PLAYER, {STEP = 16, planner_opts = {}, max_radius = 48})
@@ -924,6 +949,31 @@ do
 	eq(ir and ir.ground_y, 20, "pond wet: ground is the dry level (median)")
 end
 
+-- The default reach beyond the town edge follows the plan's actual extent: a
+-- plan reaching farther than REACH_EDGE from its centre searches that much
+-- farther; an explicit max_radius is taken as given.
+do
+	local wide = setmetatable({
+		plan = function(center, seed)
+			local plan = make_authored_plan(center, seed)
+			plan.bounds = {x1 = center.x - 100, z1 = center.z, x2 = center.x + 15, z2 = center.z + 8}
+			return plan
+		end,
+	}, {__index = small_planner})
+	local wide_ss = factory(placement, wide)
+	local function total(opts)
+		local out
+		opts.entries = catalog.entries
+		wide_ss.search(PLAYER, SEED, opts, function(_, _, d) out = d.candidates_total end,
+			new_world({}).env)
+		return out
+	end
+	local grown = ss.CONSTANTS.MAX_RADIUS + 100 - ss.REACH_EDGE
+	eq(total({}), #ss.candidate_offsets(ss.CONSTANTS.STEP, grown), "reach grows with the plan's extent")
+	eq(total({max_radius = 320}), #ss.candidate_offsets(ss.CONSTANTS.STEP, 320),
+		"explicit max_radius is not grown")
+end
+
 -- Lava is matched by exact node name (ticket #104).
 eq(ss.LAVA_NODES["mcl_core:lava_source"], true, "lava source listed")
 eq(ss.LAVA_NODES["mcl_decor:lava_lamp"], nil, "unrelated lava-named node is not lava")
@@ -934,7 +984,6 @@ do
 	local make_authored_plan = dofile("tests/authored_plan_fixture.lua")
 	local selected = {
 		SEED_LIMIT = planner.SEED_LIMIT,
-		LEGACY_ENVELOPE = planner.LEGACY_ENVELOPE,
 		check_seed = planner.check_seed,
 		resolve_constants = planner.resolve_constants,
 		validate = planner.validate,

@@ -297,27 +297,7 @@ do
 	eq(planner.validate(plan), nil, "tampered recess rejected")
 end
 
--- Site search: the default reach grows with the envelope; terrain limits do
--- not. (The player is not on solid ground, so the search stops at once and
--- only reports the candidate count.)
-do
-	local env = {
-		emerge = function() end, after = function() end,
-		get_node_name = function() return "air" end,
-		node_info = function() return nil end,
-	}
-	local function total(opts)
-		local t
-		site_search.search({x = 0, y = 10, z = 0}, 1, opts, function(_, _, d)
-			t = d.candidates_total
-		end, env)
-		return t
-	end
-	local legacy = total({})
-	local grown = total({planner_opts = {landmarks = profile}})
-	eq(grown > legacy, true, "profile search reach grows")
-	eq(total({planner_opts = {landmarks = profile}, max_radius = 320}), legacy,
-		"explicit max_radius is not grown")
-	eq(site_search.CONSTANTS.MAX_RANGE, 16, "terrain range unchanged")
-	eq(site_search.CONSTANTS.MAX_CUT_FILL, 24, "terrain cut/fill unchanged")
-end
+-- Site search: terrain limits do not scale with the town (its reach beyond
+-- the town edge is tested in tests/site_search_tests.lua).
+eq(site_search.CONSTANTS.MAX_RANGE, 16, "terrain range unchanged")
+eq(site_search.CONSTANTS.MAX_CUT_FILL, 24, "terrain cut/fill unchanged")
