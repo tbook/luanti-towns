@@ -22,13 +22,24 @@ return {
 	-- Flat construction boundary: bounding box of the plan plus this margin.
 	margin = 4,
 
+	-- Street profiles (issue #172), by name; an arm picks one with `profile`.
+	-- A lane is `width` nodes across, centred on the street, paved with
+	-- `material` (a bottom slab, so the lane sits half a node below the full
+	-- blocks at the edges). width must be even, and at least one node of the
+	-- street's width must remain on each side. Lanes run from the forum edge
+	-- to the node before the arch (see roman_planner.lua).
+	profiles = {
+		lane = {material = "mcl_stairs:slab_cobble", width = 4},
+	},
+
 	-- length: street nodes from the forum edge to the near face of the arch.
 	-- arch_rotation: turns the arch opening toward the forum.
+	-- profile: optional street profile from `profiles` (principal arms only).
 	arms = {
-		north = {street = "cardo_north", length = 59, arch = "arch_north", arch_rotation = 0},
-		south = {street = "cardo_south", length = 59, arch = "arch_south", arch_rotation = 180},
-		east = {street = "decumanus_east", length = 59, arch = "arch_east", arch_rotation = 90},
-		west = {street = "decumanus_west", length = 59, arch = "arch_west", arch_rotation = 270},
+		north = {street = "cardo_north", length = 59, arch = "arch_north", arch_rotation = 0, profile = "lane"},
+		south = {street = "cardo_south", length = 59, arch = "arch_south", arch_rotation = 180, profile = "lane"},
+		east = {street = "decumanus_east", length = 59, arch = "arch_east", arch_rotation = 90, profile = "lane"},
+		west = {street = "decumanus_west", length = 59, arch = "arch_west", arch_rotation = 270, profile = "lane"},
 	},
 	arch_id = "arch",
 

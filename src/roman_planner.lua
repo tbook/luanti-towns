@@ -233,11 +233,30 @@ function M.build(layout, center, seed, row_depth)
 		local spec = layout.arms[arm]
 		if not spec then layout_error("missing arm " .. arm) end
 		local vertical = ARMS[arm].x == 0
-		streets[#streets + 1] = {
+		local street = {
 			id = #streets + 1, name = spec.street, arm = arm, kind = "principal",
 			width = W, axis = vertical and "z" or "x", material = layout.street_material,
 			rect = translate(arm_rect(layout, arm, 0, spec.length - 1, -half, half - 1), dx, dz),
 		}
+		streets[#streets + 1] = street
+		if spec.profile ~= nil then
+			-- Lane (issue #172): centred, leaving an edge node each side as a
+			-- block, from the forum edge to the node before the arch so the arch
+			-- approach stays a full block.
+			local profile = layout.profiles and layout.profiles[spec.profile]
+			if not profile or type(profile.material) ~= "string" then
+				layout_error("arm " .. arm .. " has an unknown profile")
+			end
+			local lane_w = profile.width
+			if type(lane_w) ~= "number" or lane_w < 2 or lane_w % 2 ~= 0 or lane_w > W - 2 or spec.length < 2 then
+				layout_error("profile " .. spec.profile .. " does not fit the street of " .. arm)
+			end
+			local inset = (W - lane_w) / 2
+			street.lane = {
+				material = profile.material,
+				rect = translate(arm_rect(layout, arm, 0, spec.length - 2, -half + inset, half - 1 - inset), dx, dz),
+			}
+		end
 		-- The arch's opening is mid-street, so the box is centred on the street.
 		local sx, sz = footprint(layout.arch_id, spec.arch_rotation)
 		local along, across = sz, sx

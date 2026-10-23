@@ -135,6 +135,41 @@ local gate_pavement = TL.pavement_map({
 eq(gate_pavement[30][24], "m:brick", "gate apron is paved")
 eq(gate_pavement[35][28], "m:brick", "far corner of gate apron is paved")
 
+-- Street lane (issue #172): centre cells are slabs, edge cells keep the
+-- street material, and a square still wins over the lane.
+local lane_plan = {
+	boundary = {rects = {{x1 = 0, z1 = 0, x2 = 5, z2 = 9}}},
+	sites = {market = {rect = {x1 = 0, z1 = 9, x2 = 0, z2 = 9}, material = "m:square"}},
+	streets = {{id = 1, kind = "principal", rect = {x1 = 0, z1 = 0, x2 = 5, z2 = 9},
+		material = "m:cobble", lane = {rect = {x1 = 1, z1 = 0, x2 = 4, z2 = 8}, material = "m:slab"}}},
+}
+local lane_pav = TL.pavement_map(lane_plan)
+eq(lane_pav[1][0], "m:slab", "lane cell is a slab")
+eq(lane_pav[4][8], "m:slab", "far lane corner is a slab")
+eq(lane_pav[0][4], "m:cobble", "west edge stays a block")
+eq(lane_pav[5][4], "m:cobble", "east edge stays a block")
+eq(lane_pav[2][9], "m:cobble", "lane stops before the arch end")
+eq(lane_pav[0][0], "m:cobble", "street corner stays a block")
+eq(lane_pav[0][9], "m:square", "square still beats the street")
+do
+	local lane_bo = {
+		MAX_HEIGHT = 40, names = function() return {} end,
+		cathedral = function() return {cols = {}, max_dy = 0, names = {}, opening = {}} end,
+		castle = function() return {cols = {}, max_dy = 0, names = {}, opening = {}} end,
+	}
+	local LT = dofile("src/town_layout.lua")(lane_bo)
+	local LL = LT.new(lane_plan, 20, {heights = function() return 20 end,
+		surface = function() return "x:grass" end, max_y = 30})
+	local lane_node, lane_kind = LL.node_at(2, 20, 4)
+	eq(lane_node, "m:slab", "lane ground row writes the slab node")
+	eq(lane_kind, "pave", "lane ground row is pavement (param2 0, bottom slab)")
+	eq(LL.node_at(0, 20, 4), "m:cobble", "edge ground row writes the block")
+	eq(LL.node_at(2, 19, 4), DIRT, "lane keeps its support row")
+	local has_slab = false
+	for _, n in ipairs(LL.palette()) do if n == "m:slab" then has_slab = true end end
+	eq(has_slab, true, "palette lists the lane material")
+end
+
 -- Column semantics: cut, fill, level, with a one-rect plan.
 do
 	local plan = {

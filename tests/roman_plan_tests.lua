@@ -216,6 +216,52 @@ for _, name in ipairs({"temple_east", "temple_west"}) do
 	eq((a.x - e.x) * s.facing.x + (a.z - e.z) * s.facing.z > 1, true, name .. " door is recessed")
 end
 
+-- Lanes (issue #172): each principal arm carries a central lane of cobble
+-- slabs, two nodes narrower than the street, from the forum edge to the node
+-- before its arch. Edge nodes stay blocks, the arch approach stays a block.
+for _, arm in ipairs({"north", "south", "east", "west"}) do
+	local st = arm_streets[arm]
+	local lane = st.lane
+	eq(lane ~= nil and lane.material, "mcl_stairs:slab_cobble", arm .. " arm has a cobble slab lane")
+	local r = st.rect
+	local along = (arm == "north" or arm == "south") and "z" or "x"
+	local across = along == "z" and "x" or "z"
+	local arch_far = arm == "north" or arm == "east" -- the arch sits at the far end
+	local e = {x1 = r.x1, z1 = r.z1, x2 = r.x2, z2 = r.z2}
+	e[across .. "1"] = r[across .. "1"] + 1
+	e[across .. "2"] = r[across .. "2"] - 1
+	if arch_far then e[along .. "2"] = r[along .. "2"] - 1 else e[along .. "1"] = r[along .. "1"] + 1 end
+	eq(lane.rect.x1 == e.x1 and lane.rect.z1 == e.z1 and lane.rect.x2 == e.x2 and lane.rect.z2 == e.z2, true,
+		arm .. " lane is the central four nodes up to the arch approach")
+	eq(overlap(lane.rect, plan.sites.forum.rect), false, arm .. " lane stays off the forum")
+	for _, s in ipairs(list) do
+		eq(overlap(lane.rect, s.rect), false, arm .. " lane stays off " .. s.name)
+	end
+	eq(lane.rect[across .. "2"] - lane.rect[across .. "1"] + 1, 4, arm .. " lane is four nodes across")
+	local ap = plan.sites[roman.layout.arms[arm].arch].approach.pos
+	eq(overlap(lane.rect, {x1 = ap.x, z1 = ap.z, x2 = ap.x, z2 = ap.z}), false, arm .. " arch approach is not laned")
+end
+for _, st in ipairs(plan.streets) do
+	if st.kind == "secondary" then eq(st.lane, nil, st.name .. " (ring) has no lane") end
+end
+eq(plan.sites.forum.lane, nil, "forum has no lane")
+for _, s in ipairs(list) do eq(s.lane, nil, s.name .. " has no lane") end
+local medieval_lanes = 0
+for _, st in ipairs(planner.plan({x = 0, z = 0}, 1).streets) do
+	if st.lane then medieval_lanes = medieval_lanes + 1 end
+end
+eq(medieval_lanes, 0, "medieval streets have no lanes")
+local lane_layout = copy(roman.layout)
+lane_layout.profiles.lane.width = 6
+local no_lane, lane_why = roman.plan({x = 0, z = 0}, 1, lane_layout, row_depth)
+eq(no_lane, nil, "a lane as wide as the street is rejected")
+eq(lane_why:find("does not fit", 1, true) ~= nil, true, "lane width reason")
+lane_layout = copy(roman.layout)
+lane_layout.arms.north.profile = "missing"
+no_lane, lane_why = roman.plan({x = 0, z = 0}, 1, lane_layout, row_depth)
+eq(no_lane, nil, "an unknown street profile is rejected")
+eq(lane_why:find("unknown profile", 1, true) ~= nil, true, "unknown profile reason")
+
 -- Blocks and frontage (issue #149).
 eq(#plan.blocks > 0 and #plan.frontage > 0, true, "plan has blocks and frontage")
 eq(row_depth, 9, "catalog row depth for ordinary templates")
