@@ -495,8 +495,8 @@
         "y": 18,
         "z": 43
       },
-      "snapshot_sha256": "7e0e85f8e2decaa52b09ae11a68293d790e0f5d1cc6dcb4cabbbf921202e7c0c",
-      "source_map_sha256": "bb0f342094d4a0f76c56c6a3f044df2e0600ae3473d851d8f0c070c0cc0c0623",
+      "snapshot_sha256": "9205f7797c2ae8a69d42c1187f0ca8ed98b1eae701549a2c18f71ccf1b5c17cc",
+      "source_map_sha256": "6eab09ffbcb4847a24979099bfe2b0dade786a7b4c1e12f0098eb590c1c6fef3",
       "non_air_node_types": 124,
       "metadata_nodes": 288,
       "required_nodes": [
@@ -554,7 +554,6 @@
         "mcl_doors:dark_oak_door_t_3",
         "mcl_doors:dark_oak_trapdoor",
         "mcl_doors:dark_oak_trapdoor_open",
-        "mcl_enchanting:table",
         "mcl_fences:dark_oak_fence",
         "mcl_flowers:azure_bluet",
         "mcl_flowers:dandelion",
@@ -567,6 +566,7 @@
         "mcl_flowers:tulip_pink",
         "mcl_flowers:tulip_red",
         "mcl_flowers:tulip_white",
+        "mcl_lectern:lectern",
         "mcl_nether:glowstone",
         "mcl_nether:quartz_block",
         "mcl_nether:quartz_chiseled",
