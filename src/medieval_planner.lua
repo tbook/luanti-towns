@@ -8,8 +8,9 @@
 -- planner's seeded generator (rng.int(a, b)). Every coordinate below is built
 -- from the centre, so plan(center) is a pure translation of plan({0, 0}).
 --
--- Layout (canonical orientation, +Z north, +X east). Bands run along X; an
--- E-W street lies between neighbouring bands:
+-- Layout (canonical orientation, +Z north, +X east, market north-east of the
+-- crossing, castle west). Bands run along X; an E-W street lies between
+-- neighbouring bands:
 --
 --     edge row                   (1 x ROW deep, buildings face south)
 --     secondary street
@@ -27,6 +28,13 @@
 -- the north edge row in front of the facade), and the castle outside the west
 -- edge with its gate on the E-W principal. The market is the inner-row cell
 -- north-east of the crossing, with the city hall on its far edge.
+--
+-- Variation (all seeded, drawn before anything else): the market's quadrant
+-- (which corner of the principals' crossing it fills; the hall stands on its
+-- far side, the market band is the one that may be deeper), the castle's side
+-- (west or east end), and a rigid 0/90/180/270 turn of the whole plan about
+-- the centre, applied last. Four quadrants x two castle sides x four turns
+-- give 32 arrangements; tests/medieval_variation_tests.lua checks them all.
 local function sibling(name)
 	local c = rawget(_G, "core")
 	if c and c.get_modpath and c.get_current_modname then
@@ -53,7 +61,49 @@ M.DEFAULT_ROW = 13     -- row depth for a profile without ordinary content (the 
                        -- catalog's deepest building)
 M.PARVIS = {x = 12, z = 8}
 
-local function build(center, seed, profile, rng)
+-- Turns a plan (before its frontage is derived) by `turn` degrees about its
+-- centre: (dx, dz) -> (dz, -dx) per 90, the same map geometry.place applies to
+-- a landmark, so a landmark's rotation just gains `turn`. Landmark sites are
+-- rebuilt from their turned rect; everything else is a rect or a point.
+function M.turn(plan, turn)
+	local c = plan.center
+	local function point(x, z)
+		local dx, dz = x - c.x, z - c.z
+		if turn == 90 then dx, dz = dz, -dx
+		elseif turn == 180 then dx, dz = -dx, -dz
+		else dx, dz = -dz, dx end
+		return c.x + dx, c.z + dz
+	end
+	local function rect(r)
+		local x1, z1 = point(r.x1, r.z1)
+		local x2, z2 = point(r.x2, r.z2)
+		return {x1 = math.min(x1, x2), z1 = math.min(z1, z2), x2 = math.max(x1, x2), z2 = math.max(z1, z2)}
+	end
+	local swap = turn ~= 180
+	plan.bounds = rect(plan.bounds)
+	for i, r in ipairs(plan.boundary.rects) do plan.boundary.rects[i] = rect(r) end
+	for _, st in ipairs(plan.streets) do st.rect = rect(st.rect) end
+	for _, b in ipairs(plan.blocks) do
+		b.rect = rect(b.rect)
+		b.size = {x = b.rect.x2 - b.rect.x1 + 1, z = b.rect.z2 - b.rect.z1 + 1}
+	end
+	for name, site in pairs(plan.sites) do
+		local r = rect(site.rect)
+		if site.kind == "landmark" then
+			local turned = authored_plan.landmark_site(name, site.id, (site.rotation + turn) % 360, r)
+			for k, v in pairs(site) do if turned[k] == nil then turned[k] = v end end
+			if site.gate_span then turned.gate_span = rect(site.gate_span) end
+			plan.sites[name] = turned
+		else
+			site.rect = r
+			local x, z = point(site.approach.pos.x, site.approach.pos.z)
+			site.approach.pos = {x = x, z = z}
+			if swap then site.size = {x = site.size.z, z = site.size.x} end
+		end
+	end
+end
+
+local function build(center, seed, profile, rng, variant)
 	local P, S = M.PRINCIPAL_WIDTH, M.SECONDARY_WIDTH
 	local ROW = 0
 	for _, e in pairs(profile.content or {}) do ROW = math.max(ROW, e.size.z) end
@@ -71,10 +121,22 @@ local function build(center, seed, profile, rng)
 	end
 
 	-- Seeded sizes first, so the extents are known before anything is placed.
+	-- `variant` (tests) forces an arrangement; the draws are made either way
+	-- so a forced field never shifts the others.
+	variant = variant or {}
+	local quadrant = rng.int(0, 3)        -- bit 0: market west, bit 1: market south
+	local castle_east = rng.int(0, 1) == 1
+	local turn = 90 * rng.int(0, 3)
+	if variant.quadrant ~= nil then quadrant = variant.quadrant end
+	if variant.castle_east ~= nil then castle_east = variant.castle_east end
+	if variant.turn ~= nil then turn = variant.turn end
+	local market_west, market_south = quadrant % 2 == 1, quadrant >= 2
 	local market_len = rng.int(M.MARKET_LENGTH[1], M.MARKET_LENGTH[2])
-	local hall_placed = profile.city_hall and place(profile.city_hall, 90) -- faces -x
-	local west_span = M.SPAN
-	local east_span = math.max(M.SPAN, market_len + (hall_placed and hall_placed.size.x or 0) + min_block)
+	local hall_rotation = market_west and 270 or 90 -- faces across the market
+	local hall_placed = profile.city_hall and place(profile.city_hall, hall_rotation)
+	local market_span = math.max(M.SPAN, market_len + (hall_placed and hall_placed.size.x or 0) + min_block)
+	local west_span = market_west and market_span or M.SPAN
+	local east_span = market_west and M.SPAN or market_span
 	-- The market row is deeper than an ordinary inner row if the hall's
 	-- facade needs it.
 	local market_depth = math.max(INNER, hall_placed and hall_placed.size.z or 0)
@@ -84,7 +146,8 @@ local function build(center, seed, profile, rng)
 	local Xp = X1 + west_span          -- first x of the N-S principal
 	local Xq = Xp + P                  -- first x east of it
 	local X2 = Xq + east_span - 1
-	local Z0 = center.z - (ROW + S + INNER + 3)
+	local south_depth = market_south and market_depth or INNER
+	local Z0 = center.z - (ROW + S + south_depth + 3)
 
 	local streets, blocks = {}, {}
 	local function street(kind, r)
@@ -113,10 +176,20 @@ local function build(center, seed, profile, rng)
 	end
 	add_band(ROW, "edge")
 	add_street(S, "secondary")
-	add_band(INNER, "inner")
+	local market_band
+	if market_south then
+		market_band = {z1 = z, z2 = z + market_depth - 1, kind = "inner"}
+		bands[#bands + 1] = market_band; z = z + market_depth
+	else
+		add_band(INNER, "inner")
+	end
 	add_street(P, "principal")
-	local market_band = {z1 = z, z2 = z + market_depth - 1, kind = "inner"}
-	bands[#bands + 1] = market_band; z = z + market_depth
+	if market_south then
+		add_band(INNER, "inner")
+	else
+		market_band = {z1 = z, z2 = z + market_depth - 1, kind = "inner"}
+		bands[#bands + 1] = market_band; z = z + market_depth
+	end
 	add_street(S, "secondary")
 	add_band(ROW, "edge")
 	local Z2 = z - 1
@@ -143,11 +216,13 @@ local function build(center, seed, profile, rng)
 		end
 	end
 
-	local market = R(Xq, market_band.z1, Xq + market_len - 1, market_band.z2)
+	local market = market_west and R(Xp - market_len, market_band.z1, Xp - 1, market_band.z2)
+		or R(Xq, market_band.z1, Xq + market_len - 1, market_band.z2)
 	local hall_rect
 	if hall_placed then
 		local z1 = market_band.z1 + math.floor((market_depth - hall_placed.size.z) / 2)
-		hall_rect = R(market.x2 + 1, z1, market.x2 + hall_placed.size.x, z1 + hall_placed.size.z - 1)
+		local x1 = market_west and market.x1 - hall_placed.size.x or market.x2 + 1
+		hall_rect = R(x1, z1, x1 + hall_placed.size.x - 1, z1 + hall_placed.size.z - 1)
 	end
 	for _, band in ipairs(bands) do
 		if band.kind == "edge" then
@@ -159,8 +234,12 @@ local function build(center, seed, profile, rng)
 				block(R(parvis.x2 + 1, band.z1, X2, band.z2))
 			end
 		else
-			cut(X1, Xp - 1, band)
-			if band == market_band then
+			if band == market_band and market_west then
+				cut(X1, (hall_rect or market).x1 - 1, band)
+			else
+				cut(X1, Xp - 1, band)
+			end
+			if band == market_band and not market_west then
 				cut((hall_rect or market).x2 + 1, X2, band)
 			else
 				cut(Xq, X2, band)
@@ -174,16 +253,19 @@ local function build(center, seed, profile, rng)
 	local cathedral_rect = R(door_x - cathedral_placed.entrance.x, Z2 + 1,
 		door_x - cathedral_placed.entrance.x + cathedral_placed.size.x - 1, Z2 + cathedral_placed.size.z)
 
-	-- Castle: outside the west edge facing east, gate span on the E-W
-	-- principal (a catalog gate is exactly as wide as the street).
-	local castle_placed = place(profile.castle, 270)
+	-- Castle: outside the west (or east) edge facing the town, gate span on
+	-- the E-W principal (a catalog gate is exactly as wide as the street).
+	local castle_rotation = castle_east and 90 or 270
+	local castle_placed = place(profile.castle, castle_rotation)
 	local castle_entry = id_entry(profile.castle)
 	local e = castle_entry.entrance
 	local local_gate = profile.castle.gate_span or {x1 = e.x, z1 = e.z or 0, x2 = e.x, z2 = e.z or 0}
-	local gate = geometry.rotate_rect(castle_entry.size, local_gate, 270)
+	local gate = geometry.rotate_rect(castle_entry.size, local_gate, castle_rotation)
 	local gate_width = gate.z2 - gate.z1 + 1
 	local castle_z1 = ew.z1 + math.floor((P - gate_width) / 2) - gate.z1
-	local castle_rect = R(X1 - castle_placed.size.x, castle_z1, X1 - 1, castle_z1 + castle_placed.size.z - 1)
+	local castle_x1 = castle_east and X2 + 1 or X1 - castle_placed.size.x
+	local castle_rect = R(castle_x1, castle_z1, castle_x1 + castle_placed.size.x - 1,
+		castle_z1 + castle_placed.size.z - 1)
 
 	local sites, order = {}, {"market", "parvis"}
 	sites.market = {
@@ -203,12 +285,12 @@ local function build(center, seed, profile, rng)
 		order[#order + 1] = name
 	end
 	landmark("cathedral", profile.cathedral, 0, cathedral_rect, {parvis = "parvis"})
-	landmark("castle", profile.castle, 270, castle_rect, {
+	landmark("castle", profile.castle, castle_rotation, castle_rect, {
 		gate_span = R(castle_rect.x1 + gate.x1, castle_rect.z1 + gate.z1,
 			castle_rect.x1 + gate.x2, castle_rect.z1 + gate.z2),
 	})
 	if hall_rect then
-		landmark("city_hall", profile.city_hall, 90, hall_rect, {square = "market"})
+		landmark("city_hall", profile.city_hall, hall_rotation, hall_rect, {square = "market"})
 	end
 
 	local core = R(X1, Z0, X2, Z2)
@@ -225,15 +307,17 @@ local function build(center, seed, profile, rng)
 		sites = sites, site_order = order,
 		streets = streets, blocks = blocks, frontage = {},
 	}
+	if turn ~= 0 then M.turn(plan, turn) end
 	local ok, why = authored_plan.derive_frontage(plan)
 	if not ok then error(why, 0) end
 	return plan, ROW
 end
 
 -- Returns plan, or nil, reason, detail. Inputs are already checked by
--- planner.plan.
-function M.plan(center, seed, profile, rng)
-	local ok, plan, row = pcall(build, center, seed, profile, rng)
+-- planner.plan. `variant` ({quadrant = 0..3, castle_east = bool, turn = 0, 90,
+-- 180 or 270}, any field optional) forces an arrangement; tests only.
+function M.plan(center, seed, profile, rng, variant)
+	local ok, plan, row = pcall(build, center, seed, profile, rng, variant)
 	if not ok then
 		local why = "medieval layout: " .. tostring(plan)
 		return nil, why, {code = "invalid_layout", last = why}

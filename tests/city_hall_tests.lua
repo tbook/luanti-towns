@@ -4,6 +4,7 @@
 --   loadfile("tests/city_hall_tests.lua")(eq, fails, planner, catalog, geometry)
 local eq, fails, planner, catalog, geometry = ...
 local authored_plan = dofile("src/authored_plan.lua")
+local A = dofile("tests/medieval_arrangement.lua")
 
 -- The default run plans the real tower on two seeds; seeds 1-8 run under
 -- TOWNS_TEST_FULL=1.
@@ -36,10 +37,9 @@ local function check(plan, hall, label)
 	eq(h.rect.x2 - h.rect.x1 + 1, g.size.x, label .. " box width")
 	eq(h.rect.z2 - h.rect.z1 + 1, g.size.z, label .. " box depth")
 	eq(overlaps(h.rect, mk), false, label .. " hall outside the paved market")
-	-- On the market's far (east) edge, facing back across it, facade within it.
-	eq(h.facing.x == -1 and h.facing.z == 0, true, label .. " faces the market")
-	eq(h.rect.x1, mk.x2 + 1, label .. " touches the market edge it faces")
-	eq(h.rect.z1 >= mk.z1 and h.rect.z2 <= mk.z2, true, label .. " facade within the market edge")
+	-- On the market's far edge from the north-south principal, facing back
+	-- across it, centred: every orientation-free arrangement rule.
+	eq(table.concat(A.problems(plan), "; "), "", label .. " arrangement rules")
 	-- Real (rotated) door and the pavement in front of it.
 	eq(h.entrance.x, g.entrance.x, label .. " entrance x")
 	eq(h.entrance.z, g.entrance.z, label .. " entrance z")
@@ -176,5 +176,81 @@ do
 		end
 		eq(bad, 0, "no pavement under the hall")
 		eq(paved, (mk.x2 - mk.x1 + 1) * (mk.z2 - mk.z1 + 1), "whole paved market paved")
+	end
+end
+
+-- Hall mutation matrix: each broken hall is caught by the arrangement rule
+-- that names the defect, in every market quadrant and turn (the validator
+-- alone accepts several of these, so the rules are what protect them).
+do
+	local medieval = dofile("src/medieval_planner.lua")
+	local function clone(v)
+		if type(v) ~= "table" then return v end
+		local o = {}
+		for k, x in pairs(v) do o[k] = clone(x) end
+		return o
+	end
+	local function shift(s, dx, dz, parts)
+		local r = s.rect
+		if parts.rect then r.x1, r.x2, r.z1, r.z2 = r.x1 + dx, r.x2 + dx, r.z1 + dz, r.z2 + dz end
+		if parts.entrance then s.entrance = {x = s.entrance.x + dx, z = s.entrance.z + dz} end
+		if parts.approach then s.approach.pos = {x = s.approach.pos.x + dx, z = s.approach.pos.z + dz} end
+	end
+	local ALL = {rect = true, entrance = true, approach = true}
+	local mutations = {
+		{"hall one node off the market edge", "hall touches the market edge it faces", function(p, h, l)
+			shift(p.sites.city_hall, -h.x, -h.z, ALL) end},
+		{"hall one node into the market", "hall touches the market edge it faces", function(p, h, l)
+			shift(p.sites.city_hall, h.x, h.z, ALL) end},
+		{"hall slid sideways", "hall centred on the market", function(p, h, l)
+			shift(p.sites.city_hall, l.x * 3, l.z * 3, ALL) end},
+		{"hall slid past the market's side", "hall facade within the market", function(p, h, l)
+			shift(p.sites.city_hall, l.x * 12, l.z * 12, ALL) end},
+		{"approach one node sideways", "hall approach on the market", function(p, h, l)
+			shift(p.sites.city_hall, l.x, l.z, {approach = true}) end},
+		{"approach inside the hall", "hall approach on the market", function(p, h, l)
+			shift(p.sites.city_hall, -h.x, -h.z, {approach = true}) end},
+		{"approach left behind the market", "hall approach on the market", function(p, h, l)
+			shift(p.sites.city_hall, -h.x * 30, -h.z * 30, {approach = true}) end},
+		{"entrance outside the footprint", "hall entrance within its footprint", function(p, h, l)
+			shift(p.sites.city_hall, h.x * 40, h.z * 40, {entrance = true}) end},
+		{"hall faces away", "hall touches the market edge it faces", function(p, h, l)
+			p.sites.city_hall.facing = {x = -h.x, z = -h.z} end},
+		{"hall on the principal's side", "hall on the market's far side from the north-south principal", function(p, h, l)
+			local m = p.sites.market.rect
+			local hs = p.sites.city_hall
+			local len = (h.x ~= 0) and (m.x2 - m.x1 + 1) or (m.z2 - m.z1 + 1)
+			local w = (h.x ~= 0) and (hs.rect.x2 - hs.rect.x1 + 1) or (hs.rect.z2 - hs.rect.z1 + 1)
+			shift(hs, h.x * (len + w), h.z * (len + w), {rect = true})
+			hs.facing = {x = -h.x, z = -h.z}
+		end},
+		{"hall names another square", "hall square is the market", function(p, h, l)
+			p.sites.city_hall.square = "parvis" end},
+		{"hall narrowed", "hall centred on the market", function(p, h, l)
+			local r = p.sites.city_hall.rect
+			if l.x ~= 0 then r.x2 = r.x2 - 6 else r.z2 = r.z2 - 6 end end},
+		{"hall overlaps the cathedral", "hall clear of other sites", function(p, h, l)
+			local c, r = p.sites.cathedral.rect, p.sites.city_hall.rect
+			r.x1, r.x2, r.z1, r.z2 = c.x1, c.x1 + (r.x2 - r.x1), c.z1, c.z1 + (r.z2 - r.z1) end},
+	}
+	for q = 0, 3 do
+		local turn = q * 90
+		local label = ("quadrant %d turn %d"):format(q, turn)
+		local rng = {int = function(a, b) return a + (7 % (b - a + 1)) end}
+		local start = medieval.plan({x = 20, z = -30}, 9, base, rng,
+			{quadrant = q, castle_east = q % 2 == 0, turn = turn})
+		eq(start ~= nil, true, label .. " mutation base planned")
+		if start then
+			eq(#A.problems(start), 0, label .. " mutation base is clean")
+			local hf = start.sites.city_hall.facing
+			local hl = {x = -hf.z, z = hf.x}
+			for _, m in ipairs(mutations) do
+				local p = clone(start)
+				m[3](p, hf, hl)
+				local found = false
+				for _, name in ipairs(A.problems(p)) do if name == m[2] then found = true end end
+				eq(found, true, label .. ": " .. m[1] .. " breaks '" .. m[2] .. "'")
+			end
+		end
 	end
 end

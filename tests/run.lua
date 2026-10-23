@@ -383,6 +383,9 @@ run_group("tests/landmark_profile_tests.lua", eq, fails, dofile("src/planner.lua
 -- City hall reservation on the market (ticket #39).
 run_group("tests/city_hall_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
+-- Medieval variation: market quadrant, castle side, turn (issue #184).
+run_group("tests/medieval_variation_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
+
 -- Jail reservation on street frontage (ticket #69).
 run_group("tests/jail_reservation_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
 

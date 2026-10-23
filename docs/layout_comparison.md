@@ -377,3 +377,19 @@ run. Over seeds 1 to 40 on one machine: 79.5 s before, 102 s after (about
 the hot spots in `src/streets.lua`: `edge_runs` results are cached per road
 layer, the wide-pavement test uses a precomputed window table, and candidate
 strips already tested are memoised.
+
+## After #184 stage 4 (variation)
+
+`docs/layout_after_184/` was produced by `lua5.1 tools/layout_compare/run.lua docs/layout_after_184`
+on the constructive row-grid planner with market-quadrant, castle-side and
+turn variation (default seed set; planning time in `timing.txt`).
+`docs/layout_baseline/` and the earlier `layout_after_*` directories are
+historical records of the retired search planner and were not regenerated.
+`variation.tsv` lists each seed's arrangement: `f` is the cathedral's facing
+(the plan's turn), `market=ab` the market's side along `f` and across it, and
+`castle=c` the castle's side across `f` (tests/medieval_arrangement.lua).
+Bounds are 210x151, or 151x210 when turned a quarter, for every arrangement.
+
+`variation.tsv` is not written by `layout_compare`: it was produced by planning
+each seed with `planner.plan` and printing `plan.bounds`, the ordinary
+building count and `dofile("tests/medieval_arrangement.lua").arrangement(plan)`.

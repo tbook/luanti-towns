@@ -1,0 +1,13 @@
+seed	centre	bounds	arrangement	ordinary_buildings	plan_ms
+1	0,0	151x210	f=1,0;market=--;castle=-	76 buildings	29 ms
+7	1500,-2500	151x210	f=-1,0;market=+-;castle=+	74 buildings	31 ms
+42	-4200,3100	210x151	f=0,1;market=-+;castle=+	70 buildings	29 ms
+101	0,0	151x210	f=1,0;market=++;castle=+	77 buildings	31 ms
+256	1500,-2500	151x210	f=1,0;market=--;castle=-	78 buildings	30 ms
+1024	-4200,3100	210x151	f=0,1;market=--;castle=-	69 buildings	30 ms
+2718	0,0	210x151	f=0,-1;market=++;castle=+	71 buildings	29 ms
+31415	1500,-2500	151x210	f=1,0;market=--;castle=-	75 buildings	30 ms
+99999	-4200,3100	210x151	f=0,1;market=--;castle=-	74 buildings	30 ms
+123456	0,0	210x151	f=0,-1;market=--;castle=+	70 buildings	28 ms
+777777	1500,-2500	210x151	f=0,-1;market=--;castle=+	73 buildings	28 ms
+1000003	-4200,3100	151x210	f=1,0;market=-+;castle=-	74 buildings	29 ms

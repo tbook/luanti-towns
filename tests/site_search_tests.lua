@@ -977,8 +977,9 @@ do
 	eq(total({}), #ss.candidate_offsets(ss.CONSTANTS.STEP, grown), "reach grows with the plan's extent")
 	eq(total({max_radius = 320}), #ss.candidate_offsets(ss.CONSTANTS.STEP, 320),
 		"explicit max_radius is not grown")
-	-- A medieval town (landmark profile) always reaches the full 376, even
-	-- when this seed's plan is compact (edge 60 < 104); explicit is as given.
+	-- A medieval town's reach follows its plan bounds like any other plan's
+	-- (the fixed 208-node envelope that used to floor it at 376 is gone): a
+	-- compact plan with edge 60 reaches 320 + (60 - 48) = 332, not 376.
 	local compact = setmetatable({
 		plan = function(center, seed)
 			local plan = make_authored_plan(center, seed)
@@ -994,10 +995,22 @@ do
 			new_world({}).env)
 		return out
 	end
-	local old_reach = #ss.candidate_offsets(ss.CONSTANTS.STEP, 376)
-	eq(compact_total({entries = catalog.entries}), old_reach, "compact medieval plan still reaches 376")
+	eq(compact_total({entries = catalog.entries}),
+		#ss.candidate_offsets(ss.CONSTANTS.STEP, ss.CONSTANTS.MAX_RADIUS + 60 - ss.REACH_EDGE),
+		"compact medieval plan reaches by its own extent")
 	eq(compact_total({entries = catalog.entries, max_radius = 320}),
 		#ss.candidate_offsets(ss.CONSTANTS.STEP, 320), "explicit max_radius wins for medieval")
+	-- The real medieval planner: the reach is the plan's own extent.
+	for _, seed in ipairs({1, 2}) do
+		local real = assert(planner.plan({x = 0, z = 0}, seed, {landmarks = medieval_profile}))
+		local b = real.bounds
+		local edge = math.max(-b.x1, b.x2, -b.z1, b.z2)
+		local out
+		ss.search(PLAYER, seed, {entries = catalog.entries, planner_opts = {landmarks = medieval_profile}},
+			function(_, _, d) out = d.candidates_total end, new_world({}).env)
+		eq(out, #ss.candidate_offsets(ss.CONSTANTS.STEP, ss.CONSTANTS.MAX_RADIUS + edge - ss.REACH_EDGE),
+			"real medieval plan seed " .. seed .. " reaches by its bounds")
+	end
 end
 
 -- Lava is matched by exact node name (ticket #104).

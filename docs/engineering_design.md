@@ -125,8 +125,19 @@ sketch):
   town is a cross of building rows crossed by one north-south principal
   street, see `src/medieval_planner.lua`. The outline is simple and
   orthogonal and follows from the rows; the seed varies block lengths and
-  the market length. The stepped outline described in earlier versions of
-  this section was removed.
+  the market length (stage 4 of #184, the arrangement): the market
+  quadrant (four corners of the principals' crossing), the castle side
+  (west or east end of the east-west principal) and a rigid 0/90/180/270
+  turn of the whole plan about its centre (`medieval_planner.turn`, which
+  re-derives each landmark site with `authored_plan.landmark_site` and then
+  derives the frontage), 32 arrangements in all, drawn first from the
+  planner's seeded rng; nothing is searched or retried. The outline is only
+  ever turned, never mirrored. `tests/medieval_arrangement.lua` states the
+  door, approach, gate and hall rules orientation-free and
+  `tests/medieval_variation_tests.lua` runs them over every arrangement.
+  Bounds are 210x151 (151x210 turned a quarter) for every arrangement. Site search reach
+  follows `plan.bounds` (the fixed `ENVELOPE` constant is gone). The
+  stepped outline described in earlier versions of this section was removed.
 - **Parvis (#105).** A 12-wide (`PARVIS_WIDTH`) by 8-deep
   (`PARVIS_FRONT_DEPTH`) rect on the entrance side, touching the compound box
   edge and centred on the catalog door's lateral coordinate (not the compound
@@ -222,10 +233,11 @@ Agreed scope:
   than the Phase 2 reservations (the original nominal footprints, since
   removed). Derive reservations and site approaches from the
   current schematics, keeping the parvis and connected streets. Enlargement of the town is authorized. Engineering trials began at
-  a 192-node envelope; the profile envelope is
-  now 208 (#89) with principal streets 5 wide (#88; 6 wide since #184), wider-spaced secondary
-  streets (#86); the street spacing and minimum block side are derived
-  from the catalog's ordinary building depth (#86, `docs/layout_comparison.md`). Tune the size for usable
+  a 192-node envelope, later 208 (#89); since #184 there is no
+  envelope and the town is the row-grid plan's own 210x151 extent, with principal
+  streets 6 wide and secondary streets 4 wide; the row depth is the catalog's
+  deepest ordinary building (`docs/layout_comparison.md` describes the older
+  spacing metrics). Tune the size for usable
   residential frontage and acceptable planning cost; this is not a fixed
   product size. Keep the current terrain acceptance limits.
 - **Placement unit.** Pack the full schematic boxes, not separate lots. Their
@@ -254,9 +266,11 @@ Agreed scope:
   open square. The hall keeps a street width from the cathedral, parvis and
   castle, is an obstacle for streets, blocks and routes, and ordinary
   buildings, services and roads respect its footprint; the other three
-  market sides stay open to streets and building frontage. Candidates run
-  along the four market edges, centred first then flush to an end; the seeded
-  rng picks among the first tier that fits inside the boundary.
+  market sides stay open to streets and building frontage. Since #184 the
+  hall stands on the market's far edge from the north-south principal,
+  centred in the market band and facing back across the market, in every
+  market quadrant (the market band is deepened if the facade needs it); the
+  earlier candidate tiers are gone.
 - **Residents.** Require Living Villages. Spawn one resident per valid,
   complete, accessible bed inside placed buildings, including tavern and
   landmark beds. Support the game's bed colors, count each pair once, and
