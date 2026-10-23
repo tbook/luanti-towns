@@ -3,7 +3,10 @@ local catalog = dofile("src/catalog.lua")
 local geometry = dofile("src/geometry.lua")
 local entry = catalog.get("demo_house")
 
-return function(center, seed)
+-- make(center, seed [, opts]); opts.notched = true replaces the single
+-- boundary rectangle with an equal-bounds L shape (cells of the bounding box
+-- lie outside the boundary), for terrain-inspection tests.
+return function(center, seed, opts)
 	local dx, dz = center.x, center.z
 	local function rect(x1, z1, x2, z2)
 		return {x1 = x1 + dx, z1 = z1 + dz, x2 = x2 + dx, z2 = z2 + dz}
@@ -14,7 +17,8 @@ return function(center, seed)
 		town_type = "roman", seed = seed or 1,
 		center = {x = dx, z = dz},
 		bounds = rect(0, 0, 15, 8), envelope = rect(0, 0, 15, 8),
-		boundary = {rects = {rect(0, 0, 15, 8)}},
+		boundary = {rects = (opts and opts.notched)
+			and {rect(0, 0, 11, 8), rect(12, 0, 15, 3)} or {rect(0, 0, 15, 8)}},
 		site_order = {"forum", "temple"},
 		sites = {
 			forum = {name = "forum", kind = "square", material = "test:paving",
