@@ -411,6 +411,15 @@ do
 		local h, hwhy = route("tower", rot)
 		eq(h ~= nil, true, "real town hall door reachable at rotation " .. rot .. ": " .. tostring(hwhy))
 	end
+	-- #213: every fixed Roman capture routes from its catalog entrance at all four
+	-- rotations. The theatre's entrance is the cavea's back gap (file z=1, stair floor
+	-- at z=0), which must not sit on a partial floor cell.
+	for _, id in ipairs({"amphitheater", "arch", "temple", "theatre", "domus", "bath", "insula", "basilica", "vespasianum"}) do
+		for _, rot in ipairs({0, 90, 180, 270}) do
+			local r, why = route(id, rot)
+			eq(r ~= nil, true, "real " .. id .. " entrance reachable at rotation " .. rot .. ": " .. tostring(why))
+		end
+	end
 	-- #87: captures that began at the floor row sank flush with the street
 	-- (one block low). A template must keep a ground row under its floor
 	-- whenever it has entrance stairs: no stair node may sit on the ground row

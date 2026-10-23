@@ -19,7 +19,7 @@ local entries = {
 	},
 	theatre = {
 		size = {x = 21, y = 11, z = 14},
-		entrance = {x = 10, y = 5, z = 0},
+		entrance = {x = 10, y = 5, z = 1},
 		entrance_kind = "opening", ground_offset = 3,
 	},
 	amphitheater = {
