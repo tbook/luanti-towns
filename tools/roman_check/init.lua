@@ -13,6 +13,7 @@ local ground_samples = {
  theatre = {{x=0,y=3,z=0},'mcl_core:dirt_with_grass'},
  amphitheater = {{x=0,y=2,z=0},'mcl_core:dirt_with_grass'},
  bath = {{x=0,y=2,z=0},'mcl_core:dirt_with_grass'},
+ insula = {{x=0,y=2,z=0},'mcl_core:gravel'},
 }
 
 local function run()

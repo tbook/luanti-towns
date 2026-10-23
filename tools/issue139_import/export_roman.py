@@ -18,8 +18,13 @@ FIXED_BOXES = {
     # Tight bath box (#171): the architecture plus the two ground rows and the
     # approach, without the dirt/grass/gravel platform margin around it.
     'bath': ({'x': 101, 'y': 7, 'z': 399}, {'x': 188, 'y': 24, 'z': 441}),
+    # Insula (#193): the issue's box (213..248, 6..25, 399..426) minus the x=0 and
+    # z=27 grass/dirt platform margin; the eaves at x=1..35 and z=0..26 are kept.
+    'insula': ({'x': 214, 'y': 6, 'z': 399}, {'x': 248, 'y': 25, 'z': 425}),
 }
-IDS = ('domus', 'arch', 'theatre', 'villa', 'aqueduct', 'amphitheater', 'temple', 'bath')
+# Buildings recorded in the Issue 139 workshop report; insula is not.
+RECORDED = ('domus', 'arch', 'theatre', 'villa', 'aqueduct', 'amphitheater', 'temple', 'bath')
+IDS = RECORDED + ('insula',)
 
 
 def main():
@@ -37,16 +42,21 @@ def main():
         raise SystemExit('TownsWorkshop is open; return to the menu before exporting.')
     validation = json.loads((source / 'issue139-validation.json').read_text())
     records = {r['id']: r for r in validation['records']}
-    if set(records) != set(IDS):
+    if set(records) != set(RECORDED):
         raise SystemExit('Issue 139 workshop report does not contain exactly the expected eight buildings.')
     jobs = []
     for name in wanted:
-        r = records[name]
-        lo = dict(r['origin'])
-        size = dict(r['size'])
-        hi = {k: lo[k] + size[k] - 1 for k in ('x', 'y', 'z')}
+        r = records.get(name)
+        if r is None and name not in FIXED_BOXES:
+            raise SystemExit(name + ' has no workshop record and no fixed box.')
+        lo = dict(r['origin']) if r else dict(FIXED_BOXES[name][0])
+        size = dict(r['size']) if r else None
+        hi = {k: lo[k] + size[k] - 1 for k in ('x', 'y', 'z')} if r else None
         if name in FIXED_BOXES:
             lo, hi = (dict(c) for c in FIXED_BOXES[name])
+        if size is None:
+            size = {k: hi[k] - lo[k] + 1 for k in ('x', 'y', 'z')}
+        r = r or {'origin': lo, 'size': size}
         if name == 'temple':
             # Keep the terrain row below the quartz platform so the floor stands on it (#134).
             lo = {**lo, 'y': lo['y'] - 1}
@@ -102,7 +112,9 @@ def main():
     if args.only:
         # Selective run: keep the top-level provenance and the other records.
         fresh = {b['id']: b for b in manifest['buildings']}
+        known = {b['id'] for b in kept['buildings']}
         kept['buildings'] = [fresh.get(b['id'], b) for b in kept['buildings']]
+        kept['buildings'] += [b for b in manifest['buildings'] if b['id'] not in known]
         manifest = kept
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     print(json.dumps({'output': str(output),
