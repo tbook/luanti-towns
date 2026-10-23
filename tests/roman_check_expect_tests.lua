@@ -60,7 +60,7 @@ end
 
 local pos = {x = 100, y = 10, z = -20}
 local renamed = 0
-for _, id in ipairs({"amphitheater", "arch", "bath", "domus", "insula", "temple", "theatre"}) do
+for _, id in ipairs({"amphitheater", "arch", "bath", "domus", "insula", "temple", "theatre", "vespasianum", "basilica"}) do
 	local entry = load(id)
 	local source = files["./" .. entry.path]
 	for _, rotation in ipairs({0, 90, 180, 270}) do
