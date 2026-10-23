@@ -55,7 +55,7 @@ M.HELP = "WARNING: builds a town on the chosen site immediately, OVERWRITING it 
 	.. "with 'roman': the medieval town has cathedral, castle, city hall, jail, "
 	.. "services and houses/shops/workshops from the catalog; the Roman town "
 	.. "(first version) has the forum, four arches, temple, amphitheatre, "
-	.. "theatre, bath and domus monuments on authored streets, with blocks and "
+	.. "theatre, bath, domus and basilica monuments on authored streets, with blocks and "
 	.. "frontage, and the catalog's ordinary content where it fits (no "
 	.. "cathedral, castle or city hall). Both get initialized nodes and one "
 	.. "Living Villages resident per valid bed. "

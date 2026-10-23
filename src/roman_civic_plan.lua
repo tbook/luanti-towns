@@ -77,9 +77,10 @@ return {
 		{name = "insula_north_east", id = "insula", ring = "north", side = "outer", at = 3, rotation = 0},
 		{name = "insula_north_west", id = "insula", ring = "north", side = "outer", at = -38, rotation = 0},
 		{name = "insula_south", id = "insula", ring = "south", side = "outer", at = 3, rotation = 180},
-		-- domus_2 stands inside the ring; the others stand outside it.
+		-- The basilica stands inside the ring; the others stand outside it.
 		{name = "domus_1", id = "domus", ring = "east", side = "outer", at = 39, rotation = 0},
-		{name = "domus_2", id = "domus", arm = "east", side = "-z", at = 0, rotation = 90},
+		-- Rotation 270 turns its front door (+X) to +z, toward the decumanus.
+		{name = "basilica", id = "basilica", arm = "east", side = "-z", at = 0, rotation = 270},
 		{name = "domus_3", id = "domus", arm = "east", side = "-z", at = 29, rotation = 90},
 		{name = "domus_4", id = "domus", arm = "west", side = "+z", at = 29, rotation = 270},
 		{name = "theatre", id = "theatre", arm = "west", side = "-z", at = 10, rotation = 0},
