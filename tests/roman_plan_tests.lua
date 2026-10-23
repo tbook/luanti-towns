@@ -356,11 +356,11 @@ for i, f in ipairs(plan.frontage) do
 		if st.arm then arms_faced[st.arm] = true else ring_faced[st.ring] = true end
 	end
 end
--- The north arm has no block frontage (issue #202): its flanks hold the temples
--- and the north insulae stand on the ring, not against the arm.
 for _, arm in ipairs({"south", "east", "west"}) do
 	eq(arms_faced[arm], true, arm .. " arm has street frontage")
 end
+-- Issue #202: the authored block list gives the north arm no block frontage.
+eq(arms_faced.north, nil, "north arm has no block frontage")
 for _, band in ipairs({"north", "north_outer", "east", "south", "west"}) do
 	eq(ring_faced[band], true, band .. " ring band has frontage")
 end
@@ -719,9 +719,43 @@ do
 	local c = plan.center
 	eq(math.max(c.x - b.x1, b.x2 - c.x, c.z - b.z1, b.z2 - c.z), 95, "boundary edge is 95 from the centre (reach 367)")
 
+	-- Literal rects at the origin (seed 1): a one-node slip in any of these fails.
+	local origin = assert(planner.plan({x = 0, z = 0}, 1, {town_type = "roman"}))
+	local pins = {
+		{"domus_1", 44, 39, 81, 60}, {"domus_2", 15, -41, 36, -4},
+		{"domus_3", 44, -41, 65, -4}, {"domus_4", -66, 3, -45, 40},
+		{"amphitheater", 44, 3, 72, 31},
+		{"insula_north_east", 3, 39, 37, 65}, {"insula_north_west", -38, 39, -4, 65},
+		{"insula_south", 3, -74, 37, -48},
+	}
+	local function rect_pin(r, pin, label)
+		eq(r.x1, pin[2], label .. " x1")
+		eq(r.z1, pin[3], label .. " z1")
+		eq(r.x2, pin[4], label .. " x2")
+		eq(r.z2, pin[5], label .. " z2")
+	end
+	for _, pin in ipairs(pins) do
+		rect_pin(origin.sites[pin[1]].rect, pin, pin[1] .. " rect at the origin")
+	end
+	local block_pins = {
+		{"east_forum_north", 15, 3, 37, 11}, {"east_end_south", 66, -12, 73, -4},
+		{"south_east_inner", 3, -41, 11, -16}, {"west_forum_south", -25, -12, -16, -4},
+		{"west_end_south", -74, -12, -47, -4}, {"west_forum_north", -38, 3, -16, 11},
+		{"west_end_north", -74, 3, -67, 11}, {"ring_north_inner_east", 15, 24, 37, 32},
+		{"outer_north_east", 6, 72, 43, 80}, {"outer_north_west", -44, 72, -7, 80},
+		{"ring_west_outer_north", -53, 42, -45, 71}, {"ring_east_outer_south", 44, -80, 52, -42},
+	}
+	eq(#origin.blocks, #block_pins, "block count matches the authored list")
+	local by_name = {}
+	for _, b in ipairs(origin.blocks) do by_name[b.name] = b end
+	for _, pin in ipairs(block_pins) do
+		eq(by_name[pin[1]] ~= nil, true, pin[1] .. " block is planned")
+		if by_name[pin[1]] then rect_pin(by_name[pin[1]].rect, pin, pin[1] .. " block rect at the origin") end
+	end
+
 	-- Many seeds and several centres validate.
 	for _, c in ipairs({{0, 0}, {100, -50}, {-3000, 777}}) do
-		for seed = 1, 60 do
+		for seed = 1, 100 do
 			local p = planner.plan({x = c[1], z = c[2]}, seed, {town_type = "roman"})
 			eq(p ~= nil and planner.validate(p) == true, true,
 				("seed %d at (%d,%d) validates"):format(seed, c[1], c[2]))
