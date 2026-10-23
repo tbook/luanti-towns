@@ -41,13 +41,13 @@ local SIDES = {["-z"] = {x = 0, z = -1}, ["+z"] = {x = 0, z = 1},
 function M.validate(plan, opts)
 	local function bad(reason) return nil, "authored plan: " .. reason end
 	if type(plan) ~= "table" then return bad("plan must be a table") end
-	if type(plan.envelope) ~= "table" or not rect(plan.envelope) then return bad("invalid envelope rectangle") end
-	local env = plan.envelope
+	if type(plan.bounds) ~= "table" or not rect(plan.bounds) then return bad("invalid bounds rectangle") end
+	local bounds = plan.bounds
 	if type(plan.boundary) ~= "table" then return bad("boundary must be a table") end
 	local boundary = plan.boundary.rects
 	if type(boundary) ~= "table" or #boundary == 0 then return bad("boundary needs rectangles") end
 	for i, r in ipairs(boundary) do
-		if not rect(r) or not inside(r, env) then return bad("boundary rectangle " .. i .. " is invalid or outside envelope") end
+		if not rect(r) or not inside(r, bounds) then return bad("boundary rectangle " .. i .. " is invalid or outside bounds") end
 	end
 	local sites = plan.sites
 	if type(sites) ~= "table" then return bad("sites must be a table") end
@@ -67,7 +67,7 @@ function M.validate(plan, opts)
 		end
 		if names[name] then return bad("duplicate site identity " .. name) end
 		names[name] = true
-		if not rect(s.rect) or not inside(s.rect, env) then return bad("site " .. name .. " has invalid rectangle") end
+		if not rect(s.rect) or not inside(s.rect, bounds) then return bad("site " .. name .. " has invalid rectangle") end
 		for z = s.rect.z1, s.rect.z2 do for x = s.rect.x1, s.rect.x2 do
 			if not contains(boundary, x, z) then return bad("site " .. name .. " leaves boundary") end
 		end end
@@ -120,7 +120,7 @@ function M.validate(plan, opts)
 		if not rect(r) then return nil, label .. " has invalid rectangle" end
 		if type(material) ~= "string" or material == "" then return nil, label .. " needs a material" end
 		for z = r.z1, r.z2 do for x = r.x1, r.x2 do
-			if x < env.x1 or x > env.x2 or z < env.z1 or z > env.z2 or not contains(boundary, x, z) then
+			if x < bounds.x1 or x > bounds.x2 or z < bounds.z1 or z > bounds.z2 or not contains(boundary, x, z) then
 				return nil, label .. " leaves boundary"
 			end
 			for _, s in ipairs(landmarks) do if x >= s.rect.x1 and x <= s.rect.x2 and z >= s.rect.z1 and z <= s.rect.z2 then
@@ -149,7 +149,7 @@ function M.validate(plan, opts)
 	for _ in pairs(plan.blocks) do block_count = block_count + 1 end
 	for i, b in ipairs(plan.blocks) do
 		block_seen = block_seen + 1
-		if type(b) ~= "table" or not rect(b.rect) or type(b.frontage) ~= "table" or not inside(b.rect, env) then return bad("block " .. i .. " is malformed") end
+		if type(b) ~= "table" or not rect(b.rect) or type(b.frontage) ~= "table" or not inside(b.rect, bounds) then return bad("block " .. i .. " is malformed") end
 		if b.id ~= nil and b.id ~= i then return bad("block " .. i .. " has wrong id") end
 		for z = b.rect.z1, b.rect.z2 do for x = b.rect.x1, b.rect.x2 do
 			if not contains(boundary, x, z) then return bad("block " .. i .. " leaves boundary") end
@@ -178,7 +178,7 @@ function M.validate(plan, opts)
 	local occupied = {}
 	for i, f in ipairs(plan.frontage) do
 		checked = checked + 1
-		if type(f) ~= "table" or not rect(f.rect) or not inside(f.rect, env)
+		if type(f) ~= "table" or not rect(f.rect) or not inside(f.rect, bounds)
 				or not integer(f.block) or not plan.blocks[f.block] then
 			return bad("frontage " .. i .. " has invalid block reference")
 		end
@@ -256,6 +256,98 @@ function M.validate(plan, opts)
 	end
 	for k in pairs(pavement) do
 		if not seen[k] then return bad("public pavement contains a disconnected section") end
+	end
+	return true
+end
+
+-- Describes catalog `id` placed at `rect` (its footprint and rotation come
+-- from geometry.place at rect.x1, rect.z1) as an authored landmark site. The
+-- approach is the first node outside the box along the entrance front, so a
+-- recessed door still has a paved node on the box edge.
+function M.landmark_site(name, id, rotation, rect)
+	local entry = catalog.entries[id]
+	if not entry then error("landmark " .. tostring(name) .. " has unknown catalog id " .. tostring(id), 2) end
+	local placed = geometry.place(entry, {x = rect.x1, y = 0, z = rect.z1}, rotation)
+	local ax, az = placed.outside.x, placed.outside.z
+	while ax >= rect.x1 and ax <= rect.x2 and az >= rect.z1 and az <= rect.z2 do
+		ax, az = ax + placed.front.x, az + placed.front.z
+	end
+	return {
+		name = name, kind = "landmark", id = id, rotation = rotation,
+		rect = rect, size = {x = placed.size.x, z = placed.size.z},
+		entrance = {x = placed.entrance.x, z = placed.entrance.z},
+		facing = {x = placed.front.x, z = placed.front.z},
+		approach = {pos = {x = ax, z = az}},
+	}
+end
+
+-- Edge sides in the order their frontage runs are numbered.
+local SIDE_ORDER = {
+	{side = "-z", x = 0, z = -1}, {side = "+z", x = 0, z = 1},
+	{side = "-x", x = -1, z = 0}, {side = "+x", x = 1, z = 0},
+}
+
+-- Fills plan.frontage and each block's frontage list from the block rects.
+-- Along each block side, every maximal stretch of edge nodes whose outer
+-- neighbour is one square or street becomes a run; stretches facing a
+-- landmark or open ground get none. Squares (by name, sorted) take precedence
+-- over streets. Returns true, or nil and a reason if a block gets no run.
+-- Expects plan.sites, plan.streets, plan.blocks (each with name, id, rect and
+-- an empty frontage list) and an empty plan.frontage.
+function M.derive_frontage(plan)
+	local squares = {}
+	for name, site in pairs(plan.sites) do
+		if site.kind == "square" then squares[#squares + 1] = name end
+	end
+	table.sort(squares)
+	local function surface(x, z)
+		for _, name in ipairs(squares) do
+			local r = plan.sites[name].rect
+			if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return name, plan.sites[name].material end
+		end
+		for i, st in ipairs(plan.streets) do
+			local r = st.rect
+			if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return i, st.material end
+		end
+	end
+	for _, block in ipairs(plan.blocks) do
+		local r = block.rect
+		for _, s in ipairs(SIDE_ORDER) do
+			-- Edge nodes of this side in ascending coordinate order.
+			local cells = {}
+			if s.x == 0 then
+				local z = s.z < 0 and r.z1 or r.z2
+				for x = r.x1, r.x2 do cells[#cells + 1] = {x, z} end
+			else
+				local x = s.x < 0 and r.x1 or r.x2
+				for z = r.z1, r.z2 do cells[#cells + 1] = {x, z} end
+			end
+			local i = 1
+			while i <= #cells do
+				local owner, material = surface(cells[i][1] + s.x, cells[i][2] + s.z)
+				local j = i
+				if owner ~= nil then
+					while j < #cells do
+						local o = surface(cells[j + 1][1] + s.x, cells[j + 1][2] + s.z)
+						if o ~= owner then break end
+						j = j + 1
+					end
+					local a, b = cells[i], cells[j]
+					local run = {
+						id = #plan.frontage + 1, block = block.id, side = s.side,
+						facing = {x = s.x, z = s.z},
+						rect = {x1 = a[1], z1 = a[2], x2 = b[1], z2 = b[2]},
+						length = j - i + 1, material = material,
+					}
+					if type(owner) == "string" then run.square = owner
+					else run.street = owner; run.street_name = plan.streets[owner].name end
+					plan.frontage[run.id] = run
+					block.frontage[#block.frontage + 1] = run.id
+				end
+				i = j + 1
+			end
+		end
+		if #block.frontage == 0 then return nil, "block " .. tostring(block.name) .. " has no frontage" end
 	end
 	return true
 end
