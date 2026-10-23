@@ -35,8 +35,8 @@ per valid bed.
 the same search, build, node setup and resident stages. Its civic layout is
 authored in `src/roman_civic_plan.lua`: a forum square, four arches at the
 ends of the cardo and decumanus streets, a temple on each side of the north
-street, an amphitheatre, a theatre, a bath and four domus monuments, with
-paved blocks and street frontage. Ordinary houses, shops, workshops,
+street, an amphitheatre, a theatre, a bath, three domus monuments and a
+basilica, with paved blocks and street frontage. Ordinary houses, shops, workshops,
 services and the jail come from the shared catalog where they fit,
 and any shortfall is reported. The Roman layout has no cathedral, castle,
 city hall or market square; the Roman report names only the sites it
