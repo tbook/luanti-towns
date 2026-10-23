@@ -104,6 +104,25 @@ for _, band in ipairs(roman.layout.bands) do
 	eq(lo, band.span[1] + c, band.name .. " band starts at its declared span")
 	eq(hi, band.span[2] + c, band.name .. " band ends at its declared span")
 end
+-- Literal pins (issue #200): the ring at the origin, as x1, z1, x2, z2. The
+-- depth is the arm axis: north z 33..38 (from 18..23), south z -47..-42 (26..31),
+-- east x 37..42 (22..27), west x -43..-38 (22..27).
+do
+	local p0 = assert(planner.plan({x = 0, z = 0}, 1, {town_type = "roman"}))
+	local pins = {
+		north = {-43, 33, 42, 38}, south = {3, -47, 42, -42},
+		east = {37, -47, 42, 38}, west = {-43, 3, -38, 38},
+	}
+	for name, want in pairs(pins) do
+		local r
+		for _, st in ipairs(p0.streets) do if st.ring == name then r = st.rect end end
+		assert(r, "ring band " .. name .. " is planned")
+		local got = {r.x1, r.z1, r.x2, r.z2}
+		for i, k in ipairs({"x1", "z1", "x2", "z2"}) do
+			eq(got[i], want[i], "ring " .. name .. " " .. k .. " at the origin")
+		end
+	end
+end
 eq(R.n.z2 - R.n.z1 + 1, 6, "ring is one street wide")
 -- The ring is square-ish, behind the main streets.
 local rw, rh = R.e.x2 - R.w.x1 + 1, R.n.z2 - R.e.z1 + 1
@@ -429,6 +448,21 @@ none, why, detail = band_edit(function(b) b[2].name = b[1].name end)
 eq(none, nil, "duplicate ring band names are rejected")
 eq(detail and detail.code, "invalid_layout", "duplicate band name reports invalid_layout")
 eq(why:find("duplicate band name", 1, true) ~= nil, true, "duplicate band name reason")
+none, why = band_edit(function(b) b[1] = 5 end)
+eq(none, nil, "a band entry that is not a table is rejected")
+eq(why:find("band entries must be tables", 1, true) ~= nil, true, "non-table band reason")
+none, why = band_edit(function(b) b[1].from = "18" end)
+eq(none, nil, "a non-numeric band from is rejected")
+eq(why:find("malformed from..to", 1, true) ~= nil, true, "non-numeric band from reason")
+none, why = band_edit(function(b) b[2].to = nil end)
+eq(none, nil, "a missing band to is rejected")
+eq(why:find("malformed from..to", 1, true) ~= nil, true, "missing band to reason")
+none, why = band_edit(function(b) b[1].to = 17 end)
+eq(none, nil, "a band with from past to is rejected")
+eq(why:find("from past to", 1, true) ~= nil, true, "reversed band from/to reason")
+none, why = band_edit(function(b) b[3].from = 22.5 end)
+eq(none, nil, "a fractional band from is rejected")
+eq(why:find("whole nodes", 1, true) ~= nil, true, "fractional band from/to reason")
 
 -- Input checks are shared with the medieval entry point; medieval stays default.
 fails(function() planner.plan({x = 0.5, z = 0}, 1, {town_type = "roman"}) end,

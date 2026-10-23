@@ -213,6 +213,7 @@ function M.build(layout, center, seed, row_depth)
 	-- Ring bands (issue #164): see the layout for each band's extent.
 	local seen_band = {}
 	for _, band in ipairs(layout.bands or {}) do
+		if type(band) ~= "table" then layout_error("band entries must be tables") end
 		local name = band.name
 		if type(name) ~= "string" then layout_error("band name must be a string") end
 		if seen_band[name] then layout_error("duplicate band name " .. name) end
@@ -221,6 +222,10 @@ function M.build(layout, center, seed, row_depth)
 		if type(band.from) ~= "number" or type(band.to) ~= "number" then
 			layout_error("band " .. name .. " has a missing or malformed from..to")
 		end
+		if band.from ~= math.floor(band.from) or band.to ~= math.floor(band.to) then
+			layout_error("band " .. name .. " from..to must be whole nodes")
+		end
+		if band.from > band.to then layout_error("band " .. name .. " has from past to") end
 		local span = band.span
 		if type(span) ~= "table" or type(span[1]) ~= "number" or type(span[2]) ~= "number" or span[1] > span[2] then
 			layout_error("band " .. name .. " has a missing or malformed span")
