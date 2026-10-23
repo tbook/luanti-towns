@@ -95,8 +95,15 @@ for i = 1, #plan.streets do for j = i + 1, #plan.streets do
 end end
 local R = {n = ring_streets.north.rect, e = ring_streets.east.rect,
 	s = ring_streets.south.rect, w = ring_streets.west.rect}
-eq(R.n.x1 == R.w.x1 and R.n.x2 == R.e.x2, true, "north band spans west to east bands")
-eq(R.e.z1 == R.s.z1 and R.e.z2 == R.n.z2, true, "east band spans south to north bands")
+-- Declared band spans (issue #200): each band's compass extent across its arm.
+for _, band in ipairs(roman.layout.bands) do
+	local r = ring_streets[band.name].rect
+	local x_axis = band.arm == "north" or band.arm == "south"
+	local c = x_axis and plan.center.x or plan.center.z
+	local lo, hi = x_axis and r.x1 or r.z1, x_axis and r.x2 or r.z2
+	eq(lo, band.span[1] + c, band.name .. " band starts at its declared span")
+	eq(hi, band.span[2] + c, band.name .. " band ends at its declared span")
+end
 eq(R.n.z2 - R.n.z1 + 1, 6, "ring is one street wide")
 -- The ring is square-ish, behind the main streets.
 local rw, rh = R.e.x2 - R.w.x1 + 1, R.n.z2 - R.e.z1 + 1
@@ -400,6 +407,28 @@ none, why, detail = roman.plan({x = 0, z = 0}, 1, bad_layout, row_depth)
 eq(none, nil, "duplicate monument names are rejected")
 eq(detail and detail.code, "invalid_layout", "duplicate monument name reports invalid_layout")
 eq(why:find("duplicate site name", 1, true) ~= nil, true, "duplicate name reason")
+-- Ring bands (issue #200): an unknown arm, a missing or malformed span and a
+-- duplicate band name are rejected.
+local function band_edit(edit)
+	local l = copy(roman.layout)
+	edit(l.bands)
+	return roman.plan({x = 0, z = 0}, 1, l, row_depth)
+end
+none, why = band_edit(function(b) b[1].arm = "up" end)
+eq(none, nil, "a ring band on an unknown arm is rejected")
+eq(why:find("unknown arm", 1, true) ~= nil, true, "unknown band arm reason")
+none, why = band_edit(function(b) b[2].span = nil end)
+eq(none, nil, "a ring band without a span is rejected")
+eq(why:find("malformed span", 1, true) ~= nil, true, "missing band span reason")
+none, why = band_edit(function(b) b[3].span = {38, -47} end)
+eq(none, nil, "a ring band with a reversed span is rejected")
+eq(why:find("malformed span", 1, true) ~= nil, true, "reversed band span reason")
+none, why = band_edit(function(b) b[4].span = {3} end)
+eq(none, nil, "a ring band with a one-element span is rejected")
+none, why, detail = band_edit(function(b) b[2].name = b[1].name end)
+eq(none, nil, "duplicate ring band names are rejected")
+eq(detail and detail.code, "invalid_layout", "duplicate band name reports invalid_layout")
+eq(why:find("duplicate band name", 1, true) ~= nil, true, "duplicate band name reason")
 
 -- Input checks are shared with the medieval entry point; medieval stays default.
 fails(function() planner.plan({x = 0.5, z = 0}, 1, {town_type = "roman"}) end,

@@ -107,16 +107,17 @@ local function add_blocks(layout, plan, row_depth, dx, dz)
 		seen[spec.name] = true
 		local r, arm, side
 		if spec.ring ~= nil then
-			local band
-			for _, st in ipairs(plan.streets) do if st.ring == spec.ring then band = st end end
-			if not band or (spec.side ~= "inner" and spec.side ~= "outer") then
+			local band, street
+			for _, b in ipairs(layout.bands or {}) do if b.name == spec.ring then band = b end end
+			for _, st in ipairs(plan.streets) do if st.ring == spec.ring then street = st end end
+			if not band or not street or (spec.side ~= "inner" and spec.side ~= "outer") then
 				layout_error("block " .. tostring(spec.name) .. " has an invalid ring or side")
 			end
-			local d = ARMS[spec.ring]
+			local d = ARMS[band.arm]
 			local out = spec.side == "outer" and 1 or -1
 			local sign = (d.x + d.z) * out
 			local along = d.x ~= 0 and "x" or "z" -- the band's thin axis
-			local a1, a2 = band.rect[along .. "1"], band.rect[along .. "2"]
+			local a1, a2 = street.rect[along .. "1"], street.rect[along .. "2"]
 			local lo, hi
 			if sign > 0 then lo, hi = a2 + 1, a2 + row_depth else lo, hi = a1 - row_depth, a1 - 1 end
 			if d.x ~= 0 then
@@ -209,35 +210,27 @@ function M.build(layout, center, seed, row_depth)
 		add(landmark(spec.arch, layout.arch_id, spec.arch_rotation, rect, toward, {arm = arm}))
 	end
 
-	-- Ring bands (issue #164): see the layout for which bands span what.
-	local ring = layout.ring
-	if ring then
-		local function span(arm)
-			local band = ring[arm]
-			if type(band) ~= "table" then layout_error("ring is missing the " .. arm .. " band") end
-			local r = arm_rect(layout, arm, band.from, band.to, 0, 0)
-			if ARMS[arm].x ~= 0 then return r.x1, r.x2 end
-			return r.z1, r.z2
+	-- Ring bands (issue #164): see the layout for each band's extent.
+	local seen_band = {}
+	for _, band in ipairs(layout.bands or {}) do
+		local name = band.name
+		if type(name) ~= "string" then layout_error("band name must be a string") end
+		if seen_band[name] then layout_error("duplicate band name " .. name) end
+		seen_band[name] = true
+		if not ARMS[band.arm] then layout_error("band " .. name .. " has an unknown arm") end
+		if type(band.from) ~= "number" or type(band.to) ~= "number" then
+			layout_error("band " .. name .. " has a missing or malformed from..to")
 		end
-		local nlo, nhi = span("north")
-		local elo, ehi = span("east")
-		local slo, shi = span("south")
-		local wlo, whi = span("west")
-		local bands = {
-			north = {x1 = wlo, z1 = nlo, x2 = ehi, z2 = nhi},
-			east = {x1 = elo, z1 = slo, x2 = ehi, z2 = nhi},
-			-- Start beside the south and west arms: T-junctions, not crossings.
-			south = {x1 = half, z1 = slo, x2 = ehi, z2 = shi},
-			west = {x1 = wlo, z1 = half, x2 = whi, z2 = nhi},
+		local span = band.span
+		if type(span) ~= "table" or type(span[1]) ~= "number" or type(span[2]) ~= "number" or span[1] > span[2] then
+			layout_error("band " .. name .. " has a missing or malformed span")
+		end
+		streets[#streets + 1] = {
+			id = #streets + 1, name = "ring_" .. name, ring = name, kind = "secondary",
+			width = W,
+			material = layout.band_material or layout.street_material,
+			rect = translate(arm_rect(layout, band.arm, band.from, band.to, span[1], span[2]), dx, dz),
 		}
-		for _, arm in ipairs(arm_names) do
-			streets[#streets + 1] = {
-				id = #streets + 1, name = "ring_" .. arm, ring = arm, kind = "secondary",
-				width = W,
-				material = ring.material or layout.street_material,
-				rect = translate(bands[arm], dx, dz),
-			}
-		end
 	end
 
 	for _, spec in ipairs(layout.landmarks) do

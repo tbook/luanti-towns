@@ -45,19 +45,18 @@ return {
 
 	-- Ring street (issue #164): a square-ish loop behind the main streets,
 	-- as four secondary bands one street wide. Each band is the node range
-	-- from..to outward from the forum edge (as arm positions), along the
-	-- axis of the arm it is named for. The north and east bands cross the
-	-- cardo and the decumanus; the south and west bands start beside the
-	-- south and west arms (T-junctions) and the south-west quadrant, where
-	-- the bath stands, is left out. Bands span the compass extent of their
-	-- neighbours: north from the west band's outer edge to the east band's,
-	-- east from the south band's outer edge to the north band's, and so on.
-	ring = {
-		material = "mcl_core:gravel",
-		north = {from = 18, to = 23},
-		east = {from = 22, to = 27},
-		south = {from = 26, to = 31},
-		west = {from = 22, to = 27},
+	-- from..to outward from the forum edge (as arm positions) along the axis
+	-- of its arm, and span = {lo, hi}, the compass extent across it (x for
+	-- north and south bands, z for east and west). The north and east bands
+	-- cross the cardo and the decumanus; the south and west bands start
+	-- beside the south and west arms (T-junctions) and the south-west
+	-- quadrant, where the bath stands, is left out. Listed in street order.
+	band_material = "mcl_core:gravel",
+	bands = {
+		{name = "north", arm = "north", from = 18, to = 23, span = {-43, 42}},
+		{name = "south", arm = "south", from = 26, to = 31, span = {3, 42}},
+		{name = "east", arm = "east", from = 22, to = 27, span = {-47, 38}},
+		{name = "west", arm = "west", from = 22, to = 27, span = {3, 38}},
 	},
 
 	-- arm/side: street arm and which side of it the building stands on.
@@ -89,7 +88,7 @@ return {
 	-- smallest building are left open. A block that starts at 0 also borders
 	-- the forum edge; its frontage faces the forum there.
 	--
-	-- A block with ring = "north"|"east"|"south"|"west" instead of arm stands
+	-- A block with ring = a band name (see bands) instead of arm stands
 	-- flush against that ring band: side "outer" (away from the forum) or
 	-- "inner". from..to are compass coordinates along the band, relative to
 	-- the forum centre (x for north and south bands, z for east and west).
