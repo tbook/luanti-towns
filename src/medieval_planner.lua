@@ -59,6 +59,7 @@ local function build(center, seed, profile, rng)
 	for _, e in pairs(profile.content or {}) do ROW = math.max(ROW, e.size.z) end
 	if ROW == 0 then ROW = M.DEFAULT_ROW end
 	local INNER = 2 * ROW
+	local min_block = math.max(M.MIN_BLOCK, ROW) -- a block must hold a row
 	local parvis_depth = math.min(M.PARVIS.z, ROW)
 
 	local function R(x1, z1, x2, z2) return {x1 = x1, z1 = z1, x2 = x2, z2 = z2} end
@@ -73,7 +74,7 @@ local function build(center, seed, profile, rng)
 	local market_len = rng.int(M.MARKET_LENGTH[1], M.MARKET_LENGTH[2])
 	local hall_placed = profile.city_hall and place(profile.city_hall, 90) -- faces -x
 	local west_span = M.SPAN
-	local east_span = math.max(M.SPAN, market_len + (hall_placed and hall_placed.size.x or 0) + M.MIN_BLOCK)
+	local east_span = math.max(M.SPAN, market_len + (hall_placed and hall_placed.size.x or 0) + min_block)
 	-- The market row is deeper than an ordinary inner row if the hall's
 	-- facade needs it.
 	local market_depth = math.max(INNER, hall_placed and hall_placed.size.z or 0)
@@ -132,8 +133,8 @@ local function build(center, seed, profile, rng)
 	-- a seeded position.
 	local function cut(a, b, band)
 		local span = b - a + 1
-		if span >= 2 * M.MIN_BLOCK + S then
-			local len = rng.int(M.MIN_BLOCK, span - M.MIN_BLOCK - S)
+		if span >= 2 * min_block + S then
+			local len = rng.int(min_block, span - min_block - S)
 			block(R(a, band.z1, a + len - 1, band.z2))
 			street("secondary", R(a + len, band.z1, a + len + S - 1, band.z2))
 			block(R(a + len + S, band.z1, b, band.z2))

@@ -219,6 +219,48 @@ do
 	eq(detail.code, "invalid_layout", "unknown id code")
 end
 
+-- A deeper ordinary building widens the rows; every seed still plans.
+do
+	for _, depth in ipairs({25, 30, 40}) do
+		local lm = small.profile
+		local content = {}
+		local replaced
+		for id, e in pairs(lm.content) do
+			content[id] = e
+			replaced = replaced or id
+		end
+		local e = lm.content[replaced]
+		content[replaced] = {id = e.id, role = e.role, entrance = e.entrance, ground_offset = e.ground_offset,
+			size = {x = e.size.x, y = e.size.y, z = depth}}
+		local deep = {}
+		for k, v in pairs(lm) do deep[k] = v end
+		deep.content = content
+		local failed = 0
+		for seed = 1, 20 do
+			local plan = planner.plan({x = 0, z = 0}, seed, {landmarks = deep})
+			if not plan then failed = failed + 1 end
+		end
+		eq(failed, 0, "content depth " .. depth .. " plans on seeds 1-20")
+	end
+end
+
+-- The medieval planner validates its own output (authored_plan.validate):
+-- a layout whose blocks are shallower than a row passes derive_frontage but is
+-- rejected only by the validator.
+do
+	local medieval = dofile("src/medieval_planner.lua")
+	local rng = {int = function(a) return a end}
+	local plan, why = medieval.plan({x = 0, z = 0}, 1, small.profile, rng)
+	eq(plan ~= nil, true, "stub rng plans: " .. tostring(why))
+	local span = medieval.SPAN
+	medieval.SPAN = 10
+	plan, why = medieval.plan({x = 0, z = 0}, 1, small.profile, rng)
+	medieval.SPAN = span
+	eq(plan, nil, "narrow rows are rejected")
+	eq(tostring(why):find("shallower than the row depth", 1, true) ~= nil, true,
+		"validator reason surfaces: " .. tostring(why))
+end
+
 -- Invalid inputs fail clearly.
 fails(function() planner.plan({x = 0, z = 0}, nil) end, "seed must be an integer", "nil seed")
 fails(function() planner.plan({x = 0, z = 0}, 1.5) end, "seed must be an integer", "fractional seed")
