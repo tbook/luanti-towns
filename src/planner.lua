@@ -26,7 +26,8 @@
 -- (planner.validate is authored_plan.validate). Medieval layouts come from
 -- src/medieval_planner.lua, Roman ones from src/roman_planner.lua. After the
 -- layout, planner.populate places the jail, services and ordinary content;
--- shortages are reported on the plan, never returned as an error.
+-- shortages are reported on the plan, never returned as an error. Finally,
+-- plan.objects holds occasional trees/gardens in reachable unused clearings.
 --
 -- Determinism
 -- -----------
@@ -58,6 +59,7 @@ local authored_plan = load_sibling("authored_plan.lua")
 local roman_planner = load_sibling("roman_planner.lua")
 local medieval_planner = load_sibling("medieval_planner.lua")
 local catalog = load_sibling("catalog.lua")
+local open_space = load_sibling("open_space.lua")
 
 M.CONSTANTS = {
 	-- Population (populate): jail, services and chapels.
@@ -359,6 +361,7 @@ function M.populate(full, profile, seed)
 		-- Private random stream: derived from the seed, never drawn from the
 		-- planner's `rng`.
 		full.content = content_planner.plan(full, profile.content, {seed = seed})
+		full.objects = open_space.plan(full, seed)
 	end
 end
 

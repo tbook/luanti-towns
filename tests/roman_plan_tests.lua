@@ -416,7 +416,7 @@ eq(depth, row_depth - 1, "block depth follows the row depth policy")
 local function normalise(p, dx, dz)
 	local out = copy(p)
 	out.seed, out.center = nil, nil
-	out.reservations, out.shortages, out.content = nil, nil, nil
+	out.reservations, out.shortages, out.content, out.objects = nil, nil, nil, nil
 	local function shift(t)
 		if type(t) ~= "table" then return end
 		for _, k in ipairs({"x", "x1", "x2"}) do if t[k] then t[k] = t[k] - dx end end

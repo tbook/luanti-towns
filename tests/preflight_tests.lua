@@ -15,6 +15,7 @@ end
 -- nodes = {[data path] = {names}}, unknown = {[node]=true}, emerge_ok,
 -- hang (emerge never calls back until fired).
 local function new_env(entries, spec)
+	entries = preflight.entries(entries)
 	spec = spec or {}
 	local w = {emerges = {}, timers = {}, reads = 0}
 	local by_path = {}
@@ -313,9 +314,13 @@ do
 	for _, st in ipairs(comp.structures) do
 		if st.max.y > tallest then tallest = st.max.y end
 		eq(st.min.y, r.ground_y - st.ground_offset, "foundation at ground " .. st.id)
-		local e = catalog.entries[st.id]
-		local g = geometry.place(e, {x = st.rect.x1, y = r.ground_y - (e.ground_offset or 0),
-			z = st.rect.z1}, st.rotation)
+		local e = preflight.entries(catalog.entries)[st.id]
+		local g
+		if st.kind == "object" then
+			g = {max = {x = st.rect.x2, y = r.ground_y - (e.ground_offset or 0) + e.size.y - 1, z = st.rect.z2}}
+		else
+			g = geometry.place(e, {x = st.rect.x1, y = r.ground_y - (e.ground_offset or 0), z = st.rect.z1}, st.rotation)
+		end
 		eq(g.max.x, st.max.x, "box max x " .. st.id)
 		eq(g.max.y, st.max.y, "box max y " .. st.id)
 		eq(g.max.z, st.max.z, "box max z " .. st.id)
@@ -323,7 +328,7 @@ do
 	eq(r.build_bounds.max.y, math.max(r.max_height, tallest), "top is the tallest structure")
 	local expect_top = 0
 	for _, st in ipairs(comp.structures) do
-		local e = catalog.entries[st.id]
+		local e = preflight.entries(catalog.entries)[st.id]
 		expect_top = math.max(expect_top, e.size.y - (e.ground_offset or 0))
 	end
 	eq(r.build_bounds.max.y, r.ground_y + expect_top - 1, "exact top of tallest structure")

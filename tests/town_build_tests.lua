@@ -10,7 +10,7 @@ local TL = builder.layout
 local STONE, DIRT, GRASS = "mcl_core:stone", "mcl_core:dirt", "mcl_core:dirt_with_grass"
 local GROUND_Y = 40
 
-local entries = catalog.entries
+local entries = builder.preflight.entries(catalog.entries)
 local profile = assert(planner.landmark_profile(catalog.snapshot()))
 local plan = assert(planner.plan({x = 0, z = 0}, 1024, {landmarks = profile}))
 eq(#plan.content.buildings >= 2, true, "fixture plan has buildings")
@@ -99,6 +99,16 @@ local function new_world(spec)
 			w.boxes[#w.boxes + 1] = {min = b.min, max = b.max}
 			if spec.engine_error == b.id then error("engine exploded") end
 			if spec.fail == b.id then return nil, "Schematic placement failed" end
+			if b.kind == "object" then
+				local source = dofile("tests/mts_reader.lua")(entry.path)
+				local schematic = dofile("src/schematic.lua")
+				for z=0,source.size.z-1 do for y=0,source.size.y-1 do for x=0,source.size.x-1 do
+					local name = source.at(x,y,z)
+					local p = schematic.rotate_offset(source.size,{x=x,y=y,z=z},b.rotation)
+					set(b.min.x+p.x,b.min.y+p.y,b.min.z+p.z,name)
+				end end end
+				return true
+			end
 			-- The schematic: solid below the door sill, air above, one door
 			-- node pair at the entrance. Written strictly inside the box.
 			for x = b.min.x, b.max.x do
@@ -242,7 +252,9 @@ if summary then
 			"placement box is the validated box " .. i)
 	end
 	eq(summary.town.bounds.max.y >= comp.max_y, true, "summary bounds cover the tallest structure")
-	eq(#summary.town.doors, #comp.structures, "every door route checked")
+	local objects = 0
+	for _, s in ipairs(comp.structures) do if s.kind == "object" then objects = objects + 1 end end
+	eq(#summary.town.doors, #comp.structures - objects, "every building door route checked")
 end
 
 ------------------------------------------------------------------------

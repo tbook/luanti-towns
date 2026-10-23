@@ -41,6 +41,8 @@ local CLASSES = {
 	{"house", "h", "#f7f7f7", "ordinary house"},
 	{"shop", "s", "#9fd8d0", "ordinary shop"},
 	{"workshop", "w", "#d8c19f", "ordinary workshop"},
+	{"oak_tree", "t", "#246b35", "oak tree (decoration)", overlay = true, outline = true},
+	{"garden", "g", "#237b9a", "garden (decoration)", overlay = true, outline = true},
 	{"core", "o", "#ff8c00", "town core (HOOK: plan.core, not yet planned)", overlay = true},
 	{"footprint", "f", "#000000", "construction footprint (HOOK: plan.footprint)", overlay = true, outline = true},
 	{"exit", "x", "#00a000", "designated exit (HOOK: plan.exits)", overlay = true},
@@ -122,6 +124,7 @@ local function layers(plan)
 	for _, s in ipairs(res.services or {}) do add(s.role, s.rect) end
 	local content = plan.content or {}
 	for _, b in ipairs(content.buildings or {}) do add(b.role, b.rect) end
+	for _, o in ipairs(plan.objects or {}) do add(o.id, o.rect, o.id) end
 	-- Hooks for later layout tickets; field names are provisional.
 	if type(plan.core) == "table" and plan.core.x1 then add("core", plan.core) end
 	if type(plan.footprint) == "table" and plan.footprint.x1 then add("footprint", plan.footprint) end

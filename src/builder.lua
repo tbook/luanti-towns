@@ -166,6 +166,7 @@ local AIR_INFO = {walkable = false, liquid = false}
 -- Town setup (ticket #45): composes every structure box and collects the
 -- unpaved holes. Fills `town` {comp, holes}; returns true or nil, message.
 function M.prepare_town(town, plan, g, bb)
+	town.entries = preflight.entries(town.entries)
 	local comp, why = preflight.compose(plan, town.entries, g)
 	if not comp then return nil, "town content: " .. tostring(why) end
 	if #comp.structures == 0 then return nil, "the plan has no buildings to place" end
@@ -581,15 +582,17 @@ local function build_impl(result, opts, env, st)
 	-- Door approach routes (recessed doors lie inside the box).
 	local doors = {}
 	for _, b in ipairs(t.comp.structures) do
-		local dok, route, why = pcall(M.check_door, b, g, function(x, y, z)
-			local name = env.get_node(x, y, z)
-			if name == "air" then return AIR_INFO, name end
-			return env.node_info(name), name
-		end)
-		if not dok then return partial(b, "door_check_error", tostring(route)) end
-		if not route then return partial(b, "door_unreachable", tostring(why)) end
-		doors[#doors + 1] = {id = b.id, kind = b.kind, approach = route.approach,
-			entrance = b.entrance, steps = route.steps}
+		if b.kind ~= "object" then
+			local dok, route, why = pcall(M.check_door, b, g, function(x, y, z)
+				local name = env.get_node(x, y, z)
+				if name == "air" then return AIR_INFO, name end
+				return env.node_info(name), name
+			end)
+			if not dok then return partial(b, "door_check_error", tostring(route)) end
+			if not route then return partial(b, "door_unreachable", tostring(why)) end
+			doors[#doors + 1] = {id = b.id, kind = b.kind, approach = route.approach,
+				entrance = b.entrance, steps = route.steps}
+		end
 	end
 	-- Functional node initialization (ticket #46): only inside the placed
 	-- boxes, only after every schematic and door check succeeded.
