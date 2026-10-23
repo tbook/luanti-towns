@@ -268,7 +268,7 @@ function M.analyze(plan, profile)
 	m.street_cells_principal = count.principal or 0
 	m.street_cells_secondary = count.secondary or 0
 	-- Medieval streets are 6 and 4 nodes wide; Roman streets carry their own width.
-	local PW, SW = 5, 4
+	local PW, SW = 6, 4
 	if plan.town_type == "roman" then
 		PW = kind_width(plan, "principal", 1)
 		SW = kind_width(plan, "secondary", 1)
