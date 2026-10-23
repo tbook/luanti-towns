@@ -32,6 +32,11 @@ local entries = {
 		entrance = {x = 4, y = 4, z = 20, facing = "-X"},
 		entrance_kind = "door", ground_offset = 2,
 	},
+	insula = {
+		size = {x = 35, y = 20, z = 27},
+		entrance = {x = 17, y = 3, z = 2},
+		entrance_kind = "door", ground_offset = 2,
+	},
 }
 for id, entry in pairs(entries) do
 	entry.path = "schematics/imports/roman/" .. id .. ".mts"

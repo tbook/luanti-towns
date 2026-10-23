@@ -12,6 +12,7 @@ local fixtures = {
 	theatre = {{21,11,14}, 5, 3, {{10,13},{13,10},{10,0},{0,10}}, 3},
 	amphitheater = {{29,9,29}, 3, 2, {{15,0},{0,13},{13,28},{28,15}}, 1},
 	bath = {{88,18,43}, 4, 2, {{4,20},{20,83},{83,22},{22,4}}, 2},
+	insula = {{35,20,27}, 3, 2, {{17,2},{2,17},{17,24},{24,17}}, 1},
 }
 local fronts = {{0,-1},{-1,0},{0,1},{1,0}}
 local cache = {}
@@ -72,7 +73,7 @@ for id, f in pairs(fixtures) do
 	end
 end
 eq(table.concat(catalog.ids_for_role("landmark"), ","),
-	"amphitheater,arch,bath,domus,temple,theatre", "exactly six fixed Roman templates")
+	"amphitheater,arch,bath,domus,insula,temple,theatre", "exactly seven fixed Roman templates")
 eq(catalog.entries.villa, nil, "villa remains import only")
 eq(catalog.entries.aqueduct, nil, "aqueduct remains import only")
 local profile = assert(planner.landmark_profile(snapshot))

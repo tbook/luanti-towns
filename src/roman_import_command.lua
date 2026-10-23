@@ -1,6 +1,6 @@
 -- Manual placement for Issue 139 assets. These remain outside the town catalog.
 local towns = ...
-local ids = {"domus", "arch", "theatre", "villa", "aqueduct", "amphitheater", "temple", "bath"}
+local ids = {"domus", "arch", "theatre", "villa", "aqueduct", "amphitheater", "temple", "bath", "insula"}
 local known = {}
 for _, id in ipairs(ids) do known[id] = true end
 

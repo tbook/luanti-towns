@@ -1,9 +1,10 @@
 # Issue 139 Roman building imports
 
 These are cleaned captures from TownsWorkshop. `catalog.lua` registers arch,
-temple, domus, theatre, amphitheater, and bath with the shared generator as
-fixed `landmark` entries. They do not enter medieval random building pools;
-domus is not a random house. Villa and aqueduct remain standalone imports.
+temple, domus, theatre, amphitheater, bath, and insula with the shared generator
+as fixed `landmark` entries. They do not enter medieval random building pools;
+domus and insula are not random houses. Villa and aqueduct remain standalone
+imports.
 Each `.mts` is a native Luanti schematic in the orientation and dimensions
 recorded in `manifest.json`; the matching `.lua` stores node metadata,
 inventories, and required node names for tooling that supports the Towns
@@ -30,9 +31,11 @@ written by the exporter carries its own `min`/`max` capture box,
 `snapshot_sha256` (the temporary map backup it was captured from) and
 `source_map_sha256` (the source `map.sqlite` file). A record without these two
 fields was captured by the original full export, whose snapshot is the
-top-level `snapshot_sha256`. The bath was last re-exported with `--only bath`
-from a byte-identical scratch copy of TownsWorkshop (`--world <copy>`), so
-`source_map_sha256` equals the workshop file's hash.
+top-level `snapshot_sha256`. Since #193 the bath, domus, amphitheater, villa,
+aqueduct and insula records were re-exported with `--only` from a byte-identical
+scratch copy of TownsWorkshop (`--world <copy>`), so `source_map_sha256` equals
+the workshop file's hash (`6eab09ff...`). Temple, theatre and arch were not
+re-exported: their only changes were grass/dirt flips in the ground row.
 
 The exporter reads a consistent, read-only SQLite snapshot and writes only to
 this directory. In a game with this mod enabled, a server-privileged player
@@ -57,8 +60,16 @@ axis **before** placement rotation; omitted facing defaults to `-Z`.
 | temple | 18×11×12 | 3,2,5 | -X | 0 | Spruce double door at X=3 on the quartz platform (Y=1, first stair at X=0); terrain row (dirt, grass at the edge) at Y=0 (#134). |
 | domus | 38×11×22 | 1,2,9 | -X | 1 | Spruce double front door; grass/path surface at Y=1. |
 | theatre | 21×11×14 | 10,5,13 | +Z | 3 | Open central front apron over cobble at Y=4; perimeter grass at Y=3. |
-| amphitheater | 29×9×29 | 15,3,0 | -Z | 2 | Grass-path approach at X=15, Y=2; open entrance under outer structure. |
+| amphitheater | 29×9×29 | 15,3,0 | -Z | 2 | Gravel approach at X=15, Y=2 (re-captured in #193); open entrance under outer structure. |
 | bath | 88×18×43 | 4,4,20 | -X | 2 | Central front door over quartz at Y=3 (quartz approach slab at X=0); perimeter grass at Y=2 above lower dirt layer. |
+| insula | 35×20×27 | 17,3,2 | -Z | 2 | Spruce door in the front wall at Y=3 over a stone threshold at Y=2; gravel approach at Y=2 (Z=0). A second front door is at X=11, and a rear spruce door at (17,3,24). |
+
+The insula capture (#193) is the issue's box 213..248 × 6..25 × 399..426 with
+only the x=0 column and z=27 row of grass and dirt platform removed: world box
+(214,6,399)-(248,25,425), 35×20×27. Its dirt rows (Y=0..1), the Y=2 datum row
+and the eaves at Y=17 are kept. The front approach row at Z=0 stays inside the
+capture. The entrance is the front spruce door, not the wooden door at X=11,
+which is a choice for the layout work.
 
 The bath's 88×18×43 capture keeps the basement, ground rows, and all saved
 metadata (288 nodes); only the platform margin and empty top rows were
@@ -78,8 +89,8 @@ to the pier ladder and is not the chosen entrance. This is one entrance
 marker, without portal-aware or through-building street routing.
 
 There are no authored resident-bed exclusions for these captures. The shared
-resident adapter accepts all eight domus beds and all six bath basement beds
-at every rotation; the other four assets have no beds.
+resident adapter accepts all eight domus beds, all six bath basement beds and
+all 23 insula beds at every rotation; the other four assets have no beds.
 
 See [validation evidence](../../../docs/roman_assets_validation.md) for the
 disposable-world run and preserved capture caveats.
