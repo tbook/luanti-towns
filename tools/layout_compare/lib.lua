@@ -659,9 +659,16 @@ function M.run(planner, catalog, opts)
 		C = planner.resolve_constants({landmarks = profile})
 	end
 	local files, rows = {}, {}
+	-- Planning time (os.clock, CPU seconds) per run, so a slowdown shows up.
+	-- Not part of the files: they must stay byte-identical between runs.
+	local timing = {total = 0, max = 0, max_seed = nil}
 	for i, seed in ipairs(seeds) do
 		local center = centers[(i - 1) % #centers + 1]
+		local started = os.clock()
 		local row, f = M.one(planner, profile, seed, center, town_type)
+		local spent = os.clock() - started
+		timing.total = timing.total + spent
+		if spent > timing.max then timing.max, timing.max_seed = spent, seed end
 		rows[#rows + 1] = row
 		if f then
 			files[("seed_%d.txt"):format(seed)] = f.txt
@@ -791,7 +798,7 @@ function M.run(planner, catalog, opts)
 	end
 	files["report.md"] = table.concat(R, "\n") .. "\n"
 	return {files = files, rows = rows, catalog_hash = chash, constants = C,
-		layout_settings = layout_lines, layout_hash = layout_hash}
+		layout_settings = layout_lines, layout_hash = layout_hash, timing = timing}
 end
 
 -- Command-line arguments of run.lua (issue #152): [OUTDIR] [seed,seed,...]

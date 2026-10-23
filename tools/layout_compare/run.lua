@@ -19,3 +19,12 @@ for _, name in ipairs(names) do
 	f:close()
 end
 print(("wrote %d files to %s (town type %s)"):format(#names, outdir, args.town_type))
+-- Planning time is printed and kept in timing.txt, not put in report.md,
+-- because the report is byte-identical between runs.
+local t = out.timing
+local line = ("planning time: total %.1f s over %d seeds, mean %.2f s, max %.1f s (seed %s)"):format(
+	t.total, #out.rows, t.total / math.max(1, #out.rows), t.max, tostring(t.max_seed))
+print(line)
+local tf = assert(io.open(outdir .. "/timing.txt", "wb"))
+tf:write(line .. "\n")
+tf:close()

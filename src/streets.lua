@@ -86,7 +86,7 @@ local function make_count(cells, n)
 	return function(x1, z1, x2, z2)
 		return P[(z2 + 1) * W + x2 + 1] - P[z1 * W + x2 + 1]
 			- P[(z2 + 1) * W + x1] + P[z1 * W + x1]
-	end
+	end, P, W
 end
 
 local function set_rect(cells, n, r, v)
@@ -194,10 +194,9 @@ local function gap_scan(n, B, F, R, S, C, P)
 	local function ray(x, z, dx, dz)
 		local g = 0
 		while true do
-			if x < 0 or z < 0 or x >= n or z >= n or B[idx(x, z)] == 0 then
-				return g, "outside"
-			end
-			local i = idx(x, z)
+			if x < 0 or z < 0 or x >= n or z >= n then return g, "outside" end
+			local i = z * n + x + 1
+			if B[i] == 0 then return g, "outside" end
 			if R[i] == 1 then
 				return g, (S[i] == 1) and "square" or "road"
 			elseif P and P[i] == 1 then
@@ -241,18 +240,24 @@ local function gap_scan(n, B, F, R, S, C, P)
 	-- reported. Returns {dir, x1, z1, x2, z2, a1, a2} sorted by position, where
 	-- a1..a2 are the coordinates along the edge.
 	local DIRS = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}}
-	local function edge_runs(Rd, zones, win)
+	local function edge_runs(Rd, zones, win, memo, strip)
 		local out = {}
+		zones = zones or {}
 		win = win or {x1 = 0, z1 = 0, x2 = n - 1, z2 = n - 1}
 		local function inr(x, z) return x >= 0 and z >= 0 and x < n and z < n end
-		local function source(x, z) return inr(x, z) and Rd[idx(x, z)] == 1 and S[idx(x, z)] == 0 end
+		local function source(x, z)
+			if x < 0 or z < 0 or x >= n or z >= n then return false end
+			local i = z * n + x + 1
+			return Rd[i] == 1 and S[i] == 0
+		end
 		local function exposed(x, z, dx, dz)
 			if not source(x, z) then return false end
 			local nx, nz = x + dx, z + dz
 			return not inr(nx, nz) or R[idx(nx, nz)] == 0
 		end
 		local function in_zone(x, z)
-			for _, q in ipairs(zones or {}) do
+			for k = 1, #zones do
+				local q = zones[k]
 				if x >= q.x1 and x <= q.x2 and z >= q.z1 and z <= q.z2 then
 					return true
 				end
@@ -266,13 +271,20 @@ local function gap_scan(n, B, F, R, S, C, P)
 			if not inr(px, pz) or R[idx(px, pz)] == 0 then return "convex" end
 			return "concave"
 		end
-		for di, d in ipairs(DIRS) do
-			local dx, dz = d[1], d[2]
-			local ex, ez = dz ~= 0 and 1 or 0, dx ~= 0 and 1 or 0
-			local seen = {}
-			for z = win.z1, win.z2 do
-				for x = win.x1, win.x2 do
-					if exposed(x, z, dx, dz) and not seen[idx(x, z)] then
+		local seen_all = {{}, {}, {}, {}}
+		for z = win.z1, win.z2 do
+			for x = win.x1, win.x2 do
+				-- Only road cells can start a segment (the cheap test first).
+				local ci = z * n + x + 1
+				if Rd[ci] == 1 and S[ci] == 0 then
+				for di = 1, 4 do
+					local d = DIRS[di]
+					local dx, dz = d[1], d[2]
+					local ex, ez = dz ~= 0 and 1 or 0, dx ~= 0 and 1 or 0
+					local seen = seen_all[di]
+					local qx, qz = x + dx, z + dz
+					if not seen[ci] and (qx < 0 or qz < 0 or qx >= n or qz >= n
+							or R[qz * n + qx + 1] == 0) then
 						-- Segment start: walk back along the edge line.
 						local sx, sz = x, z
 						while exposed(sx - ex, sz - ez, dx, dz) do sx, sz = sx - ex, sz - ez end
@@ -307,8 +319,34 @@ local function gap_scan(n, B, F, R, S, C, P)
 								if k2 == "concave" and i > #cells - sw then nr = false end
 								if nr and in_zone(c[1], c[2]) then nr = false end
 								if nr then
-									local g, class = ray(c[1] + dx, c[2] + dz, dx, dz)
-									nr = narrow(g, class)
+									-- memo: narrowness of the edge cells of an earlier full scan
+									-- (no strip) kept for later scans of the same roads plus a
+									-- candidate `strip`; a ray that cannot reach the strip is
+									-- unchanged by it.
+									local m = memo and memo[di]
+									local ci2 = idx(c[1], c[2])
+									local known = m and strip and m[ci2]
+									if known ~= nil then
+										local x0, z0 = c[1], c[2]
+										local reach
+										if dx == 0 then
+											reach = x0 >= strip.x1 and x0 <= strip.x2
+												and ((dz > 0 and strip.z2 > z0 and strip.z1 <= z0 + cap)
+													or (dz < 0 and strip.z1 < z0 and strip.z2 >= z0 - cap))
+										else
+											reach = z0 >= strip.z1 and z0 <= strip.z2
+												and ((dx > 0 and strip.x2 > x0 and strip.x1 <= x0 + cap)
+													or (dx < 0 and strip.x1 < x0 and strip.x2 >= x0 - cap))
+										end
+										if reach then known = nil end
+									end
+									if known ~= nil then
+										nr = known
+									else
+										local g, class = ray(c[1] + dx, c[2] + dz, dx, dz)
+										nr = narrow(g, class)
+										if m and not strip then m[ci2] = nr end
+									end
 								end
 								if nr then
 									run = run or i
@@ -319,6 +357,7 @@ local function gap_scan(n, B, F, R, S, C, P)
 							close(#cells)
 						end
 					end
+				end
 				end
 			end
 		end
@@ -410,8 +449,10 @@ function M.fill(plan, rng, C)
 	-- scan and the wide-pavement check (issue #122); zones: local rects around
 	-- the exits, landmark doors and gate apron that exempt their ends.
 	local Rd = new_layer(n, 0)
-	local rdcount = make_count(Rd, n)
+	local rdcount, rdP, rdW = make_count(Rd, n)
 	local zones = {}
+	local runs_memo = {} -- narrow_runs answers for the current roads
+	local before_cache, before_memo -- narrow runs of the roads so far (see before_runs)
 	local gap
 	if depth then gap = gap_scan(n, B, F, R, S, C, pl) end
 	local ray, narrow = gap and gap.ray, gap and gap.narrow
@@ -468,46 +509,76 @@ function M.fill(plan, rng, C)
 	-- fully paved (sw + 1) squares with the roads laid so far: the route would
 	-- hug an existing road instead of joining it. Memoised per route() call.
 	local wide_memo = {}
+	-- Length of the overlap of the inclusive ranges a1..a2 and b1..b2.
+	local function ov(a1, a2, b1, b2)
+		local d = (a2 < b2 and a2 or b2) - (a1 > b1 and a1 or b1) + 1
+		return d > 0 and d or 0
+	end
+	-- Road cells of every (sw + 1) window that could be made full by two
+	-- adjacent route windows (at least size^2 - sw * (sw + 1) of them), keyed by
+	-- window origin; rebuilt after a street is added (rws_cache = nil).
+	-- rws_any(x1, z1, x2, z2) counts such windows in a range of origins.
+	local rws_cache, rws_any
+	local function windows_with_roads()
+		if rws_cache then return rws_cache end
+		local size = sw + 1
+		local need = size * size - sw * (sw + 1)
+		local out, flag = {}, new_layer(n, 0)
+		for wz = 0, n - size do
+			for wx = 0, n - size do
+				local lo, hi = wz * rdW, (wz + size) * rdW
+				local c = rdP[hi + wx + size] - rdP[lo + wx + size] - rdP[hi + wx] + rdP[lo + wx]
+				if c >= need then
+					out[wz * n + wx] = c
+					flag[wz * n + wx + 1] = 1
+				end
+			end
+		end
+		rws_cache, rws_any = out, make_count(flag, n)
+		return out
+	end
 	local function wide_step(x, z, nx, nz, m)
 		local key = (z * n + x) * 4 + m
 		local v = wide_memo[key]
 		if v ~= nil then return v end
 		v = false
 		local size = sw + 1
-		local bx1, bz1 = math.min(x, nx), math.min(z, nz)
-		local bx2, bz2 = math.max(x, nx) + sw - 1, math.max(z, nz) + sw - 1
-		local function cnt(x1, z1, x2, z2)
-			if x1 < 0 then x1 = 0 end
-			if z1 < 0 then z1 = 0 end
-			if x2 > n - 1 then x2 = n - 1 end
-			if z2 > n - 1 then z2 = n - 1 end
-			if x2 < x1 or z2 < z1 then return 0 end
-			return rdcount(x1, z1, x2, z2)
+		local top = size * size
+		local bx1, bz1 = x < nx and x or nx, z < nz and z or nz
+		local bx2, bz2 = (x > nx and x or nx) + sw - 1, (z > nz and z or nz) + sw - 1
+		local rws = windows_with_roads()
+		local z_lo, z_hi = bz1 - size + 1, bz2 < n - size and bz2 or n - size
+		local x_lo, x_hi = bx1 - size + 1, bx2 < n - size and bx2 or n - size
+		if z_lo < 0 then z_lo = 0 end
+		if x_lo < 0 then x_lo = 0 end
+		if z_hi < z_lo or x_hi < x_lo or rws_any(x_lo, z_lo, x_hi, z_hi) == 0 then
+			wide_memo[key] = false
+			return false
 		end
-		if cnt(bx1 - 1, bz1 - 1, bx2 + 1, bz2 + 1) > 0 then
-			local P = {x1 = x, z1 = z, x2 = x + sw - 1, z2 = z + sw - 1}
-			local W = {x1 = nx, z1 = nz, x2 = nx + sw - 1, z2 = nz + sw - 1}
-			local function clip(a, b)
-				local r = {x1 = math.max(a.x1, b.x1), z1 = math.max(a.z1, b.z1),
-					x2 = math.min(a.x2, b.x2), z2 = math.min(a.z2, b.z2)}
-				if r.x2 < r.x1 or r.z2 < r.z1 then return nil end
-				return r
-			end
-			local function area(r) return r and (r.x2 - r.x1 + 1) * (r.z2 - r.z1 + 1) or 0 end
-			local function rd(r) return r and cnt(r.x1, r.z1, r.x2, r.z2) or 0 end
-			for wz = bz1 - size + 1, bz2 do
-				for wx = bx1 - size + 1, bx2 do
-					if wx >= 0 and wz >= 0 and wx + size <= n and wz + size <= n then
-						local win = {x1 = wx, z1 = wz, x2 = wx + size - 1, z2 = wz + size - 1}
-						local pw, ww = clip(P, win), clip(W, win)
-						local pww = pw and ww and clip(pw, ww)
-						local have = rd(win) + area(pw) + area(ww) - area(pww)
-							- rd(pw) - rd(ww) + rd(pww)
-						if have == size * size then v = true; break end
+		for wz = z_lo, z_hi do
+			local row = wz * n
+			local wz2 = wz + size - 1
+			for wx = x_lo, x_hi do
+				local rw = rws[row + wx]
+				if rw then
+					-- The two route windows form the rectangle bx1..bx2 x bz1..bz2
+					-- (adjacent, same size). The window is full when its road
+					-- cells plus the rectangle's cells in it that are not road
+					-- already cover all of it; an upper bound first.
+					local wx2 = wx + size - 1
+					local ux1, ux2 = wx > bx1 and wx or bx1, wx2 < bx2 and wx2 or bx2
+					local uz1, uz2 = wz > bz1 and wz or bz1, wz2 < bz2 and wz2 or bz2
+					if ux1 <= ux2 and uz1 <= uz2 then
+						local au = (ux2 - ux1 + 1) * (uz2 - uz1 + 1)
+						if rw + au >= top
+								and rw + au - rdcount(ux1, uz1, ux2, uz2) == top then
+							v = true
+							break
+						end
 					end
 				end
-				if v then break end
 			end
+			if v then break end
 		end
 		wide_memo[key] = v
 		return v
@@ -681,7 +752,8 @@ function M.fill(plan, rng, C)
 			set_rect(Rd, n, r, 1)
 		end
 		rcount = make_count(R, n)
-		rdcount = make_count(Rd, n)
+		rdcount, rdP, rdW = make_count(Rd, n)
+		before_cache, rws_cache, runs_memo = nil, nil, {}
 	end
 
 	local function centre(site) return {x = site.approach.pos.x - ox, z = site.approach.pos.z - oz} end
@@ -786,6 +858,17 @@ function M.fill(plan, rng, C)
 		return dist
 	end
 
+	-- The narrow runs of the roads laid so far, over the whole envelope; kept
+	-- until the road layer changes (a street is added). Every strip candidate
+	-- compares against the same list.
+	local function before_runs()
+		if not before_cache then
+			before_memo = {{}, {}, {}, {}}
+			before_cache = gap.edge_runs(Rd, zones, nil, before_memo)
+		end
+		return before_cache
+	end
+
 	-- Narrow runs that paving the strip r (running along `axis`) would
 	-- create on the combined footprint: along its own sides and along the
 	-- edges of other roads that now face it (a run is new unless the roads
@@ -794,13 +877,18 @@ function M.fill(plan, rng, C)
 	-- trimming the strip cannot cure.
 	local function narrow_runs(r, axis)
 		if not depth then return {} end
+		-- The same strip is asked about again by neighbouring candidates;
+		-- the answer only depends on the roads laid so far.
+		local mkey = ("%d,%d,%d,%d"):format(r.x1, r.z1, r.x2, r.z2)
+		local hit = runs_memo[mkey]
+		if hit then return hit[1], hit[2] end
 		local cap = C.ROAD_GAP
 		local win = {x1 = math.max(0, r.x1 - cap), z1 = math.max(0, r.z1 - cap),
 			x2 = math.min(n - 1, r.x2 + cap), z2 = math.min(n - 1, r.z2 + cap)}
-		local before = gap.edge_runs(Rd, zones, win)
+		local before = before_runs()
 		set_rect(R, n, r, 1)
 		set_rect(Rd, n, r, 1)
-		local after = gap.edge_runs(Rd, zones, win)
+		local after = gap.edge_runs(Rd, zones, win, before_memo, r)
 		set_rect(R, n, r, 0)
 		set_rect(Rd, n, r, 0)
 		local out, perpendicular = {}, false
@@ -821,6 +909,7 @@ function M.fill(plan, rng, C)
 				end
 			end
 		end
+		runs_memo[mkey] = {out, perpendicular}
 		return out, perpendicular
 	end
 
@@ -970,7 +1059,8 @@ function M.fill(plan, rng, C)
 			add_street("secondary", r, "secondary")
 			set_rect(R, n, r, 1)
 			set_rect(Rd, n, r, 1)
-			rdcount = make_count(Rd, n)
+			rdcount, rdP, rdW = make_count(Rd, n)
+			before_cache, rws_cache, runs_memo = nil, nil, {}
 			added = added + 1
 			dist = nil
 		else
