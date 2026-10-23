@@ -268,6 +268,9 @@ function M.landmark_site(name, id, rotation, rect)
 	local entry = catalog.entries[id]
 	if not entry then error("landmark " .. tostring(name) .. " has unknown catalog id " .. tostring(id), 2) end
 	local placed = geometry.place(entry, {x = rect.x1, y = 0, z = rect.z1}, rotation)
+	if rect.x2 - rect.x1 + 1 ~= placed.size.x or rect.z2 - rect.z1 + 1 ~= placed.size.z then
+		error("landmark " .. tostring(name) .. " rect does not match the placed size of " .. id, 2)
+	end
 	local ax, az = placed.outside.x, placed.outside.z
 	while ax >= rect.x1 and ax <= rect.x2 and az >= rect.z1 and az <= rect.z2 do
 		ax, az = ax + placed.front.x, az + placed.front.z

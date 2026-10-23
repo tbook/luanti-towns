@@ -1,41 +1,26 @@
--- A small synthetic medieval town for fast planner tests: a 96-node envelope
--- and a hand-made landmark profile instead of the real catalog, so a plan
--- takes milliseconds rather than a second. The production planner path is the
--- same (planner.plan always takes a landmark profile); only the sizes differ.
+-- The medieval test town: the real catalog profile planned by the
+-- constructive row-grid planner (src/medieval_planner.lua), which takes about
+-- 30 ms per plan.
 --
 --   local small = dofile("tests/small_town.lua")(planner)
---   small.plan(center, seed [, extra_opts])   planner.plan with the small town
---   small.validate(plan)                      planner.validate with its constants
---   small.opts([extra]), small.constants, small.profile
+--   small.plan(center, seed [, extra_opts])   planner.plan with the profile
+--   small.validate(plan)                      authored_plan.validate
+--   small.opts([extra]), small.profile
 return function(planner)
 	local M = {}
+	local catalog = dofile("src/catalog.lua")
+	local authored_plan = dofile("src/authored_plan.lua")
 
-	-- Cathedral door off-centre on a short end, castle gate recessed.
-	M.profile = {
-		cathedral = {id = "t_cath", size = {x = 20, y = 18, z = 30},
-			entrance = {x = 5, y = 3, z = 2}, ground_offset = 1},
-		castle = {id = "t_castle", size = {x = 24, y = 20, z = 26},
-			entrance = {x = 17, y = 5, z = 3}, ground_offset = 2},
-	}
+	M.profile = assert(planner.landmark_profile(catalog.snapshot()))
 
-	-- The ENVELOPE and the dimensions that depend on it.
-	M.constants = {
-		ENVELOPE = 96, MIN_LONG_SPAN = 80, MIN_SHORT_SPAN = 60,
-		CENTER_JITTER = 8, MAX_SECONDARY = 8, MAX_BLOCK_SCAN = 64,
-	}
+	-- The deepest ordinary building: the medieval planner's row depth.
+	M.row = 0
+	for _, e in pairs(M.profile.content) do M.row = math.max(M.row, e.size.z) end
 
-	-- Planner opts for the small town; `extra` fields (and extra.constants)
-	-- are added on top.
+	-- Planner opts; `extra` fields are added on top.
 	function M.opts(extra)
-		local o = {landmarks = M.profile, constants = {}}
-		for k, v in pairs(M.constants) do o.constants[k] = v end
-		for k, v in pairs(extra or {}) do
-			if k == "constants" then
-				for ck, cv in pairs(v) do o.constants[ck] = cv end
-			else
-				o[k] = v
-			end
-		end
+		local o = {landmarks = M.profile}
+		for k, v in pairs(extra or {}) do o[k] = v end
 		return o
 	end
 
@@ -43,11 +28,8 @@ return function(planner)
 		return planner.plan(center, seed, M.opts(extra))
 	end
 
-	function M.validate(plan, constants)
-		local c = {}
-		for k, v in pairs(M.constants) do c[k] = v end
-		for k, v in pairs(constants or {}) do c[k] = v end
-		return planner.validate(plan, c)
+	function M.validate(plan)
+		return authored_plan.validate(plan, {min_block_depth = M.row})
 	end
 
 	return M

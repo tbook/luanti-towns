@@ -172,6 +172,8 @@ check_site("tower_south", "tower", 180, {x1 = 100, z1 = 200, x2 = 117, z2 = 220}
 	{18, 21}, {108, 212}, {0, 1}, {108, 221})
 fails(function() authored.landmark_site("ghost", "no_such_building", 0,
 	{x1 = 0, z1 = 0, x2 = 1, z2 = 1}) end, "unknown catalog id", "landmark_site rejects unknown id")
+fails(function() authored.landmark_site("small", "cathedral", 0,
+	{x1 = 0, z1 = 0, x2 = 9, z2 = 9}) end, "does not match the placed size", "landmark_site rejects a wrong-sized rect")
 
 -- derive_frontage on a hand-built plan: a 5-wide square to the south of an
 -- E-W street, with blocks on either side. Block "south" (x -2..6) gets one run
@@ -231,6 +233,97 @@ do
 	local ok, why = authored.derive_frontage(p)
 	eq(ok, nil, "block without frontage rejected by derive_frontage")
 	eq(why, "block far has no frontage", "block without frontage reason")
+end
+
+-- derive_frontage corner cases. `block` is the one block under test, edges
+-- are read off the neighbouring squares and streets.
+local function square(name, x1, z1, x2, z2)
+	return {name = name, kind = "square", material = "test:" .. name,
+		rect = {x1 = x1, z1 = z1, x2 = x2, z2 = z2}, approach = {pos = {x = x1, z = z1}}}
+end
+local function street(name, x1, z1, x2, z2)
+	return {kind = "secondary", name = name, material = "test:" .. name,
+		rect = {x1 = x1, z1 = z1, x2 = x2, z2 = z2}}
+end
+local function one_block(sites, streets, rect)
+	local p = {sites = {}, streets = streets or {},
+		blocks = {{id = 1, name = "b", rect = rect, frontage = {}}}, frontage = {}}
+	for _, s in ipairs(sites) do p.sites[s.name] = s end
+	return p
+end
+local function run_summary(p)
+	local out = {}
+	for _, f in ipairs(p.frontage) do
+		out[#out + 1] = ("%d:%s:%s:%d-%d:%d"):format(f.id, f.side, tostring(f.square or f.street),
+			f.rect.x1 + f.rect.z1, f.rect.x2 + f.rect.z2, f.length)
+	end
+	return table.concat(out, " ")
+end
+
+-- Two adjacent squares along one block side: one run each, in coordinate order.
+do
+	local p = one_block({square("a_sq", 0, 6, 4, 8), square("b_sq", 5, 6, 9, 8)}, {},
+		{x1 = 0, z1 = 0, x2 = 9, z2 = 5})
+	eq(authored.derive_frontage(p), true, "adjacent squares derive")
+	eq(#p.frontage, 2, "adjacent squares make two runs")
+	eq(p.frontage[1].square, "a_sq", "first run is the west square")
+	eq(p.frontage[1].rect.x1 == 0 and p.frontage[1].rect.x2 == 4 and p.frontage[1].rect.z1 == 5, true,
+		"first run covers the west square's columns")
+	eq(p.frontage[2].square, "b_sq", "second run is the east square")
+	eq(p.frontage[2].rect.x1 == 5 and p.frontage[2].rect.x2 == 9, true, "second run covers the east square's columns")
+	eq(p.frontage[1].material .. p.frontage[2].material, "test:a_sqtest:b_sq", "each run takes its own material")
+	eq(#p.blocks[1].frontage, 2, "the block lists both runs")
+end
+
+-- A square wins over a street where their rectangles overlap.
+do
+	local p = one_block({square("plaza", 0, 6, 4, 8)}, {street("lane", 0, 6, 9, 6)},
+		{x1 = 0, z1 = 0, x2 = 9, z2 = 5})
+	eq(authored.derive_frontage(p), true, "overlapping square and street derive")
+	eq(run_summary(p), "1:+z:plaza:5-9:5 2:+z:1:10-14:5", "square covers its columns, the street the rest")
+	eq(p.frontage[2].material, "test:lane", "the street run keeps the street material")
+end
+
+-- Several runs on one side, separated by open ground.
+do
+	local p = one_block({}, {street("s1", 0, 6, 1, 6), street("s2", 4, 6, 5, 6), street("s3", 8, 6, 9, 6)},
+		{x1 = 0, z1 = 0, x2 = 9, z2 = 5})
+	eq(authored.derive_frontage(p), true, "several runs derive")
+	eq(#p.frontage, 3, "three runs on one side")
+	for i, f in ipairs(p.frontage) do
+		eq(f.id, i, "run " .. i .. " id")
+		eq(f.street, i, "run " .. i .. " street")
+		eq(f.length, 2, "run " .. i .. " length")
+		eq(f.side, "+z", "run " .. i .. " side")
+	end
+	eq(p.frontage[2].rect.x1, 4, "second run starts after the gap")
+	eq(p.blocks[1].frontage[3], 3, "the block lists the runs in order")
+end
+
+-- A one-node gap between two streets splits the frontage into two runs.
+do
+	local p = one_block({}, {street("long", 0, 6, 4, 6), street("long2", 6, 6, 9, 6)},
+		{x1 = 0, z1 = 0, x2 = 9, z2 = 5})
+	authored.derive_frontage(p)
+	eq(#p.frontage, 2, "a one-node gap splits the frontage")
+end
+
+-- Sides other than +/-z: the run is the block's edge column, numbered -x
+-- before +x, ascending in z.
+do
+	local p = one_block({}, {street("west", -1, 2, -1, 6), street("east", 6, 0, 6, 9)},
+		{x1 = 0, z1 = 0, x2 = 5, z2 = 9})
+	eq(authored.derive_frontage(p), true, "x-side runs derive")
+	eq(#p.frontage, 2, "one run per x side")
+	local w, e = p.frontage[1], p.frontage[2]
+	eq(w.side, "-x", "west run side")
+	eq(w.facing.x == -1 and w.facing.z == 0, true, "west run facing")
+	eq(w.rect.x1 == 0 and w.rect.x2 == 0 and w.rect.z1 == 2 and w.rect.z2 == 6, true, "west run rect")
+	eq(w.length, 5, "west run length")
+	eq(e.side, "+x", "east run side")
+	eq(e.facing.x == 1 and e.facing.z == 0, true, "east run facing")
+	eq(e.rect.x1 == 5 and e.rect.x2 == 5 and e.rect.z1 == 0 and e.rect.z2 == 9, true, "east run rect")
+	eq(e.length, 10, "east run length")
 end
 
 fails(function() planner.plan({x = 0, z = 0}, 1, {town_type = "unknown"}) end,

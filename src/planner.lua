@@ -231,6 +231,7 @@ local content_planner = load_sibling("content_planner.lua")(
 	geometry, frontage_packer, jail_reservation.occupied_rects)
 local authored_plan = load_sibling("authored_plan.lua")
 local roman_planner = load_sibling("roman_planner.lua")
+local medieval_planner = load_sibling("medieval_planner.lua")
 local catalog = load_sibling("catalog.lua")
 
 M.CONSTANTS = {
@@ -1638,10 +1639,10 @@ end
 
 function M.validate(plan, constants)
 	if type(plan) == "table" and plan.town_type ~= nil then
-		if plan.town_type == "roman" then return authored_plan.validate(plan) end
-		if plan.town_type ~= "medieval" then
-			return nil, "unknown town type " .. tostring(plan.town_type)
+		if plan.town_type == "roman" or plan.town_type == "medieval" then
+			return authored_plan.validate(plan)
 		end
+		return nil, "unknown town type " .. tostring(plan.town_type)
 	end
 	return validate_with(plan, constants, false)
 end
@@ -1861,7 +1862,6 @@ function M.plan(center, seed, opts)
 	if not seed_ok then
 		error("towns planner: " .. seed_msg, 2)
 	end
-	local max_attempts = M.CONSTANTS.MAX_ATTEMPTS
 	local profile
 	if opts == nil then
 		error("towns planner: medieval plans need opts.landmarks, a landmark "
@@ -1970,142 +1970,11 @@ function M.plan(center, seed, opts)
 			profile.content[k] = L
 		end
 	end
-	if opts.max_attempts ~= nil then
-		if not is_int(opts.max_attempts) or opts.max_attempts < 0 then
-			error("towns planner: max_attempts must be an integer >= 0", 2)
-		end
-		max_attempts = opts.max_attempts
-	end
-
 	local C = M.resolve_constants(opts)
-	local fits, why = fit_check(C, profile)
-	if not fits then
-		return nil, "unsupported landmark profile: " .. why,
-			{code = "unsupported_fit", attempts = 0, rejections = {}, last = why}
-	end
-
-	local rng = new_rng(seed)
-	local rejections = {}
-	local last
-	for i = 1, max_attempts do
-		local p, stage, why = attempt(rng, C, profile)
-		if p then
-			local world = to_world(p, seed, center, C, i)
-			world.town_type = "medieval"
-			local ok, vwhy = validate_with(world, C, true)
-			if ok then
-				local full, swhy = streets.fill(world, rng, C)
-				if full then
-					ok, vwhy = M.validate(full, C)
-					if ok then
-						M.populate(full, profile, seed, C)
-						return full
-					end
-					stage, why = "validate", vwhy
-				else
-					stage, why = "streets", swhy
-				end
-			else
-				stage, why = "validate", vwhy
-			end
-		end
-		rejections[stage] = (rejections[stage] or 0) + 1
-		last = why
-	end
-
-	local parts = {}
-	for _, stage in ipairs({"boundary", "market", "cathedral", "castle", "approach", "validate", "streets"}) do
-		if rejections[stage] then
-			parts[#parts + 1] = stage .. " x" .. rejections[stage]
-		end
-	end
-	local reason = ("no valid town plan for seed %d after %d attempts"):format(seed, max_attempts)
-	if #parts > 0 then
-		reason = reason .. " (rejected: " .. table.concat(parts, ", ")
-			.. "; last: " .. tostring(last) .. ")"
-	end
-	return nil, reason, {
-		code = "retries_exhausted", attempts = max_attempts,
-		rejections = rejections, last = last,
-	}
-end
-
--- ASCII top-down rendering for debugging. North (+Z) is up, east (+X) right.
--- Legend: . boundary  # principal street  = secondary street  b block
---         ^ v < > frontage run, pointing at the street it faces (outward)
---         C cathedral  p parvis  M market  K castle  H city hall  A approach
---         + centre  e entrance  (blank = outside)
-function M.render(plan)
-	local b = plan.bounds
-	local grid = {}
-	local function put(x, z, ch)
-		if x >= b.x1 and x <= b.x2 and z >= b.z1 and z <= b.z2 then
-			grid[z][x] = ch
-		end
-	end
-	for z = b.z1, b.z2 do
-		grid[z] = {}
-		for x = b.x1, b.x2 do grid[z][x] = " " end
-	end
-	for _, r in ipairs(plan.boundary.rects) do
-		for z = r.z1, r.z2 do
-			for x = r.x1, r.x2 do put(x, z, ".") end
-		end
-	end
-	for _, bl in ipairs(plan.blocks) do
-		local r = bl.rect
-		for z = r.z1, r.z2 do
-			for x = r.x1, r.x2 do put(x, z, "b") end
-		end
-	end
-	for _, kind in ipairs({"secondary", "principal"}) do
-		for _, st in ipairs(plan.streets) do
-			if st.kind == kind then
-				local r = st.rect
-				for z = r.z1, r.z2 do
-					for x = r.x1, r.x2 do put(x, z, kind == "principal" and "#" or "=") end
-				end
-			end
-		end
-	end
-	local arrow = {["+z"] = "^", ["-z"] = "v", ["-x"] = "<", ["+x"] = ">"}
-	for _, f in ipairs(plan.frontage) do
-		for z = f.rect.z1, f.rect.z2 do
-			for x = f.rect.x1, f.rect.x2 do put(x, z, arrow[f.side]) end
-		end
-	end
-	local glyph = {cathedral = "C", parvis = "p", market = "M", castle = "K",
-		city_hall = "H"}
-	local drawn = {}
-	for i, name in ipairs(plan.site_order) do drawn[i] = name end
-	if plan.sites.city_hall then drawn[#drawn + 1] = "city_hall" end
-	for _, name in ipairs(drawn) do
-		local r = plan.sites[name].rect
-		for z = r.z1, r.z2 do
-			for x = r.x1, r.x2 do put(x, z, glyph[name]) end
-		end
-	end
-	for _, a in ipairs(plan.approaches) do
-		local e = a.edge
-		for z = e.z1, e.z2 do
-			for x = e.x1, e.x2 do put(x, z, "A") end
-		end
-	end
-	for _, name in ipairs(drawn) do
-		local e = plan.sites[name].entrance
-		if e then put(e.x, e.z, "e") end
-	end
-	put(plan.center.x, plan.center.z, "+")
-	local lines = {}
-	lines[1] = ("seed %d center (%d,%d) bounds (%d,%d)-(%d,%d) %dx%d attempts %d"):format(
-		plan.seed, plan.center.x, plan.center.z, b.x1, b.z1, b.x2, b.z2,
-		plan.width, plan.depth, plan.attempts)
-	for z = b.z2, b.z1, -1 do
-		local row = {}
-		for x = b.x1, b.x2 do row[#row + 1] = grid[z][x] end
-		lines[#lines + 1] = (table.concat(row):gsub("%s+$", ""))
-	end
-	return table.concat(lines, "\n")
+	local plan, why, detail = medieval_planner.plan(center, seed, profile, new_rng(seed))
+	if not plan then return nil, why, detail end
+	M.populate(plan, profile, seed, C)
+	return plan
 end
 
 return M

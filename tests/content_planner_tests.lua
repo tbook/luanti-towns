@@ -1,6 +1,7 @@
 -- Frontage content tests (ticket #42). Loaded by tests/run.lua:
 --   loadfile("tests/content_planner_tests.lua")(eq, fails, planner, catalog, geometry)
 local eq, fails, planner, catalog, geometry = ...
+local authored_plan = dofile("src/authored_plan.lua")
 
 local packer = dofile("src/frontage_packer.lua")(geometry)
 local jailmod = dofile("src/jail_reservation.lua")(packer)
@@ -161,7 +162,7 @@ for _, seed in ipairs(FULL and {1, 2, 3, 4, 5, 6, 7, 8} or {1}) do
 	local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
 	local without = assert(planner.plan({x = 10, z = -30}, seed,
 		{landmarks = civic, constants = depth_policy}))
-	eq(planner.validate(plan), true, label .. " validates")
+	eq(authored_plan.validate(plan), true, label .. " validates")
 	eq(without.content, nil, label .. " no content without profile entry")
 	eq(#plan.blocks, #without.blocks, label .. " blocks")
 	eq(#plan.frontage, #without.frontage, label .. " frontage")
@@ -230,5 +231,5 @@ do
 	eq(#plan.content.buildings, 0, "empty content: none")
 	eq(type(plan.content.reason), "string", "empty content: reason")
 	eq(#plan.content.empty_runs > 0, true, "empty content: empty runs")
-	eq(planner.validate(plan), true, "empty content validates")
+	eq(authored_plan.validate(plan), true, "empty content validates")
 end

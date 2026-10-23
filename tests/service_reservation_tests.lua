@@ -1,6 +1,7 @@
 -- Service reservation tests (ticket #41). Loaded by tests/run.lua:
 --   loadfile("tests/service_reservation_tests.lua")(eq, fails, planner, catalog, geometry)
 local eq, fails, planner, catalog, geometry = ...
+local authored_plan = dofile("src/authored_plan.lua")
 
 local packer = dofile("src/frontage_packer.lua")(geometry)
 local jailmod = dofile("src/jail_reservation.lua")(packer)
@@ -277,7 +278,7 @@ local FULL = os.getenv("TOWNS_TEST_FULL") == "1"
 local function check_planned(seed)
 	local label = "services seed " .. seed
 	local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
-	eq(planner.validate(plan), true, label .. " validates")
+	eq(authored_plan.validate(plan), true, label .. " validates")
 	local res = plan.reservations
 	local counts = res.service_counts
 	eq(counts.tavern.placed, 3, label .. " taverns")
@@ -324,7 +325,7 @@ do
 	eq(plan.reservations.service_counts.chapel.placed, 0, "impossible chapel unmet")
 	eq(#plan.shortages, 1, "one shortage")
 	eq(plan.shortages[1].role, "chapel", "chapel shortage role")
-	eq(planner.validate(plan), true, "shortage plan validates")
+	eq(authored_plan.validate(plan), true, "shortage plan validates")
 end
 
 -- Profiles without services carry no service fields.
