@@ -216,6 +216,52 @@ for _, name in ipairs({"temple_east", "temple_west"}) do
 	eq((a.x - e.x) * s.facing.x + (a.z - e.z) * s.facing.z > 1, true, name .. " door is recessed")
 end
 
+-- Lanes (issue #172): each principal arm carries a central lane of cobble
+-- slabs, two nodes narrower than the street, from the forum edge to the node
+-- before its arch. Edge nodes stay blocks, the arch approach stays a block.
+for _, arm in ipairs({"north", "south", "east", "west"}) do
+	local st = arm_streets[arm]
+	local lane = st.lane
+	eq(lane ~= nil and lane.material, "mcl_stairs:slab_cobble", arm .. " arm has a cobble slab lane")
+	local r = st.rect
+	local along = (arm == "north" or arm == "south") and "z" or "x"
+	local across = along == "z" and "x" or "z"
+	local arch_far = arm == "north" or arm == "east" -- the arch sits at the far end
+	local e = {x1 = r.x1, z1 = r.z1, x2 = r.x2, z2 = r.z2}
+	e[across .. "1"] = r[across .. "1"] + 1
+	e[across .. "2"] = r[across .. "2"] - 1
+	if arch_far then e[along .. "2"] = r[along .. "2"] - 1 else e[along .. "1"] = r[along .. "1"] + 1 end
+	eq(lane.rect.x1 == e.x1 and lane.rect.z1 == e.z1 and lane.rect.x2 == e.x2 and lane.rect.z2 == e.z2, true,
+		arm .. " lane is the central four nodes up to the arch approach")
+	eq(overlap(lane.rect, plan.sites.forum.rect), false, arm .. " lane stays off the forum")
+	for _, s in ipairs(list) do
+		eq(overlap(lane.rect, s.rect), false, arm .. " lane stays off " .. s.name)
+	end
+	eq(lane.rect[across .. "2"] - lane.rect[across .. "1"] + 1, 4, arm .. " lane is four nodes across")
+	local ap = plan.sites[roman.layout.arms[arm].arch].approach.pos
+	eq(overlap(lane.rect, {x1 = ap.x, z1 = ap.z, x2 = ap.x, z2 = ap.z}), false, arm .. " arch approach is not laned")
+end
+for _, st in ipairs(plan.streets) do
+	if st.kind == "secondary" then eq(st.lane, nil, st.name .. " (ring) has no lane") end
+end
+eq(plan.sites.forum.lane, nil, "forum has no lane")
+for _, s in ipairs(list) do eq(s.lane, nil, s.name .. " has no lane") end
+local medieval_lanes = 0
+for _, st in ipairs(planner.plan({x = 0, z = 0}, 1).streets) do
+	if st.lane then medieval_lanes = medieval_lanes + 1 end
+end
+eq(medieval_lanes, 0, "medieval streets have no lanes")
+local lane_layout = copy(roman.layout)
+lane_layout.profiles.lane.width = 6
+local no_lane, lane_why = roman.plan({x = 0, z = 0}, 1, lane_layout, row_depth)
+eq(no_lane, nil, "a lane as wide as the street is rejected")
+eq(lane_why:find("does not fit", 1, true) ~= nil, true, "lane width reason")
+lane_layout = copy(roman.layout)
+lane_layout.arms.north.profile = "missing"
+no_lane, lane_why = roman.plan({x = 0, z = 0}, 1, lane_layout, row_depth)
+eq(no_lane, nil, "an unknown street profile is rejected")
+eq(lane_why:find("unknown profile", 1, true) ~= nil, true, "unknown profile reason")
+
 -- Blocks and frontage (issue #149).
 eq(#plan.blocks > 0 and #plan.frontage > 0, true, "plan has blocks and frontage")
 eq(row_depth, 9, "catalog row depth for ordinary templates")
@@ -362,3 +408,75 @@ fails(function() planner.plan({x = 0, z = 0}, 2 ^ 40, {town_type = "roman"}) end
 local medieval = planner.plan({x = 0, z = 0}, 1)
 eq(medieval.town_type, "medieval", "default town type remains medieval")
 eq(medieval.sites.cathedral ~= nil, true, "default plan keeps medieval civic sites")
+
+-- Lane invariants (issue #172). These run in the quick group, unlike the
+-- builder tests. A door approach must never lie on a lane cell: the floor of
+-- an approach must be a full block, because preflight.check_door rejects a
+-- door whose approach floor is a partial (slab) node. Only arms carry lanes.
+do
+	local function in_r(r, x, z) return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 end
+	local function lane_cells_of(plan)
+		local out = {}
+		for _, st in ipairs(plan.streets) do if st.lane then out[#out + 1] = st.lane.rect end end
+		return out
+	end
+	for _, seed in ipairs({1, 2, 3, 7, 11, 23}) do
+		local p, why = planner.plan({x = 0, z = 0}, seed, {town_type = "roman"})
+		assert(p, why)
+		local lanes = lane_cells_of(p)
+		eq(#lanes, 4, "seed " .. seed .. " has four arm lanes")
+		local cells = {}
+		for _, name in ipairs(p.site_order) do cells[#cells + 1] = {p.sites[name].approach.pos, name} end
+		for _, b in ipairs(p.content.buildings) do cells[#cells + 1] = {b.approach, b.building_id} end
+		local res = {p.reservations.jail}
+		for _, s in ipairs(p.reservations.services) do res[#res + 1] = s end
+		for _, r in ipairs(res) do
+			if r.approach then cells[#cells + 1] = {r.approach, r.building_id} end
+		end
+		eq(#p.content.buildings > 0, true, "seed " .. seed .. " is populated")
+		for _, c in ipairs(cells) do
+			for _, lr in ipairs(lanes) do
+				eq(in_r(lr, c[1].x, c[1].z), false,
+					"seed " .. seed .. " approach of " .. c[2] .. " is not on a lane cell")
+			end
+		end
+	end
+end
+
+-- Crossing precedence (issue #172): where a ring band crosses an arm's lane,
+-- the lane cell is a slab (beats the gravel ring and the cobble street); ring
+-- cells beside the arm are gravel; the street's edge columns stay cobble.
+do
+	local function in_r(r, x, z) return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 end
+	local TLF = dofile("src/town_layout.lua")
+	local TL = TLF({MAX_HEIGHT = 40, names = function() return {} end,
+		cathedral = function() return {cols = {}, max_dy = 0, names = {}, opening = {}} end,
+		castle = function() return {cols = {}, max_dy = 0, names = {}, opening = {}} end})
+	local p = planner.plan({x = 0, z = 0}, 1, {town_type = "roman"})
+	assert(p)
+	local pav = TL.pavement_map(p)
+	local function at(x, z) return pav[x] and pav[x][z] end
+	local ring_of = {}
+	for _, st in ipairs(p.streets) do if st.ring then ring_of[st.ring] = st end end
+	for _, arm in ipairs({"north", "east"}) do
+		local st = nil
+		for _, s in ipairs(p.streets) do if s.arm == arm then st = s end end
+		local lane, band = st.lane.rect, ring_of[arm].rect
+		-- along: the arm's axis, the band's thin axis; across: the other one.
+		local along = (arm == "north" or arm == "south") and "z" or "x"
+		local across = along == "z" and "x" or "z"
+		local function cell(a, c)
+			if along == "z" then return c, a end
+			return a, c
+		end
+		local a = band[along .. "1"]
+		local lx, lz = cell(a, lane[across .. "1"])
+		eq(in_r(lane, lx, lz) and in_r(band, lx, lz), true, arm .. " crossing lane cell lies in the ring band")
+		eq(at(lx, lz), "mcl_stairs:slab_cobble", arm .. " crossing lane cell is a slab")
+		local gx, gz = cell(a, st.rect[across .. "1"] - 1)
+		eq(in_r(band, gx, gz) and not in_r(st.rect, gx, gz), true, arm .. " gravel probe lies in the ring beside the arm")
+		eq(at(gx, gz), ring_of[arm].material, arm .. " ring cell beside the arm is gravel")
+		local ex, ez = cell(a, st.rect[across .. "1"])
+		eq(at(ex, ez), "mcl_core:cobble", arm .. " crossing edge column stays cobble")
+	end
+end

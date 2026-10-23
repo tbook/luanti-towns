@@ -352,7 +352,10 @@ local function build_impl(result, opts, env, st)
 			static[#static + 1] = item.site.material
 		end
 	end
-	for _, s in ipairs(plan.streets) do static[#static + 1] = s.material end
+	for _, s in ipairs(plan.streets) do
+		static[#static + 1] = s.material
+		if s.lane then static[#static + 1] = s.lane.material end
+	end
 	for _, n in ipairs(static) do
 		if type(n) ~= "string" then return fail("invalid_plan", "pavement without a material name") end
 	end

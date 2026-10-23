@@ -142,7 +142,12 @@ function TL.pavement_map(plan, extra)
 	end
 	for _, kind in ipairs({"principal", "secondary"}) do
 		for _, s in ipairs(plan.streets) do
-			if s.kind == kind then claim(s.rect, s.material, kind == "principal" and 1 or 2) end
+			if s.kind == kind then
+				-- A street lane (issue #172) is claimed first, so its material
+				-- (a slab) wins over the street's own material on its cells.
+				if s.lane then claim(s.lane.rect, s.lane.material, 1) end
+				claim(s.rect, s.material, kind == "principal" and 1 or 2)
+			end
 		end
 	end
 	local castle = plan.sites and plan.sites.castle
