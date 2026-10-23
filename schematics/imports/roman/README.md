@@ -9,9 +9,11 @@ recorded in `manifest.json`; the matching `.lua` stores node metadata,
 inventories, and required node names for tooling that supports the Towns
 schematic sidecar format.
 
-The bath capture includes the full basement volume and the corrected two-layer
-dirt plinth. Its surrounding terrain is part of the import asset so its ground
-level remains clear when placed. The other captures preserve the complete
+The bath capture includes the full basement volume and the two ground rows
+(dirt below the grass datum) that carry its `ground_offset`. Since #171 it is a
+tight box around the architecture (`FIXED_BOXES` in the exporter): the dirt,
+grass, stone and gravel platform it stood on in the workshop, and the empty rows
+above the roof, are excluded. The other captures preserve the complete
 workshop bounds, including authored empty space. Independent entities are not
 included.
 
@@ -21,6 +23,16 @@ run from the mod directory:
 ```sh
 python3 tools/issue139_import/export_roman.py
 ```
+
+`--only bath` (any subset of ids) re-exports just those buildings and keeps the
+other manifest records and the top-level `snapshot_sha256`. Every record
+written by the exporter carries its own `min`/`max` capture box,
+`snapshot_sha256` (the temporary map backup it was captured from) and
+`source_map_sha256` (the source `map.sqlite` file). A record without these two
+fields was captured by the original full export, whose snapshot is the
+top-level `snapshot_sha256`. The bath was last re-exported with `--only bath`
+from a byte-identical scratch copy of TownsWorkshop (`--world <copy>`), so
+`source_map_sha256` equals the workshop file's hash.
 
 The exporter reads a consistent, read-only SQLite snapshot and writes only to
 this directory. In a game with this mod enabled, a server-privileged player
@@ -46,10 +58,12 @@ axis **before** placement rotation; omitted facing defaults to `-Z`.
 | domus | 38×11×22 | 1,2,9 | -X | 1 | Spruce double front door; grass/path surface at Y=1. |
 | theatre | 21×11×14 | 10,5,13 | +Z | 3 | Open central front apron over cobble at Y=4; perimeter grass at Y=3. |
 | amphitheater | 29×9×29 | 15,3,0 | -Z | 2 | Grass-path approach at X=15, Y=2; open entrance under outer structure. |
-| bath | 95×21×48 | 8,4,22 | -X | 2 | Central front door over quartz at Y=3; perimeter grass at Y=2 above lower dirt layer. |
+| bath | 88×18×43 | 4,4,20 | -X | 2 | Central front door over quartz at Y=3 (quartz approach slab at X=0); perimeter grass at Y=2 above lower dirt layer. |
 
-The bath's full 95×21×48 capture, basement, plinth, and saved metadata remain
-intact. Its door is recessed eight nodes from the capture edge; the temple
+The bath's 88×18×43 capture keeps the basement, ground rows, and all saved
+metadata (288 nodes); only the platform margin and empty top rows were
+trimmed (#171: world box (101,7,399)-(188,24,441)). Its door is recessed four
+nodes from the capture edge; the temple
 door is recessed three. `geometry.place().outside` remains the single node
 adjacent to the entrance, including for recessed doors. Later layout/routing
 work must account for these captured margins rather than treating that node
