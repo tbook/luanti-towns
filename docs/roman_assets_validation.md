@@ -21,6 +21,30 @@ and `roman-check.json`. The JSON records origins, entrances, front vectors,
 ground probes, approach floor heights, initialization counts, and bed results
 for every placement. This is an engine/node inspection, not a visual walk-through.
 
+### What the node check compares (#188)
+
+Every voxel of every capture (including air and basement) is compared with
+the node that `schematic.place` leaves at that position, at all four
+rotations. Node names must match exactly, and param2 must match a native
+`core.place_schematic` placement. Walls are the one place where the expected
+name is not the raw template name: `schematic.place` renames each wall from
+its placed neighbours (`schematic.wall_name`, #178), and the template wall
+names are not authoritative (#187). `tools/roman_check/expect.lua` applies the
+same recompute to the template's neighbours in rotated orientation. No other
+tolerance is applied; in particular grass/dirt, gravel and falling nodes are
+compared exactly. The `tests/roman_check_expect_tests.lua` group checks this
+helper against real `schematic.place` output for every Roman capture.
+
+The checker does not stop at the first failure. Each landmark and rotation is
+checked independently; node mismatches go to `mismatches` and raised errors to
+`errors` in `roman-check.json`, and `ok` is true only when both are empty. The
+temple's ground probe is its Y=0 terrain row (grass datum at `(0,0,0)`), since
+#134 moved the quartz platform up to Y=1.
+
+Baseline on `main` before #188: 487 node mismatches, all wall names
+(amphitheater, arch, theatre; all rotations), and a temple ground-probe error
+at every rotation. After the change the run is unfiltered and passes.
+
 ## Recorded result
 
 The run in `towns-roman-check-vgnqo0ax` passed all 24 placements (six assets
