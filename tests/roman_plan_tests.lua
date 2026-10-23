@@ -30,9 +30,9 @@ local plan = plan_at(100, -50, 7)
 eq(plan.town_type, "roman", "Roman plan carries its town type")
 eq(planner.validate(plan), true, "selected Roman plan passes authored validation")
 
--- Exact monument census: 16 placements from eight templates.
+-- Exact monument census: 17 placements from nine templates (vespasianum, #218).
 local list = landmarks(plan)
-eq(#list, 16, "16 monument placements")
+eq(#list, 17, "17 monument placements")
 local counts, names, n = {}, {}, 0
 for _, s in ipairs(list) do
 	counts[s.id] = (counts[s.id] or 0) + 1
@@ -40,12 +40,29 @@ for _, s in ipairs(list) do
 	names[s.name] = true
 	eq(plan.sites[s.name], s, s.name .. " is keyed by its own name")
 end
-for id, want in pairs({arch = 4, temple = 2, domus = 3, basilica = 1, theatre = 1, amphitheater = 1, bath = 1, insula = 3}) do
+for id, want in pairs({arch = 4, temple = 2, domus = 3, basilica = 1, theatre = 1, amphitheater = 1, bath = 1, insula = 3, vespasianum = 1}) do
 	eq(counts[id], want, id .. " count")
 	n = n + 1
 end
-eq(n, 8, "eight templates")
-eq(#plan.site_order, 17, "forum plus 16 monuments in site order")
+eq(n, 9, "nine templates")
+eq(#plan.site_order, 18, "forum plus 17 monuments in site order")
+
+-- Vespasianum (#218): one latrine at the far end of the east arm's north
+-- frontage. Its -X opening turns to -z (rotation 270), toward the decumanus,
+-- and its approach is the paved decumanus node just outside the opening.
+do
+	local v = plan.sites.vespasianum_east
+	eq(v.id, "vespasianum", "vespasianum_east is a vespasianum")
+	eq(v.arm, "east", "vespasianum_east on the east arm")
+	eq(v.rotation, 270, "vespasianum rotation turns its opening to the decumanus")
+	eq(v.facing.x == 0 and v.facing.z == -1, true, "vespasianum opening faces -z")
+	-- This plan is centred at (100,-50): the origin rect 30..37 x 3..12 and
+	-- approach (34,2) translate by the centre (the literal pins are below).
+	local cx, cz = plan.center.x, plan.center.z
+	eq(v.rect.x1 == cx + 30 and v.rect.z1 == cz + 3 and v.rect.x2 == cx + 37 and v.rect.z2 == cz + 12, true,
+		"vespasianum rect at origin plan")
+	eq(v.approach.pos.x == cx + 34 and v.approach.pos.z == cz + 2, true, "vespasianum approach on the decumanus")
+end
 
 -- Arms: the theatre and amphitheater differ, and the bath uses the south arm.
 eq(plan.sites.theatre.arm, "west", "theatre on the west arm")
@@ -732,7 +749,7 @@ do
 	local pins = {
 		{"domus_1", 44, 39, 81, 60}, {"basilica", 15, -31, 30, -4},
 		{"domus_3", 44, -41, 65, -4}, {"domus_4", -66, 3, -45, 40},
-		{"amphitheater", 44, 3, 72, 31},
+		{"amphitheater", 44, 3, 72, 31}, {"vespasianum_east", 30, 3, 37, 12},
 		{"insula_north_east", 3, 39, 37, 65}, {"insula_north_west", -38, 39, -4, 65},
 		{"insula_south", 3, -74, 37, -48},
 	}
@@ -746,7 +763,7 @@ do
 		rect_pin(origin.sites[pin[1]].rect, pin, pin[1] .. " rect at the origin")
 	end
 	local block_pins = {
-		{"east_forum_north", 15, 3, 37, 11}, {"east_end_south", 66, -12, 73, -4},
+		{"east_forum_north", 15, 3, 29, 11}, {"east_end_south", 66, -12, 73, -4},
 		{"south_east_inner", 3, -41, 11, -16}, {"west_forum_south", -25, -12, -16, -4},
 		{"west_end_south", -74, -12, -47, -4}, {"west_forum_north", -38, 3, -16, 11},
 		{"west_end_north", -74, 3, -67, 11}, {"ring_north_inner_east", 15, 24, 37, 32},

@@ -436,6 +436,13 @@ stand flush against the inner north and south bands on their outer side.
 The imported basilica (issue #217) replaces the domus nearest the forum: it
 stands on the south side of the east arm, inside the ring, rotated so its
 recessed front door faces the decumanus, with its low edge at the forum edge.
+One public latrine (issue #218, the imported vespasianum) is a fixed landmark
+at the far end of the east arm's north frontage: `arm = "east"`, `side = "+z"`,
+`at = 15`, `rotation = 270`, so its -X opening faces the decumanus and its
+approach is the paved street node beside it. It is pre-placed rather than
+packed, and it trims block `east_forum_north` to nodes 0..14, so the forum's
+east edge keeps its frontage run. The vespasianum's water channel is enclosed
+by its walls (no water-reachable cell touches the box exterior).
 Blocks may stand flush against a ring band's inner or
 outer side. Each ring band is a `bands` entry in `roman_civic_plan.lua`:
 `name`, `arm` (the axis it runs along), `from..to` (nodes outward from the

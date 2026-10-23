@@ -63,7 +63,7 @@ for _, seed in ipairs(SEEDS) do
 	local tag = "seed " .. seed
 	eq(planner.validate(plan), true, tag .. " validates")
 	eq(monuments(plan), monuments(base), tag .. " keeps the fixed civic geometry")
-	eq(#plan.site_order, 17, tag .. " retains exactly the fixed monuments")
+	eq(#plan.site_order, 18, tag .. " retains exactly the fixed monuments")
 
 	-- Only allowed roles anywhere in the automatic content.
 	local roles = {}
