@@ -16,7 +16,7 @@ return function(center, seed, opts)
 	return {
 		town_type = "roman", seed = seed or 1,
 		center = {x = dx, z = dz},
-		bounds = rect(0, 0, 15, 8), envelope = rect(0, 0, 15, 8),
+		bounds = rect(0, 0, 15, 8),
 		boundary = {rects = (opts and opts.notched)
 			and {rect(0, 0, 11, 8), rect(12, 0, 15, 3)} or {rect(0, 0, 15, 8)}},
 		site_order = {"forum", "temple"},

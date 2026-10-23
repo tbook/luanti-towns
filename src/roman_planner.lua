@@ -66,25 +66,13 @@ local function entry_of(id)
 	return entry
 end
 
--- Place `id` at `rect` and describe it as an authored landmark site. The
--- approach is the first node outside the box along the entrance front, so a
--- recessed door still has a paved node on the box edge.
+-- Place `id` at `rect` as an authored landmark site (authored_plan.landmark_site)
+-- whose entrance must face `toward`; `extra` fields are merged in.
 local function landmark(name, id, rotation, rect, toward, extra)
-	local placed = geometry.place(entry_of(id), {x = rect.x1, y = 0, z = rect.z1}, rotation)
-	if placed.front.x ~= toward[1] or placed.front.z ~= toward[2] then
+	local site = authored_plan.landmark_site(name, id, rotation, rect)
+	if site.facing.x ~= toward[1] or site.facing.z ~= toward[2] then
 		layout_error(name .. " rotation " .. rotation .. " does not face its street")
 	end
-	local ax, az = placed.outside.x, placed.outside.z
-	while ax >= rect.x1 and ax <= rect.x2 and az >= rect.z1 and az <= rect.z2 do
-		ax, az = ax + placed.front.x, az + placed.front.z
-	end
-	local site = {
-		name = name, kind = "landmark", id = id, rotation = rotation,
-		rect = rect, size = {x = placed.size.x, z = placed.size.z},
-		entrance = {x = placed.entrance.x, z = placed.entrance.z},
-		facing = {x = placed.front.x, z = placed.front.z},
-		approach = {pos = {x = ax, z = az}},
-	}
 	for k, v in pairs(extra) do site[k] = v end
 	return site
 end
@@ -106,25 +94,12 @@ function M.content_profile()
 	return {content = content}
 end
 
-local SIDE_ORDER = {
-	{side = "-z", x = 0, z = -1}, {side = "+z", x = 0, z = 1},
-	{side = "-x", x = -1, z = 0}, {side = "+x", x = 1, z = 0},
-}
-
--- Adds plan.blocks and plan.frontage from the layout's block rectangles.
+-- Adds plan.blocks from the layout's block rectangles, then derives their
+-- frontage (authored_plan.derive_frontage).
 local function add_blocks(layout, plan, row_depth, dx, dz)
 	local half = math.floor(layout.street_width / 2)
 	if type(row_depth) ~= "number" or row_depth < 1 or row_depth ~= math.floor(row_depth) then
 		layout_error("blocks need a catalog row depth")
-	end
-	local forum = plan.sites.forum
-	local function surface(x, z)
-		local r = forum.rect
-		if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return "forum", forum.material end
-		for i, st in ipairs(plan.streets) do
-			r = st.rect
-			if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return i, st.material end
-		end
 	end
 	local seen = {}
 	for _, spec in ipairs(layout.blocks or {}) do
@@ -169,43 +144,9 @@ local function add_blocks(layout, plan, row_depth, dx, dz)
 			area = (r.x2 - r.x1 + 1) * (r.z2 - r.z1 + 1), frontage = {},
 		}
 		plan.blocks[#plan.blocks + 1] = block
-		for _, s in ipairs(SIDE_ORDER) do
-			-- Edge nodes of this side in ascending coordinate order.
-			local cells = {}
-			if s.x == 0 then
-				local z = s.z < 0 and r.z1 or r.z2
-				for x = r.x1, r.x2 do cells[#cells + 1] = {x, z} end
-			else
-				local x = s.x < 0 and r.x1 or r.x2
-				for z = r.z1, r.z2 do cells[#cells + 1] = {x, z} end
-			end
-			local i = 1
-			while i <= #cells do
-				local owner, material = surface(cells[i][1] + s.x, cells[i][2] + s.z)
-				local j = i
-				if owner ~= nil then
-					while j < #cells do
-						local o = surface(cells[j + 1][1] + s.x, cells[j + 1][2] + s.z)
-						if o ~= owner then break end
-						j = j + 1
-					end
-					local a, b = cells[i], cells[j]
-					local run = {
-						id = #plan.frontage + 1, block = block.id, side = s.side,
-						facing = {x = s.x, z = s.z},
-						rect = {x1 = a[1], z1 = a[2], x2 = b[1], z2 = b[2]},
-						length = j - i + 1, material = material,
-					}
-					if owner == "forum" then run.square = "forum"
-					else run.street = owner; run.street_name = plan.streets[owner].name end
-					plan.frontage[run.id] = run
-					block.frontage[#block.frontage + 1] = run.id
-				end
-				i = j + 1
-			end
-		end
-		if #block.frontage == 0 then layout_error("block " .. spec.name .. " has no frontage") end
 	end
+	local ok, why = authored_plan.derive_frontage(plan)
+	if not ok then layout_error(why) end
 end
 
 function M.build(layout, center, seed, row_depth)
