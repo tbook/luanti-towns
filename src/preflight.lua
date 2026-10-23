@@ -16,9 +16,9 @@
 --       everything run() does except the emerge (pure given env reads).
 --   preflight.core_env(core) -> env
 --
--- Wiring into builder / /towns_generate is deliberately NOT done here: the
--- whole path is opt-in today and is left to tickets #45 and #49. Nothing in
--- the legacy command calls this module.
+-- Wiring into the builder and /towns_generate is done by the callers
+-- (site_search, builder.build_town, src/generate_command.lua); this module
+-- places nothing itself.
 --
 -- compose: every civic and content placement of a finished plan resolved to
 -- an exact XYZ box. Sources, in this deterministic order: named sites

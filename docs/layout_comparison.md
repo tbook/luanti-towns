@@ -227,11 +227,11 @@ do not leave a sliver between their edge and the pavement
 pavement.) Exceptions: one street width at each street end
 (junctions, bends and entrance approaches), runs shorter than
 `MIN_FRONTAGE_RUN`, and a gap of 0 (a street touching a road or a landmark;
-a street touching the town edge is not exempt). Plans without ordinary
-content in the profile, and the legacy 96 envelope, plan without the policy.
+a street touching the town edge is not exempt). Plans whose profile has no
+ordinary content plan without the policy.
 
 `MIN_BLOCK_SIDE` is intentionally the larger of D and the #89 product value
-(`LANDMARK_TUNING.MIN_BLOCK_SIDE = 12`): the derived depth must not thin the
+(`planner.CONSTANTS.MIN_BLOCK_SIDE = 12`): the derived depth must not thin the
 #89 look, and a deeper catalog raises it. Explicit `opts.constants` win.
 
 ### Before and after (#86)

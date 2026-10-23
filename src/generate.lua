@@ -26,7 +26,7 @@
 --   get_player_pos(name) -> {x,y,z} | nil   nil when the player is not online
 --   search(pos, seed, town_type, done)      "medieval" | "roman"; done(result,
 --                                           nil, details) / done(nil, msg, details)
---   build(result) -> summary | nil, message, code[, {bounds, planned}]   builder.build
+--   build(result) -> summary | nil, message, code[, {bounds, planned}]   builder.build_town
 --   send(name, msg)    chat to the player; must tolerate an offline player
 --   log(level, msg)
 --   entropy() -> number                     clock/world derived (random_seed)

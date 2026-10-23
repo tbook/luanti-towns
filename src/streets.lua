@@ -411,7 +411,7 @@ function M.fill(plan, rng, C)
 	local castle = lrect(plan.sites.castle.rect)
 	set_rect(F, n, cathedral, 0)
 	set_rect(F, n, castle, 0)
-	-- City hall (profile plans): an obstacle beside the market (#106), neither free
+	-- City hall: an obstacle beside the market (#106), neither free
 	-- ground nor pavement, so no route or paving crosses its foundation.
 	local hall = plan.sites.city_hall and lrect(plan.sites.city_hall.rect)
 	if hall then set_rect(F, n, hall, 0) end
@@ -430,7 +430,8 @@ function M.fill(plan, rng, C)
 	local rcount = make_count(R, n)
 
 	-- Row-depth policy (ticket #86). Active only when the planner supplied
-	-- ROW_DEPTH (catalog-derived, planner.row_depth); legacy plans skip it.
+	-- ROW_DEPTH (catalog-derived, planner.row_depth); a profile without
+	-- ordinary content has none and skips it.
 	-- B: inside the boundary; S: square-like pavement (market, parvis, apron).
 	-- A ray leaves a street side over open ground (free, unpaved) and ends at
 	-- pavement (road or square), a landmark, or the boundary edge; the gap is

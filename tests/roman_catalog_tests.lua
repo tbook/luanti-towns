@@ -43,7 +43,7 @@ for id, f in pairs(fixtures) do
 	end
 	eq(s.at(e.entrance.x, e.entrance.y - 1, e.entrance.z) ~= "air", true, id .. " entrance floor")
 	for i, rotation in ipairs(geometry.ROTATIONS) do
-		local b = placement.plan(snapshot[id], {x = 92, y = 20, z = 200}, rotation).building
+		local b = geometry.place(snapshot[id], {x = 100, y = 20 - f[3], z = 200}, rotation)
 		local front = fronts[(f[5] + i - 2) % 4 + 1]
 		local label = id .. " at " .. rotation
 		eq(b.min.y, 20 - f[3], label .. " foundation")

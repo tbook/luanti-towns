@@ -65,26 +65,27 @@ places the complete catalog (including the castle) at all four rotations through
 checking nodes, orientations, entrance locations, fields, and inventories.
 Snapshot paths and logs are printed for inspection if a check fails.
 
-Reload the game after replacing schematics because Luanti caches them. Use
-`/towns_test <id> <rotation>` in a disposable world, for example
-`/towns_test weaver_house 90`. The catalog IDs are `tower`, `leather_worker`,
+Reload the game after replacing schematics because Luanti caches them. To
+look at a template on its own, copy it to a world's `schems` directory and use
+WorldEdit's `//mtschemplace`; towns place them through `/towns_generate`.
+The catalog IDs are `tower`, `leather_worker`,
 `corner_house`, `jail`, `townhouses`, `weaver_house`, `scribe`, `gaboo_house`,
 `office_building`, `banker_house`, `butcher_shop`, `mason_yard`, and `chapel`.
-The `armory`, `castle`, `cathedral` compound and existing `demo_house` are
-also available.
+The `armory`, `castle`, `cathedral` compound and the hand-made `demo_house`
+are also in the catalog.
 
-The command reconstructs containers and decorations, restores inventory
-contents and door state, and creates their display entities. It does not
-import source villagers, bed ownership, simulation timestamps or formspecs
-with old world coordinates. Villagers and other independent entities are
-not schematic contents. Gaboo and the townhouses require **mcl_decor**.
-The chapel requires **mcl_decor** for chairs and **living_villages** for its
-pulpit. The command reports unavailable nodes before changing the destination.
+Placing a template (`src/schematic.lua`, used by `/towns_generate`)
+reconstructs containers and decorations, restores inventory contents and door
+state, and creates their display entities. It does not import source
+villagers, bed ownership, simulation timestamps or formspecs with old world
+coordinates. Villagers and other independent entities are not schematic
+contents. Gaboo and the townhouses require **mcl_decor**. The chapel requires
+**mcl_decor** for chairs and **living_villages** for its pulpit. The town
+preflight reports unavailable nodes before anything is changed.
 
 The exporter reads the selected world from a consistent, read-only snapshot.
-It never overwrites workshop edits. The full town generator still uses its
-existing blockouts; these templates are registered for the building catalog
-and test command.
+It never overwrites workshop edits. The templates are registered for the
+building catalog and placed by the town generator.
 
 ## Cleaned landmarks
 

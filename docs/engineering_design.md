@@ -36,10 +36,13 @@ to isolate.
 
 ## Thin technical shape
 
-This is the target architecture. The current `/towns_generate` builds the
-Phase 2 layout with empty blocks and landmark blockouts. Authored catalog
-assets can be placed with `/towns_test`; populated-town planning, functional
-node initialization for whole towns, and residents remain Phase 3 work.
+This is the target architecture, and `/towns_generate` follows it today: it
+plans a populated town from the catalog (medieval or Roman), builds its terrain,
+paving and real schematics, initializes functional nodes and spawns
+residents. There is one planning path (a catalog-derived landmark profile,
+or the authored Roman layout) and one construction path
+(`builder.build_town`); the early test command, the nominal landmark
+footprints and the temporary landmark blockouts have been removed.
 
 The planner takes a site description, a deterministic seed, and a catalog of
 available buildings. It returns a plain Lua town plan without changing the
@@ -86,18 +89,21 @@ the catalog changes.
 
 ### 1. Building workshop and visible test site
 
+Delivered. The privileged test command used to prove this phase (`/towns_test`)
+was removed once `/towns_generate` placed real catalog buildings in towns;
+the capture and catalog pipeline remains, and a single schematic is inspected
+with WorldEdit or `export.py --validate`.
+
 **Result:** a developer can place one handmade building and a small paved
 square at a chosen location, then inspect its orientation and ground contact.
 
 - Document WorldEdit capture, naming, orientation, origin, and where `.mts`
   files go in this repo. Add a few tiny reference schematics or an intentionally
   simple test structure.
-- Add a minimal catalog and a privileged, hand-triggered test command. Report
-  the building ID, rotation, and exact bounds (no seed until the Phase 2
-  planner exists). The command may overwrite its chosen site immediately: it
-  is for the disposable Testlandia Creative world, requires the `server`
-  privilege, and says so in its help text. There is no preview or
-  confirmation flow.
+- Add a minimal catalog and a privileged, hand-triggered test command (since
+  removed). It reported the building ID, rotation, and exact bounds, and could
+  overwrite its chosen site immediately: it was for the disposable Testlandia
+  Creative world and required the `server` privilege.
 - Prove rotated footprints, entrance location, schematic placement, and
   basic terrain clearing on flat ground.
 
@@ -115,21 +121,22 @@ destinations connect naturally.
 Agreed behavior (replaces the earlier "modest rectangle, dry-run preview"
 sketch):
 
-- **Boundary.** A broad, stepped orthogonal outline about 96 nodes across,
-  not a square, generated from the seed. There is no fixed template: the
+- **Boundary.** A broad, stepped orthogonal outline, not a square, generated
+  from the seed (first about 96 nodes across; the envelope is now 208, see
+  phase 3). There is no fixed template: the
   boundary, the two landmark sites, the parvis, the market square, the
   principal and secondary streets and the blocks all come from rules and the
   seed.
-- **Parvis (profile plans, #105).** A 12-wide (`PARVIS_WIDTH`) by 8-deep
+- **Parvis (#105).** A 12-wide (`PARVIS_WIDTH`) by 8-deep
   (`PARVIS_FRONT_DEPTH`) rect on the entrance side, touching the compound box
   edge and centred on the catalog door's lateral coordinate (not the compound
   midpoint). For an even width the extra node falls on the lower-coordinate
   (-x / -z) side in world space for every rotation. It does not span the
-  compound front; legacy (no profile) plans keep the old margin rule.
+  compound front.
 - **Sites.** Reserve a cathedral (with its parvis) and a castle as landmark
-  sites and a separate market square. The first landmarks are temporary
-  physical blockouts (recognizable silhouettes, real doors and gates) while
-  the handmade structures are being built.
+  sites and a separate market square, sized from the catalog schematics. (The
+  first version used temporary physical blockouts while the handmade
+  structures were being built; they were replaced in phase 3 and removed.)
 - **Streets and blocks.** Orthogonal principal and secondary streets connect
   the boundary approaches, market, parvis and castle gate; leftover blocks
   are left empty with recorded buildable frontage. One or two coherent
@@ -171,8 +178,8 @@ sketch):
   new ground level. Smoothing the terrain at and beyond the town edge is
   deferred: a visible step at the boundary is expected.
 - **Direct build.** The command builds immediately on an accepted site. There
-  is no preview, dry run or confirmation (the same posture as `/towns_test`,
-  and likewise for disposable Creative worlds only). It reports and logs the
+  is no preview, dry run or confirmation (for disposable Creative worlds
+  only). It reports and logs the
   seed, chosen centre, ground level, exact bounds, landmark and square
   coordinates and street, block and frontage counts. A rejected site or
   failed search changes nothing and says why; only a failed engine write can
@@ -186,7 +193,7 @@ sketch):
 
 Implementation: `src/planner.lua` and `src/streets.lua` (pure plan),
 `src/site_search.lua` (read-only candidate search), `src/builder.lua` with
-`src/town_layout.lua` and `src/blockouts.lua` (construction), and
+`src/town_layout.lua` (ground and paving layout), and
 `src/generate.lua` plus `src/generate_command.lua` (the command; pure
 argument, seed and report logic with an injected `core` layer).
 
@@ -198,8 +205,8 @@ changes nothing. At least two seeds were checked in a disposable world.
 ### 3. First populated town
 
 **Result:** the empty blocks become dense handmade street fronts, the existing
-cathedral and castle replace their blockouts, a city hall stands beside the
-market square, and residents begin using the town with Living Villages enabled.
+cathedral and castle replace the temporary landmark blockouts of phase 2, a
+city hall stands beside the market square, and residents begin using the town with Living Villages enabled.
 
 Agreed scope:
 
@@ -210,7 +217,8 @@ Agreed scope:
   code work can proceed with synthetic fixtures while buildings are authored.
 - **Existing landmarks and town scale.** Import the intended complete castle
   and current cathedral from TownsWorkshop. Their footprints are much larger
-  than the Phase 2 reservations. Derive reservations and approaches from the
+  than the Phase 2 reservations (the original nominal footprints, since
+  removed). Derive reservations and approaches from the
   current schematics, preserving the stepped boundary, parvis and connected
   streets. Enlargement of the town is authorized. Engineering trials began at
   a 192-node envelope; the profile envelope is
@@ -360,8 +368,8 @@ extreme terrain scars. Generation cost is acceptable on the test machine.
 **Result:** the town has a strong skyline and a believable transition to the
 countryside.
 
-- Replace remaining landmark blockouts and tune their setting: cathedral
-  parvis, castle edge position, and views along important streets.
+- Tune the landmarks' setting: cathedral parvis, castle edge position, and
+  views along important streets.
 - Add a simple optional wall kit with straight sections, gatehouses where
   roads cross, and towers at selected corners or long runs. Skip a wall on a
   plan if the fit is poor; an unwalled town with good streets is preferable.

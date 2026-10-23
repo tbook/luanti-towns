@@ -1,23 +1,24 @@
--- Towns: flat-town builder (ticket #15). Turns one validated plan plus its
+-- Towns: town builder (tickets #15, #45). Turns one validated plan plus its
 -- inspected site (site_search result) into nodes: flat supported ground at the
--- median level, paved streets and squares, and temporary cathedral and castle
--- blockouts. The intended layout is pure Lua (src/town_layout.lua,
--- src/blockouts.lua); this module orchestrates checks and writes through an
--- injectable `env`, so the whole thing runs under plain Lua 5.1 in tests.
+-- median level, paved streets and squares, then every composed building
+-- placed from its real schematic. The intended ground layout is pure Lua
+-- (src/town_layout.lua); this module orchestrates checks and writes through
+-- an injectable `env`, so the whole thing runs under plain Lua 5.1 in tests.
 --
 --   local builder = dofile(".../builder.lua")(placement, planner)
---   local summary, message, code = builder.build(result [, opts [, env]])
+--   local summary, message, code = builder.build_town(result, opts [, env])
 --
 --   result  a site_search result (needs plan, ground_y, heights, build_bounds,
 --           build_volume; center and min/max_height are used when present)
---   opts    optional table; opts.log = false silences env.log
+--   opts    opts.entries (catalog entries) is required; opts.log = false
+--           silences env.log
 --   env     defaults to builder.core_env(core), see below
 --
 -- Success: summary table (see below). Failure: nil, message, code with code
 -- one of
 --   bad_result      result is not a complete site_search result
---   invalid_plan    planner.validate rejected the plan, or the blockouts do
---                   not fit it
+--   invalid_plan    planner.validate rejected the plan, or its buildings
+--                   cannot be composed inside the build bounds
 --   invalid_palette a required node name is not registered
 --   inspection_failed  the area could not be opened, is not loaded (ignore
 --                   nodes), a surface node is missing, or liquid appeared
@@ -27,14 +28,16 @@
 --   write_failed    the engine raised while writing/committing (the only
 --                   code that may follow a partial write); the message says
 --                   so and names the bounds, and a 4th return value is
---                   {bounds, planned}. build() itself never raises.
+--                   {bounds, planned}. build_town() itself never raises.
 -- Every code except write_failed guarantees that nothing was written.
 --
--- Sequence: validate result -> planner.validate(plan) -> static palette ->
--- open the region read-only -> read every column's surface -> layout ->
--- full palette -> inspect every row to be written -> confinement check ->
--- write only the changed nodes -> commit. Writes lie inside
--- result.build_bounds (never outside) and inside the boundary column union.
+-- Sequence: validate result -> planner.validate(plan) -> compose the
+-- buildings -> static palette -> open the region read-only -> read every
+-- column's surface -> layout -> full palette -> inspect every row to be
+-- written -> confinement check -> write only the changed nodes -> commit ->
+-- place the schematics -> check the doors -> initialize functional nodes.
+-- Terrain writes lie inside result.build_bounds (never outside) and inside
+-- the boundary column union.
 --
 -- env contract:
 --   env.node_info(name)           {walkable, liquid, clearable, ice,
@@ -58,13 +61,14 @@
 --   (build_bounds extended down to the support rows; print this as the
 --   "area modified"),
 --   plan_bounds {x1, z1, x2, z2}, volume (build_volume),
---   sites = {cathedral|castle = {rect, entrance, side, opening = {...}},
---            parvis|market = {rect}},
+--   sites = {[name] = {rect, side, entrance}} for every named site;
+--            entrance_y (the real door height) is added for the sites that
+--            hold a placed landmark,
 --   approaches = {{name, side, pos}, ...},
 --   counts = {streets, principal, secondary, blocks, frontage, columns,
 --             paved_columns},
---   nodes = {examined, changed, by_kind = {clear, fill, support, surface, pave,
---            landmark}, by_name = {[name] = n}},
+--   nodes = {examined, changed, by_kind = {clear, fill, support, surface,
+--            pave}, by_name = {[name] = n}},
 --   palette = {names}
 --   liquids = {buried, wet, sealed} (ticket #104): liquid/ice nodes replaced
 --             inside the owned rows (buried in terrain / in landfilled wet
@@ -83,11 +87,9 @@ local function load_sibling(name)
 	end
 	return dofile("src/" .. name)
 end
-local blockouts = load_sibling("blockouts.lua")
-local TL = load_sibling("town_layout.lua")(blockouts)
+local TL = load_sibling("town_layout.lua")
 local preflight = load_sibling("preflight.lua")
 local plan_sites = load_sibling("plan_sites.lua")
-M.blockouts = blockouts
 M.layout = TL
 M.preflight = preflight
 
@@ -162,20 +164,18 @@ end
 
 local AIR_INFO = {walkable = false, liquid = false}
 
--- Town mode setup (ticket #45): composes every structure box, decides which
--- landmarks are real (no blockout) and collects unpaved holes.
--- Fills `town` {comp, real, holes}; returns true or nil, message.
+-- Town setup (ticket #45): composes every structure box and collects the
+-- unpaved holes. Fills `town` {comp, holes}; returns true or nil, message.
 function M.prepare_town(town, plan, g, bb)
 	local comp, why = preflight.compose(plan, town.entries, g)
 	if not comp then return nil, "town content: " .. tostring(why) end
 	if #comp.structures == 0 then return nil, "the plan has no buildings to place" end
-	town.comp, town.real, town.holes = comp, {}, {}
+	town.comp, town.holes = comp, {}
 	for _, b in ipairs(comp.structures) do
 		if b.min.x < bb.min.x or b.max.x > bb.max.x or b.min.y < bb.min.y
 				or b.max.y > bb.max.y or b.min.z < bb.min.z or b.max.z > bb.max.z then
 			return nil, ("%s '%s' lies outside the build bounds"):format(b.kind, b.id)
 		end
-		if b.kind == "cathedral" or b.kind == "castle" then town.real[b.kind] = true end
 		town.holes[#town.holes + 1] = b.rect
 		local e = town.entries[b.id]
 		if type(e) ~= "table" or type(e.path) ~= "string" then
@@ -319,21 +319,14 @@ local function build_impl(result, opts, env, st)
 	if type(plan.seed) ~= "number" or type(plan.center) ~= "table" then
 		return fail("invalid_plan", "plan has no seed or centre")
 	end
-	if st.town then
-		local ok2, why2 = M.prepare_town(st.town, plan, g, bb)
-		if not ok2 then return fail("invalid_plan", why2) end
-	end
+	local ok2, why2 = M.prepare_town(st.town, plan, g, bb)
+	if not ok2 then return fail("invalid_plan", why2) end
 	log("action", ("towns builder: seed=%s center=(%d,%d) ground_y=%d bounds=%s"):format(
 		tostring(plan.seed), plan.center.x, plan.center.z, g, fmt_bounds(bb)))
 	log("action", "towns builder: [1/6] plan validated")
 
-	-- 3. Static palette (landmarks, pavement, fill) before reading anything.
+	-- 3. Static palette (pavement, fill) before reading anything.
 	local static = {TL.FILL_DIRT, TL.FILL_DEEP, TL.DEFAULT_SURFACE}
-	-- A town build places real schematics: no temporary blockout is needed
-	-- for a landmark that has one.
-	if not st.town then
-		for _, n in ipairs(blockouts.names()) do static[#static + 1] = n end
-	end
 	for _, item in ipairs(plan_sites.list(plan)) do
 		if item.site.kind == "square" or item.site.kind == nil
 				and (item.name == "market" or item.name == "parvis") then
@@ -425,10 +418,8 @@ local function build_impl(result, opts, env, st)
 			heights = function(x, z) return result.heights[x][z] end,
 			surface = function(x, z) return surf[x][z] end,
 			max_y = bb.max.y,
+			holes = st.town.holes,
 		}
-		if st.town then
-			lopts.real, lopts.holes = st.town.real, st.town.holes
-		end
 		local lok, L = pcall(TL.new, plan, g, lopts)
 		if not lok then
 			return fail("invalid_plan", (tostring(L):gsub("^[^\n]-:%d+: ", "")))
@@ -442,7 +433,7 @@ local function build_impl(result, opts, env, st)
 		-- Inspect every owned row; collect the changes.
 		local D = {L = L, palette = palette, region = region,
 			cx = {}, cy = {}, cz = {}, cname = {}, cp2 = {}, n = 0, examined = 0,
-			by_kind = {clear = 0, fill = 0, support = 0, surface = 0, pave = 0, landmark = 0},
+			by_kind = {clear = 0, fill = 0, support = 0, surface = 0, pave = 0},
 			by_name = {}, paved = 0,
 			liquids = {buried = 0, wet = 0, sealed = 0}}
 		for _, c in ipairs(L.columns) do
@@ -536,9 +527,9 @@ local function build_impl(result, opts, env, st)
 	local L, palette, region = D.L, D.palette, D.region
 	local n_changed, examined, by_kind, by_name, paved = D.n, D.examined, D.by_kind, D.by_name, D.paved
 	local cx, cy, cz, cname, cp2 = D.cx, D.cy, D.cz, D.cname, D.cp2
-	log("action", ("towns builder: [4/6] inspected %d nodes; %d changes (clear %d, fill %d, support %d, surface %d, pave %d, landmark %d)")
+	log("action", ("towns builder: [4/6] inspected %d nodes; %d changes (clear %d, fill %d, support %d, surface %d, pave %d)")
 		:format(examined, n_changed, by_kind.clear, by_kind.fill, by_kind.support, by_kind.surface,
-			by_kind.pave, by_kind.landmark))
+			by_kind.pave))
 
 	-- 7. Write (the only phase that changes the world).
 	log("action", ("towns builder: [5/6] writing %d nodes inside %s"):format(n_changed, fmt_bounds(wbounds)))
@@ -559,88 +550,83 @@ local function build_impl(result, opts, env, st)
 	end
 	log("action", "towns builder: [6/6] committed")
 
-	-- 7b. Town mode: place the schematics, then verify the doors.
-	local town_info
-	if st.town then
-		local t = st.town
-		st.writing = true -- schematic writes may leave a partial town
-		st.planned = (st.planned or 0) + #t.comp.structures
-		local placed = {}
-		local bounds = {min = {x = wbounds.min.x, y = wbounds.min.y, z = wbounds.min.z},
-			max = {x = wbounds.max.x, y = wbounds.max.y, z = wbounds.max.z}}
-		st.wbounds = bounds
-		local function grow(b)
-			for _, a in ipairs({"x", "y", "z"}) do
-				if b.min[a] < bounds.min[a] then bounds.min[a] = b.min[a] end
-				if b.max[a] > bounds.max[a] then bounds.max[a] = b.max[a] end
-			end
+	-- 7b. Place the schematics, then verify the doors.
+	local t = st.town
+	st.writing = true -- schematic writes may leave a partial town
+	st.planned = (st.planned or 0) + #t.comp.structures
+	local placed = {}
+	local bounds = {min = {x = wbounds.min.x, y = wbounds.min.y, z = wbounds.min.z},
+		max = {x = wbounds.max.x, y = wbounds.max.y, z = wbounds.max.z}}
+	st.wbounds = bounds
+	local function grow(b)
+		for _, a in ipairs({"x", "y", "z"}) do
+			if b.min[a] < bounds.min[a] then bounds.min[a] = b.min[a] end
+			if b.max[a] > bounds.max[a] then bounds.max[a] = b.max[a] end
 		end
-		local total = #t.comp.structures
-		local function partial(building, reason, why)
-			local msg = ("write failed: %s '%s' (%s): %s. %d of %d buildings were placed; "
-				.. "the area %s may be partially written"):format(
-				building.kind, tostring(building.id), reason, why, #placed, total, fmt_bounds(bounds))
+	end
+	local total = #t.comp.structures
+	local function partial(building, reason, why)
+		local msg = ("write failed: %s '%s' (%s): %s. %d of %d buildings were placed; "
+			.. "the area %s may be partially written"):format(
+			building.kind, tostring(building.id), reason, why, #placed, total, fmt_bounds(bounds))
+		log("error", "towns builder: " .. msg)
+		return nil, msg, "write_failed", {bounds = bounds, planned = n_changed,
+			reason = reason, building = {id = building.id, kind = building.kind,
+			role = building.role, rect = building.rect, min = building.min, max = building.max},
+			placed = #placed, total = total}
+	end
+	for _, b in ipairs(t.comp.structures) do
+		local entry = t.entries[b.id]
+		-- The box is attempted (and so may be partly written) from here.
+		grow(b)
+		local pok, r1, r2 = pcall(env.place_structure, b, entry)
+		if not pok then return partial(b, "engine_error", tostring(r1)) end
+		if not r1 then return partial(b, "placement_failed", tostring(r2 or "placement failed")) end
+		placed[#placed + 1] = b.id
+	end
+	log("action", ("towns builder: [6b/6] placed %d schematics"):format(#placed))
+	-- Door approach routes (recessed doors lie inside the box).
+	local doors = {}
+	for _, b in ipairs(t.comp.structures) do
+		local dok, route, why = pcall(M.check_door, b, g, function(x, y, z)
+			local name = env.get_node(x, y, z)
+			if name == "air" then return AIR_INFO, name end
+			return env.node_info(name), name
+		end)
+		if not dok then return partial(b, "door_check_error", tostring(route)) end
+		if not route then return partial(b, "door_unreachable", tostring(why)) end
+		doors[#doors + 1] = {id = b.id, kind = b.kind, approach = route.approach,
+			entrance = b.entrance, steps = route.steps}
+	end
+	-- Functional node initialization (ticket #46): only inside the placed
+	-- boxes, only after every schematic and door check succeeded.
+	local setup
+	if env.setup_nodes then
+		local sok, rep = pcall(env.setup_nodes, t.comp.structures, t.entries)
+		if not sok then
+			local msg = ("write failed: node setup raised: %s. %d buildings were placed; "
+				.. "the area %s may be partially initialized"):format(tostring(rep), #placed, fmt_bounds(bounds))
 			log("error", "towns builder: " .. msg)
 			return nil, msg, "write_failed", {bounds = bounds, planned = n_changed,
-				reason = reason, building = {id = building.id, kind = building.kind,
-				role = building.role, rect = building.rect, min = building.min, max = building.max},
-				placed = #placed, total = total}
+				reason = "node_setup_error", placed = #placed, total = total}
 		end
-		for _, b in ipairs(t.comp.structures) do
-			local entry = t.entries[b.id]
-			-- The box is attempted (and so may be partly written) from here.
-			grow(b)
-			local pok, r1, r2 = pcall(env.place_structure, b, entry)
-			if not pok then return partial(b, "engine_error", tostring(r1)) end
-			if not r1 then return partial(b, "placement_failed", tostring(r2 or "placement failed")) end
-			placed[#placed + 1] = b.id
+		setup = rep
+		if #rep.failed > 0 or #rep.unregistered > 0 then
+			local first = rep.failed[1] or rep.unregistered[1]
+			local msg = ("write failed: node setup of %d nodes failed (first: %s at (%d,%d,%d) in '%s'%s). "
+				.. "%d buildings were placed; the area %s is built but not fully initialized"):format(
+				#rep.failed + #rep.unregistered, first.name, first.pos.x, first.pos.y, first.pos.z,
+				tostring(first.id), first.message and (": " .. first.message) or ", not registered",
+				#placed, fmt_bounds(bounds))
+			log("error", "towns builder: " .. msg)
+			return nil, msg, "write_failed", {bounds = bounds, planned = n_changed,
+				reason = "node_setup_failed", setup = rep, placed = #placed, total = total}
 		end
-		log("action", ("towns builder: [6b/6] placed %d schematics"):format(#placed))
-		-- Door approach routes (recessed doors lie inside the box).
-		local doors = {}
-		for _, b in ipairs(t.comp.structures) do
-			local dok, route, why = pcall(M.check_door, b, g, function(x, y, z)
-				local name = env.get_node(x, y, z)
-				if name == "air" then return AIR_INFO, name end
-				return env.node_info(name), name
-			end)
-			if not dok then return partial(b, "door_check_error", tostring(route)) end
-			if not route then return partial(b, "door_unreachable", tostring(why)) end
-			doors[#doors + 1] = {id = b.id, kind = b.kind, approach = route.approach,
-				entrance = b.entrance, steps = route.steps}
+		for _, u in ipairs(rep.unhandled) do
+			log("warning", ("towns builder: node '%s' (%s) in %s needs initialization this adapter does not support"):format(
+				u.name, u.reason, table.concat(u.structures, ", ")))
 		end
-		-- Functional node initialization (ticket #46): only inside the placed
-		-- boxes, only after every schematic and door check succeeded.
-		local setup
-		if env.setup_nodes then
-			local sok, rep = pcall(env.setup_nodes, t.comp.structures, t.entries)
-			if not sok then
-				local msg = ("write failed: node setup raised: %s. %d buildings were placed; "
-					.. "the area %s may be partially initialized"):format(tostring(rep), #placed, fmt_bounds(bounds))
-				log("error", "towns builder: " .. msg)
-				return nil, msg, "write_failed", {bounds = bounds, planned = n_changed,
-					reason = "node_setup_error", placed = #placed, total = total}
-			end
-			setup = rep
-			if #rep.failed > 0 or #rep.unregistered > 0 then
-				local first = rep.failed[1] or rep.unregistered[1]
-				local msg = ("write failed: node setup of %d nodes failed (first: %s at (%d,%d,%d) in '%s'%s). "
-					.. "%d buildings were placed; the area %s is built but not fully initialized"):format(
-					#rep.failed + #rep.unregistered, first.name, first.pos.x, first.pos.y, first.pos.z,
-					tostring(first.id), first.message and (": " .. first.message) or ", not registered",
-					#placed, fmt_bounds(bounds))
-				log("error", "towns builder: " .. msg)
-				return nil, msg, "write_failed", {bounds = bounds, planned = n_changed,
-					reason = "node_setup_failed", setup = rep, placed = #placed, total = total}
-			end
-			for _, u in ipairs(rep.unhandled) do
-				log("warning", ("towns builder: node '%s' (%s) in %s needs initialization this adapter does not support"):format(
-					u.name, u.reason, table.concat(u.structures, ", ")))
-			end
-			log("action", "towns builder: [6c/6] node setup: " .. (env.format_setup and env.format_setup(rep) or "done"))
-		end
-		town_info = {structures = t.comp.structures, bounds = bounds, doors = doors,
-			placed = #placed, setup = setup}
+		log("action", "towns builder: [6c/6] node setup: " .. (env.format_setup and env.format_setup(rep) or "done"))
 	end
 	log("action", "towns builder: construction complete")
 
@@ -648,8 +634,7 @@ local function build_impl(result, opts, env, st)
 	local sites = {}
 	for _, item in ipairs(plan_sites.list(plan)) do
 		local name, s = item.name, item.site
-		sites[name] = {rect = s.rect, side = s.side, entrance = s.entrance,
-			opening = L.openings[name]}
+		sites[name] = {rect = s.rect, side = s.side, entrance = s.entrance}
 	end
 	local principal, secondary = 0, 0
 	for _, s in ipairs(plan.streets) do
@@ -660,7 +645,7 @@ local function build_impl(result, opts, env, st)
 		center = {x = plan.center.x, z = plan.center.z},
 		ground_y = g,
 		bounds = bb,
-		write_bounds = wbounds,
+		write_bounds = bounds,
 		plan_bounds = plan.bounds,
 		volume = result.build_volume,
 		sites = sites,
@@ -674,19 +659,16 @@ local function build_impl(result, opts, env, st)
 		liquids = D.liquids,
 		palette = palette,
 	}
-	if town_info then
-		summary.town = {
-			complete = true,
-			structures = town_info.structures, placed = town_info.placed,
-			doors = town_info.doors,
-			bounds = town_info.bounds,
-			setup = town_info.setup,
-		}
-		summary.write_bounds = town_info.bounds
-		-- The real door height (recessed landmark doors sit above ground).
-		for _, b in ipairs(town_info.structures) do
-			if summary.sites[b.kind] then summary.sites[b.kind].entrance_y = b.entrance.y end
-		end
+	summary.town = {
+		complete = true,
+		structures = t.comp.structures, placed = #placed,
+		doors = doors,
+		bounds = bounds,
+		setup = setup,
+	}
+	-- The real door height (recessed landmark doors sit above ground).
+	for _, b in ipairs(t.comp.structures) do
+		if summary.sites[b.kind] then summary.sites[b.kind].entrance_y = b.entrance.y end
 	end
 	log("action", ("towns builder: done seed=%s center=(%d,%d) ground_y=%d bounds=%s streets=%d blocks=%d frontage=%d nodes=%d")
 		:format(tostring(plan.seed), plan.center.x, plan.center.z, g, fmt_bounds(bb),
@@ -711,14 +693,8 @@ local function run(result, opts, env, st)
 	return unwrap(pcall(build_impl, result, opts, env, st))
 end
 
--- builder.build(result, opts, env): the Phase 2 flat town with blockouts.
-function M.build(result, opts, env)
-	return run(result, opts, env, {})
-end
-
--- builder.build_town(result, opts, env): ticket #45. Everything build() does
--- except that real cathedral and castle schematics replace the blockouts,
--- and then every composed structure is placed in
+-- builder.build_town(result, opts, env): ticket #45. Grades the ground and
+-- paves the squares and streets, then places every composed structure in
 -- stable order (preflight.compose order: cathedral, castle, city hall, jail,
 -- services, ordinary buildings) with its explicit rotation at its minimum
 -- corner. Afterwards each door's approach route is checked.
@@ -736,12 +712,11 @@ end
 --                 report.failed/unregistered entries fail the build as
 --                 write_failed (reason node_setup_failed); report.unhandled
 --                 is logged and returned in summary.town.setup
--- Failure codes are those of build(); everything after the terrain commit is
--- reported as write_failed with extra {bounds = actual attempted bounds,
--- building = {id, kind, rect, min, max}, placed, total, reason} where reason
--- is placement_failed, engine_error, door_unreachable, door_check_error,
--- node_setup_failed or node_setup_error.
--- Success: the build() summary plus summary.town {complete = true, structures,
+-- Everything after the terrain commit is reported as write_failed with extra
+-- {bounds = actual attempted bounds, building = {id, kind, rect, min, max},
+-- placed, total, reason} where reason is placement_failed, engine_error,
+-- door_unreachable, door_check_error, node_setup_failed or node_setup_error.
+-- Success: the summary plus summary.town {complete = true, structures,
 -- placed, doors, bounds}; write_bounds then covers every structure.
 -- The caller runs preflight.check first (files, node registration, emerge).
 function M.build_town(result, opts, env)

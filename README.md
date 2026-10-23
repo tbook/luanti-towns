@@ -92,18 +92,15 @@ production path.
   server stopped, delete the `resident:` rows for the `towns` mod from
   `mod_storage.sqlite` (or delete that file to reset every mod's storage).
 
-## Test command
+## Roman import command
 
-`/towns_test` (Phase 1) is unchanged:
-
-`/towns_test <building_id> <rotation>` (needs the `server` privilege;
-rotation is 0, 90, 180 or 270) places a catalog building eight nodes east of
-the node you stand on, with a 5x5 paved square outside its entrance. It
-**overwrites the chosen site immediately, with no preview or confirmation**:
-use it only in disposable Creative worlds (such as Testlandia). Unsuitable
-sites (water, or a surface that varies by more than one node) are rejected
-without changing anything. The site surface must also be within one node of
-your ground level. It needs no WorldEdit.
+`/towns_import_roman <building_id> [rotation]` (needs the `server` privilege;
+rotation is 0, 90, 180 or 270) manually places one of the Issue 139 Roman
+imports a few nodes in front of you. It **overwrites its volume immediately,
+with no preview or confirmation**: use it only in disposable Creative worlds.
+Town buildings are otherwise placed only as part of a town by
+`/towns_generate`; to look at one catalog schematic on its own, place it with
+WorldEdit (`//mtschemplace`).
 
 ## Installation
 
@@ -139,7 +136,7 @@ residents, generate, Roman planner and population, layout comparison). Component
 suites use small explicit plans and fake terrain; a few real medieval and Roman
 generation and build cases are kept as integration checks. Run
 `TOWNS_TEST_FULL=1 lua5.1 tests/run.lua` to add the broad seed and fuzz sweeps
-(several minutes), or `TOWNS_TEST_ONLY=tests/x_tests.lua lua5.1 tests/run.lua`
+(about 3-4 minutes of CPU), or `TOWNS_TEST_ONLY=tests/x_tests.lua lua5.1 tests/run.lua`
 for one group. Each test group prints its elapsed time and check count.
 
 GitHub Actions runs the default command on every pull request and on pushes to

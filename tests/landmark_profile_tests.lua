@@ -124,7 +124,7 @@ end
 local function check_plan(plan, prof, label)
 	eq(planner.validate(plan), true, label .. " validates")
 	local n = plan.envelope.x2 - plan.envelope.x1 + 1
-	eq(n, planner.LANDMARK_ENVELOPE, label .. " envelope")
+	eq(n, planner.CONSTANTS.ENVELOPE, label .. " envelope")
 	eq(#plan.blocks >= planner.CONSTANTS.MIN_BLOCKS, true, label .. " blocks remain")
 	eq(#plan.frontage > 0, true, label .. " frontage remains")
 	for _, name in ipairs({"cathedral", "castle"}) do
@@ -226,39 +226,40 @@ do
 	end
 end
 
--- A synthetic small, off-centre profile on an explicit (legacy-size)
--- envelope: derived dimensions follow the envelope together.
+-- One set of defaults: the 208-node envelope with the dimensions and block
+-- tuning that depend on it (#38, #86, #89).
 do
-	local small = {
-		cathedral = {id = "t_cath", size = {x = 20, y = 18, z = 30},
-			entrance = {x = 5, y = 3, z = 2}, ground_offset = 1},
-		castle = {id = "t_castle", size = {x = 24, y = 20, z = 26},
-			entrance = {x = 17, y = 5, z = 3}, ground_offset = 2},
-	}
-	local opts = {landmarks = small, constants = {ENVELOPE = 96}}
-	local C = planner.resolve_constants(opts)
+	local K = planner.CONSTANTS
+	eq(K.ENVELOPE, 208, "envelope (#89)")
+	eq(K.MIN_LONG_SPAN, 173, "long span at 208")
+	eq(K.MIN_SHORT_SPAN, 130, "short span at 208")
+	eq(K.CENTER_JITTER, 17, "jitter at 208")
+	eq(K.MAX_SECONDARY, 18, "secondary street budget at 208")
+	eq(K.MAX_BLOCK_SCAN, 139, "block scan at 208")
+	eq(K.MAX_BLOCK_DEPTH, 24, "max block depth")
+	eq(K.MIN_BLOCK_SIDE, 12, "min block side")
+	eq(K.SECONDARY_FAIL_SKIP, 5, "secondary fail skip")
+	eq(planner.resolve_constants({landmarks = profile}).MIN_BLOCK_SIDE, 12, "profile min block side")
+	eq(planner.resolve_constants().MAX_BLOCK_DEPTH, 24, "constants without opts are the defaults")
+	eq(planner.CONSTANTS.STREET_WIDTH, 5, "principal street width (#88)")
+end
+
+-- A synthetic small, off-centre profile on an explicit smaller envelope (the
+-- dimensions that depend on it are given with it): tests/small_town.lua.
+do
+	local small = dofile("tests/small_town.lua")(planner)
+	local C = planner.resolve_constants(small.opts())
 	eq(C.ENVELOPE, 96, "explicit envelope")
-	eq(C.MIN_LONG_SPAN, 80, "derived long span at 96")
-	local plan, why = planner.plan({x = 0, z = 0}, 11, opts)
+	eq(C.MIN_LONG_SPAN, 80, "explicit long span at 96")
+	local plan, why = small.plan({x = 0, z = 0}, 11)
 	eq(plan ~= nil, true, "synthetic profile planned: " .. tostring(why))
 	if plan then
-		eq(planner.validate(plan), true, "synthetic profile validates")
+		eq(small.validate(plan), true, "synthetic profile validates")
 		eq(plan.envelope.x2 - plan.envelope.x1 + 1, 96, "synthetic envelope")
 		eq(plan.sites.castle.door.rise, 3, "synthetic castle rise")
 		eq(plan.sites.castle.door.recess ~= nil, true, "synthetic castle recess")
+		eq(planner.validate(plan), nil, "the default constants reject a plan of another envelope")
 	end
-	local CL = planner.resolve_constants({landmarks = small})
-	eq(CL.ENVELOPE, planner.LANDMARK_ENVELOPE, "profile envelope default")
-	eq(planner.LANDMARK_ENVELOPE, 208, "landmark envelope (#89)")
-	eq(CL.MIN_LONG_SPAN, 173, "derived long span at 208")
-	eq(CL.MIN_SHORT_SPAN, 130, "derived short span at 208")
-	eq(CL.CENTER_JITTER, 17, "derived jitter at 208")
-	-- Block tuning (#86, #89) applies to profile plans only.
-	eq(CL.MAX_BLOCK_DEPTH, 24, "profile max block depth")
-	eq(CL.MIN_BLOCK_SIDE, 12, "profile min block side")
-	eq(planner.resolve_constants().MAX_BLOCK_DEPTH, 12, "legacy max block depth")
-	eq(planner.resolve_constants().MIN_BLOCK_SIDE, 8, "legacy min block side")
-	eq(planner.CONSTANTS.STREET_WIDTH, 5, "principal street width (#88)")
 end
 
 -- Unsupported fit fails clearly, immediately and without consuming attempts.
@@ -297,27 +298,7 @@ do
 	eq(planner.validate(plan), nil, "tampered recess rejected")
 end
 
--- Site search: the default reach grows with the envelope; terrain limits do
--- not. (The player is not on solid ground, so the search stops at once and
--- only reports the candidate count.)
-do
-	local env = {
-		emerge = function() end, after = function() end,
-		get_node_name = function() return "air" end,
-		node_info = function() return nil end,
-	}
-	local function total(opts)
-		local t
-		site_search.search({x = 0, y = 10, z = 0}, 1, opts, function(_, _, d)
-			t = d.candidates_total
-		end, env)
-		return t
-	end
-	local legacy = total({})
-	local grown = total({planner_opts = {landmarks = profile}})
-	eq(grown > legacy, true, "profile search reach grows")
-	eq(total({planner_opts = {landmarks = profile}, max_radius = 320}), legacy,
-		"explicit max_radius is not grown")
-	eq(site_search.CONSTANTS.MAX_RANGE, 16, "terrain range unchanged")
-	eq(site_search.CONSTANTS.MAX_CUT_FILL, 24, "terrain cut/fill unchanged")
-end
+-- Site search: terrain limits do not scale with the town (its reach beyond
+-- the town edge is tested in tests/site_search_tests.lua).
+eq(site_search.CONSTANTS.MAX_RANGE, 16, "terrain range unchanged")
+eq(site_search.CONSTANTS.MAX_CUT_FILL, 24, "terrain cut/fill unchanged")

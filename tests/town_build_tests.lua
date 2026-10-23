@@ -6,7 +6,6 @@ local eq, fails, planner, catalog, placement, ss_factory, builder_factory = ...
 local ss = ss_factory(placement, planner)
 local builder = builder_factory(placement, planner)
 local TL = builder.layout
-local blockouts = builder.blockouts
 
 local STONE, DIRT, GRASS = "mcl_core:stone", "mcl_core:dirt", "mcl_core:dirt_with_grass"
 local GROUND_Y = 40
@@ -27,13 +26,12 @@ end
 local function make_result()
 	local C = {}
 	for k, v in pairs(ss.CONSTANTS) do C[k] = v end
-	C.BLOCKOUT_CLEARANCE = C.LANDMARK_BLOCKOUT_HEIGHT + C.BLOCKOUT_MARGIN
 	local heights = {}
 	for _, c in ipairs(ss.boundary_columns(plan.boundary.rects)) do
 		heights[c.x] = heights[c.x] or {}
 		heights[c.x][c.z] = GROUND_Y
 	end
-	local bb = ss.build_bounds(plan.bounds, GROUND_Y, GROUND_Y, GROUND_Y, C, comp)
+	local bb = ss.build_bounds(plan.bounds, GROUND_Y, GROUND_Y, GROUND_Y, comp)
 	return {
 		center = {x = 0, z = 0}, plan = plan, ground_y = GROUND_Y, heights = heights,
 		min_height = GROUND_Y, max_height = GROUND_Y, build_bounds = bb,
@@ -50,7 +48,6 @@ local function nodes_table()
 		["test:paving"] = {walkable = true}, ["test:road"] = {walkable = true},
 		["mcl_stairs:slab_cobble"] = {walkable = true},
 	}
-	for _, n in ipairs(blockouts.names()) do t[n] = {walkable = true} end
 	return t
 end
 
@@ -160,7 +157,7 @@ do
 	end
 	local C = {}
 	for k, v in pairs(ss.CONSTANTS) do C[k] = v end
-	local bb = ss.build_bounds(authored.bounds, GROUND_Y, GROUND_Y, GROUND_Y, C, authored_comp)
+	local bb = ss.build_bounds(authored.bounds, GROUND_Y, GROUND_Y, GROUND_Y, authored_comp)
 	local result = {plan = authored, ground_y = GROUND_Y, heights = heights,
 		build_bounds = bb, build_volume = ss.build_volume(bb, C)}
 	local w = new_world()
@@ -187,7 +184,7 @@ do
 	end
 	local C = {}
 	for k, v in pairs(ss.CONSTANTS) do C[k] = v end
-	local bb = ss.build_bounds(rplan.bounds, GROUND_Y, GROUND_Y, GROUND_Y, C, rcomp)
+	local bb = ss.build_bounds(rplan.bounds, GROUND_Y, GROUND_Y, GROUND_Y, rcomp)
 	local result = {center = {x = 0, z = 0}, plan = rplan, ground_y = GROUND_Y, heights = heights,
 		min_height = GROUND_Y, max_height = GROUND_Y, build_bounds = bb,
 		build_volume = ss.build_volume(bb, C), structures = rcomp.structures}
@@ -226,19 +223,15 @@ if summary then
 	eq(w.placed[2].id, plan.sites.castle.id, "castle second")
 	eq(w.placed[3].id, plan.sites.city_hall.id, "city hall third")
 
-	-- No temporary blockouts, nothing paved under any placed building.
-	local blk = {}
-	for _, n in ipairs(blockouts.names()) do blk[n] = true end
-	local bad_blk, under = 0, 0
+	-- Nothing paved under any placed building.
+	local under = 0
 	for _, wr in ipairs(w.writes) do
-		if blk[wr.name] then bad_blk = bad_blk + 1 end
 		if wr.y == GROUND_Y and (wr.name == "mcl_core:cobble" or wr.name == "mcl_core:gravel") then
 			for _, st in ipairs(comp.structures) do
 				if in_rect(st.rect, wr.x, wr.z) then under = under + 1 end
 			end
 		end
 	end
-	eq(bad_blk, 0, "no blockout nodes written")
 	eq(under, 0, "no pavement under any placed building (city hall included)")
 
 	-- Each placement box is exactly the validated full box.
@@ -250,9 +243,6 @@ if summary then
 	end
 	eq(summary.town.bounds.max.y >= comp.max_y, true, "summary bounds cover the tallest structure")
 	eq(#summary.town.doors, #comp.structures, "every door route checked")
-end
-if os.getenv("DBG") then
-	for y = 38, 43 do print(y, w.get(7, y, 57), w.get(6, y, 57), w.get(-2, y, 57)) end
 end
 
 ------------------------------------------------------------------------

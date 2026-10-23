@@ -290,12 +290,12 @@ local function flat_env(top)
 	return env
 end
 
-local ss = site_search(dofile("src/placement.lua")(geometry), planner)
-local function search(planner_opts, structure_bounds, top, radius, search_ss)
+local ss = site_search(dofile("src/placement.lua"), planner)
+local function search(planner_opts, top, radius, search_ss)
 	local result, summary
 	top = top or 20
 	;(search_ss or ss).search({x = 0.4, y = top + 1, z = 0.4}, SEED, {planner_opts = planner_opts,
-		structure_bounds = structure_bounds, max_radius = radius or 160},
+		max_radius = radius or 160},
 		function(r, s) result, summary = r, s end, flat_env(top))
 	return result, summary
 end
@@ -304,8 +304,7 @@ do
 	-- The one real-generation case: a populated medieval plan through the
 	-- search, composed and preflighted. (The limit and failure cases below
 	-- use a small authored plan.)
-	local legacy = assert(search({landmarks = profile}, false))
-	local r, why = search({landmarks = profile}, true)
+	local r, why = search({landmarks = profile})
 	eq(r ~= nil, true, "structure bounds: result " .. tostring(why))
 	local comp = assert(preflight.compose(r.plan, catalog.entries, r.ground_y))
 	eq(#comp.structures > 2, true, "real plan: landmarks plus content composed")
@@ -328,14 +327,6 @@ do
 		expect_top = math.max(expect_top, e.size.y - (e.ground_offset or 0))
 	end
 	eq(r.build_bounds.max.y, r.ground_y + expect_top - 1, "exact top of tallest structure")
-	local legacy_h = ss.CONSTANTS.LANDMARK_BLOCKOUT_HEIGHT
-	for _, n in ipairs({"cathedral", "castle"}) do
-		legacy_h = math.max(legacy_h, profile[n].size.y - (profile[n].ground_offset or 0))
-	end
-	eq(legacy.build_bounds.max.y, legacy.ground_y + legacy_h + ss.CONSTANTS.BLOCKOUT_MARGIN,
-		"legacy top keeps the blockout clearance exactly")
-	eq(legacy.structures, nil, "legacy result has no structures")
-	eq(legacy.center.x, r.center.x, "same site")
 	eq(r.build_bounds.min.y <= r.ground_y - 5, true, "bounds include the castle foundation")
 	eq(r.build_volume.max.y, r.build_bounds.max.y, "volume covers the top")
 
@@ -355,7 +346,7 @@ local make_authored_plan = dofile("tests/authored_plan_fixture.lua")
 local small_planner = setmetatable({
 	plan = function(center, seed) return make_authored_plan(center, seed) end,
 }, {__index = planner})
-local small_ss = site_search(dofile("src/placement.lua")(geometry), small_planner)
+local small_ss = site_search(dofile("src/placement.lua"), small_planner)
 local house = catalog.get("demo_house")
 local function small_entries(height)
 	return {demo_house = {size = {x = house.size.x, y = height or house.size.y, z = house.size.z},
@@ -378,13 +369,9 @@ do
 		"tall structure: top is the real height above its foundation")
 end
 
--- Unknown option values and bad profiles.
-fails(function() search({landmarks = profile}, "yes") end, "structure_bounds must be a boolean",
-	"structure_bounds type")
-
 -- Option errors and site_search failure paths.
-fails(function() search(nil, true) end, "requires opts.planner_opts.landmarks",
-	"structure_bounds without a profile")
+fails(function() search(nil) end, "opts.entries or opts.planner_opts.landmarks is required",
+	"no profile and no entries")
 
 do
 	-- An entry missing for a composed structure ends the search clearly.

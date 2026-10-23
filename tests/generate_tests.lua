@@ -4,6 +4,7 @@
 --   loadfile("tests/generate_tests.lua")(eq, fails, planner, generate_factory)
 local eq, fails, planner, generate_factory = ...
 local generate = generate_factory(planner)
+local small = dofile("tests/small_town.lua")(planner)
 local LIMIT = planner.SEED_LIMIT
 
 local function has(s, needle) return tostring(s):find(needle, 1, true) ~= nil end
@@ -151,7 +152,7 @@ eq(valid(generate.random_seed(1, function(lo) return lo end)), true, "rng lower 
 ------------------------------------------------------------------------
 -- Formatting
 ------------------------------------------------------------------------
-local plan = assert(planner.plan({x = 3000, z = 2952}, 11))
+local plan = assert(small.plan({x = 3000, z = 2952}, 11))
 local function sites_summary(p)
 	local sites = {}
 	for _, n in ipairs(p.site_order) do
@@ -308,7 +309,7 @@ for _, bad in ipairs({"abc", "1.5", "1 2", tostring(LIMIT + 1), "922337203685477
 end
 
 -- Ticket #104: the controller itself passes no search options; the wiring in
--- src/generate_command.lua adds structure bounds and WET_DEFAULTS (landfill
+-- src/generate_command.lua adds the planner options and WET_DEFAULTS (landfill
 -- mode is on for /towns_generate; exercised by place_check --scenario water).
 do
 	local f = fakes()
@@ -798,6 +799,5 @@ do
 	eq(captured.opts.planner_opts.town_type, "roman", "wiring roman: planner_opts.town_type")
 	eq(captured.opts.entries, entries, "wiring roman: opts.entries is the catalog entries")
 	eq(captured.opts.planner_opts.landmarks, nil, "wiring roman: no medieval landmark profile")
-	eq(captured.opts.structure_bounds, true, "wiring roman: structure bounds")
 	eq(captured.opts.wet_probe, true, "wiring roman: wet defaults merged")
 end

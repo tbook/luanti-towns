@@ -14,22 +14,21 @@
 --     opts        optional table overriding any ss.CONSTANTS entry by its
 --                 name in lower case (step, max_radius, player_margin,
 --                 max_range, ...) and `planner_opts` (forwarded to
---                 planner.plan). When planner_opts selects a larger envelope
---                 (a landmark profile), the default max_radius grows by
---                 half the extra envelope. Once planned, actual plan extents
---                 can grow it further for authored plans; terrain limits
+--                 planner.plan). Once the plan exists its actual extent
+--                 grows the default max_radius so that a larger town is still
+--                 searched the same distance beyond its edge; terrain limits
 --                 never change.
---                 opts.entries = catalog entries for arbitrary named plans.
---                 When supplied, build_bounds come from the composed
---                 structures. Legacy plans may still use
---                 opts.structure_bounds = true with a landmark profile:
---                 build_bounds then come from the composed structures.
---                 In either route Y runs from the lowest of surface, ground and
---                 every foundation (ground - ground_offset) up to the top
---                 node of the tallest placed structure (or the highest
---                 surface), result.structures lists the composed boxes
---                 (src/preflight.lua), and an uncomposable plan ends the
---                 search with a failure. Default false: legacy bounds.
+--                 Build bounds always come from the composed structures, so
+--                 the buildings' real schematic boxes are what is inspected
+--                 and emerged: opts.entries = catalog entries for the plan's
+--                 named sites (a table), or planner_opts.landmarks (a
+--                 landmark profile, whose entries are used) must be given,
+--                 else the search raises an error. Y runs from the lowest of
+--                 surface, ground and every foundation (ground -
+--                 ground_offset) up to the top node of the tallest placed
+--                 structure (or the highest surface), result.structures lists
+--                 the composed boxes (src/preflight.lua), and an
+--                 uncomposable plan ends the search with a failure.
 --                 Flattening and every cut/fill limit are unchanged.
 --     done        called exactly once: done(result, nil, details) on
 --                 success or done(nil, summary, details) on failure.
@@ -51,10 +50,10 @@
 --     columns      = integer         number of inspected columns
 --     min_height, max_height = integer   actual surface extremes, including outliers
 --     build_bounds = {min={x,y,z}, max={x,y,z}} inclusive, exact: X/Z are
---                    plan.bounds; Y runs from min(min_height, ground_y)
---                    (lowest cut/fill row) up to max(max_height, ground_y +
---                    BLOCKOUT_CLEARANCE), i.e. includes cut/fill and the
---                    landmark blockout clearance.
+--                    plan.bounds; Y runs from the lowest cut/fill row or
+--                    structure foundation up to the top of the tallest
+--                    structure (or the highest surface).
+--     structures   = composed boxes of the plan's buildings
 --     inspection_volume = {min, max} emerged and read during the search
 --                    (plan bounds X/Z, surface window ref_y-48 .. ref_y+48+1).
 --     build_volume = {min, max} also emerged for the accepted site:
@@ -71,7 +70,7 @@
 -- Also: the player must stand on solid ground (else done(nil, msg)); a
 -- throwing env function or any internal error ends the search through
 -- done(nil, "internal error: ..."). Emerge requests have a watchdog.
--- Terrain classes are exactly Phase 1's (placement.classify). Ice (ice,
+-- Terrain classes are those of placement.classify. Ice (ice,
 -- packed ice, frosted ice, any slippery node) counts as water: never ground,
 -- so a frozen lake is rejected as "water". Cactus etc. are not special-cased.
 -- Wet columns (ticket #104, opt-in through MAX_WATER_DEPTH > 0): a column
@@ -128,27 +127,30 @@ M.MAX_SEED = planner.SEED_LIMIT
 
 M.CONSTANTS = {
 	STEP = 16,                -- candidate lattice spacing, nodes
-	MAX_RADIUS = 320,         -- candidate centres within this distance
+	MAX_RADIUS = 320,         -- candidate centres within this distance, for a
+	                          --  town whose edge is REACH_EDGE from its centre
 	PLAYER_MARGIN = 4,        -- player must be this far outside the bounds
 	MAX_RANGE = 16,           -- max range of the middle surface heights
 	OUTLIER_PERCENT = 5,      -- trim up to 2.5% of columns from each tail
 	MAX_CUT_FILL = 24,        -- every surface must be within this of the median
-	LANDMARK_BLOCKOUT_HEIGHT = 40, -- tallest landmark blockout above ground
-	BLOCKOUT_MARGIN = 4,      -- slack above it (#15 may tune both)
 	CUT_FILL_MARGIN = 8,      -- extra nodes emerged around/below the town
 	SCAN_UP = 48,             -- surface window: reference ground +/- this
 	SCAN_DOWN = 48,
 	EMERGE_TIMEOUT = 30,      -- seconds to wait for one emerge before giving up
 	MAX_CONSECUTIVE_TIMEOUTS = 3, -- then fail the whole search
 	CENTER_LIMIT = 31000,     -- planner.plan accepts |centre| <= this
-	-- Wet sites (ticket #104). Both default to 0 = legacy: any liquid or ice
+	-- Wet sites (ticket #104). Both default to 0 = off: any liquid or ice
 	-- node in a footprint column rejects the candidate as "water". Opt in with
 	-- M.WET_DEFAULTS (or any positive values); see "Wet columns" in the header.
 	MAX_WATER_DEPTH = 0,      -- deepest liquid/ice column that is landfilled, nodes
 	MAX_WET_FRACTION = 0,     -- largest share of footprint columns that may be wet
 }
 
--- Conservative loosening used by /towns_place_town: columns under at most 6
+-- Half extent of the town M.CONSTANTS.MAX_RADIUS is calibrated for; a plan
+-- reaching farther from its centre adds the difference to the default radius.
+M.REACH_EDGE = 48
+
+-- Conservative loosening used by /towns_generate: columns under at most 6
 -- nodes of water/ice are landfilled, up to a quarter of the footprint columns.
 M.WET_DEFAULTS = {max_water_depth = 6, max_wet_fraction = 0.25}
 
@@ -158,12 +160,7 @@ local function constants(opts)
 	if opts then
 		for k, v in pairs(opts) do
 			local key = type(k) == "string" and k:upper() or nil
-			if k == "structure_bounds" then
-				if type(v) ~= "boolean" then
-					error("towns site_search: opts.structure_bounds must be a boolean", 3)
-				end
-				C.STRUCTURE_BOUNDS = v
-			elseif key and M.CONSTANTS[key] ~= nil then
+			if key and M.CONSTANTS[key] ~= nil then
 				if type(v) ~= "number" or v ~= v or v < 0 or v == math.huge then
 					error("towns site_search: opts." .. k .. " must be a finite number >= 0, got "
 						.. tostring(v), 3)
@@ -192,42 +189,27 @@ local function constants(opts)
 	if C.OUTLIER_PERCENT >= 100 then
 		error("towns site_search: opts.outlier_percent must be < 100", 3)
 	end
-	-- Envelope-derived dimensions (ticket #38). The town centre must be
-	-- farther from the player the larger the town is, so MAX_RADIUS (the
-	-- reach beyond the Phase 2 town edge) grows by the extra half-envelope;
-	-- an explicit opts.max_radius is taken as given. Terrain limits
-	-- (MAX_RANGE, MAX_CUT_FILL, SCAN_*) are never scaled. A landmark profile
-	-- also raises the clearance above ground to the tallest real landmark.
 	local popts = type(opts) == "table" and opts.planner_opts or nil
-	if type(popts) == "table" then
-		local PC = planner.resolve_constants(popts)
-		local growth = math.floor((PC.ENVELOPE - planner.LEGACY_ENVELOPE) / 2)
+	if type(opts) == "table" and opts.entries ~= nil and type(opts.entries) ~= "table" then
+		error("towns site_search: opts.entries must be a catalog-entry table", 3)
+	end
+	if not (type(opts) == "table" and type(opts.entries) == "table")
+			and not (type(popts) == "table" and type(popts.landmarks) == "table") then
+		error("towns site_search: opts.entries or opts.planner_opts.landmarks is required "
+			.. "to compose the structure bounds", 3)
+	end
+	-- A medieval town (landmark profile) is searched at least as far as its
+	-- envelope reaches beyond REACH_EDGE, whatever the seed's actual extent;
+	-- an explicit opts.max_radius is taken as given. Larger plans grow it
+	-- further once planned (see search).
+	if type(popts) == "table" and type(popts.landmarks) == "table" then
 		local explicit = false
 		for k in pairs(opts) do
 			if type(k) == "string" and k:upper() == "MAX_RADIUS" then explicit = true end
 		end
+		local growth = math.floor(planner.resolve_constants(popts).ENVELOPE / 2 - M.REACH_EDGE)
 		if growth > 0 and not explicit then C.MAX_RADIUS = C.MAX_RADIUS + growth end
-		if type(popts.landmarks) == "table" then
-			for _, name in ipairs({"cathedral", "castle"}) do
-				local L = popts.landmarks[name]
-				if type(L) == "table" and type(L.size) == "table"
-						and type(L.size.y) == "number" then
-					local h = L.size.y - (L.ground_offset or 0)
-					if h > C.LANDMARK_BLOCKOUT_HEIGHT then C.LANDMARK_BLOCKOUT_HEIGHT = h end
-				end
-			end
-		end
 	end
-	if type(opts) == "table" and opts.entries ~= nil and type(opts.entries) ~= "table" then
-		error("towns site_search: opts.entries must be a catalog-entry table", 3)
-	end
-	if C.STRUCTURE_BOUNDS and not (type(opts) == "table" and type(opts.entries) == "table")
-			and not (type(popts) == "table" and type(popts.landmarks) == "table") then
-		error("towns site_search: opts.structure_bounds requires opts.planner_opts.landmarks "
-			.. "or opts.entries", 3)
-	end
-	if type(opts) == "table" and type(opts.entries) == "table" then C.STRUCTURE_BOUNDS = true end
-	C.BLOCKOUT_CLEARANCE = C.LANDMARK_BLOCKOUT_HEIGHT + C.BLOCKOUT_MARGIN
 	return C
 end
 
@@ -328,19 +310,13 @@ function M.build_volume(build_bounds, C)
 end
 
 -- Exact build bounds for an accepted site (see header). `comp` (optional,
--- preflight.compose result, opts.structure_bounds) replaces the blockout
--- clearance: Y then runs from the lowest of the surface, ground and every
--- structure foundation up to the top of the tallest selected structure (or
--- the highest surface).
-function M.build_bounds(plan_bounds, ground_y, min_h, max_h, C, comp)
+-- preflight.compose result): Y runs from the lowest of the surface, ground and
+-- every structure foundation up to the top of the tallest selected structure
+-- (or the highest surface).
+function M.build_bounds(plan_bounds, ground_y, min_h, max_h, comp)
 	local lo = math.min(min_h, ground_y)
-	local hi
-	if comp then
-		hi = math.max(max_h, comp.max_y or ground_y)
-		if comp.min_y then lo = math.min(lo, comp.min_y) end
-	else
-		hi = math.max(max_h, ground_y + C.BLOCKOUT_CLEARANCE)
-	end
+	local hi = math.max(max_h, comp.max_y or ground_y)
+	if comp.min_y then lo = math.min(lo, comp.min_y) end
 	return {
 		min = {x = plan_bounds.x1, y = lo, z = plan_bounds.z1},
 		max = {x = plan_bounds.x2, y = hi, z = plan_bounds.z2},
@@ -616,7 +592,7 @@ function M.search(player_pos, seed, opts, done, env)
 		examples[code] = examples[code] or msg
 	end
 
-	-- Like /towns_test: the reference ground must be solid, so a player in
+	-- The reference ground must be solid, so a player in
 	-- flight or on water gets a clear failure, not a silently wrong window.
 	local gok, gname = pcall(env.get_node_name, px, ref_y, pz)
 	if not gok then
@@ -716,8 +692,7 @@ function M.search(player_pos, seed, opts, done, env)
 				local c = base.center or {x = 0, z = 0}
 				local b = base.bounds
 				local edge = math.max(c.x - b.x1, b.x2 - c.x, c.z - b.z1, b.z2 - c.z)
-				local legacy_half = (planner.LEGACY_ENVELOPE or 96) / 2
-				local growth = math.max(0, math.floor(edge - legacy_half))
+				local growth = math.max(0, math.floor(edge - M.REACH_EDGE))
 				local explicit = false
 				for k in pairs(opts) do
 					if type(k) == "string" and k:upper() == "MAX_RADIUS" then explicit = true end
@@ -727,6 +702,7 @@ function M.search(player_pos, seed, opts, done, env)
 					C.MAX_RADIUS = target_radius
 					offsets = M.candidate_offsets(C.STEP, C.MAX_RADIUS)
 					index = 0
+					tried = tried - 1 -- this candidate is counted again from the new list
 					return
 				end
 			end
@@ -790,30 +766,26 @@ function M.search(player_pos, seed, opts, done, env)
 			end
 
 			local ground = info.ground_y
-			local comp
-			if C.STRUCTURE_BOUNDS then
-				local lm = type(opts.planner_opts) == "table" and opts.planner_opts.landmarks
-				local entries = opts.entries or {}
-				if type(opts.entries) ~= "table" and type(lm) == "table" then
-					for _, n in ipairs({"cathedral", "castle", "city_hall", "jail"}) do
-						if lm[n] then entries[lm[n].id] = lm[n] end
-					end
-					for _, sv in pairs(lm.services or {}) do entries[sv.id] = sv end
-					for _, list in pairs(lm.service_variants or {}) do
-						for _, sv in ipairs(list) do entries[sv.id] = sv end
-					end
-					for id, e in pairs(lm.content or {}) do entries[id] = e end
+			local lm = type(opts.planner_opts) == "table" and opts.planner_opts.landmarks
+			local entries = opts.entries or {}
+			if type(opts.entries) ~= "table" then
+				for _, n in ipairs({"cathedral", "castle", "city_hall", "jail"}) do
+					if lm[n] then entries[lm[n].id] = lm[n] end
 				end
-				local cwhy
-				comp, cwhy = preflight.compose(plan, entries, ground)
-				if not comp then
-					return finish(nil, "Town content is invalid: " .. tostring(cwhy)
-						.. ". Nothing was changed.")
+				for _, sv in pairs(lm.services or {}) do entries[sv.id] = sv end
+				for _, list in pairs(lm.service_variants or {}) do
+					for _, sv in ipairs(list) do entries[sv.id] = sv end
 				end
+				for id, e in pairs(lm.content or {}) do entries[id] = e end
 			end
-			local bb = M.build_bounds(bounds, ground, info.min_height, info.max_height, C, comp)
+			local comp, cwhy = preflight.compose(plan, entries, ground)
+			if not comp then
+				return finish(nil, "Town content is invalid: " .. tostring(cwhy)
+					.. ". Nothing was changed.")
+			end
+			local bb = M.build_bounds(bounds, ground, info.min_height, info.max_height, comp)
 			local bvol = M.build_volume(bb, C)
-			if comp and (bb.max.y > C.CENTER_LIMIT or bvol.min.y < -C.CENTER_LIMIT) then
+			if bb.max.y > C.CENTER_LIMIT or bvol.min.y < -C.CENTER_LIMIT then
 				return reject("out_of_range", ("build volume y=%d..%d extends beyond +/-%d"):format(
 					bvol.min.y, bvol.max.y, C.CENTER_LIMIT))
 			end
@@ -829,7 +801,7 @@ function M.search(player_pos, seed, opts, done, env)
 					min_height = info.min_height,
 					max_height = info.max_height,
 					build_bounds = bb,
-					structures = comp and comp.structures or nil,
+					structures = comp.structures,
 					inspection_volume = volume,
 					build_volume = bvol,
 					candidate = {index = i, dx = off.dx, dz = off.dz},

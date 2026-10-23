@@ -239,8 +239,7 @@ end
 -- Builder-side pavement map: the whole open market is paved, the hall
 -- foundation (outside it) is not.
 do
-	local fake_bo = {MAX_HEIGHT = 40, names = function() return {} end}
-	local TL = dofile("src/town_layout.lua")(fake_bo)
+	local TL = dofile("src/town_layout.lua")
 	local plan = tower_plan
 	eq(plan ~= nil, true, "pavement map plan")
 	if plan then
