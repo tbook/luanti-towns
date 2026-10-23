@@ -36,8 +36,31 @@ search for terrain or suitable clearings. Use it in a disposable build area.
 
 The native `.mts` files can also be placed directly. For ground height G,
 the schematic minimum Y is G for the oak and G−1 for the garden. The separate
-`catalog.lua` records offsets and dimensions. Automatic town population does
-not include these objects yet.
+`catalog.lua` records offsets and dimensions.
+
+## Automatic town placement
+
+Both medieval and Roman towns plan objects after buildings and services.
+Each selected object occupies the center of a fully unused 9 × 9 clearing,
+leaving a one-node ring of open ground around its complete 7 × 7 footprint.
+Roads, squares, landmarks, buildings, and service reservations are excluded.
+
+Eligible squares are grouped into connected pockets; narrow strips that
+cannot contain a 9 × 9 square do not connect them. At most half of the
+reachable pockets are selected (rounded down, with one allowed when there
+is a single pocket), and each receives at most one oak or garden. A pocket
+can be skipped if an earlier reservation prevents a suitable placement.
+
+The choice is seeded and repeatable, without changing building placement.
+Objects require access to public pavement. The garden's path points toward
+a reserved walking route to a street or square, and later objects avoid that
+route. The clear ring preserves passage around the footprint and along
+adjacent buildings. The planner uses building rectangles, so unrecorded
+overhangs outside those rectangles still require in-game observation.
+
+Objects participate in preflight file/node checks, construction bounds,
+schematic placement, and node setup. They are counted separately from
+buildings and have no fabricated building doors or resident beds.
 
 ## Previews and authoring
 
@@ -68,6 +91,5 @@ compares every node and its orientation with the source. Also checks dimensions,
 registered dependencies, crop support and irrigation, water containment, the
 garden path, and preview-command registration. The scratch world is retained.
 
-Automated checks do not replace visual review or resident-access checks.
-Automatic placement, spacing, and entrance reservations are the next part
-of #204.
+The two individual assets have passed user playtesting. Automated checks do
+not replace in-game observation of their placement in complete towns.

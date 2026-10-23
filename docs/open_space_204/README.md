@@ -2,9 +2,9 @@
 
 Measured on 2026-10-23 using the current medieval planner and catalog, with
 the twelve seeds used by `tools/layout_compare/lib.lua`. This is a design
-study; no automatic decoration placement has been implemented. The initial
-[oak and garden assets](../../schematics/objects/README.md) now have a manual
-preview command.
+study. The [oak and garden assets](../../schematics/objects/README.md) now have
+manual preview commands and seeded placement in reachable clearings. The
+counts below describe candidate space before object placement.
 
 ## Findings
 
@@ -47,6 +47,18 @@ Dark green marks all ground covered by at least one fully empty 9 × 9
 square. Numbered regions are eligible pockets, not proposed objects or
 areas to fill completely. Maps use current plans regenerated from the seed;
 the older comparison artifacts remain unchanged.
+
+Automatic-placement examples: [seed 1](placed_seed_1.svg) (one oak, one
+garden) and [seed 42](placed_seed_42.svg) (two gardens). Object footprints
+are outlined and labelled. Generated with:
+
+```sh
+lua5.1 tools/layout_compare/run.lua /tmp/towns-object-placement 1,42
+```
+
+The planner selects some reachable pockets and preserves a walking route
+from each selected object to public pavement. The decoration outlines do
+not change the layout tool's historical building and street metrics.
 
 ## Method and limits
 

@@ -23,7 +23,9 @@
 -- compose: every civic and content placement of a finished plan resolved to
 -- an exact XYZ box. Sources, in this deterministic order: named sites
 -- (landmarks), plan.reservations.jail, plan.reservations.services, then
--- plan.content.buildings. `entries` is id -> {size, entrance, ground_offset,
+-- plan.content.buildings, then plan.objects. Outdoor objects are resolved
+-- from their separate asset catalog and have no building entrance.
+-- `entries` is id -> {size, entrance, ground_offset,
 -- path, data_path} (catalog.entries, or the planner landmark profile when
 -- only heights are needed). The rotated box is placed with geometry.place at
 -- {rect.x1, ground_y - ground_offset, rect.z1}, i.e. the foundation sits at
@@ -73,6 +75,18 @@ local function load_sibling(name)
 end
 local geometry = load_sibling("geometry.lua")
 local plan_sites = load_sibling("plan_sites.lua")
+local source = debug.getinfo(1, "S").source:sub(2)
+local modpath = source:match("^(.*)/src/preflight.lua$") or "."
+local objects = dofile(modpath .. "/schematics/objects/catalog.lua")
+
+-- Outdoor assets have their own catalog; resolve them alongside buildings
+-- for preflight, vertical bounds, placement and node initialization.
+function M.entries(entries)
+	local out = {}
+	for id, e in pairs(entries) do out[id] = e end
+	for id, e in pairs(objects) do out[id] = e end
+	return out
+end
 
 M.LIMIT = 31000
 M.PLAYER_MARGIN = 4
@@ -101,7 +115,8 @@ end
 local function resolve(entries, ground_y, bounds, id, kind, role, rotation, rect)
 	local label = ("%s '%s'"):format(kind, tostring(id))
 	local e = entries[id]
-	if type(e) ~= "table" or type(e.size) ~= "table" or type(e.entrance) ~= "table" then
+	if type(e) ~= "table" or type(e.size) ~= "table"
+			or (kind ~= "object" and type(e.entrance) ~= "table") then
 		return nil, label .. " has no catalog entry", "missing_entry"
 	end
 	local s = e.size
@@ -113,8 +128,9 @@ local function resolve(entries, ground_y, bounds, id, kind, role, rotation, rect
 		return nil, label .. " has an invalid ground_offset", "geometry"
 	end
 	if not valid_rect(rect) then return nil, label .. " has no valid planned rect", "geometry" end
-	local ok, g = pcall(geometry.place, {size = s, entrance = {x = e.entrance.x or 0,
-		y = e.entrance.y or 1, z = e.entrance.z or 0, facing = e.entrance.facing}},
+	local entrance = e.entrance or {}
+	local ok, g = pcall(geometry.place, {size = s, entrance = {x = entrance.x or 0,
+		y = entrance.y or 1, z = entrance.z or 0, facing = entrance.facing}},
 		{x = rect.x1, y = ground_y - go, z = rect.z1}, rotation)
 	if not ok then return nil, label .. ": " .. tostring(g), "geometry" end
 	if g.max.x ~= rect.x2 or g.max.z ~= rect.z2 then
@@ -135,7 +151,9 @@ local function resolve(entries, ground_y, bounds, id, kind, role, rotation, rect
 	return {
 		id = id, kind = kind, role = role or kind, rotation = g.rotation,
 		rect = {x1 = rect.x1, z1 = rect.z1, x2 = rect.x2, z2 = rect.z2},
-		min = g.min, max = g.max, size = g.size, entrance = g.entrance, front = g.front,
+		min = g.min, max = g.max, size = g.size,
+		entrance = kind ~= "object" and g.entrance or nil,
+		front = kind ~= "object" and g.front or nil,
 		ground_offset = go, excluded_beds = excluded_beds,
 	}
 end
@@ -146,6 +164,7 @@ function M.compose(plan, entries, ground_y)
 	end
 	if type(entries) ~= "table" then return nil, "no catalog entries", "bad_input" end
 	if not is_int(ground_y) then return nil, "ground_y must be an integer", "bad_input" end
+	entries = M.entries(entries)
 	local list, err, code = {}, nil, nil
 	local function add(id, kind, role, rotation, rect)
 		if err then return end
@@ -176,6 +195,9 @@ function M.compose(plan, entries, ground_y)
 		for _, b in ipairs(plan.content.buildings or {}) do
 			add(b.building_id, "content", b.role, b.rotation, b.rect)
 		end
+	end
+	for _, o in ipairs(plan.objects or {}) do
+		add(o.id, "object", o.id, o.rotation, o.rect)
 	end
 	if err then return nil, err, code end
 	for i = 1, #list do
@@ -265,7 +287,7 @@ function M.check(params, env)
 	table.sort(ids)
 	local nodes = {}
 	for _, id in ipairs(ids) do
-		local e = params.entries[id]
+		local e = objects[id] or params.entries[id]
 		if type(e.path) ~= "string" then
 			return fail("missing_file", "Building '" .. id .. "' has no schematic file.")
 		end

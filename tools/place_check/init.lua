@@ -6,6 +6,7 @@
 -- functional node initialization, idempotence and Living Villages
 -- recognition of the tavern jukebox and the well.
 local seed = tonumber(core.settings:get('towns_place_check_seed')) or 5
+local entries = towns.preflight.entries(towns.catalog.entries)
 local report = {seed = seed, checks = {}, failures = {}}
 local function check(ok, label)
  report.checks[#report.checks + 1] = {ok = ok and true or false, label = label}
@@ -289,24 +290,56 @@ core.register_on_mods_loaded(function() core.after(0, function()
     check(town and town.complete, 'summary marked complete')
     report.counts = {structures = #town.structures, nodes_changed = summary.nodes.changed}
     -- Re-read every structure against its schematic, rotation by rotation.
-    local mismatches, compared = 0, 0
+    local mismatches, compared, mismatch_samples = 0, 0, {}
     for _, b in ipairs(town.structures) do
-     local entry = towns.catalog.entries[b.id]
+     local entry = entries[b.id]
      local s = assert(core.read_schematic(root .. '/' .. entry.path, {}))
      for z = 0, s.size.z - 1 do for y = 0, s.size.y - 1 do for x = 0, s.size.x - 1 do
       local want = s.data[z * s.size.x * s.size.y + y * s.size.x + x + 1]
       local p = vector.add(b.min, towns.schematic.rotate_offset(s.size, {x = x, y = y, z = z}, b.rotation))
       local have = core.get_node(p).name
+      local expected = want.name
+      -- Placement repairs wall connection names after rotation (#166).
+      -- Compare with that intended connected variant, not the captured name.
+      if core.get_item_group(expected, 'wall') > 0 then
+       expected = towns.schematic.wall_name(expected, function(dx,dy,dz)
+        local q = vector.offset(p,dx,dy,dz)
+        if q.x < b.min.x or q.x > b.max.x or q.y < b.min.y or q.y > b.max.y
+          or q.z < b.min.z or q.z > b.max.z then return nil end
+        local n = core.get_node(q).name
+        return n ~= 'air' and n or nil
+       end)
+      end
       compared = compared + 1
-      if have ~= want.name then mismatches = mismatches + 1 end
+      if have ~= expected then
+       mismatches = mismatches + 1
+       if #mismatch_samples < 12 then mismatch_samples[#mismatch_samples+1] = {id=b.id,have=have,want=expected,pos=p} end
+      end
      end end end
     end
     report.compared_nodes, report.mismatched_nodes = compared, mismatches
+    report.mismatch_samples = mismatch_samples
     check(mismatches == 0, 'every schematic node matches (' .. mismatches .. ' of ' .. compared .. ' differ)')
     -- Real cathedral and castle schematics present.
     local kinds = {}
     for _, b in ipairs(town.structures) do kinds[b.kind] = (kinds[b.kind] or 0) + 1 end
     check(kinds.cathedral == 1 and kinds.castle == 1, 'real cathedral and castle placed')
+    -- Outdoor objects use the same composition and placement path, but have
+    -- no building door. Their reserved approach stays walkable after writing.
+    local object_counts = {}
+    for _, o in ipairs(result.plan.objects or {}) do
+     object_counts[o.id] = (object_counts[o.id] or 0) + 1
+     local reachable = true
+     for _, p in ipairs(o.access) do
+      local feet = core.get_node({x=p.x,y=result.ground_y+1,z=p.z}).name
+      local head = core.get_node({x=p.x,y=result.ground_y+2,z=p.z}).name
+      local floor = core.get_node({x=p.x,y=result.ground_y,z=p.z}).name
+      local fd, hd, gd = core.registered_nodes[feet], core.registered_nodes[head], core.registered_nodes[floor]
+      reachable = reachable and fd and hd and gd and not fd.walkable and not hd.walkable and gd.walkable
+     end
+     check(reachable, o.id .. ' reserved access is walkable after town construction')
+    end
+    report.objects = object_counts
     -- Doors: independent walk of the route cells in the finished world.
     local g = result.ground_y
     report.door_steps = {}
@@ -446,7 +479,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
     -- Idempotence: a second adapter call on a fresh state changes no metadata.
     do
      local env = towns.node_setup.core_env(core, {itemframes = rawget(_G, 'mcl_itemframes'), chests = rawget(_G, 'mcl_chests')},
-      function(b) local e = towns.catalog.entries[b.id]; return e and towns.schematic.required_nodes(e, towns.modpath) end)
+      function(b) local e = entries[b.id]; return e and towns.schematic.required_nodes(e, towns.modpath) end)
      local function entity_count()
       local n = 0
       for _, b in ipairs(town.structures) do
@@ -486,7 +519,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
      if beds then
       local per, expected_pairs, mismatch = {}, 0, 0
       for i, b in ipairs(town.structures) do
-       local entry = towns.catalog.entries[b.id]
+       local entry = entries[b.id]
        local s = assert(core.read_schematic(root .. '/' .. entry.path, {}))
        local n = 0
        for _, node in ipairs(s.data) do

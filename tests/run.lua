@@ -396,6 +396,8 @@ run_group("tests/service_reservation_tests.lua", eq, fails, dofile("src/planner.
 run_group("tests/content_planner_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
 -- Site search (ticket #14): mocked-world search harness.
+run_group("tests/open_space_tests.lua", eq)
+
 run_group("tests/site_search_tests.lua", eq, fails, placement, dofile("src/planner.lua"),
 	dofile("src/site_search.lua"))
 
