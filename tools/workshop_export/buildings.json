@@ -580,11 +580,11 @@
         "z": 273
       },
       "ground_y": 8,
-      "rotation": 90,
+      "rotation": 270,
       "entrance": {
-        "x": 220,
+        "x": 211,
         "y": 9,
-        "z": 272
+        "z": 271
       },
       "role": "tavern"
     },

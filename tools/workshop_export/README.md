@@ -206,12 +206,15 @@ Attribution for the two files is in
 
 `tavern_2` (role `tavern`) is the TownsWorkshop tavern at source x 206..221,
 y 6..16, z 267..273 (the five item frames on the west wall at x 206 are part of
-the build, one block outside the ticket's x 207..221). Front is +X (door at
-(220,9,272), `rotation` 90). The floor (mud bricks, source y 8) is flush with
-the surrounding terrain in the source, with a two-row cellar and its stair
-below, so the capture keeps rows y 6..7 (`ground_y` 8, `ground_offset` 2) and
-the floor stays flush with the street, as authored: 7 x 11 x 16 in the
-canonical file, entrance (5, 3, 1). Intentionally omitted: source y 5, the
+the build, one block outside the ticket's x 207..221). The first export used
+the door at (220,9,272) on the source's +X side (`rotation` 90), which put the
+building's back toward the street. Since #189 the front is the other ground
+door, at (211,9,271) on the source's -X side (`rotation` 270). The floor (mud
+bricks, source y 8) is flush with the surrounding terrain in the source, with
+a two-row cellar and its stair below, so the capture keeps rows y 6..7
+(`ground_y` 8, `ground_offset` 2) and the floor stays flush with the street,
+as authored: 7 x 11 x 16 in the canonical file, entrance (2, 3, 5).
+Intentionally omitted: source y 5, the
 cellar's lowest row (furnace, smoker, the bottom granite stair step, a wood
 row and cobble there; the rest of that layer is the world's bedrock, over
 `mcl_core:void` at y 4 and below). Capturing it would put bedrock and void
@@ -220,9 +223,9 @@ the template starts at y 6. Consequences: the cellar furnace and smoker are
 not in the template, the stair ends one step short of the bottom, and the
 cellar's row 0 sits directly on whatever terrain is at street minus 3 (the
 town site is flattened and filled, so a cave or liquid opening into it is
-unlikely but not excluded). The planner currently places only the first
-sorted tavern id (`tavern`), so `tavern_2` is in the catalog but is not yet
-placed in towns.
+unlikely but not excluded). `tavern_2` is placed in towns: as one of the
+medieval tavern variants drawn for the service slots, and in all three Roman
+tavern slots.
 
 ## soup_shop (Home world, #110)
 
