@@ -30,7 +30,7 @@ local plan = plan_at(100, -50, 7)
 eq(plan.town_type, "roman", "Roman plan carries its town type")
 eq(planner.validate(plan), true, "selected Roman plan passes authored validation")
 
--- Exact monument census: 16 placements from seven templates.
+-- Exact monument census: 16 placements from eight templates.
 local list = landmarks(plan)
 eq(#list, 16, "16 monument placements")
 local counts, names, n = {}, {}, 0
@@ -40,11 +40,11 @@ for _, s in ipairs(list) do
 	names[s.name] = true
 	eq(plan.sites[s.name], s, s.name .. " is keyed by its own name")
 end
-for id, want in pairs({arch = 4, temple = 2, domus = 4, theatre = 1, amphitheater = 1, bath = 1, insula = 3}) do
+for id, want in pairs({arch = 4, temple = 2, domus = 3, basilica = 1, theatre = 1, amphitheater = 1, bath = 1, insula = 3}) do
 	eq(counts[id], want, id .. " count")
 	n = n + 1
 end
-eq(n, 7, "seven templates")
+eq(n, 8, "eight templates")
 eq(#plan.site_order, 17, "forum plus 16 monuments in site order")
 
 -- Arms: the theatre and amphitheater differ, and the bath uses the south arm.
@@ -176,7 +176,7 @@ for name, st in pairs(ring_streets) do
 	eq(st.rect.x2 >= cx0 - 3 or st.rect.z2 >= cz0 - 3, true, "ring " .. name .. " is outside the south-west quadrant")
 end
 
--- Domus: domus_2 inside the ring, the others and the amphitheater outside.
+-- Monuments: the basilica inside the ring, the domus and the amphitheater outside.
 local function inside_ring(r)
 	return r.x1 > R.w.x2 and r.x2 < R.e.x1 and r.z1 > R.s.z2 and r.z2 < R.n.z1
 end
@@ -184,13 +184,15 @@ local function outside_ring(r)
 	for _, b in pairs(R) do if overlap(r, b) then return false end end
 	return not inside_ring(r)
 end
-eq(inside_ring(plan.sites.domus_2.rect), true, "domus_2 is inside the ring")
+eq(inside_ring(plan.sites.basilica.rect), true, "basilica is inside the ring")
 for _, name in ipairs({"domus_1", "domus_3", "domus_4", "amphitheater"}) do
 	eq(outside_ring(plan.sites[name].rect), true, name .. " is outside the ring")
 end
 eq(plan.sites.domus_1.ring, "east", "domus_1 flush against the east band")
 eq(plan.sites.domus_1.arm, nil, "domus_1 has no arm")
-eq(plan.sites.domus_2.arm, "east", "domus_2 on the east arm")
+eq(plan.sites.basilica.arm, "east", "basilica on the east arm")
+eq(plan.sites.basilica.rotation, 270, "basilica rotation turns its door to the decumanus")
+eq(plan.sites.basilica.facing.x == 0 and plan.sites.basilica.facing.z == 1, true, "basilica door faces +z")
 eq(plan.sites.domus_3.arm, "east", "domus_3 on the east arm")
 eq(plan.sites.domus_4.arm, "west", "domus_4 on the west arm")
 -- The amphitheater stands in the north-east, beyond the ring's east band.
@@ -245,8 +247,8 @@ for arm, st in pairs(by_arm) do
 	eq(arch.size.x * arch.size.z, entry.size.x * entry.size.z, arm .. " arch uses the full catalog box")
 end
 
--- Doors face their streets, including the recessed bath door.
-for _, name in ipairs({"bath"}) do
+-- Doors face their streets, including the recessed bath and basilica doors.
+for _, name in ipairs({"bath", "basilica"}) do
 	local s = plan.sites[name]
 	local e, a = s.entrance, s.approach.pos
 	eq(overlap(s.rect, {x1 = a.x, z1 = a.z, x2 = a.x, z2 = a.z}), false,
@@ -728,7 +730,7 @@ do
 	-- Literal rects at the origin (seed 1): a one-node slip in any of these fails.
 	local origin = assert(planner.plan({x = 0, z = 0}, 1, {town_type = "roman"}))
 	local pins = {
-		{"domus_1", 44, 39, 81, 60}, {"domus_2", 15, -41, 36, -4},
+		{"domus_1", 44, 39, 81, 60}, {"basilica", 15, -31, 30, -4},
 		{"domus_3", 44, -41, 65, -4}, {"domus_4", -66, 3, -45, 40},
 		{"amphitheater", 44, 3, 72, 31},
 		{"insula_north_east", 3, 39, 37, 65}, {"insula_north_west", -38, 39, -4, 65},

@@ -104,7 +104,7 @@ local function layers(plan)
 	end
 	if plan.town_type == "roman" then
 		-- Roman sites (issue #152): every square and every landmark instance,
-		-- each labelled by its unique site name (temple_east, domus_2, ...).
+		-- each labelled by its unique site name (temple_east, basilica, ...).
 		for _, name in ipairs(plan.site_order) do
 			local s = plan.sites[name]
 			if s.kind == "square" then add("square", s.rect, name)

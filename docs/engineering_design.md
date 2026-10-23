@@ -433,6 +433,9 @@ and the east and west bands, the east arm crosses the east band, the south and
 south-outer bands abut the east band, its south and west bands end beside their
 arms, and the south-west bath quadrant is left out. Three insulae (issue #202)
 stand flush against the inner north and south bands on their outer side.
+The imported basilica (issue #217) replaces the domus nearest the forum: it
+stands on the south side of the east arm, inside the ring, rotated so its
+recessed front door faces the decumanus, with its low edge at the forum edge.
 Blocks may stand flush against a ring band's inner or
 outer side. Each ring band is a `bands` entry in `roman_civic_plan.lua`:
 `name`, `arm` (the axis it runs along), `from..to` (nodes outward from the
