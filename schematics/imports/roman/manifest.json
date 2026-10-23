@@ -233,7 +233,9 @@
         "y": 20,
         "z": 26
       },
-      "non_air_node_types": 63,
+      "snapshot_sha256": "9205f7797c2ae8a69d42c1187f0ca8ed98b1eae701549a2c18f71ccf1b5c17cc",
+      "source_map_sha256": "6eab09ffbcb4847a24979099bfe2b0dade786a7b4c1e12f0098eb590c1c6fef3",
+      "non_air_node_types": 64,
       "metadata_nodes": 63,
       "required_nodes": [
         "mcl_beds:bed_white_bottom",
@@ -246,6 +248,7 @@
         "mcl_colorblocks:hardened_clay_yellow",
         "mcl_core:acaciawood",
         "mcl_core:andesite",
+        "mcl_core:coarse_dirt",
         "mcl_core:cobble",
         "mcl_core:diorite",
         "mcl_core:dirt",
