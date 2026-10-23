@@ -30,8 +30,8 @@ core.register_on_mods_loaded(function() core.after(0,function()
     if id=='castle' and not entry.data_path then
      local n=core.get_node(entrance)
      assert(n.name=='mcl_fences:fence_gate_open', 'castle gate opening mismatch: '..n.name)
-     local plan=towns.placement.plan(entry,{x=0,y=8,z=0},rotation)
-     assert(plan.pos.y==3 and plan.building.entrance.y==11, 'castle foundation/gate height mismatch')
+     local b=towns.geometry.place(entry,{x=0,y=8-(entry.ground_offset or 0),z=0},rotation)
+     assert(b.min.y==3 and b.entrance.y==11, 'castle foundation/gate height mismatch')
     elseif entry.entrance_kind=='opening' then
      assert(core.get_node(entrance).name=='air' and core.get_node(vector.add(entrance,{x=0,y=1,z=0})).name=='air',id..' opening obstructed')
      local floor=core.get_node(vector.add(entrance,{x=0,y=-1,z=0}))

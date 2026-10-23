@@ -84,7 +84,7 @@ end
 -- opts.initialize = false: write the nodes and restore saved metadata and
 -- inventories only. The caller runs the node setup adapter (node_setup.lua,
 -- ticket #46) afterwards instead of the blanket constructors and displays
--- below. The default keeps /towns_test's behaviour.
+-- below. The default is the single-building import path (/towns_import_roman).
 function M.place(entry, pos, rotation, modpath, opts)
  local initialize = not (opts and opts.initialize == false)
  local ok, reason = M.validate(entry, modpath)

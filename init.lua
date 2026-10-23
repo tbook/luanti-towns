@@ -1,13 +1,13 @@
 local modpath = core.get_modpath(core.get_current_modname())
 
--- Internal tables for the Phase 1 placement command; not a registration API.
+-- Internal module tables shared by the commands; not a registration API.
 towns = {
 	modpath = modpath,
 	catalog = dofile(modpath .. "/src/catalog.lua"),
 	geometry = dofile(modpath .. "/src/geometry.lua"),
 	schematic = dofile(modpath .. "/src/schematic.lua"),
 }
-towns.placement = dofile(modpath .. "/src/placement.lua")(towns.geometry)
+towns.placement = dofile(modpath .. "/src/placement.lua")
 -- Pure town planner (boundary + civic sites); no world access.
 towns.planner = dofile(modpath .. "/src/planner.lua")
 
@@ -38,8 +38,6 @@ for _, id in ipairs(towns.catalog.ids()) do
 	end
 end
 
--- Privileged Phase 1 test command (overwrites its site; Testlandia only).
-loadfile(modpath .. "/src/test_command.lua")(towns)
 -- Manual Issue 139 imports, separate from the town generation catalog.
 loadfile(modpath .. "/src/roman_import_command.lua")(towns)
 

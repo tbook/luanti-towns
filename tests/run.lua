@@ -7,7 +7,7 @@
 io.stdout:setvbuf("no")
 local geometry = dofile("src/geometry.lua")
 local catalog = dofile("src/catalog.lua")
-local placement = dofile("src/placement.lua")(geometry)
+local placement = dofile("src/placement.lua")
 
 -- TOWNS_TEST_ONLY=tests/x_tests.lua runs just that group (for development).
 local only_group = os.getenv("TOWNS_TEST_ONLY")
@@ -263,15 +263,15 @@ for _, id in ipairs(catalog.ids()) do
 		eq(e.entrance.y >= 1 and e.entrance.y < e.size.y, true, id .. " exported entrance height")
 		local ey = e.entrance.y
 		for _, r in ipairs(geometry.ROTATIONS) do
-			local p = placement.plan(e, {x = 0, y = 8, z = 0}, r)
-			eq(p.building.entrance.y, 8 + ey - (e.ground_offset or 0), id .. " rotated entrance Y " .. r)
+			local b = geometry.place(e, {x = 0, y = 8 - (e.ground_offset or 0), z = 0}, r)
+			eq(b.entrance.y, 8 + ey - (e.ground_offset or 0), id .. " rotated entrance Y " .. r)
 		end
 	end
 end
 for _, r in ipairs(geometry.ROTATIONS) do
-	local p = placement.plan(castle, {x = 0, y = 8, z = 0}, r)
-	eq(p.pos.y, 3, "castle foundation Y " .. r)
-	eq(p.building.entrance.y, 9, "castle rotated gate Y " .. r)
+	local b = geometry.place(castle, {x = 0, y = 8 - castle.ground_offset, z = 0}, r)
+	eq(b.min.y, 3, "castle foundation Y " .. r)
+	eq(b.entrance.y, 9, "castle rotated gate Y " .. r)
 end
 
 -- Cathedral verification (ticket #31): file header, entrance at all rotations, required nodes.
@@ -333,113 +333,11 @@ eq(cath_node_set["mcl_jukebox:jukebox"] ~= nil, true, "cathedral has jukebox")
 
 -- Role, snapshot, non-square and touching-box tests live in
 -- tests/catalog_tests.lua (ticket #28).
-run_group("tests/catalog_tests.lua", eq, fails, geometry, catalog, placement)
+run_group("tests/catalog_tests.lua", eq, fails, geometry, catalog)
 run_group("tests/roman_catalog_tests.lua", eq, fails, geometry, catalog, placement)
 
 -- Single-frontage packer (ticket #40).
 run_group("tests/frontage_packer_tests.lua", eq, fails, geometry)
-
--- placement.parse_args: valid, bad count, bad rotation.
-local id, rot = placement.parse_args("demo_house 90")
-eq(id, "demo_house", "parse id")
-eq(rot, 90, "parse rotation")
-id, rot = placement.parse_args("  demo_house   0 ")
-eq(rot, 0, "parse rotation 0 with spaces")
-for _, bad_param in ipairs({"", "demo_house", "a b c", "demo_house 45", "demo_house -90",
-		"demo_house 360", "demo_house 90.0", "demo_house 0x5A", "demo_house north"}) do
-	local i, msg = placement.parse_args(bad_param)
-	eq(i, nil, "rejects '" .. bad_param .. "'")
-	eq(type(msg), "string", "message for '" .. bad_param .. "'")
-end
-eq(placement.parse_args(nil), nil, "nil param")
-
--- placement.plan: demo_house (9x8x7, entrance (4,1,0)), player ground (100,20,50).
-local demo = catalog.get("demo_house")
-local ground = {x = 100, y = 20, z = 50}
-local castle_plan = placement.plan(castle, {x = 100, y = 8, z = 100}, 0)
-xyz(castle_plan.pos, 108, 3, 100, "castle origin below ground")
-xyz(castle_plan.bounds.min, 108, 3, 95, "castle full foundation emerged")
-xyz(castle_plan.bounds.max, 157, 41, 153, "castle full height")
-xyz(castle_plan.building.entrance, 132, 9, 103, "castle gate height and offset")
-xz(castle_plan.building.front, 0, -1, "castle gate faces -Z")
-local function check_plan(rot_, maxx, maxz, entx, entz, smin, smax, bmin, bmax)
-	local p = placement.plan(demo, ground, rot_)
-	local l = rot_ .. " "
-	xyz(p.pos, 108, 20, 50, l .. "pos")
-	xyz(p.building.min, 108, 20, 50, l .. "building min")
-	eq(p.building.max.x, maxx, l .. "building max x")
-	eq(p.building.max.z, maxz, l .. "building max z")
-	eq(p.building.max.y, 27, l .. "building max y")
-	xyz(p.building.entrance, entx, 21, entz, l .. "entrance")
-	xyz(p.square.min, smin[1], 20, smin[2], l .. "square min")
-	xyz(p.square.max, smax[1], 20, smax[2], l .. "square max")
-	xyz(p.bounds.min, bmin[1], 19, bmin[2], l .. "bounds min")
-	xyz(p.bounds.max, bmax[1], 27, bmax[2], l .. "bounds max")
-	-- Square is 5x5, adjacent to the building and not overlapping it.
-	eq(p.square.max.x - p.square.min.x, 4, l .. "square width")
-	eq(p.square.max.z - p.square.min.z, 4, l .. "square depth")
-	local o = p.building.outside
-	eq(placement.in_box(p.square, o.x, o.z), true, l .. "square holds outside node")
-	local overlap, n = false, 0
-	placement.each_column(p, function(x, z, kind)
-		n = n + 1
-		if kind == "square" and placement.in_box(p.building, x, z) then overlap = true end
-	end)
-	eq(overlap, false, l .. "square does not overlap building")
-	eq(n, 9 * 7 + 25, l .. "column count")
-end
-check_plan(0,   116, 56, 112, 50, {110, 45}, {114, 49}, {108, 45}, {116, 56})
-check_plan(90,  114, 58, 108, 54, {103, 52}, {107, 56}, {103, 50}, {114, 58})
-check_plan(180, 116, 56, 112, 56, {110, 57}, {114, 61}, {108, 50}, {116, 61})
-check_plan(270, 114, 58, 114, 54, {115, 52}, {119, 56}, {108, 50}, {119, 58})
-
--- Entrance at the edge columns: the 5-wide square overhangs the building
--- side, and the bounds must include the overhang.
-local synth = {size = {x = 9, y = 8, z = 7}}
-for _, ex in ipairs({0, 8}) do
-	synth.entrance = {x = ex, z = 0}
-	for _, r_ in ipairs(geometry.ROTATIONS) do
-		local p = placement.plan(synth, ground, r_)
-		local l = "edge x=" .. ex .. " rot " .. r_ .. " "
-		local e = p.building.entrance
-		-- Square is centred on the entrance along the edge, 5 wide.
-		if p.building.front.x == 0 then
-			eq(p.square.min.x, e.x - 2, l .. "square min x")
-			eq(p.square.max.x, e.x + 2, l .. "square max x")
-		else
-			eq(p.square.min.z, e.z - 2, l .. "square min z")
-			eq(p.square.max.z, e.z + 2, l .. "square max z")
-		end
-		-- Square always inside the combined bounds, building too.
-		eq(p.bounds.min.x <= math.min(p.square.min.x, p.building.min.x), true, l .. "bounds min x")
-		eq(p.bounds.max.x >= math.max(p.square.max.x, p.building.max.x), true, l .. "bounds max x")
-		eq(p.bounds.min.z <= math.min(p.square.min.z, p.building.min.z), true, l .. "bounds min z")
-		eq(p.bounds.max.z >= math.max(p.square.max.z, p.building.max.z), true, l .. "bounds max z")
-		local overlap = false
-		placement.each_column(p, function(x, z, kind)
-			if kind == "square" and placement.in_box(p.building, x, z) then overlap = true end
-		end)
-		eq(overlap, false, l .. "no overlap")
-	end
-end
--- Concrete: x=0, rot 0 -> entrance x=108, square x 106..110 (overhangs west).
-synth.entrance = {x = 0, z = 0}
-local ps = placement.plan(synth, ground, 0)
-eq(ps.square.min.x, 106, "edge0 rot0 square min x")
-eq(ps.bounds.min.x, 106, "edge0 rot0 bounds min x")
--- x=8, rot 90: entrance z = sx-1-8 = 0 -> square z 48..52, bounds min z 48.
-synth.entrance = {x = 8, z = 0}
-ps = placement.plan(synth, ground, 90)
-eq(ps.square.min.z, 48, "edge8 rot90 square min z")
-eq(ps.bounds.min.z, 48, "edge8 rot90 bounds min z")
-
--- Nothing in any plan lies within 3 nodes of the player's column.
-for _, r_ in ipairs(geometry.ROTATIONS) do
-	local p = placement.plan(demo, ground, r_)
-	eq(p.bounds.min.x >= ground.x + 3, true, r_ .. " clear of the player")
-	eq(p.bounds.min.y, ground.y - 1, r_ .. " support layer")
-end
-fails(function() placement.plan(demo, ground, 45) end, "invalid rotation", "plan rejects bad rotation")
 
 -- classify
 local infos = {
@@ -469,41 +367,6 @@ hh, prob = placement.scan_column(col({"air", "unknown"}, 10), 10, 0)
 eq(prob, "unknown", "scan unknown")
 hh, prob = placement.scan_column(function() return "air" end, 10, 5)
 eq(prob, "none", "scan no ground")
-
--- check_site
-local plan0 = placement.plan(demo, ground, 0)
-local function flat(y) return function() return y end end
-local ok, reason = placement.check_site(plan0, flat(20))
-eq(ok, true, "flat site ok")
-eq((placement.check_site(plan0, flat(19))), true, "flat site one below ok")
-eq((placement.check_site(plan0, flat(21))), true, "flat site one above ok")
-ok, reason = placement.check_site(plan0, flat(22))
-eq(ok, false, "site two above rejected")
-eq(reason:find("too far from ground", 1, true) ~= nil, true, "far reason")
-eq((placement.check_site(plan0, flat(17))), false, "site far below rejected")
--- Step of one is fine; step of two is not.
-eq((placement.check_site(plan0, function(x) return x < 112 and 20 or 21 end)), true, "one-node step ok")
-ok, reason = placement.check_site(plan0, function(x) return x < 112 and 19 or 21 end)
-eq(ok, false, "two-node step rejected")
-eq(reason:find("uneven", 1, true) ~= nil, true, "uneven reason")
--- Water in a single square column rejects the whole site.
-ok, reason = placement.check_site(plan0, function(x, z)
-	if x == 110 and z == 45 then return nil, "water", 20 end
-	return 20
-end)
-eq(ok, false, "water rejected")
-eq(reason:find("water or lava at (110,20,45)", 1, true) ~= nil, true, "water reason")
--- Only the plan's columns are consulted.
-local seen = 0
-placement.check_site(plan0, function() seen = seen + 1; return 20 end)
-eq(seen, 9 * 7 + 25, "only plan columns inspected")
--- Missing ground and unloaded terrain.
-ok, reason = placement.check_site(plan0, function() return nil, "none", 10 end)
-eq(ok, false, "no ground rejected")
-ok, reason = placement.check_site(plan0, function() return nil, "unknown", 20 end)
-eq(reason:find("unloaded", 1, true) ~= nil, true, "unknown reason")
-
-eq(placement.format_bounds(plan0.bounds), "(108,19,45) to (116,27,56)", "format_bounds")
 
 -- Planner (ticket #12): boundary and civic sites.
 run_group("tests/planner_tests.lua", eq, fails, dofile("src/planner.lua"))

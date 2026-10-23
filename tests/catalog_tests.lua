@@ -1,14 +1,13 @@
 -- Focused tests for ticket #28: catalog roles and entrance height.
 -- Loaded by tests/run.lua, which passes its helpers:
---   loadfile("tests/catalog_tests.lua")(eq, fails, geometry, catalog, placement)
+--   loadfile("tests/catalog_tests.lua")(eq, fails, geometry, catalog)
 -- Also runnable alone from the mod root: lua5.1 tests/catalog_tests.lua
-local eq, fails, geometry, catalog, placement = ...
+local eq, fails, geometry, catalog = ...
 local standalone = eq == nil
 local failures, count = 0, 0
 if standalone then
 	geometry = dofile("src/geometry.lua")
 	catalog = dofile("src/catalog.lua")
-	placement = dofile("src/placement.lua")(geometry)
 	eq = function(actual, expected, label)
 		count = count + 1
 		if actual ~= expected then
@@ -125,9 +124,9 @@ end
 -- Entrance height at all four rotations for the real entries.
 local ground = {x = 100, y = 20, z = 50}
 for _, rot in ipairs(geometry.ROTATIONS) do
-	eq(placement.plan(catalog.get("demo_house"), ground, rot).building.entrance.y, 21,
+	eq(geometry.place(catalog.get("demo_house"), ground, rot).entrance.y, 21,
 		"demo_house entrance Y at " .. rot)
-	eq(placement.plan(catalog.get("castle"), {x = 0, y = 8, z = 0}, rot).building.entrance.y, 9,
+	eq(geometry.place(catalog.get("castle"), {x = 0, y = 3, z = 0}, rot).entrance.y, 9,
 		"castle entrance Y (ground offset) at " .. rot)
 end
 

@@ -290,7 +290,7 @@ local function flat_env(top)
 	return env
 end
 
-local ss = site_search(dofile("src/placement.lua")(geometry), planner)
+local ss = site_search(dofile("src/placement.lua"), planner)
 local function search(planner_opts, structure_bounds, top, radius, search_ss)
 	local result, summary
 	top = top or 20
@@ -355,7 +355,7 @@ local make_authored_plan = dofile("tests/authored_plan_fixture.lua")
 local small_planner = setmetatable({
 	plan = function(center, seed) return make_authored_plan(center, seed) end,
 }, {__index = planner})
-local small_ss = site_search(dofile("src/placement.lua")(geometry), small_planner)
+local small_ss = site_search(dofile("src/placement.lua"), small_planner)
 local house = catalog.get("demo_house")
 local function small_entries(height)
 	return {demo_house = {size = {x = house.size.x, y = height or house.size.y, z = house.size.z},
