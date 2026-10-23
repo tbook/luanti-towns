@@ -197,7 +197,7 @@ do -- ticket #104: liquids, landfill and rejection counts are reported
 end
 do -- ticket #47: the town report carries the bed enumeration
 	local s3 = make_summary()
-	s3.town = {placed = 2, alleys = 0, doors = {},
+	s3.town = {placed = 2, doors = {},
 		beds = {count = 3, skipped = {{category = "inaccessible", reason = "no_standing_space",
 			pos = {x = 1, y = 2, z = 3}, id = "townhouses"}}}}
 	local t3 = table.concat(generate.format_report(s3), "\n")
@@ -210,7 +210,7 @@ do -- ticket #47: the town report carries the bed enumeration
 end
 do -- ticket #48: resident line
 	local s4 = make_summary()
-	s4.town = {placed = 2, alleys = 0, doors = {}, residents = {summary = "Residents: 4 spawned, 1 skipped, 0 failed"}}
+	s4.town = {placed = 2, doors = {}, residents = {summary = "Residents: 4 spawned, 1 skipped, 0 failed"}}
 	eq(has(table.concat(generate.format_report(s4), "\n"), "Residents: 4 spawned, 1 skipped, 0 failed"),
 		true, "report: residents line")
 	s4.town.residents, s4.town.residents_error = nil, "boom"
@@ -518,7 +518,7 @@ local function box(id, kind, role, x)
 end
 local function populated(extra)
 	local s = make_summary()
-	s.town = {placed = 6, alleys = 2, doors = {1, 2, 3, 4, 5, 6},
+	s.town = {placed = 6, doors = {1, 2, 3, 4, 5, 6},
 		structures = {box("cathedral", "cathedral", "cathedral", 0),
 			box("castle", "castle", "castle", 10), box("city_hall", "city_hall", "city_hall", 20),
 			box("tavern_a", "service", "tavern", 30), box("home_a", "content", "house", 40),
@@ -537,7 +537,7 @@ do -- complete report
 	local t = table.concat(generate.format_report(s), "\n")
 	eq(has(t, "Town built. Seed 11"), true, "populated: success header")
 	eq(has(t, "City hall: x 20..25, z 0..5"), true, "populated: city hall")
-	eq(has(t, "Buildings: 3 landmarks/city hall/jail, 1 services, 2 houses/shops/workshops, 2 alleys."),
+	eq(has(t, "Buildings: 3 landmarks/city hall/jail, 1 services, 2 houses/shops/workshops."),
 		true, "populated: counts")
 	eq(has(t, "Catalog ids: castle x1, cathedral x1, city_hall x1, home_a x2, tavern_a x1."),
 		true, "populated: catalog ids")
@@ -633,7 +633,7 @@ local function roman_summary(extra)
 		counts = {streets = #rplan.streets, principal = 4, secondary = 0,
 			blocks = #rplan.blocks, frontage = #rplan.frontage},
 		nodes = {changed = 999}, town_type = "roman",
-		town = {placed = 4, alleys = 0, doors = {1, 2, 3, 4},
+		town = {placed = 4, doors = {1, 2, 3, 4},
 			structures = {box("temple", "temple_east", "temple_east", 0),
 				box("domus", "domus_1", "domus_1", 10), box("tavern_a", "service", "tavern", 20),
 				box("home_a", "content", "house", 30)},
@@ -666,7 +666,7 @@ do -- report names the Roman sites, no medieval sites, repeat includes the type
 	eq(has(t, "Parvis:"), false, "roman: no parvis")
 	eq(has(t, "Market:"), false, "roman: no market")
 	eq(has(t, "City hall:"), false, "roman: no city hall")
-	eq(has(t, "Buildings: 2 landmarks/city hall/jail, 1 services, 1 houses/shops/workshops, 0 alleys."),
+	eq(has(t, "Buildings: 2 landmarks/city hall/jail, 1 services, 1 houses/shops/workshops."),
 		true, "roman: landmark counts include monuments")
 	eq(has(t, "Node setup: 2 functional nodes initialized"), true, "roman: setup reported")
 	eq(has(t, "Residents: 4 spawned"), true, "roman: residents reported")

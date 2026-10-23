@@ -229,13 +229,6 @@ Agreed scope:
   Corners may eventually use authored corner buildings; the initial fallback
   leaves an open corner rather than intersecting buildings. Keep that space
   as ordinary ground initially. Dedicated corner rules wait for real content.
-- **Alleys and access.** Redistribute spare frontage into one or two small
-  alleys reaching leftover block interior, preferring two-node width where
-  space allows. Reserve or repack whole ordinary buildings, never carve
-  schematics. Known passages through buildings may supplement access, but
-  guaranteed access initially uses free cells outside their boxes. Check
-  connected leftover interior areas, including touching block rectangles.
-  Leave interiors undecorated until Phase 3b.
 - **Simple services first.** Reserve taverns and wells before ordinary
   buildings. Begin with tunable targets of three of each, selecting subsequent
   fitting placements far from earlier services of the same type. Report
@@ -282,12 +275,12 @@ Agreed scope:
   reported as partial construction, with bounds and the failing stage.
 - **Command.** Retain the privileged direct-build `/towns_generate [seed]`
   flow for disposable Creative worlds, with no preview or confirmation.
-  Report actual bounds, selected catalog IDs, building/service/alley counts,
+  Report actual bounds, selected catalog IDs, building/service counts,
   bed/resident counts and unmet targets. A fixed seed, center and catalog
   profile reproduces the plan; changing the library may change packing.
 
 **Exit check:** inspect two fixed seeds with the actual initial library.
-Street fronts are mostly continuous, doors and leftover interiors are
+Street fronts are mostly continuous, doors are
 accessible, city hall stands beside an open, walkable market, and the real landmarks fit
 without damaging routes. Observe one full day/night cycle: residents can
 sleep and use nearby services when their behavior triggers. Verify no duplicate
@@ -300,7 +293,7 @@ Its 24 child tickets specify dependencies, narrow changes and acceptance checks.
 Content variants should each use a separate capture ticket/PR. The work is split
 into catalog/capture conventions; individual building imports; landmark and
 city hall reservations; single-frontage packing; services; shared occupancy;
-interior-access validation; alleys; preflight/emergence; physical placement;
+preflight/emergence; physical placement;
 node setup; bed enumeration; resident spawning; command reporting; and in-game
 validation. Pure geometry tickets can use synthetic fixtures while waiting
 for user-authored buildings.
@@ -374,7 +367,7 @@ countryside.
   plan if the fit is poor; an unwalled town with good streets is preferable.
 - Add a sparse fringe related to roads leaving the gates or town edge. Use a
   small set of rural structures and avoid spreading development everywhere.
-- Tune building mix, a few alleyways and block interiors, lighting, pacing,
+- Tune building mix, block interiors, lighting, pacing,
   and visual variety by play-testing rather than adding a broad decoration
   framework.
 

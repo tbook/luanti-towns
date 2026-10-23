@@ -14,7 +14,6 @@ local GROUND_Y = 40
 local entries = catalog.entries
 local profile = assert(planner.landmark_profile(catalog.snapshot()))
 local plan = assert(planner.plan({x = 0, z = 0}, 1024, {landmarks = profile}))
-eq(#plan.content.alleys >= 1, true, "fixture plan has an alley")
 eq(#plan.content.buildings >= 2, true, "fixture plan has buildings")
 eq(plan.sites.city_hall ~= nil, true, "fixture plan has a city hall")
 
@@ -213,21 +212,6 @@ if summary then
 	end
 	eq(bad_blk, 0, "no blockout nodes written")
 	eq(under, 0, "no pavement under any placed building (city hall included)")
-
-	-- Alleys are paved.
-	local material = TL.alley_material(plan)
-	local alley_cells, alley_paved = 0, 0
-	for _, a in ipairs(plan.content.alleys) do
-		for x = a.rect.x1, a.rect.x2 do
-			for z = a.rect.z1, a.rect.z2 do
-				alley_cells = alley_cells + 1
-				local n = w.get(x, GROUND_Y, z)
-				-- (street pavement may already own a cell)
-				if n == material or n == "mcl_core:cobble" then alley_paved = alley_paved + 1 end
-			end
-		end
-	end
-	eq(alley_cells > 0 and alley_paved == alley_cells, true, "every alley cell paved")
 
 	-- Each placement box is exactly the validated full box.
 	for i, box in ipairs(w.boxes) do

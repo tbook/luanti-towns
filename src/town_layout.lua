@@ -11,7 +11,7 @@
 --     real     = {cathedral = true, castle = true}: landmarks that are real
 --                schematics (ticket #45); no temporary blockout is built
 --                for them and L.openings has no entry,
---     alleys, holes = see TL.pavement_map,
+--     holes = see TL.pavement_map,
 --   })
 --
 -- L describes the finished town for every column of the boundary union:
@@ -75,20 +75,8 @@ local plan_sites = load_sibling("plan_sites.lua")
 
 -- Pavement map {[x] = {[z] = material}} from the plan's squares and streets.
 -- `extra` (optional, town placement, ticket #45):
---   extra.alleys  list of {rect}: planned access alleys, paved last (after
---                 every street) in TL.alley_material(plan)
 --   extra.holes   list of rects that are never paved (the footprints of the
 --                 placed schematics: a building owns its own floor)
-function TL.alley_material(plan)
-	for _, s in ipairs(plan.streets) do
-		if s.kind == "secondary" and type(s.material) == "string" then return s.material end
-	end
-	for _, s in ipairs(plan.streets) do
-		if type(s.material) == "string" then return s.material end
-	end
-	error("town layout: no street material for the alleys", 2)
-end
-
 function TL.pavement_map(plan, extra)
 	extra = extra or {}
 	local map, rank = {}, {}
@@ -159,10 +147,6 @@ function TL.pavement_map(plan, extra)
 		if type(material) ~= "string" then error("town layout: gate apron without principal street material", 3) end
 		claim(castle.gate_apron, material, 1)
 	end
-	if extra.alleys and #extra.alleys > 0 then
-		local material = TL.alley_material(plan)
-		for _, a in ipairs(extra.alleys) do claim(a.rect, material, 3) end
-	end
 	return map
 end
 
@@ -202,7 +186,7 @@ function TL.new(plan, ground_y, opts)
 	local g = ground_y
 
 	local set, columns = boundary(plan)
-	local pave = TL.pavement_map(plan, {alleys = opts.alleys, holes = opts.holes})
+	local pave = TL.pavement_map(plan, {holes = opts.holes})
 
 	-- Landmarks: merged sparse columns, kept only inside the boundary.
 	local landmark, max_dy, openings = {}, 0, {}

@@ -8,7 +8,7 @@
 -- Flow: site search with structure bounds and the catalog landmark profile
 -- (catalog, landmarks, jail, services, content plan) -> preflight check
 -- (files, node registration; zero writes) -> builder.build_town (terrain,
--- schematics, alleys, door checks, node initialization, ticket #46) -> bed
+-- schematics, door checks, node initialization, ticket #46) -> bed
 -- enumeration (#47) -> resident spawning and claiming once per bed (#48,
 -- guarded by a per-bed record in mod storage, see residents.initialize).
 -- Bed and resident problems never fail the build; they appear in the report.

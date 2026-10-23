@@ -254,8 +254,8 @@ function M.format_report(summary, command)
 		end
 	end
 	if s.town then
-		add("Placed %d buildings (%d alleys paved); all %d door approach routes are walkable.",
-			s.town.placed, s.town.alleys, #s.town.doors)
+		add("Placed %d buildings; all %d door approach routes are walkable.",
+			s.town.placed, #s.town.doors)
 		local kinds, ids, idorder = {}, {}, {}
 		for _, b in ipairs(s.town.structures or {}) do
 			kinds[b.kind] = (kinds[b.kind] or 0) + 1
@@ -269,9 +269,9 @@ function M.format_report(summary, command)
 		if s.town.structures then
 			-- Every structure that is not a service or ordinary content is a
 			-- named landmark (or city hall/jail): this counts Roman monuments too.
-			add("Buildings: %d landmarks/city hall/jail, %d services, %d houses/shops/workshops, %d alleys.",
+			add("Buildings: %d landmarks/city hall/jail, %d services, %d houses/shops/workshops.",
 				#s.town.structures - (kinds.service or 0) - (kinds.content or 0),
-				kinds.service or 0, kinds.content or 0, s.town.alleys)
+				kinds.service or 0, kinds.content or 0)
 			table.sort(idorder)
 			local parts = {}
 			for _, id in ipairs(idorder) do parts[#parts + 1] = id .. " x" .. ids[id] end

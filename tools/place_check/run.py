@@ -3,7 +3,7 @@
 
 Creates a scratch superflat world (never touching any real world), installs
 this checkout as a world mod, runs the Luanti server headlessly, searches for
-a site, builds a town with real schematics and alleys, re-reads the world and
+a site, builds a town with real schematics, re-reads the world and
 writes place-check.json. Exit status 0 means every check passed.
 """
 import argparse

@@ -8,7 +8,7 @@ villager behavior.
 
 The mod currently builds one populated town on demand with
 `/towns_generate` (see below): real cathedral, castle, city hall, jail,
-services and ordinary buildings, alleys, and one Living Villages resident per
+services and ordinary buildings, and one Living Villages resident per
 valid bed. Natural generation is a later phase. See the [design brief](docs/design_brief.md) for the intended direction
 and the [engineering design](docs/engineering_design.md) for implementation phases.
 
@@ -27,7 +27,7 @@ type is optional and defaults to `medieval`, so `/towns_generate` and
 `/towns_generate 42` behave as before. The medieval town has the real
 cathedral and its parvis, a market square with the city hall, the castle, a
 jail, taverns, wells and chapels, ordinary houses, shops and workshops on the
-street frontage, paved access alleys, initialized functional nodes (chests,
+street frontage, initialized functional nodes (chests,
 item frames, jukebox, well), and then one villager spawned and bed-claimed
 per valid bed.
 
@@ -73,7 +73,7 @@ production path.
 - On success it reports and logs the seed, centre, ground level, bounds,
   cathedral, parvis, market, castle and city hall coordinates (for a Roman
   town, each named monument and square it has), building,
-  service and alley counts, the catalog ids used, valid and skipped beds,
+  service counts, the catalog ids used, valid and skipped beds,
   spawned residents and any unmet service targets. If a stage after the
   town was placed (bed enumeration or resident spawning) did not complete,
   the first line says the build is INCOMPLETE and names the problem; the
