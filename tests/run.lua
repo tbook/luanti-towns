@@ -10,7 +10,6 @@ local placement = dofile("src/placement.lua")(geometry)
 local only_group = os.getenv("TOWNS_TEST_ONLY")
 local failures, count = 0, 0
 local slow_groups = {
-	["tests/planner_tests.lua"] = true,
 }
 local function run_group(path, ...)
 	if only_group and only_group ~= path then return end

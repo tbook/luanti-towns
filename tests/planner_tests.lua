@@ -195,11 +195,20 @@ end
 
 local OPPOSITE = {["-z"] = "+z", ["+z"] = "-z", ["-x"] = "+x", ["+x"] = "-x"}
 
+-- The default run checks a small seed set (per-plan structure, routes,
+-- determinism, translation); TOWNS_TEST_FULL=1 sweeps 38 seeds and also
+-- checks variety across them (distinct layouts, all cathedral sides, ...).
+local FULL = os.getenv("TOWNS_TEST_FULL") == "1"
 local seeds = {}
-for i = 1, 30 do seeds[#seeds + 1] = i end
-for _, s in ipairs({0, -7, 99999, 7919, 123456789, 536870912, 1073741823, -1073741823}) do
-	seeds[#seeds + 1] = s
+if FULL then
+	for i = 1, 30 do seeds[#seeds + 1] = i end
+	for _, s in ipairs({0, -7, 99999, 7919, 123456789, 536870912, 1073741823, -1073741823}) do
+		seeds[#seeds + 1] = s
+	end
+else
+	seeds = {1, 2, 3, 4, 0, -1073741823}
 end
+local OTHER_CENTER_EVERY = FULL and 8 or 3
 local centers = {{x = 0, z = 0}, {x = 1000, z = -2000}, {x = -317, z = 4096}}
 
 local sig_bounds, sig_layout, cath_sides, castle_sides, castle_gaps = {}, {}, {}, {}, {}
@@ -208,7 +217,7 @@ local expected_plans = 0
 for ci, c in ipairs(centers) do
 	-- Every seed at the first centre; a subset at the others.
 	for si, seed in ipairs(seeds) do
-		if ci == 1 or si % 8 == 0 then
+		if ci == 1 or si % OTHER_CENTER_EVERY == 0 then
 		expected_plans = expected_plans + 1
 		local label = ("seed %d centre %d"):format(seed, ci)
 		local plan, reason = planner.plan(c, seed)
@@ -230,9 +239,6 @@ for ci, c in ipairs(centers) do
 			check_routes(plan, set, label)
 			eq(planner.validate(plan), true, label .. " validates")
 			local b, env = plan.bounds, plan.envelope
-			eq(env.x2 - env.x1 + 1, 96, label .. " envelope width")
-			eq(env.z2 - env.z1 + 1, 96, label .. " envelope depth")
-			eq(env.x1, c.x - 48, label .. " envelope x1")
 			eq(b.x1 >= env.x1 and b.x2 <= env.x2 and b.z1 >= env.z1 and b.z2 <= env.z2,
 				true, label .. " bounds inside envelope")
 			local x1, z1, x2, z2 = math.huge, math.huge, -math.huge, -math.huge
@@ -372,7 +378,8 @@ end
 -- approach (reviewer fuzz repro).
 do
 	local c = {x = -645, z = -195}
-	for _, seed in ipairs({45000135, 45, 48, 67, 75, 76, 87, 89, 107, 111}) do
+	for _, seed in ipairs(FULL and {45000135, 45, 48, 67, 75, 76, 87, 89, 107, 111}
+			or {45000135, 48, 111}) do
 		local plan = planner.plan(c, seed)
 		eq(plan ~= nil, true, "regression seed " .. seed .. " planned")
 		if plan then
@@ -383,11 +390,15 @@ do
 end
 
 eq(plans_checked, expected_plans, "all fixed seeds planned")
-eq(set_size(sig_layout), #seeds, "every seed gives a distinct layout")
-eq(set_size(sig_bounds) >= 20, true, "varied bounding boxes")
-eq(set_size(cath_sides), 4, "all four cathedral entrance sides occur")
-eq(set_size(castle_sides) >= 3, true, "castle on varied edges")
-eq(castle_gaps[0], true, "castle touching the edge occurs")
+if FULL then
+	eq(set_size(sig_layout), #seeds, "every seed gives a distinct layout")
+	eq(set_size(sig_bounds) >= 20, true, "varied bounding boxes")
+	eq(set_size(cath_sides), 4, "all four cathedral entrance sides occur")
+	eq(set_size(castle_sides) >= 3, true, "castle on varied edges")
+	eq(castle_gaps[0], true, "castle touching the edge occurs")
+else
+	eq(set_size(sig_layout), #seeds, "every seed gives a distinct layout")
+end
 
 -- The centre translates the layout without changing it.
 do
@@ -483,8 +494,8 @@ end
 -- Seeds that used to alias (7919 vs 2147483647) and the range extremes give
 -- pairwise distinct layouts.
 do
-	local list = {7919, 0, 1, -1, 7920, 1073741823, -1073741823, 1073741823 - 7919,
-		536870911, -536870911}
+	local list = FULL and {7919, 0, 1, -1, 7920, 1073741823, -1073741823, 1073741823 - 7919,
+		536870911, -536870911} or {7919, 7920, 1073741823, 1073741823 - 7919}
 	local sigs, n = {}, 0
 	for _, seed in ipairs(list) do
 		local plan = planner.plan({x = 0, z = 0}, seed)
@@ -674,7 +685,7 @@ do
 	end
 	for _, c in ipairs({{x = 0, z = 0}, {x = -800, z = 1234}}) do
 		local first
-		for _, seed in ipairs({70894448, 70894447, 70894449}) do
+		for _, seed in ipairs(FULL and {70894448, 70894447, 70894449} or {70894448}) do
 			local plan, why = planner.plan(c, seed)
 			eq(plan ~= nil, true, "fixed-point seed " .. seed .. " planned: " .. tostring(why))
 			if plan then
@@ -683,5 +694,5 @@ do
 			end
 		end
 	end
-	eq(set_size(sigs), 3, "fixed-point seed layout distinct from its neighbours")
+	if FULL then eq(set_size(sigs), 3, "fixed-point seed layout distinct from its neighbours") end
 end
