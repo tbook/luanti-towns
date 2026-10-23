@@ -79,6 +79,8 @@ def main():
         raise SystemExit('Roman capture report is incomplete: ' + str(work))
     output = ROOT / 'schematics/imports/roman'
     output.mkdir(parents=True, exist_ok=True)
+    manifest_path = output / 'manifest.json'
+    kept = json.loads(manifest_path.read_text()) if args.only else None
     manifest = {'source_world': str(source), 'snapshot_sha256': snapshot_sha,
                 'buildings': [], 'generator_catalog': False}
     for job in jobs:
@@ -99,13 +101,13 @@ def main():
             'required_nodes': required_nodes})
     if args.only:
         # Selective run: keep the top-level provenance and the other records.
-        manifest_path = output / 'manifest.json'
-        kept = json.loads(manifest_path.read_text())
         fresh = {b['id']: b for b in manifest['buildings']}
         kept['buildings'] = [fresh.get(b['id'], b) for b in kept['buildings']]
         manifest = kept
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    print(json.dumps({'output': str(output), 'snapshot_sha256': snapshot_sha,
+    print(json.dumps({'output': str(output),
+                      ('record_snapshot_sha256' if args.only else 'snapshot_sha256'): snapshot_sha,
+                      **({'kept_top_level_snapshot_sha256': manifest['snapshot_sha256']} if args.only else {}),
                       'buildings': len(results), 'metadata_nodes': sum(len(r.get('metadata') or []) for r in results)}, indent=2))
 
 

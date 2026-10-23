@@ -2,7 +2,10 @@
 
 Validated 2026-10-21 with Luanti 5.17.0, the installed VoxeLibre game and Living
 Villages in a newly created, headless disposable world. No workshop map was
-loaded or changed. The source `.mts` and sidecar files are unchanged.
+loaded or changed. The source `.mts` and sidecar files were unchanged for that
+run. The bath was later re-exported with a tighter box (#171), so the bath
+figures recorded below (including the 475,900-node total) are historical for
+the original 95x21x48 export; the bath is now 88x18x43.
 
 Reproduce from the repository root:
 
@@ -54,7 +57,8 @@ bed at `(44,1,35)` below site ground (the #139 95x21x48 capture; the #171
 ## Preserved capture caveats
 
 - The bath entrance wall contains stacked door nodes: lower door bottoms at
-  X=8, Y=4, Z=21..23 and additional door bottoms at Y=6. The central lower
+  X=8, Y=4, Z=21..23 in the original export (X=4, Y=4, Z=19..21 after the
+  #171 trim, offset (-4,0,-2)) and additional door bottoms at Y=6. The central lower
   node is the closed `_b_3` variant. These authored nodes are retained; no
   door repair is attempted. The exterior approach passes inspection.
 - The temple capture has empty padding and no surrounding grass datum. Its
