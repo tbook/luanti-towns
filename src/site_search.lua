@@ -499,25 +499,19 @@ local function same_rect(a, b)
 	return a.x1 == b.x1 and a.z1 == b.z1 and a.x2 == b.x2 and a.z2 == b.z2
 end
 
-local TRANSLATED_POINTS = {
-	center = true, pos = true, entrance = true, outside = true, approach = true,
-}
-local function same_translation(base, actual, dx, dz, key)
-	if type(base) ~= type(actual) then return false end
-	if type(base) ~= "table" then return base == actual end
-	if type(base.x1) == "number" and type(base.z1) == "number"
-			and type(base.x2) == "number" and type(base.z2) == "number" then
-		return actual.x1 == base.x1 + dx and actual.x2 == base.x2 + dx
-			and actual.z1 == base.z1 + dz and actual.z2 == base.z2 + dz
+-- Does a re-planned plan have the footprint that was inspected? `rects` are
+-- the inspected boundary rectangles (already translated to the centre), and
+-- `center` the accepted centre the plan must be built at.
+local function same_footprint(plan, bounds, rects, center)
+	if type(plan.center) ~= "table" or plan.center.x ~= center.x or plan.center.z ~= center.z then
+		return false
 	end
-	if TRANSLATED_POINTS[key] and type(base.x) == "number" and type(base.z) == "number" then
-		return actual.x == base.x + dx and actual.z == base.z + dz
-			and same_translation(base.y, actual.y, 0, 0)
+	if type(plan.bounds) ~= "table" or not same_rect(plan.bounds, bounds) then return false end
+	local got = type(plan.boundary) == "table" and plan.boundary.rects
+	if type(got) ~= "table" or #got ~= #rects then return false end
+	for i, r in ipairs(rects) do
+		if not same_rect(got[i], r) then return false end
 	end
-	for k, v in pairs(base) do
-		if actual[k] == nil or not same_translation(v, actual[k], dx, dz, k) then return false end
-	end
-	for k in pairs(actual) do if base[k] == nil then return false end end
 	return true
 end
 
@@ -744,13 +738,13 @@ function M.search(player_pos, seed, opts, done, env)
 				top, C.MAX_RANGE, C.OUTLIER_PERCENT, C.MAX_CUT_FILL, wet)
 			if not info then return reject(code, msg) end
 
-			-- Real plan for the accepted site; it must be exactly the
-			-- translated layout that was inspected.
+			-- Real plan for the accepted site; its footprint must be exactly
+			-- the translated layout that was inspected.
 			local pok, plan, pwhy = pcall(planner.plan, center, seed, opts.planner_opts)
-			local same = pok and plan and same_translation(base, plan, sx, sz)
+			local same = pok and plan and same_footprint(plan, bounds, rects, center)
 			if not same then
 				return reject("plan_failed", (not pok and tostring(plan)) or (pwhy and tostring(pwhy))
-					or "plan is not a translation of the seed's layout")
+					or "plan footprint differs from the inspected layout")
 			end
 
 			local ground = info.ground_y
