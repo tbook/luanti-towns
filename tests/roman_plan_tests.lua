@@ -30,9 +30,9 @@ local plan = plan_at(100, -50, 7)
 eq(plan.town_type, "roman", "Roman plan carries its town type")
 eq(planner.validate(plan), true, "selected Roman plan passes authored validation")
 
--- Exact monument census: 13 placements from six templates.
+-- Exact monument census: 16 placements from seven templates.
 local list = landmarks(plan)
-eq(#list, 13, "13 monument placements")
+eq(#list, 16, "16 monument placements")
 local counts, names, n = {}, {}, 0
 for _, s in ipairs(list) do
 	counts[s.id] = (counts[s.id] or 0) + 1
@@ -40,12 +40,12 @@ for _, s in ipairs(list) do
 	names[s.name] = true
 	eq(plan.sites[s.name], s, s.name .. " is keyed by its own name")
 end
-for id, want in pairs({arch = 4, temple = 2, domus = 4, theatre = 1, amphitheater = 1, bath = 1}) do
+for id, want in pairs({arch = 4, temple = 2, domus = 4, theatre = 1, amphitheater = 1, bath = 1, insula = 3}) do
 	eq(counts[id], want, id .. " count")
 	n = n + 1
 end
-eq(n, 6, "six templates")
-eq(#plan.site_order, 14, "forum plus 13 monuments in site order")
+eq(n, 7, "seven templates")
+eq(#plan.site_order, 17, "forum plus 16 monuments in site order")
 
 -- Arms: the theatre and amphitheater differ, and the bath uses the south arm.
 eq(plan.sites.theatre.arm, "west", "theatre on the west arm")
@@ -69,8 +69,8 @@ for i = 1, #solids do
 		eq(overlap(r, solids[j].rect), false, solids[i].name .. " / " .. solids[j].name .. " disjoint")
 	end
 end
--- Streets: four principal arms, then the four ring bands (issue #164).
-eq(#plan.streets, 8, "four arms and four ring bands")
+-- Streets: four principal arms, then the six ring bands (issues #164, #202).
+eq(#plan.streets, 10, "four arms and six ring bands")
 local arm_streets, ring_streets = {}, {}
 for i, st in ipairs(plan.streets) do
 	eq(st.kind, i <= 4 and "principal" or "secondary", st.name .. " kind")
@@ -81,17 +81,34 @@ for _, st in ipairs(plan.streets) do
 		eq(overlap(st.rect, s.rect), false, st.name .. " does not enter " .. s.name)
 	end
 end
--- Streets meet only at designed junctions: the ring crosses the north and
--- east arms, and its south and west bands end beside their arms (T-junctions).
+-- Streets meet only at designed junctions. Crossings (overlap): the north
+-- bands cross the cardo, the north and north_outer bands cross the east and
+-- west bands, and the east arm crosses the east band. Abutments (touching, no
+-- overlap): the south and south_outer bands end against the east band, and the
+-- south and west bands end beside their arms (T-junctions).
+local function abuts(a, b)
+	if overlap(a, b) then return false end
+	local side_x = a.x2 + 1 == b.x1 or b.x2 + 1 == a.x1
+	local side_z = a.z2 + 1 == b.z1 or b.z2 + 1 == a.z1
+	if side_x then return b.z1 <= a.z2 and a.z1 <= b.z2 end
+	if side_z then return b.x1 <= a.x2 and a.x1 <= b.x2 end
+	return false
+end
+local crossings = {
+	["cardo_north/ring_north"] = true, ["cardo_north/ring_north_outer"] = true,
+	["decumanus_east/ring_east"] = true,
+	["ring_north/ring_east"] = true, ["ring_north/ring_west"] = true,
+	["ring_north_outer/ring_east"] = true, ["ring_north_outer/ring_west"] = true,
+}
+local abutments = {
+	["ring_south/ring_east"] = true, ["ring_south_outer/ring_east"] = true,
+	["cardo_south/ring_south"] = true, ["decumanus_west/ring_west"] = true,
+}
 for i = 1, #plan.streets do for j = i + 1, #plan.streets do
 	local a, b = plan.streets[i], plan.streets[j]
-	local expect = {
-		["cardo_north/ring_north"] = true, ["decumanus_east/ring_east"] = true,
-		["ring_north/ring_east"] = true, ["ring_north/ring_west"] = true,
-		["ring_south/ring_east"] = true,
-	}
 	local name = a.name .. "/" .. b.name
-	eq(overlap(a.rect, b.rect), expect[name] == true, name .. " overlap only at designed crossings")
+	eq(overlap(a.rect, b.rect), crossings[name] == true, name .. " overlap only at designed crossings")
+	eq(abuts(a.rect, b.rect), abutments[name] == true, name .. " abuts only at designed junctions")
 end end
 local R = {n = ring_streets.north.rect, e = ring_streets.east.rect,
 	s = ring_streets.south.rect, w = ring_streets.west.rect}
@@ -104,14 +121,16 @@ for _, band in ipairs(roman.layout.bands) do
 	eq(lo, band.span[1] + c, band.name .. " band starts at its declared span")
 	eq(hi, band.span[2] + c, band.name .. " band ends at its declared span")
 end
--- Literal pins (issue #200): the ring at the origin, as x1, z1, x2, z2. The
--- depth is the arm axis: north z 33..38 (from 18..23), south z -47..-42 (26..31),
--- east x 37..42 (22..27), west x -43..-38 (22..27).
+-- Literal pins (issues #200, #202): the ring at the origin, as x1, z1, x2, z2.
+-- The depth is the arm axis: north z 33..38 (from 18..23), north_outer z 66..71
+-- (51..56), south z -47..-42 (26..31), south_outer z -80..-75 (59..64), east
+-- x 38..43 (23..28), west x -44..-39 (23..28).
 do
 	local p0 = assert(planner.plan({x = 0, z = 0}, 1, {town_type = "roman"}))
 	local pins = {
-		north = {-43, 33, 42, 38}, south = {3, -47, 42, -42},
-		east = {37, -47, 42, 38}, west = {-43, 3, -38, 38},
+		north = {-44, 33, 43, 38}, north_outer = {-44, 66, 43, 71},
+		south = {3, -47, 37, -42}, south_outer = {6, -80, 37, -75},
+		east = {38, -80, 43, 71}, west = {-44, 3, -39, 71},
 	}
 	for name, want in pairs(pins) do
 		local r
@@ -124,9 +143,9 @@ do
 	end
 end
 eq(R.n.z2 - R.n.z1 + 1, 6, "ring is one street wide")
--- The ring is square-ish, behind the main streets.
-local rw, rh = R.e.x2 - R.w.x1 + 1, R.n.z2 - R.e.z1 + 1
-eq(math.abs(rw - rh) <= 2, true, "ring is square-ish")
+-- Bands are one street wide each; the outer north and south bands are too.
+eq(ring_streets.north_outer.rect.z2 - ring_streets.north_outer.rect.z1 + 1, 6, "north outer band is one street wide")
+eq(ring_streets.south_outer.rect.z2 - ring_streets.south_outer.rect.z1 + 1, 6, "south outer band is one street wide")
 -- Crossings: the north and east arms pass through the ring.
 for _, arm in ipairs({"north", "east"}) do
 	local a, band = arm_streets[arm].rect, ring_streets[arm].rect
@@ -163,7 +182,8 @@ eq(inside_ring(plan.sites.domus_2.rect), true, "domus_2 is inside the ring")
 for _, name in ipairs({"domus_1", "domus_3", "domus_4", "amphitheater"}) do
 	eq(outside_ring(plan.sites[name].rect), true, name .. " is outside the ring")
 end
-eq(plan.sites.domus_1.arm, "north", "domus_1 on the north arm")
+eq(plan.sites.domus_1.ring, "east", "domus_1 flush against the east band")
+eq(plan.sites.domus_1.arm, nil, "domus_1 has no arm")
 eq(plan.sites.domus_2.arm, "east", "domus_2 on the east arm")
 eq(plan.sites.domus_3.arm, "east", "domus_3 on the east arm")
 eq(plan.sites.domus_4.arm, "west", "domus_4 on the west arm")
@@ -336,10 +356,12 @@ for i, f in ipairs(plan.frontage) do
 		if st.arm then arms_faced[st.arm] = true else ring_faced[st.ring] = true end
 	end
 end
-for _, arm in ipairs({"north", "south", "east", "west"}) do
+-- The north arm has no block frontage (issue #202): its flanks hold the temples
+-- and the north insulae stand on the ring, not against the arm.
+for _, arm in ipairs({"south", "east", "west"}) do
 	eq(arms_faced[arm], true, arm .. " arm has street frontage")
 end
-for _, band in ipairs({"north", "east", "south", "west"}) do
+for _, band in ipairs({"north", "north_outer", "east", "south", "west"}) do
 	eq(ring_faced[band], true, band .. " ring band has frontage")
 end
 -- Ring-relative blocks stand flush against the ring's outer and inner sides.
@@ -359,9 +381,11 @@ for _, b in ipairs(plan.blocks) do
 		eq(faces, true, b.name .. " has frontage facing the ring")
 	end
 end
-eq(#ring_blocks, 3, "three ring-relative blocks")
-eq(ring_blocks[1].side == "-z" and ring_blocks[2].side == "+z" and ring_blocks[3].side == "-z", true,
-	"ring blocks use inner and outer sides")
+eq(#ring_blocks, 5, "five ring-relative blocks")
+local ring_sides = {"-z", "+z", "+z", "-x", "+x"}
+for i, want in ipairs(ring_sides) do
+	eq(ring_blocks[i] and ring_blocks[i].side, want, "ring block " .. i .. " uses the expected side")
+end
 eq(forum_runs >= 4, true, "forum edges carry frontage")
 local forum_sides = {}
 for _, f in ipairs(plan.frontage) do if f.square then forum_sides[f.side] = true end end
@@ -372,7 +396,12 @@ local none0, why0 = roman.plan({x = 0, z = 0}, 1)
 eq(none0, nil, "blocks need a catalog row depth")
 eq(why0:find("row depth", 1, true) ~= nil, true, "missing row depth reason")
 local shallow = roman.plan({x = 0, z = 0}, 1, nil, row_depth - 1)
-eq(shallow.blocks[1].size.x, row_depth - 1, "block depth follows the row depth policy")
+-- Depth is the axis perpendicular to the block's side: x for east/west sides,
+-- z for north/south sides. blocks[1] is east_forum_north, on a +z side.
+local sb = shallow.blocks[1]
+local depth = (sb.side == "+x" or sb.side == "-x") and sb.size.x or sb.size.z
+eq(sb.side, "+z", "first block is on a +z side")
+eq(depth, row_depth - 1, "block depth follows the row depth policy")
 
 -- Same civic arrangement for every seed; a different centre only translates it.
 -- Population (issue #150) is seeded and is compared in roman_population_tests.
@@ -640,4 +669,62 @@ do
 	bad, reason = ring_plan_with(function(s) s[6].faces = "forum" end)
 	eq(bad, nil, "a ring landmark with faces is rejected")
 	eq(reason:find("sets faces on a ring landmark", 1, true) ~= nil, true, "ring faces reason")
+end
+
+-- Insulae and the authored layout (issue #202). Side coverage counts the
+-- outside nodes of each insula side that are paved; `paved` above is built
+-- from the forum and the streets alone, not from the planner's own numbers.
+do
+	local function side_nodes(r, side)
+		local out = {}
+		if side == "-z" then for x = r.x1, r.x2 do out[#out + 1] = {x, r.z1 - 1} end
+		elseif side == "+z" then for x = r.x1, r.x2 do out[#out + 1] = {x, r.z2 + 1} end
+		elseif side == "-x" then for z = r.z1, r.z2 do out[#out + 1] = {r.x1 - 1, z} end
+		else for z = r.z1, r.z2 do out[#out + 1] = {r.x2 + 1, z} end end
+		return out
+	end
+	-- Expected paved nodes per side: the south insula's south side loses three
+	-- nodes at x 3..5, where the south outer band starts at x 6.
+	local want = {
+		insula_north_east = {["-z"] = 35, ["+z"] = 35, ["-x"] = 27, ["+x"] = 27},
+		insula_north_west = {["-z"] = 35, ["+z"] = 35, ["-x"] = 27, ["+x"] = 27},
+		insula_south = {["-z"] = 32, ["+z"] = 35, ["-x"] = 27, ["+x"] = 27},
+	}
+	for _, name in ipairs({"insula_north_east", "insula_north_west", "insula_south"}) do
+		local r = plan.sites[name].rect
+		eq(plan.sites[name].id, "insula", name .. " is an insula")
+		for _, side in ipairs({"-z", "+z", "-x", "+x"}) do
+			local nodes = side_nodes(r, side)
+			local n = 0
+			for _, c in ipairs(nodes) do if paved[c[1] .. "," .. c[2]] then n = n + 1 end end
+			eq(#nodes, (side == "-z" or side == "+z") and 35 or 27, name .. " " .. side .. " side length")
+			eq(n, want[name][side], name .. " " .. side .. " side paved nodes")
+		end
+	end
+
+	-- No monument overlaps an arch: the north and south arches stand clear.
+	for _, s in ipairs(list) do
+		if s.id ~= "arch" then
+			for _, arch in ipairs({"arch_north", "arch_south"}) do
+				eq(overlap(s.rect, plan.sites[arch].rect), false, s.name .. " clear of " .. arch)
+			end
+		end
+	end
+
+	-- Boundary: 181 by 172 nodes.
+	local b = plan.boundary.rects[1]
+	eq(b.x2 - b.x1 + 1, 181, "construction boundary is 181 nodes across")
+	eq(b.z2 - b.z1 + 1, 172, "construction boundary is 172 nodes deep")
+	-- Site-search reach: 320 + (edge - REACH_EDGE 48) = 367, so the edge is 95.
+	local c = plan.center
+	eq(math.max(c.x - b.x1, b.x2 - c.x, c.z - b.z1, b.z2 - c.z), 95, "boundary edge is 95 from the centre (reach 367)")
+
+	-- Many seeds and several centres validate.
+	for _, c in ipairs({{0, 0}, {100, -50}, {-3000, 777}}) do
+		for seed = 1, 60 do
+			local p = planner.plan({x = c[1], z = c[2]}, seed, {town_type = "roman"})
+			eq(p ~= nil and planner.validate(p) == true, true,
+				("seed %d at (%d,%d) validates"):format(seed, c[1], c[2]))
+		end
+	end
 end

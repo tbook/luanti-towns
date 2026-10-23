@@ -426,10 +426,14 @@ landmark approach without requiring medieval civic sites. Authored frontage
 runs use the shared run schema from `planner.lua` (the one-node block edge row,
 facing the street or square it borders). The Roman planner derives its blocks
 from explicit rectangles in `roman_civic_plan.lua`, one catalog row depth
-deep, and its runs from the pavement along their edges. A square-ish ring of
-four secondary bands (issue #164) surrounds the forum: it crosses the north and
-east arms, its south and west bands end beside their arms, and the south-west
-bath quadrant is left out. Blocks may stand flush against a ring band's inner or
+deep, and its runs from the pavement along their edges. A ring of six
+secondary bands (issue #164; the outer north and south bands were added in
+issue #202) surrounds the forum: the north and north-outer bands cross the cardo
+and the east and west bands, the east arm crosses the east band, the south and
+south-outer bands abut the east band, its south and west bands end beside their
+arms, and the south-west bath quadrant is left out. Three insulae (issue #202)
+stand flush against the inner north and south bands on their outer side.
+Blocks may stand flush against a ring band's inner or
 outer side. Each ring band is a `bands` entry in `roman_civic_plan.lua`:
 `name`, `arm` (the axis it runs along), `from..to` (nodes outward from the
 forum edge) and `span = {lo, hi}` (its compass extent across the arm). A ring
