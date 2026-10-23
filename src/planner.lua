@@ -365,6 +365,7 @@ function M.depth_policy(profile)
 		BOUNDARY_GAP = depth,       -- road to town edge: one row; the walls
 		                            --  ticket (#95) claims this ground
 		NARROW_PENALTY = 4,         -- router cost of a narrow street side
+		WIDE_PENALTY = 8,           -- router cost of paving beside an existing road
 		SLIVER_WEIGHT = 4,          -- block carving: cost per sliver node
 	}
 end

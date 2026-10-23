@@ -223,7 +223,9 @@ step beside a narrow gap, a secondary candidate is shifted, shortened from
 its free end or rejected, an accepted layout that still keeps a narrow run
 beside a street fails the attempt, and block carving prefers rectangles that
 do not leave a sliver between their edge and the pavement
-(`SLIVER_WEIGHT`). Exceptions: one street width at each street end
+(`SLIVER_WEIGHT`). (The exceptions below were per street rectangle; issue
+#122, last section, replaced them with geometric ones on the combined
+pavement.) Exceptions: one street width at each street end
 (junctions, bends and entrance approaches), runs shorter than
 `MIN_FRONTAGE_RUN`, and a gap of 0 (a street touching a road or a landmark;
 a street touching the town edge is not exempt). Plans without ordinary
@@ -317,3 +319,63 @@ open market touching one edge (#106); its facade (18) is shorter than
 The wider hall box changes what the sampler accepts and rejects, so the
 random stream differs and these totals are not a like-for-like tuning
 result. Every seed still plans with the whole market open and no shortages.
+
+## Route consolidation and edge spacing (issue #122)
+
+The #86 checks were per street rectangle, and a gap of 0 (a road touching a
+road) passed. Two things followed: a route could run directly beside an
+existing one (an 8 to 10 wide band with no building row between the two), and a
+road split into several rectangles got an exemption at every piece's ends.
+Now (`src/streets.lua`):
+
+- Spacing is judged on the exposed edges of the combined road footprint
+  (`gap_scan` `edge_runs`), so the verdict does not depend on how a route is
+  cut into rectangles. Roads that touch have no edge between them.
+- Exemptions are geometric: the first street width of an edge beside a concave
+  corner (a real junction with a road or a square), a street end cap (a
+  corner-to-corner edge no longer than a street), the entrance transition of
+  each exit (its window grown by one street width), the landmark door windows
+  and the castle gate apron. An arbitrary rectangle endpoint is not one.
+- Routes (router penalty `WIDE_PENALTY`) and secondary strips beside or over an
+  existing road are pulled into the shared corridor; a result that still has a
+  fully paved `STREET_WIDTH + 1` square of road (`wide_cells`) fails the
+  attempt. Squares and the gate apron are not roads, so a junction, bend,
+  crossing or intentional square never counts.
+- Blocks and frontage are carved after this, from what is left.
+
+`streets.narrow_gaps(plan, C)` and `streets.wide_pavement(plan, C)` measure a
+finished plan (fixtures in `tests/route_consolidation_tests.lua`).
+
+### Before and after (#122)
+
+`origin/main` (eb45238) against this change, seeds 1 to 40 (same seeds and
+centres in both runs, as `run.lua` assigns them), current
+catalog. Parallel paving is road cells inside a fully paved 6 x 6 square
+(`streets.wide_pavement`, measured for seeds 11 to 40 and the 12 default
+seeds); the other columns are `metrics.tsv` sums.
+
+| metric (40 seeds, sums) | before | after |
+| --- | --- | --- |
+| parallel paving cells (seeds 11 to 40) | 11075 (23 of 30 seeds) | 0 |
+| narrow edge runs | 1 (seeds 11 to 40) | 0 |
+| streets | 686 | 663 |
+| secondary street cells | 58284 | 51824 |
+| blocks | 419 | 456 |
+| placed ordinary buildings | 1810 | 2017 |
+| town (boundary) cells | 937094 | 958481 |
+| buildings per 1000 boundary cells | 1.93 | 2.10 (+9%) |
+| planner attempts | 362 | 387 |
+
+The default 12-seed set of this tool is an unlucky sample for this change: it
+shows 534 against 443 buildings, but the random stream changes with the
+routing, so single seeds grow different towns (seed 99999 shrinks from 29106 to
+17153 boundary cells) and totals over few seeds are noisy. Compare larger seed
+sets or the per-cell density.
+
+Planning time: `run.lua` prints (and writes to `timing.txt`, not to the
+byte-identical report) the total, mean and maximum planning CPU seconds per
+run. Over seeds 1 to 40 on one machine: 79.5 s before, 102 s after (about
+1.3x; slowest seed 7.6 s before, 8.2 s after). The consolidation checks are
+the hot spots in `src/streets.lua`: `edge_runs` results are cached per road
+layer, the wide-pavement test uses a precomputed window table, and candidate
+strips already tested are memoised.
