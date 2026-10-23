@@ -431,6 +431,9 @@ run_group("tests/stock_templates_tests.lua", eq, catalog)
 -- Rotated walls (#166): wall connections in the node name follow the rotation.
 run_group("tests/wall_rotation_tests.lua", eq, dofile("src/schematic.lua"))
 
+-- Roman checker expectations (#188): wall names as schematic.place leaves them.
+run_group("tests/roman_check_expect_tests.lua", eq, dofile("src/schematic.lua"))
+
 -- Layout comparison tool (ticket #109): deterministic artifacts and metrics.
 run_group("tests/layout_compare_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
 

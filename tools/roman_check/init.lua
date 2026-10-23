@@ -5,10 +5,15 @@ local geometry = dofile(root .. '/src/geometry.lua')
 local schematic = dofile(root .. '/src/schematic.lua')
 local setup = dofile(root .. '/src/node_setup.lua')
 local residents = dofile(root .. '/src/residents.lua')
-local report = {placements = {}, nodes = 0, metadata = 0, inventory_slots = 0}
+local expect = dofile(core.get_modpath('roman_check') .. '/expect.lua')
+-- Every landmark and rotation is checked; failures are collected, not fatal.
+-- mismatches: node names/param2 that differ from the expectation (see expect.lua).
+-- errors: a check that raised for one landmark and rotation.
+local report = {placements = {}, nodes = 0, metadata = 0, inventory_slots = 0, mismatches = {}, errors = {}}
 local ground_samples = {
  arch = {{x=0,y=0,z=0},'mcl_core:dirt_with_grass'},
- temple = {{x=0,y=0,z=5},'mcl_stairs:stair_quartzblock'},
+ -- Temple: the Y=0 terrain row is the datum (#134); the quartz platform starts at Y=1.
+ temple = {{x=0,y=0,z=0},'mcl_core:dirt_with_grass'},
  domus = {{x=0,y=1,z=0},'mcl_core:dirt_with_grass'},
  theatre = {{x=0,y=3,z=0},'mcl_core:dirt_with_grass'},
  amphitheater = {{x=0,y=2,z=0},'mcl_core:dirt_with_grass'},
@@ -26,6 +31,7 @@ local function run()
   local source = assert(core.read_schematic(root .. '/' .. entry.path, {}))
   local data = dofile(root .. '/' .. entry.data_path)
   for ri, rotation in ipairs({0,90,180,270}) do
+   local okr, errr = pcall(function()
    local ground = 100
    local pos = {x = index * 300, y = ground - entry.ground_offset, z = ri * 160}
    local shape = geometry.place(entry, pos, rotation)
@@ -41,14 +47,21 @@ local function run()
    assert(core.place_schematic(reference, root .. '/' .. entry.path, tostring(rotation), nil, true))
    assert(schematic.place(entry, pos, rotation, root, {initialize=false}))
    -- Every voxel, including basement/air, and every native rotated param2.
+   -- Names are the ones schematic.place leaves: walls are renamed from their
+   -- placed neighbours (#178), so the expectation applies the same recompute.
+   local expected = expect.expected_names(source, rotation, schematic)
    for z=0,source.size.z-1 do for y=0,source.size.y-1 do for x=0,source.size.x-1 do
-    local p = vector.add(pos, schematic.rotate_offset(source.size, {x=x,y=y,z=z}, rotation))
+    local o = schematic.rotate_offset(source.size, {x=x,y=y,z=z}, rotation)
+    local p = vector.add(pos, o)
     local actual = core.get_node(p)
-    local expected = source.data[z*source.size.x*source.size.y+y*source.size.x+x+1]
+    local want = expected[expect.key(o)]
     local native = core.get_node(vector.add(p, {x=120,y=0,z=0}))
-    assert(actual.name == expected.name and actual.param2 == native.param2,
-     id .. ' node mismatch at ' .. core.pos_to_string(p))
-    report.nodes = report.nodes + 1
+    if actual.name ~= want or actual.param2 ~= native.param2 then
+     table.insert(report.mismatches, {id=id, rotation=rotation, at=core.pos_to_string(p),
+      expected=want, actual=actual.name, native_param2=native.param2, actual_param2=actual.param2})
+    else
+     report.nodes = report.nodes + 1
+    end
    end end end
    local structure = {id=id,kind='landmark',min=shape.min,max=shape.max}
    local initialized = setup.initialize({structure}, setup_env, {})
@@ -120,13 +133,17 @@ local function run()
     ground_probe=datum,approach_floors=approach,
     initialized=initialized.initialized,beds=beds.count,skipped_beds=beds.skipped,
    }
+   end)
+   if not okr then
+    table.insert(report.errors, {id=id, rotation=rotation, error=tostring(errr)})
+   end
   end
  end
 end
 
 core.register_on_mods_loaded(function() core.after(0, function()
  local ok, err = pcall(run)
- report.ok = ok
+ report.ok = ok and #report.errors == 0 and #report.mismatches == 0
  if not ok then report.error = tostring(err) end
  local stream = assert(io.open(core.get_worldpath() .. '/roman-check.json','w'))
  stream:write(core.write_json(report,true)); stream:close()

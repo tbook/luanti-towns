@@ -33,6 +33,7 @@ def main():
     helper = world / 'worldmods/roman_check'
     helper.mkdir()
     shutil.copy2(Path(__file__).with_name('init.lua'), helper / 'init.lua')
+    shutil.copy2(Path(__file__).with_name('expect.lua'), helper / 'expect.lua')
     (helper / 'mod.conf').write_text('name = roman_check\ndepends = towns\n')
     with (world / 'world.mt').open('a') as stream:
         stream.write('\nload_mod_towns = worldmods/towns\nload_mod_roman_check = worldmods/roman_check\n')
