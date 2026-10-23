@@ -198,19 +198,6 @@ local function constants(opts)
 		error("towns site_search: opts.entries or opts.planner_opts.landmarks is required "
 			.. "to compose the structure bounds", 3)
 	end
-	-- A medieval town (landmark profile) is searched at least as far as the
-	-- old 208-node envelope (planner.CONSTANTS.ENVELOPE) reaches beyond
-	-- REACH_EDGE, whatever the seed's actual extent;
-	-- an explicit opts.max_radius is taken as given. Larger plans grow it
-	-- further once planned (see search).
-	if type(popts) == "table" and type(popts.landmarks) == "table" then
-		local explicit = false
-		for k in pairs(opts) do
-			if type(k) == "string" and k:upper() == "MAX_RADIUS" then explicit = true end
-		end
-		local growth = math.floor(planner.CONSTANTS.ENVELOPE / 2 - M.REACH_EDGE)
-		if growth > 0 and not explicit then C.MAX_RADIUS = C.MAX_RADIUS + growth end
-	end
 	return C
 end
 

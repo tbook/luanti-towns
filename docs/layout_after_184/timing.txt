@@ -1,0 +1,1 @@
+planning time: total 0.5 s over 12 seeds, mean 0.04 s, max 0.1 s (seed 256)

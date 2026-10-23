@@ -5,6 +5,7 @@
 --   loadfile("tests/planner_tests.lua")(eq, fails, planner)
 local eq, fails, planner = ...
 local authored_plan = dofile("src/authored_plan.lua")
+local A = dofile("tests/medieval_arrangement.lua")
 -- The real medieval catalog town, planned through planner.plan. ROW is its
 -- deepest ordinary building, the row depth the blocks must hold.
 local catalog = dofile("src/catalog.lua")
@@ -101,12 +102,11 @@ local function check_plan(plan, c, seed, label)
 		end
 	end
 	eq(#principals, 2, label .. " two principal streets")
-	local ew, ns = principals[1].rect, principals[2].rect
+	local p1, p2 = principals[1].rect, principals[2].rect
 	local core, cath_box, castle_box = plan.boundary.rects[1], plan.boundary.rects[2], plan.boundary.rects[3]
 	eq(#plan.boundary.rects, 3, label .. " boundary is the core, cathedral and castle")
-	eq(ew.x1 == core.x1 and ew.x2 == core.x2, true, label .. " E-W principal spans the core")
-	eq(ns.z1 == core.z1, true, label .. " N-S principal starts at the south edge")
-	eq(c.x >= ns.x1 and c.x <= ns.x2 and c.z >= ew.z1 and c.z <= ew.z2, true,
+	eq(c.x >= p1.x1 and c.x <= p1.x2 and c.z >= p1.z1 and c.z <= p1.z2
+		and c.x >= p2.x1 and c.x <= p2.x2 and c.z >= p2.z1 and c.z <= p2.z2, true,
 		label .. " centre is the principals' crossing")
 
 	-- The union of the construction footprints is the bounds.
@@ -131,39 +131,18 @@ local function check_plan(plan, c, seed, label)
 		eq(s.size.x, s.rect.x2 - s.rect.x1 + 1, label .. " " .. name .. " size x")
 		eq(s.size.z, s.rect.z2 - s.rect.z1 + 1, label .. " " .. name .. " size z")
 	end
-	-- Cathedral attached outside the north edge, door on the principal's centre line.
-	eq(cath.rect.z1, core.z2 + 1, label .. " cathedral outside the north edge")
+	-- Cathedral, parvis, castle gate, market and hall alignment, whatever the
+	-- seed's market quadrant, castle side and turn (tests/medieval_variation_tests.lua
+	-- runs all 32 arrangements).
+	eq(table.concat(A.problems(plan), "; "), "", label .. " arrangement rules")
 	eq(inside(cath.rect, cath_box) and inside(cath_box, cath.rect), true, label .. " cathedral footprint")
 	eq(inside(castle.rect, castle_box) and inside(castle_box, castle.rect), true, label .. " castle footprint")
-	eq(cath.facing.x == 0 and cath.facing.z == -1, true, label .. " cathedral faces south")
-	eq(cath.entrance.x, ns.x1 + 3, label .. " cathedral door on the principal's centre line")
 	eq(cath.parvis, "parvis", label .. " cathedral parvis ref")
-	eq(parvis.rect.z2, core.z2, label .. " parvis in the north edge row")
-	eq(parvis.rect.x2 - parvis.rect.x1 + 1, 12, label .. " parvis width")
-	eq(parvis.rect.z2 - parvis.rect.z1 + 1, 8, label .. " parvis depth")
-	eq(parvis.rect.x1 + 6, cath.entrance.x, label .. " parvis centred on the door")
-	eq(ns.z2, parvis.rect.z1 - 1, label .. " principal ends in the parvis")
-	eq(cath.approach.pos.x == cath.entrance.x and cath.approach.pos.z == parvis.rect.z2, true,
-		label .. " cathedral approach on the parvis")
-	-- Castle attached outside the west edge; its six-node gate is the principal's width.
-	eq(castle.rect.x2, core.x1 - 1, label .. " castle outside the west edge")
-	eq(castle.facing.x == 1 and castle.facing.z == 0, true, label .. " castle faces east")
-	local g = castle.gate_span
-	eq(g.x1 == core.x1 - 1 and g.x2 == core.x1 - 1, true, label .. " gate on the castle's east wall")
-	eq(g.z1 == ew.z1 and g.z2 == ew.z2, true, label .. " gate covers the E-W principal")
-	eq(castle.approach.pos.x, core.x1, label .. " castle approach on the principal")
-	eq(castle.approach.pos.z >= ew.z1 and castle.approach.pos.z <= ew.z2, true,
-		label .. " castle approach on the principal row")
-	-- Market at the principals' corner, city hall across it.
-	eq(market.rect.x1, ns.x2 + 1, label .. " market beside the N-S principal")
-	eq(market.rect.z1, ew.z2 + 1, label .. " market beside the E-W principal")
-	eq(market.rect.z2 - market.rect.z1 + 1, 2 * ROW, label .. " market is the full row depth")
-	local mlen = market.rect.x2 - market.rect.x1 + 1
+	local d1, d2 = market.rect.x2 - market.rect.x1 + 1, market.rect.z2 - market.rect.z1 + 1
+	local mdepth, mlen = math.min(d1, d2), math.max(d1, d2)
+	if mdepth ~= 2 * ROW then mdepth, mlen = mlen, mdepth end
+	eq(mdepth, 2 * ROW, label .. " market is the full row depth")
 	eq(mlen >= 20 and mlen <= 28, true, label .. " market length")
-	eq(hall.square, "market", label .. " city hall square")
-	eq(hall.rect.x1, market.rect.x2 + 1, label .. " city hall on the market's far edge")
-	eq(hall.facing.x == -1 and hall.facing.z == 0, true, label .. " city hall faces the market")
-	eq(hall.approach.pos.x, market.rect.x2, label .. " city hall approach on the market")
 
 	-- Every block is at least a row deep both ways, and every block has frontage.
 	for i, bl in ipairs(plan.blocks) do

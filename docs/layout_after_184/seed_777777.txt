@@ -1,0 +1,101 @@
+seed 777777 centre (1500,-2500) bounds 210x151
+scale: 1 char = 2x2 nodes, north (+Z) up, east (+X) right
+legend:
+  .  town boundary (free ground)
+  ,  block (free ground behind frontage)
+  =  secondary street (4 wide)
+  #  principal street
+  M  market square
+  p  parvis (cathedral square)
+  C  cathedral compound
+  K  castle compound
+  H  city hall
+  J  jail
+  T  tavern
+  O  well
+  Y  chapel
+  h  ordinary house
+  s  ordinary shop
+  w  ordinary workshop
+  o  town core (HOOK: plan.core, not yet planned)
+  f  construction footprint (HOOK: plan.footprint)
+  x  designated exit (HOOK: plan.exits)
+  !  narrow strip cells (metric)
+  +  town centre (circle)
+
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+                     CCCCCCCCCCCCCCCCCCCCCCCCCCCC
+,,,,,,,,,,,,,,,,,,,,,CCCCCCCCCCCCCCCCCCCCCwwwwwhhhhh,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,hhhhhhhh,,,,,,,,,,,,,,,,,,wwwwwppppppwwwwwhhhhh,,,,,,,,,,,,,,,hhhhhhhh,,,
+,,,,,hhhhhhhh,,,,wwww,,,,,,,,,,wwwwwppppppwwwwwhhhhh,,,,sssswwwwhhhhhhhhhhssss
+,,,,,hhhhhhhhhhhhwwwwOOOhhhhh,,wwwwwppppppwwwwwhhhhh,,,,sssswwwwhhhhhhhhhhssss
+,,,,,hhhhhhhhhhhhwwwwOOOhhhhh,,wwwwwppppppwwwwwhhhhh,,,,sssswwwwhhhhhhhhhhssss
+,,,,,hhhhhhhhhhhhwwwwOOOhhhhh,,,,,,,.####.,,,,hhhhhh,,,,sssswwwwhhhhhhhhhhssss
+,,,,,hhhhhhhhhhhhwwwwOOOhhhhh,,,,,,,.####.,,,,hhhhhh,,,,sssswwwwhhhhhhhhhhssss
+=====================================####=====================================
+=====================================####=====================================
+hhhhhhhhhhhhhhh,!!!!!!!!!!!MMMMMMMMMMM##!!!!!!!sssswwwwwsss,,==hhhhhhhhhhssss,
+hhhhhhhhhhhhhhh,!!!!!!!!!!!MMMMMMMMMMM##!!!!!!!sssswwwwwsss,,==hhhhhhhhhhssss,
+hhhhhhhhhhhhhhh,HHHHHHHHHHHMMMMMMMMMMM##!!!!!!!sssswwwwwsss,,==hhhhhhhhhhssss,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+hhhhhhhhhhhhhhh,HHHHHHHHHHHMMMMMMMMMMM##TTTTTTssssswwwwwsss,,==hhhhhhhhhhssss,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+hhhhhhhhhh,,,,,,HHHHHHHHHHHMMMMMMMMMMM##TTTTTTssssswwwwwsss,,==hhhhhhhhhhssss,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+hhhhhhhhhh,,,,,,HHHHHHHHHHHMMMMMMMMMMM##TTTTTTT,,,,,,,,,,hhhhh=hhhhhh,,,,,,,,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+hhhhhhhhhh,,,,,,HHHHHHHHHHHMMMMMMMMMMM##TTTTTTT,,,,,,,,,,hhhhh=hhhhhh,,,,,,,,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+,,,,,,,,hhhhhh,,HHHHHHHHHHHMMMMMMMMMMM##TTTTTTT,,,,,,,,,,hhhhh=hhhhhhhh,,,,,,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+wwwwwwwwwhhhhh,,HHHHHHHHHHHMMMMMMMMMMM##hhhhwwwwwwwwhhh,,hhhhh=hhhhhhhhhhhssssKKKKKKKKKKKKKKKKKKKKKKKKKKK
+wwwwwwwwwhhhhh,,HHHHHHHHHHHMMMMMMMMMMM##hhhhwwwwwwwwhhhOOOO,,==hhhhhhhhhhhssssKKKKKKKKKKKKKKKKKKKKKKKKKKK
+wwwwwwwwwhhhhh,,HHHHHHHHHHHMMMMMMMMMMM##hhhhwwwwwwwwhhhOOOO,,==hhhhhhhhhhhssssKKKKKKKKKKKKKKKKKKKKKKKKKKK
+wwwwwwwwwhhhhh,,!!!!!!!!!!!MMMMMMMMMMM##hhhhwwwwwwwwhhhOOOO,,==hhhhhhhhhhhssssKKKKKKKKKKKKKKKKKKKKKKKKKKK
+wwwwwwwwwhhhhh,,!!!!!!!!!!!MMMMMMMMMMM##hhhhwwwwwwwwhhhOOOO,,==hhhhhhhhhhhssssKKKKKKKKKKKKKKKKKKKKKKKKKKK
+##############################################################################KKKKKKKKKKKKKKKKKKKKKKKKKKK
+#######################################+######################################KKKKKKKKKKKKKKKKKKKKKKKKKKK
+##############################################################################KKKKKKKKKKKKKKKKKKKKKKKKKKK
+sssshhhhhhhhhhhh,,,==wwwwhhhhhhhh,,,,###wwwwwsssswwwwhhhhhhhh,==wwwwhhhhwwww,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+sssshhhhhhhhhhhh,,,==wwwwhhhhhhhh,,,,###wwwwwsssswwwwhhhhhhhh,==wwwwhhhhwwww,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+sssshhhhhhhhhhhh,,,==wwwwhhhhhhhhhhhhh##wwwwwsssswwwwhhhhhhhh,==wwwwhhhhwwww,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+sssshhhhhhhhhhhh,,,==wwwwhhhhhhhhhhhhh##wwwwwsssswwwwhhhhhhhh,==wwwwhhhhwwww,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+!!!shhhhhhhhhhhh,,,==wwwwhhhhhhhhhhhhh##wwwwwsssswwwwhhhhhhhh,==wwwwY,,,wwww,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+!!!YYYYY,,hhhhhh,,,==,,,,hhhhhhhhhhhhh##hhhhh,,,,,,,,,,,,,hhhhh=YYYYY,,,,,,,,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+!!!YYYYY,,hhhhhh,,,==,,,,,,,,hhhhhhhhh##hhhhh,,,hhhhhh,,,,hhhhh=YYYYY,,,,,,,,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+!!!YYYYhhhhhhhh,,,,==sssss,,,hhhhhh,,###hhhhh,,,hhhhhh,,,,hhhhh=YYYYY,,,,,,,,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+!!!YYYYhhhhhhhhssss==ssssswwwwhhhhh,,###ssssssssshhhhssssshhhhh=YYYYY,,,,,,,,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+OOOYYYYhhhhhhhhssss==ssssswwwwhhhhh,,###ssssssssshhhhssssshhhh==YYYYY,JJJJJJ,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+OOOYYYYhhhhhhhhssss==ssssswwwwhhhhh,,###ssssssssshhhhssssshhhh==YYYYY,JJJJJJ,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+OOOYYYYhhhhhhhhssss==ssssswwwwhhhhh,,###ssssssssshhhhssssshhhh==YYYYY,JJJJJJ,,KKKKKKKKKKKKKKKKKKKKKKKKKKK
+OOOYYYYhhhhhhhhssss==ssssswwwwhhhhh,,###ssssssssshhhhssssshhhh==YYYYY,JJJJJJ,,
+=====================================####=====================================
+=====================================####=====================================
+TTTTThhhhhhhhhsssssshhhhhhhhsssssssss###wwwwwwwwwwhhhhhwwwwhhhwwwwwhhhhTTTT!!!
+TTTTThhhhhhhhhsssssshhhhhhhhsssssssss###wwwwwwwwwwhhhhhwwwwhhhwwwwwhhhhTTTT!!!
+TTTTThhhhhhhhhsssssshhhhhhhhsssssssss###wwwwwwwwwwhhhhhwwwwhhhwwwwwhhhhTTTT!!!
+TTTTThhhhhhhhhsssssshhhhhhhhsssssssss###wwwwwwwwwwhhhhhwwwwhhhwwwwwhhhhTTTT!!!
+TTTTThhhhhhhhhssssss,,,,hhhhsssssssss###wwwwwwwwwwhhhhhwwwwhhhwwwwwhhhhTTTT!!!
+TTTTT,,,,hhhhhssssss,,,,,,,,,,,ssssss####,,,,,,,,hhhhhh,,,,,,,,,,,,,,,TTTTT!!!
+!!!!!,,,,hhhhh,,,,,,,,,,,,,,,,,,,,,,,####,,,,,,,,,,,,,,,,,,,,,,,,,,,,,!!!!!!!!

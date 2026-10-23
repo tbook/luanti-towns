@@ -60,10 +60,6 @@ local medieval_planner = load_sibling("medieval_planner.lua")
 local catalog = load_sibling("catalog.lua")
 
 M.CONSTANTS = {
-	-- Read only by site_search (its medieval reach grows by ENVELOPE / 2 minus
-	-- REACH_EDGE). No plan uses it; whether that reach should follow the real
-	-- plan extent instead is an open decision.
-	ENVELOPE = 208,
 	-- Population (populate): jail, services and chapels.
 	JAIL_MARKET_BIAS = 1,     -- 1: jail entrance farthest from the market
 	SERVICE_TAVERNS = 3,      -- target counts
