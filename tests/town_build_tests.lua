@@ -475,12 +475,45 @@ do
 	eq(t2 ~= nil and t2.entrance.y, 3, "tavern_2 door bottom is on the floor row plus one")
 	local t2s = read_mts("schematics/" .. t2.path:gsub("^schematics/", ""))
 	eq(t2s.at(t2.entrance.x, t2.entrance.y, t2.entrance.z):find("_door_b_", 1, true) ~= nil, true, "tavern_2 entrance is a door")
+	-- The second-floor door is the one on the rear wall of the template: the
+	-- highest-z door bottom on the floor row above the entrance. Derived from
+	-- the file so the stair check follows the template after a re-export (#189).
+	local t2e = entries.tavern_2.entrance
+	local t2u
+	for z = 0, t2s.size.z - 1 do
+		for x = 0, t2s.size.x - 1 do
+			if t2s.at(x, t2e.y + 4, z):find("_door_b_", 1, true) and (t2u == nil or z > t2u.z) then
+				t2u = {x = x, y = t2e.y + 4, z = z}
+			end
+		end
+	end
+	eq(t2u ~= nil, true, "tavern_2 has a second-floor door")
 	for _, rot in ipairs({0, 90, 180, 270}) do
 		local r, why = route("tavern_2", rot)
 		eq(r ~= nil, true, "real tavern_2 door reachable at rotation " .. rot .. ": " .. tostring(why))
-		-- The exterior stair on the +X strip to the second-floor door (5,7,1).
-		local r2, why2 = route("tavern_2", rot, {x = 5, y = 7, z = 1})
+		-- The exterior stair to the second-floor door.
+		local r2, why2 = route("tavern_2", rot, t2u)
 		eq(r2 ~= nil, true, "tavern_2 stair reaches the upper door at rotation " .. rot .. ": " .. tostring(why2))
+	end
+	-- #189: at every rotation the template door is the catalog entrance, and
+	-- the approach is the first node past the box along the placed front (the
+	-- door is recessed in the box, so its outside neighbour may be inside it).
+	for _, id in ipairs({"tavern", "tavern_2"}) do
+		local entry = entries[id]
+		local s = read_mts("schematics/" .. entry.path:gsub("^schematics/", ""))
+		local e = entry.entrance
+		eq(s.at(e.x, e.y, e.z):find("_door_b_", 1, true) ~= nil, true, id .. " template door is the catalog entrance")
+		for _, rot in ipairs({0, 90, 180, 270}) do
+			local g = geometry.place({size = entry.size, entrance = e}, {x = 100, y = 0, z = 100}, rot)
+			local r, why = route(id, rot)
+			eq(r ~= nil, true, id .. " door routes at rotation " .. rot .. ": " .. tostring(why))
+			local a = {x = g.entrance.x, z = g.entrance.z}
+			repeat
+				a = {x = a.x + g.front.x, z = a.z + g.front.z}
+			until a.x < g.min.x or a.x > g.max.x or a.z < g.min.z or a.z > g.max.z
+			eq(r and r.approach.x == a.x and r.approach.z == a.z, true,
+				id .. " approach is past the box at rotation " .. rot)
+		end
 	end
 	-- #110: soup_shop is a walk-in opening on a raised floor with a cellar
 	-- below (ground_offset 3, floor row 4, opening bottom on floor row + 1).

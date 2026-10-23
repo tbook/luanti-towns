@@ -2,7 +2,7 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "armory"
+    "tavern_2"
   ],
   "buildings": [
     {
@@ -1437,9 +1437,9 @@
     },
     {
       "entrance": {
-        "x": 5,
+        "x": 2,
         "y": 3,
-        "z": 1
+        "z": 5
       },
       "entrance_kind": "door",
       "ground_offset": 2,
@@ -1488,7 +1488,7 @@
         "xpanes:pane_natural_flat"
       ],
       "role": "tavern",
-      "rotation": 90,
+      "rotation": 270,
       "size": {
         "x": 7,
         "y": 11,
@@ -1510,7 +1510,7 @@
         "z": 7
       },
       "verified_nodes": 1232,
-      "snapshot_sha256": "cad3d9c7085a468fabe4d6ac98a8bfc00d4c82ee124e7a744e269604383fa14a"
+      "snapshot_sha256": "f666b257497cc432886be134f7923adc85f00baa929bedccbf3e13f6251af178"
     },
     {
       "entrance": {
