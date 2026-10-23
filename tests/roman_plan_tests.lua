@@ -408,3 +408,75 @@ fails(function() planner.plan({x = 0, z = 0}, 2 ^ 40, {town_type = "roman"}) end
 local medieval = planner.plan({x = 0, z = 0}, 1)
 eq(medieval.town_type, "medieval", "default town type remains medieval")
 eq(medieval.sites.cathedral ~= nil, true, "default plan keeps medieval civic sites")
+
+-- Lane invariants (issue #172). These run in the quick group, unlike the
+-- builder tests. A door approach must never lie on a lane cell: the floor of
+-- an approach must be a full block, because preflight.check_door rejects a
+-- door whose approach floor is a partial (slab) node. Only arms carry lanes.
+do
+	local function in_r(r, x, z) return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 end
+	local function lane_cells_of(plan)
+		local out = {}
+		for _, st in ipairs(plan.streets) do if st.lane then out[#out + 1] = st.lane.rect end end
+		return out
+	end
+	for _, seed in ipairs({1, 2, 3, 7, 11, 23}) do
+		local p, why = planner.plan({x = 0, z = 0}, seed, {town_type = "roman"})
+		assert(p, why)
+		local lanes = lane_cells_of(p)
+		eq(#lanes, 4, "seed " .. seed .. " has four arm lanes")
+		local cells = {}
+		for _, name in ipairs(p.site_order) do cells[#cells + 1] = {p.sites[name].approach.pos, name} end
+		for _, b in ipairs(p.content.buildings) do cells[#cells + 1] = {b.approach, b.building_id} end
+		local res = {p.reservations.jail}
+		for _, s in ipairs(p.reservations.services) do res[#res + 1] = s end
+		for _, r in ipairs(res) do
+			if r.approach then cells[#cells + 1] = {r.approach, r.building_id} end
+		end
+		eq(#p.content.buildings > 0, true, "seed " .. seed .. " is populated")
+		for _, c in ipairs(cells) do
+			for _, lr in ipairs(lanes) do
+				eq(in_r(lr, c[1].x, c[1].z), false,
+					"seed " .. seed .. " approach of " .. c[2] .. " is not on a lane cell")
+			end
+		end
+	end
+end
+
+-- Crossing precedence (issue #172): where a ring band crosses an arm's lane,
+-- the lane cell is a slab (beats the gravel ring and the cobble street); ring
+-- cells beside the arm are gravel; the street's edge columns stay cobble.
+do
+	local function in_r(r, x, z) return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 end
+	local TLF = dofile("src/town_layout.lua")
+	local TL = TLF({MAX_HEIGHT = 40, names = function() return {} end,
+		cathedral = function() return {cols = {}, max_dy = 0, names = {}, opening = {}} end,
+		castle = function() return {cols = {}, max_dy = 0, names = {}, opening = {}} end})
+	local p = planner.plan({x = 0, z = 0}, 1, {town_type = "roman"})
+	assert(p)
+	local pav = TL.pavement_map(p)
+	local function at(x, z) return pav[x] and pav[x][z] end
+	local ring_of = {}
+	for _, st in ipairs(p.streets) do if st.ring then ring_of[st.ring] = st end end
+	for _, arm in ipairs({"north", "east"}) do
+		local st = nil
+		for _, s in ipairs(p.streets) do if s.arm == arm then st = s end end
+		local lane, band = st.lane.rect, ring_of[arm].rect
+		-- along: the arm's axis, the band's thin axis; across: the other one.
+		local along = (arm == "north" or arm == "south") and "z" or "x"
+		local across = along == "z" and "x" or "z"
+		local function cell(a, c)
+			if along == "z" then return c, a end
+			return a, c
+		end
+		local a = band[along .. "1"]
+		local lx, lz = cell(a, lane[across .. "1"])
+		eq(in_r(lane, lx, lz) and in_r(band, lx, lz), true, arm .. " crossing lane cell lies in the ring band")
+		eq(at(lx, lz), "mcl_stairs:slab_cobble", arm .. " crossing lane cell is a slab")
+		local gx, gz = cell(a, st.rect[across .. "1"] - 1)
+		eq(in_r(band, gx, gz) and not in_r(st.rect, gx, gz), true, arm .. " gravel probe lies in the ring beside the arm")
+		eq(at(gx, gz), ring_of[arm].material, arm .. " ring cell beside the arm is gravel")
+		local ex, ez = cell(a, st.rect[across .. "1"])
+		eq(at(ex, ez), "mcl_core:cobble", arm .. " crossing edge column stays cobble")
+	end
+end
