@@ -48,6 +48,7 @@ local function nodes_table()
 		["mcl_core:gravel"] = {walkable = true, falling = true},
 		["fake:wall"] = {walkable = true}, ["fake:door"] = {walkable = true, door = true},
 		["test:paving"] = {walkable = true}, ["test:road"] = {walkable = true},
+		["mcl_stairs:slab_cobble"] = {walkable = true},
 	}
 	for _, n in ipairs(blockouts.names()) do t[n] = {walkable = true} end
 	return t
@@ -172,6 +173,33 @@ do
 	eq(summary and summary.sites.temple ~= nil, true, "authored build: arbitrary landmark in summary")
 	eq(summary and summary.sites.market, nil, "authored build: no synthetic market summary")
 	eq(#w.placed, 1, "authored build: arbitrary landmark placed")
+end
+
+-- Roman integration: a generated Roman town (forum, temple, populated
+-- frontage) through the same construction path. Roman planning is cheap.
+do
+	local rplan = assert(planner.plan({x = 0, z = 0}, 1, {town_type = "roman"}))
+	local rcomp = assert(builder.preflight.compose(rplan, entries, GROUND_Y))
+	local heights = {}
+	for _, c in ipairs(ss.boundary_columns(rplan.boundary.rects)) do
+		heights[c.x] = heights[c.x] or {}
+		heights[c.x][c.z] = GROUND_Y
+	end
+	local C = {}
+	for k, v in pairs(ss.CONSTANTS) do C[k] = v end
+	local bb = ss.build_bounds(rplan.bounds, GROUND_Y, GROUND_Y, GROUND_Y, C, rcomp)
+	local result = {center = {x = 0, z = 0}, plan = rplan, ground_y = GROUND_Y, heights = heights,
+		min_height = GROUND_Y, max_height = GROUND_Y, build_bounds = bb,
+		build_volume = ss.build_volume(bb, C), structures = rcomp.structures}
+	local w = new_world()
+	local summary, message, code = builder.build_town(result,
+		{entries = entries, log = false}, w.env)
+	eq(message, nil, "roman build: no error")
+	eq(code, nil, "roman build: no failure code")
+	eq(summary ~= nil and summary.town.complete, true, "roman build: complete")
+	eq(#w.placed, #rcomp.structures, "roman build: every structure placed")
+	eq(#w.placed > 2, true, "roman build: landmarks plus houses")
+	eq(summary and summary.sites.forum ~= nil, true, "roman build: forum in summary")
 end
 
 ------------------------------------------------------------------------
