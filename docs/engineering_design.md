@@ -416,7 +416,10 @@ deep, and its runs from the pavement along their edges. A square-ish ring of
 four secondary bands (issue #164) surrounds the forum: it crosses the north and
 east arms, its south and west bands end beside their arms, and the south-west
 bath quadrant is left out. Blocks may stand flush against a ring band's inner or
-outer side. Roman generation is
+outer side. Each ring band is a `bands` entry in `roman_civic_plan.lua`:
+`name`, `arm` (the axis it runs along), `from..to` (nodes outward from the
+forum edge) and `span = {lo, hi}` (its compass extent across the arm). A ring
+block names a band and takes its direction from the band's arm. Roman generation is
 selected through `/towns_generate roman [seed]`, which passes `town_type =
 "roman"` to the shared search and build (issue #151). Any other explicit type
 is rejected with a reason.
