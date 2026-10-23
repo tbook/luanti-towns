@@ -6,13 +6,14 @@ local geometry = dofile("src/geometry.lua")
 local catalog = dofile("src/catalog.lua")
 local placement = dofile("src/placement.lua")(geometry)
 
+-- TOWNS_TEST_ONLY=tests/x_tests.lua runs just that group (for development).
+local only_group = os.getenv("TOWNS_TEST_ONLY")
 local failures, count = 0, 0
 local slow_groups = {
 	["tests/planner_tests.lua"] = true,
 	["tests/landmark_profile_tests.lua"] = true,
 	["tests/city_hall_tests.lua"] = true,
 	["tests/jail_reservation_tests.lua"] = true,
-	["tests/service_reservation_tests.lua"] = true,
 	["tests/content_planner_tests.lua"] = true,
 	["tests/street_spacing_tests.lua"] = true,
 	["tests/site_search_tests.lua"] = true,
@@ -22,14 +23,15 @@ local slow_groups = {
 	["tests/layout_compare_tests.lua"] = true,
 }
 local function run_group(path, ...)
+	if only_group and only_group ~= path then return end
 	if slow_groups[path] and not full_tests then
 		print("SKIP " .. path .. " (set TOWNS_TEST_FULL=1 to include)")
 		return
 	end
-	local started = os.clock()
+	local started, started_count = os.clock(), count
 	print("RUN " .. path)
 	loadfile(path)(...)
-	print(("DONE %s (%.2fs)"):format(path, os.clock() - started))
+	print(("DONE %s (%.2fs, %d checks)"):format(path, os.clock() - started, count - started_count))
 end
 local function eq(actual, expected, label)
 	count = count + 1
