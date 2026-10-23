@@ -34,10 +34,12 @@ fields was captured by the original full export, whose snapshot is the
 top-level `snapshot_sha256`. Since #193 the bath, domus, amphitheater, villa,
 aqueduct and insula records were re-exported with `--only` from a byte-identical
 scratch copy of TownsWorkshop (`--world <copy>`), so `source_map_sha256` equals
-the workshop file's hash (`6eab09ff...`). Temple, theatre and arch were not
-re-exported: their only changes were grass/dirt flips in the ground row. The
-vespasianum record (#207) was captured the same way, from a byte-identical copy,
-so its `source_map_sha256` is the same hash.
+the workshop file's hash at that time (`6eab09ff...`). Temple, theatre and arch
+were not re-exported: their only changes were grass/dirt flips in the ground row.
+The TownsWorkshop world has since changed, so the vespasianum record (#207) was
+captured from a byte-identical copy of the current file and its
+`source_map_sha256` is `d073c3fb...`. Records captured before that change keep
+`6eab09ff...`.
 
 The exporter reads a consistent, read-only SQLite snapshot and writes only to
 this directory. In a game with this mod enabled, a server-privileged player

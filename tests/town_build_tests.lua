@@ -468,6 +468,14 @@ do
 			eq(r ~= nil, true, "real " .. id .. " door reachable at rotation " .. rot .. ": " .. tostring(why))
 		end
 	end
+	-- Roman landmarks with ground_offset > 0 are skipped above; route each real
+	-- capture at every rotation (#207 vespasianum opening, #211 basilica door).
+	for _, id in ipairs({"vespasianum"}) do
+		for _, rot in ipairs({0, 90, 180, 270}) do
+			local r, why = route(id, rot)
+			eq(r ~= nil, true, "real " .. id .. " route at rotation " .. rot .. ": " .. tostring(why))
+		end
+	end
 	-- #96: tavern_2 keeps its cellar rows below the floor (ground_offset 2,
 	-- floor flush with the street), so its door is not a "raised" template.
 	local t2 = entries.tavern_2
