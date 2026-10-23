@@ -470,7 +470,7 @@ do
 	end
 	-- Roman landmarks with ground_offset > 0 are skipped above; route each real
 	-- capture at every rotation (#207 vespasianum opening, #211 basilica door).
-	for _, id in ipairs({"vespasianum"}) do
+	for _, id in ipairs({"vespasianum", "basilica"}) do
 		for _, rot in ipairs({0, 90, 180, 270}) do
 			local r, why = route(id, rot)
 			eq(r ~= nil, true, "real " .. id .. " route at rotation " .. rot .. ": " .. tostring(why))

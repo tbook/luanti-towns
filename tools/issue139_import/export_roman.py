@@ -25,10 +25,15 @@ FIXED_BOXES = {
     # empty top row (Y=14), plus a Y=6 dirt row so two dirt rows (Y=6..7) sit under
     # the grass datum at Y=8. The architecture is 285..294 x 8..13 x 406..413.
     'vespasianum': ({'x': 285, 'y': 6, 'z': 406}, {'x': 294, 'y': 13, 'z': 413}),
+    # Basilica (#211): the issue's box (53..79, 7..20, 415..430) widened by one column
+    # on the west (x=52, the roof eave slabs at Z=420 and 425), without the empty top
+    # row (Y=20), and with a Y=6 dirt row added so two dirt rows (Y=6..7) sit under
+    # the grass datum at Y=8.
+    'basilica': ({'x': 52, 'y': 6, 'z': 415}, {'x': 79, 'y': 19, 'z': 430}),
 }
-# Buildings recorded in the Issue 139 workshop report; insula and vespasianum are not.
+# Buildings recorded in the Issue 139 workshop report; insula, vespasianum and basilica are not.
 RECORDED = ('domus', 'arch', 'theatre', 'villa', 'aqueduct', 'amphitheater', 'temple', 'bath')
-IDS = RECORDED + ('insula', 'vespasianum')
+IDS = RECORDED + ('insula', 'vespasianum', 'basilica')
 
 
 def main():

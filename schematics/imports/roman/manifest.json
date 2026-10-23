@@ -800,6 +800,69 @@
         "mcl_stairs:slab_copper_exposed_cut_top",
         "mcl_torches:torch_wall"
       ]
+    },
+    {
+      "id": "basilica",
+      "min": {
+        "x": 52,
+        "y": 6,
+        "z": 415
+      },
+      "max": {
+        "x": 79,
+        "y": 19,
+        "z": 430
+      },
+      "building_origin": {
+        "x": 52,
+        "y": 6,
+        "z": 415
+      },
+      "building_size": {
+        "x": 28,
+        "y": 14,
+        "z": 16
+      },
+      "size": {
+        "x": 28,
+        "y": 14,
+        "z": 16
+      },
+      "snapshot_sha256": "c43687e886185f7eafb427fd63d936ca84241ef2381230fbb52074dc17d1042d",
+      "source_map_sha256": "d073c3fbf3ec6754f4dd2740bc2b8311158bc10a59ca9a23805b6e05758a00cb",
+      "non_air_node_types": 29,
+      "metadata_nodes": 8,
+      "required_nodes": [
+        "mcl_colorblocks:hardened_clay",
+        "mcl_core:diorite",
+        "mcl_core:diorite_smooth",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:sprucewood",
+        "mcl_core:stone_smooth",
+        "mcl_core:stripped_spruce_bark",
+        "mcl_decor:armchair_3_purple",
+        "mcl_doors:spruce_door_b_1",
+        "mcl_doors:spruce_door_b_3",
+        "mcl_doors:spruce_door_t_1",
+        "mcl_doors:spruce_door_t_3",
+        "mcl_doors:spruce_trapdoor_open",
+        "mcl_stairs:slab_granite_smooth",
+        "mcl_stairs:slab_granite_smooth_double",
+        "mcl_stairs:slab_granite_smooth_top",
+        "mcl_stairs:slab_sprucewood_top",
+        "mcl_stairs:slab_stone",
+        "mcl_torches:torch_wall",
+        "mcl_walls:diorite_0",
+        "mcl_walls:diorite_1",
+        "mcl_walls:diorite_12",
+        "mcl_walls:diorite_2",
+        "mcl_walls:diorite_4",
+        "mcl_walls:diorite_6",
+        "mcl_walls:diorite_8",
+        "xpanes:pane_natural_flat",
+        "xpanes:pane_silver_flat"
+      ]
     }
   ],
   "generator_catalog": false

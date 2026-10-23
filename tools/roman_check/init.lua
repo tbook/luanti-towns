@@ -20,6 +20,7 @@ local ground_samples = {
  bath = {{x=0,y=2,z=0},'mcl_core:dirt_with_grass'},
  insula = {{x=0,y=2,z=0},'mcl_core:gravel'},
  vespasianum = {{x=0,y=2,z=0},'mcl_core:dirt_with_grass'},
+ basilica = {{x=0,y=2,z=0},'mcl_core:dirt_with_grass'},
 }
 
 local function run()
