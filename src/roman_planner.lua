@@ -82,6 +82,42 @@ local function footprint(id, rotation)
 	return size.x, size.z
 end
 
+-- Ring landmark (issue #201): stands flush against a ring band on its "inner"
+-- or "outer" side, as a ring block does. `at` is the compass coordinate of the
+-- low edge along the band. Its door must face the band (landmark checks it).
+local function ring_landmark(layout, streets, spec, dx, dz)
+	if spec.arm ~= nil then layout_error(spec.name .. " sets both ring and arm") end
+	if spec.faces ~= nil then layout_error(spec.name .. " sets faces on a ring landmark") end
+	local band, street
+	for _, b in ipairs(layout.bands or {}) do if b.name == spec.ring then band = b end end
+	for _, st in ipairs(streets) do if st.ring == spec.ring then street = st end end
+	if not band or not street or (spec.side ~= "inner" and spec.side ~= "outer") then
+		layout_error(spec.name .. " has an invalid ring or side")
+	end
+	if type(spec.at) ~= "number" or spec.at ~= math.floor(spec.at) then
+		layout_error(spec.name .. " has a missing or malformed at")
+	end
+	local d = ARMS[band.arm]
+	local out = spec.side == "outer" and 1 or -1
+	local sign = (d.x + d.z) * out
+	local sx, sz = footprint(spec.id, spec.rotation)
+	local thin = d.x ~= 0 and "x" or "z" -- the band's thin axis
+	local across, along = sx, sz
+	if thin == "z" then across, along = sz, sx end
+	local a1, a2 = street.rect[thin .. "1"], street.rect[thin .. "2"]
+	local lo, hi
+	if sign > 0 then lo, hi = a2 + 1, a2 + across else lo, hi = a1 - across, a1 - 1 end
+	local r, side
+	if thin == "x" then
+		r = {x1 = lo, z1 = spec.at + dz, x2 = hi, z2 = spec.at + dz + along - 1}
+		side = sign > 0 and "+x" or "-x"
+	else
+		r = {x1 = spec.at + dx, z1 = lo, x2 = spec.at + dx + along - 1, z2 = hi}
+		side = sign > 0 and "+z" or "-z"
+	end
+	return landmark(spec.name, spec.id, spec.rotation, r, TOWARD[side], {ring = spec.ring})
+end
+
 -- Ordinary content profile for planner.row_depth: the house, shop and
 -- workshop catalog entries (the roles content_planner packs).
 function M.content_profile()
@@ -239,22 +275,26 @@ function M.build(layout, center, seed, row_depth)
 	end
 
 	for _, spec in ipairs(layout.landmarks) do
-		local d = ARMS[spec.arm]
-		local toward = TOWARD[spec.side]
-		if not d or not toward or (toward[1] ~= 0) == (d.x ~= 0) then
-			layout_error(spec.name .. " has an invalid arm or side")
+		if spec.ring ~= nil then
+			add(ring_landmark(layout, streets, spec, dx, dz))
+		else
+			local d = ARMS[spec.arm]
+			local toward = TOWARD[spec.side]
+			if not d or not toward or (toward[1] ~= 0) == (d.x ~= 0) then
+				layout_error(spec.name .. " has an invalid arm or side")
+			end
+			-- faces = "forum" turns the entrance toward the forum instead (temples).
+			if spec.faces == "forum" then toward = {-d.x, -d.z}
+			elseif spec.faces ~= nil then layout_error(spec.name .. " has an invalid faces") end
+			local sx, sz = footprint(spec.id, spec.rotation)
+			local along, across = sz, sx
+			if d.x ~= 0 then along, across = sx, sz end
+			local l1, l2
+			if spec.side:sub(1, 1) == "+" then l1, l2 = half, half + across - 1
+			else l1, l2 = -half - across, -half - 1 end
+			local rect = translate(arm_rect(layout, spec.arm, spec.at, spec.at + along - 1, l1, l2), dx, dz)
+			add(landmark(spec.name, spec.id, spec.rotation, rect, toward, {arm = spec.arm}))
 		end
-		-- faces = "forum" turns the entrance toward the forum instead (temples).
-		if spec.faces == "forum" then toward = {-d.x, -d.z}
-		elseif spec.faces ~= nil then layout_error(spec.name .. " has an invalid faces") end
-		local sx, sz = footprint(spec.id, spec.rotation)
-		local along, across = sz, sx
-		if d.x ~= 0 then along, across = sx, sz end
-		local l1, l2
-		if spec.side:sub(1, 1) == "+" then l1, l2 = half, half + across - 1
-		else l1, l2 = -half - across, -half - 1 end
-		local rect = translate(arm_rect(layout, spec.arm, spec.at, spec.at + along - 1, l1, l2), dx, dz)
-		add(landmark(spec.name, spec.id, spec.rotation, rect, toward, {arm = spec.arm}))
 	end
 
 	local bounds

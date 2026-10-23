@@ -541,3 +541,103 @@ do
 		eq(at(ex, ez), "mcl_core:cobble", arm .. " crossing edge column stays cobble")
 	end
 end
+
+-- Ring landmarks (issue #201): ring, side ("inner" or "outer") and at (the
+-- compass coordinate of the low edge along the band) replace arm and side. The
+-- fixture widens the four bands so one insula fits on each side, and it drops
+-- the other monuments and the blocks. Rects are pinned: an offset by one node
+-- along the band, or a flipped side, must fail here.
+do
+	local FIX = {
+		{name = "north_outer", ring = "north", side = "outer", at = 6, rotation = 0,
+			rect = {6, 61, 40, 87}, facing = {0, -1}},
+		{name = "south_outer", ring = "south", side = "outer", at = 6, rotation = 180,
+			rect = {6, -88, 40, -62}, facing = {0, 1}},
+		{name = "west_outer", ring = "west", side = "outer", at = -42, rotation = 270,
+			rect = {-88, -42, -62, -8}, facing = {1, 0}},
+		{name = "east_outer", ring = "east", side = "outer", at = -42, rotation = 90,
+			rect = {61, -42, 87, -8}, facing = {-1, 0}},
+		{name = "north_inner", ring = "north", side = "inner", at = -38, rotation = 180,
+			rect = {-38, 28, -4, 54}, facing = {0, 1}},
+		{name = "south_inner", ring = "south", side = "inner", at = 3, rotation = 0,
+			rect = {3, -55, 37, -29}, facing = {0, -1}},
+		{name = "west_inner", ring = "west", side = "inner", at = -38, rotation = 90,
+			rect = {-55, -38, -29, -4}, facing = {-1, 0}},
+		{name = "east_inner", ring = "east", side = "inner", at = 3, rotation = 270,
+			rect = {28, 3, 54, 37}, facing = {1, 0}},
+	}
+	local function ring_plan_with(edit)
+		local specs = {}
+		for i, w in ipairs(FIX) do
+			specs[i] = {name = w.name, id = "insula", ring = w.ring, side = w.side, at = w.at, rotation = w.rotation}
+		end
+		if edit then edit(specs) end
+		local l = copy(roman.layout)
+		l.blocks, l.landmarks = {}, specs
+		l.bands = {
+			{name = "north", arm = "north", from = 40, to = 45, span = {-54, 54}},
+			{name = "south", arm = "south", from = 40, to = 45, span = {-54, 54}},
+			{name = "east", arm = "east", from = 40, to = 45, span = {-54, 54}},
+			{name = "west", arm = "west", from = 40, to = 45, span = {-54, 54}},
+		}
+		return roman.plan({x = 0, z = 0}, 1, l, row_depth)
+	end
+
+	local ring_plan, why = ring_plan_with()
+	assert(ring_plan, why)
+	eq(planner.validate(ring_plan), true, "ring landmark fixture passes authored validation")
+	for _, w in ipairs(FIX) do
+		local s = ring_plan.sites[w.name]
+		eq(s ~= nil and s.kind == "landmark", true, w.name .. " is planned as a landmark")
+		local r = s.rect
+		eq(r.x1 == w.rect[1] and r.z1 == w.rect[2] and r.x2 == w.rect[3] and r.z2 == w.rect[4], true,
+			w.name .. " stands flush against its band at the pinned rect")
+		eq(s.facing.x == w.facing[1] and s.facing.z == w.facing[2], true, w.name .. " door faces the band")
+		eq(s.ring, w.ring, w.name .. " records its ring")
+		eq(s.arm, nil, w.name .. " has no arm")
+		local band
+		for _, st in ipairs(ring_plan.streets) do if st.ring == w.ring then band = st end end
+		local a = s.approach.pos
+		eq(in_rect(band.rect, a.x, a.z), true, w.name .. " approach lies on its ring band")
+	end
+
+	-- Every wrong rotation is rejected: the door must turn toward the band.
+	for i, w in ipairs(FIX) do
+		for _, delta in ipairs({90, 180}) do
+			local bad, reason = ring_plan_with(function(s)
+				s[i].rotation = (w.rotation + delta) % 360
+			end)
+			eq(bad, nil, w.name .. " rotation +" .. delta .. " is rejected")
+			eq(reason:find("does not face its street", 1, true) ~= nil, true, w.name .. " wrong rotation reason")
+		end
+	end
+	-- A flipped side (outer for inner) turns the door away from the band.
+	for i, w in ipairs(FIX) do
+		local bad, reason = ring_plan_with(function(s)
+			s[i].side = w.side == "outer" and "inner" or "outer"
+		end)
+		eq(bad, nil, w.name .. " with the other side is rejected")
+		eq(reason:find("does not face its street", 1, true) ~= nil, true, w.name .. " flipped side reason")
+	end
+
+	-- Malformed ring landmarks are reported, not built.
+	local bad, reason, detail = ring_plan_with(function(s) s[1].ring = "missing" end)
+	eq(bad, nil, "an unknown ring is rejected")
+	eq(detail and detail.code, "invalid_layout", "unknown ring reports invalid_layout")
+	eq(reason:find("invalid ring or side", 1, true) ~= nil, true, "unknown ring reason")
+	bad, reason = ring_plan_with(function(s) s[2].side = "+x" end)
+	eq(bad, nil, "a compass side on a ring landmark is rejected")
+	eq(reason:find("invalid ring or side", 1, true) ~= nil, true, "compass side on ring reason")
+	bad, reason = ring_plan_with(function(s) s[3].at = "-42" end)
+	eq(bad, nil, "a non-numeric at is rejected")
+	eq(reason:find("malformed at", 1, true) ~= nil, true, "non-numeric at reason")
+	bad, reason = ring_plan_with(function(s) s[4].at = -41.5 end)
+	eq(bad, nil, "a fractional at is rejected")
+	eq(reason:find("malformed at", 1, true) ~= nil, true, "fractional at reason")
+	bad, reason = ring_plan_with(function(s) s[5].arm = "north" end)
+	eq(bad, nil, "a landmark with both ring and arm is rejected")
+	eq(reason:find("sets both ring and arm", 1, true) ~= nil, true, "ring and arm reason")
+	bad, reason = ring_plan_with(function(s) s[6].faces = "forum" end)
+	eq(bad, nil, "a ring landmark with faces is rejected")
+	eq(reason:find("sets faces on a ring landmark", 1, true) ~= nil, true, "ring faces reason")
+end
