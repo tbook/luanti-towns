@@ -33,8 +33,10 @@ Principles:
 
 ## Reference: `demo_house`
 
-`schematics/demo_house.mts` is the first handmade test building (VoxeLibre
-nodes only, no third-party media).
+`schematics/demo_house.mts` is the first handmade house (VoxeLibre nodes
+only, no third-party media). It is a regular `house` catalog entry: the
+planner places it in towns like any other, and the tests use it as a small
+real template.
 
 | Property | Value |
 | --- | --- |
@@ -273,13 +275,12 @@ Place in a clear, loaded area: `place_schematic` is synchronous only for
 loaded blocks. Placement overwrites everything in the (rotated) box including
 with air; there is no undo.
 
-### In game: `/towns_test`
+### In game
 
-`/towns_test <building_id> <rotation>` (`server` privilege) places a
-registered building and its paved square next to where you stand, and prints
-the building ID, rotation and exact combined bounds. **It overwrites the site
-immediately, with no preview or confirmation**: only use it in a disposable
-Creative world such as Testlandia.
+A registered building is placed by `/towns_generate` as part of a town (see
+the README). To inspect one schematic on its own, use `//mtschemplace` as
+above, or `export.py --validate`, which places every catalog entry at all four
+rotations through the runtime helper.
 
 ## Placed node initialization (ticket #46)
 
