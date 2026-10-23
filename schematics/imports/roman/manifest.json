@@ -331,10 +331,11 @@
         "y": 21,
         "z": 11
       },
-      "non_air_node_types": 7,
+      "snapshot_sha256": "9205f7797c2ae8a69d42c1187f0ca8ed98b1eae701549a2c18f71ccf1b5c17cc",
+      "source_map_sha256": "6eab09ffbcb4847a24979099bfe2b0dade786a7b4c1e12f0098eb590c1c6fef3",
+      "non_air_node_types": 6,
       "metadata_nodes": 0,
       "required_nodes": [
-        "mcl_core:andesite",
         "mcl_core:cobble",
         "mcl_core:dirt",
         "mcl_core:dirt_with_grass",
