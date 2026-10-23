@@ -13,7 +13,6 @@ local slow_groups = {
 	["tests/planner_tests.lua"] = true,
 	["tests/landmark_profile_tests.lua"] = true,
 	["tests/city_hall_tests.lua"] = true,
-	["tests/jail_reservation_tests.lua"] = true,
 	["tests/content_planner_tests.lua"] = true,
 	["tests/street_spacing_tests.lua"] = true,
 	["tests/site_search_tests.lua"] = true,
