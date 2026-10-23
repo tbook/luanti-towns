@@ -30,9 +30,9 @@ do
 	eq(C.MIN_BLOCK_SIDE, 12, "minimum block side is the larger of row depth and #89 value")
 	eq(planner.depth_policy({content = {a = {size = {z = 20}}}}).MIN_BLOCK_SIDE, 20,
 		"a deeper catalog raises the minimum block side")
-	local legacy = planner.resolve_constants({})
-	eq(legacy.ROW_DEPTH, nil, "no policy without a profile")
-	eq(legacy.MIN_BLOCK_SIDE, 8, "legacy block side unchanged")
+	local bare = planner.resolve_constants({landmarks = {cathedral = base.cathedral, castle = base.castle}})
+	eq(bare.ROW_DEPTH, nil, "no policy without ordinary content")
+	eq(bare.MIN_BLOCK_SIDE, 12, "block side without a policy is the default")
 	local over = planner.resolve_constants({landmarks = base, constants = {ROW_DEPTH = 12}})
 	eq(over.ROW_DEPTH, 12, "explicit constant wins")
 end

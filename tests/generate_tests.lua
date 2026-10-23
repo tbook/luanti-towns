@@ -4,6 +4,7 @@
 --   loadfile("tests/generate_tests.lua")(eq, fails, planner, generate_factory)
 local eq, fails, planner, generate_factory = ...
 local generate = generate_factory(planner)
+local small = dofile("tests/small_town.lua")(planner)
 local LIMIT = planner.SEED_LIMIT
 
 local function has(s, needle) return tostring(s):find(needle, 1, true) ~= nil end
@@ -151,7 +152,7 @@ eq(valid(generate.random_seed(1, function(lo) return lo end)), true, "rng lower 
 ------------------------------------------------------------------------
 -- Formatting
 ------------------------------------------------------------------------
-local plan = assert(planner.plan({x = 3000, z = 2952}, 11))
+local plan = assert(small.plan({x = 3000, z = 2952}, 11))
 local function sites_summary(p)
 	local sites = {}
 	for _, n in ipairs(p.site_order) do

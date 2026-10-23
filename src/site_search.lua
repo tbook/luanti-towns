@@ -139,7 +139,7 @@ M.CONSTANTS = {
 	EMERGE_TIMEOUT = 30,      -- seconds to wait for one emerge before giving up
 	MAX_CONSECUTIVE_TIMEOUTS = 3, -- then fail the whole search
 	CENTER_LIMIT = 31000,     -- planner.plan accepts |centre| <= this
-	-- Wet sites (ticket #104). Both default to 0 = legacy: any liquid or ice
+	-- Wet sites (ticket #104). Both default to 0 = off: any liquid or ice
 	-- node in a footprint column rejects the candidate as "water". Opt in with
 	-- M.WET_DEFAULTS (or any positive values); see "Wet columns" in the header.
 	MAX_WATER_DEPTH = 0,      -- deepest liquid/ice column that is landfilled, nodes

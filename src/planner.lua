@@ -13,20 +13,20 @@
 -- nil, "<readable reason>", {code = "retries_exhausted", attempts = n,
 -- rejections = {[stage] = count, ...}}.
 --
--- opts (all optional, mainly for tests / tuning):
+-- opts (medieval plans need opts.landmarks; the rest is for tests / tuning):
 --   max_attempts : integer >= 0, overrides MAX_ATTEMPTS
 --   constants    : table overriding any named constant in planner.CONSTANTS
---   landmarks    : catalog-derived landmark profile (planner.landmark_profile,
---                  ticket #38). Cathedral and castle reservations are then
---                  the complete rotated schematic boxes with their real,
---                  possibly off-centre and recessed doors, and the envelope
---                  defaults to planner.LANDMARK_ENVELOPE (208) with
---                  MIN_LONG_SPAN, MIN_SHORT_SPAN, CENTER_JITTER, MAX_SECONDARY
---                  and MAX_BLOCK_SCAN scaled with it, and the LANDMARK_TUNING
---                  block constants applied (planner.resolve_constants).
---                  Without it the Phase 2 nominal footprints and the 96-node
---                  envelope are used. A profile that cannot fit the envelope
---                  returns nil, reason, {code = "unsupported_fit"} at once.
+--                  (a smaller ENVELOPE needs the dimensions that depend on it
+--                  given with it, see planner.resolve_constants)
+--   landmarks    : required for medieval plans: the catalog-derived landmark
+--                  profile (planner.landmark_profile, ticket #38). Cathedral
+--                  and castle reservations are the complete rotated schematic
+--                  boxes with their real, possibly off-centre and recessed
+--                  doors, sized for the 208-node ENVELOPE. A profile that
+--                  cannot fit the envelope returns nil, reason,
+--                  {code = "unsupported_fit"} at once.
+--   town_type    : "medieval" (default) or "roman" (fixed authored civic plan;
+--                  no landmarks option, see src/roman_planner.lua).
 --                  A profile may also carry city_hall (tickets #39, #106):
 --                  plan.sites.city_hall (kind "landmark", square = "market",
 --                  outside site_order) is a complete rotated box OUTSIDE the
@@ -76,7 +76,7 @@
 -- plan = {
 --   seed     = integer,
 --   center   = {x, z},                    -- the input centre (inside boundary)
---   envelope = rect,                      -- center-48 .. center+47 on both axes
+--   envelope = rect,                      -- center-104 .. center+103 on both axes
 --   bounds   = rect,                      -- exact bounding box of the boundary
 --   width, depth = integer,               -- bounds extent along X and Z
 --   boundary = {                          -- connected orthogonal union
@@ -106,15 +106,15 @@
 --                                         --  vector equals `facing`
 --   approach = {side, edge, pos},         -- see below
 --   -- landmark only:
---   entrance = {x, z},                    -- door node on the footprint edge
---   -- profile landmarks only (opts.landmarks):
+--   entrance = {x, z},                    -- door node (see door below)
+--   -- landmarks only:
 --   --   id   = catalog id,
 --   --   door = {recess, rise, outside = {x, z}}: recess is how many nodes the
 --   --          door lies behind the footprint edge on the entrance side (the
 --   --          cell outside the door is inside the rect, i.e. part of the
 --   --          landmark obstacle), rise how many nodes the door sits above
 --   --          site ground (entrance y - ground_offset), outside the cell
---   --          one node out from the door. `entrance` is then the real door
+--   --          one node out from the door. `entrance` is the real door
 --   --          node (inside the rect) and approach.pos the edge node in line
 --   --          with it, not the middle of the edge.
 --   -- cathedral only: parvis = "parvis"   -- name of its adjacent square
@@ -234,23 +234,21 @@ local roman_planner = load_sibling("roman_planner.lua")
 local catalog = load_sibling("catalog.lua")
 
 M.CONSTANTS = {
-	ENVELOPE = 96,            -- town envelope, nodes per side
-	MIN_LONG_SPAN = 80,       -- boundary bbox: longer side at least
-	MIN_SHORT_SPAN = 60,      --                 shorter side at least
+	-- The 208 is an engineering trial value, not a product size: tune it here
+	-- only, together with the dimensions that depend on it.
+	ENVELOPE = 208,           -- town envelope, nodes per side
+	MIN_LONG_SPAN = 173,      -- boundary bbox: longer side at least
+	MIN_SHORT_SPAN = 130,     --                 shorter side at least
 	MIN_ASPECT_DELTA = 12,    -- |width - depth| at least (non-square)
 	MIN_FEATURE = 12,         -- min edge length, step depth, notch, arm width
-	CENTER_JITTER = 8,        -- bbox centre vs town centre, nodes per axis
+	CENTER_JITTER = 17,       -- bbox centre vs town centre, nodes per axis
 	MIN_FILL = 0.60,          -- boundary area / bbox area range
 	MAX_FILL = 0.90,
 	RECT_COUNT_MIN = 3,       -- target broad overlapping rectangles per boundary
 	RECT_COUNT_MAX = 5,       --   (extras are skipped if they would not overlap)
 	STREET_WIDTH = 5,         -- principal street width / route clearance (#88)
-	CATHEDRAL_LONG = 32,      -- footprint, long axis (entrance on short end)
-	CATHEDRAL_SHORT = 20,
-	PARVIS_DEPTH = 12,        -- legacy (no profile) parvis depth
-	PARVIS_MARGIN = 4,        -- legacy: extra width each side of the whole front
-	-- Profile plans (#105): the parvis is a PARVIS_WIDTH x PARVIS_FRONT_DEPTH
-	-- rect on the entrance side, touching the box edge and centred on the
+	-- The parvis (#105) is a PARVIS_WIDTH x PARVIS_FRONT_DEPTH rect on the
+	-- cathedral's entrance side, touching the box edge and centred on the
 	-- door's lateral coordinate e: it spans e - floor(W/2) .. that + W - 1,
 	-- so an even width puts the extra node on the lower-coordinate (-x / -z)
 	-- side in world space, for every rotation. It need not span the footprint.
@@ -258,20 +256,28 @@ M.CONSTANTS = {
 	PARVIS_FRONT_DEPTH = 8,   -- perpendicular to the entrance side
 	MARKET_MIN = 20, MARKET_MAX = 28, -- market side lengths (varied per axis)
 	MARKET_CENTER_RADIUS = 12, -- market centre within this of the town centre
-	CASTLE_X = 30, CASTLE_Z = 26, -- footprint (axes swapped half the time)
 	CASTLE_EDGE_SLACK = 2,    -- max nodes between castle and outer edge
 	MARKET_TRIES = 40,        -- random market placements tried per attempt
 	MAX_ATTEMPTS = 256,        -- bounded retries
-	-- Streets, blocks, frontage (src/streets.lua)
+	-- Streets, blocks, frontage (src/streets.lua). Fewer, wider-spaced streets
+	-- and no sliver rows (tickets #86, #89).
 	SECONDARY_WIDTH = 4,
 	TURN_PENALTY = 6,         -- route cost of a bend, in nodes
-	MAX_BLOCK_DEPTH = 12,     -- free cells farther than this from any road
+	MAX_BLOCK_DEPTH = 24,     -- free cells farther than this from any road
 	                          --  trigger a secondary street
 	MIN_SECONDARY_LEN = 12,
-	SECONDARY_FAIL_SKIP = 0,  -- cells round a failed candidate also skipped
-	MAX_SECONDARY = 8,
-	MIN_BLOCK_SIDE = 8,
-	MAX_BLOCK_SCAN = 64,
+	SECONDARY_FAIL_SKIP = 5,  -- after a candidate cell yields no street, skip
+	                          --  the (2k+1)-square round it so far, so
+	                          --  hopeless cells do not exhaust the bounded tries
+	MAX_SECONDARY = 18,
+	MIN_BLOCK_SIDE = 12,      -- no block thinner than this: a thinner strip
+	                          --  between a road and the boundary (or a
+	                          --  landmark) fits only the smallest house and
+	                          --  is left open instead. The walls ticket (#95)
+	                          --  may claim such a gap. Replaced by the
+	                          --  catalog-derived row depth when the profile
+	                          --  has ordinary content (depth_policy).
+	MAX_BLOCK_SCAN = 139,
 	MIN_FRONTAGE_RUN = 4,
 	MAX_EDGE_FRACTION = 0.3,  -- secondary street: max share of a long side that
 	                          --  may be outside the boundary or a landmark
@@ -279,10 +285,10 @@ M.CONSTANTS = {
 	PRINCIPAL_MATERIAL = "mcl_core:cobble",
 	SECONDARY_MATERIAL = "mcl_core:gravel",
 	SQUARE_MATERIAL = "mcl_core:cobble",
-	-- Jail reservation (profile planning only, ticket #69)
+	-- Jail reservation (ticket #69)
 	JAIL_MARKET_BIAS = 1,     -- 1: jail entrance farthest from the market
 	                          --  centre, -1: nearest
-	-- Service reservations (profile planning only, ticket #41)
+	-- Service reservations (ticket #41)
 	SERVICE_TAVERNS = 3,      -- target counts
 	SERVICE_WELLS = 3,
 	SERVICE_CHAPELS = 2,
@@ -292,36 +298,10 @@ M.CONSTANTS = {
 
 -- Landmark profile (ticket #38)
 -- ----------------------------
--- By default the planner uses the Phase 2 nominal landmark footprints above
--- (CATHEDRAL_*, CASTLE_*) and the 96-node envelope. opts.landmarks selects a
--- catalog-derived profile instead (see M.landmark_profile): the cathedral and
--- castle reservations are then the complete rotated schematic boxes, doors
--- sit at their real (possibly off-centre, recessed) offsets, and the envelope
--- grows to LANDMARK_ENVELOPE with the dimensions that depend on it. The 208
--- is an engineering trial value, not a product size: tune it here only.
-M.LEGACY_ENVELOPE = 96
-M.LANDMARK_ENVELOPE = 208
-
--- Block tuning for profile plans (tickets #86, #89): fewer, wider-spaced
--- streets and no sliver rows. Applied with the envelope-derived set when
--- opts.landmarks is given (explicit opts.constants still win); the legacy
--- 96-node constants are untouched. The validator only needs lower bounds, so
--- it accepts these plans with the defaults.
-M.LANDMARK_TUNING = {
-	MAX_BLOCK_DEPTH = 24,     -- farthest free cell from a road before a
-	                          --  secondary street is added (default 12)
-	SECONDARY_FAIL_SKIP = 5,  -- after a candidate cell yields no street, skip
-	                          --  the (2k+1)-square round it (default 0: just
-	                          --  the cell) so far, hopeless cells do not
-	                          --  exhaust the bounded tries
-	MIN_BLOCK_SIDE = 12,      -- no block thinner than this: a thinner strip
-	                          --  between a road and the boundary (or a
-	                          --  landmark) fits only the smallest house and
-	                          --  is left open instead (default 8). The walls
-	                          --  ticket (#95) may claim such a gap. Replaced
-	                          --  by the catalog-derived row depth when the
-	                          --  profile has ordinary content (depth_policy).
-}
+-- Medieval planning needs a catalog-derived profile (opts.landmarks, see
+-- M.landmark_profile): the cathedral and castle reservations are the complete
+-- rotated schematic boxes and their doors sit at the real (possibly
+-- off-centre, recessed) offsets.
 
 -- Row depth (ticket #86). The depth a street frontage must be given for one
 -- row of ordinary buildings, derived from the catalog content of a landmark
@@ -357,7 +337,7 @@ function M.depth_policy(profile)
 		-- Intentionally the larger of the row depth and the #89 product
 		-- value: a block is at least one row deep, and the thin strips the
 		-- #89 tuning refused stay refused.
-		MIN_BLOCK_SIDE = math.max(depth, M.LANDMARK_TUNING.MIN_BLOCK_SIDE),
+		MIN_BLOCK_SIDE = math.max(depth, M.CONSTANTS.MIN_BLOCK_SIDE),
 		ROAD_GAP = 2 * depth,       -- road to road: two opposing rows
 		SQUARE_GAP = depth,         -- square to road: one row
 		LANDMARK_GAP = depth,       -- landmark to road: one row
@@ -372,32 +352,17 @@ end
 -- Names the depth policy may set (valid in opts.constants).
 local DEPTH_POLICY_KEYS = M.depth_policy({content = {x = {size = {z = 1}}}})
 
--- Dimensions that scale with the envelope. Reference values are the Phase 2
--- constants at LEGACY_ENVELOPE; explicit opts.constants still override them.
-local function envelope_derived(envelope)
-	local r = envelope / M.LEGACY_ENVELOPE
-	return {
-		ENVELOPE = envelope,
-		MIN_LONG_SPAN = math.floor(80 * r),
-		MIN_SHORT_SPAN = math.floor(60 * r),
-		CENTER_JITTER = math.floor(8 * r),
-		MAX_SECONDARY = math.ceil(8 * r),
-		MAX_BLOCK_SCAN = math.ceil(64 * r),
-	}
-end
-
 -- The constants plan() uses for `opts` (planner opts): defaults, then the
--- envelope-derived set when opts.landmarks is given, then opts.constants.
--- Pure; site_search uses it to size its own envelope-dependent distances.
+-- depth policy derived from opts.landmarks, then opts.constants. A smaller
+-- ENVELOPE in opts.constants needs the dimensions that depend on it
+-- (MIN_LONG_SPAN, MIN_SHORT_SPAN, CENTER_JITTER, MAX_SECONDARY,
+-- MAX_BLOCK_SCAN) given with it. Pure.
 function M.resolve_constants(opts)
 	local C = {}
 	for k, v in pairs(M.CONSTANTS) do C[k] = v end
 	if type(opts) ~= "table" then return C end
 	local explicit = opts.constants
 	if opts.landmarks ~= nil then
-		local env = (type(explicit) == "table" and explicit.ENVELOPE) or M.LANDMARK_ENVELOPE
-		for k, v in pairs(envelope_derived(env)) do C[k] = v end
-		for k, v in pairs(M.LANDMARK_TUNING) do C[k] = v end
 		for k, v in pairs(M.depth_policy(opts.landmarks)) do C[k] = v end
 	end
 	if type(explicit) == "table" then
@@ -658,7 +623,7 @@ end
 -- least as long as that facade (the catalog size.x, whatever the rotation).
 -- It is not enlarged by any ring round the hall. nil without a city hall.
 local function hall_facade(profile)
-	local h = profile and profile.city_hall
+	local h = profile.city_hall
 	return h and h.size.x or nil
 end
 
@@ -1047,10 +1012,10 @@ local function edge_gap(count, r, side, limit)
 	return nil
 end
 
--- `L` (landmarks only, optional) is the catalog profile entry: the door is
--- then at its real offset inside the box (rect), the approach node is the
--- edge node in line with it, and `door` records the recess behind the box
--- edge, the rise above site ground and the cell just outside the door.
+-- `L` (landmarks only) is the catalog profile entry: the door is at its real
+-- offset inside the box (rect), the approach node is the edge node in line
+-- with it, and `door` records the recess behind the box edge, the rise above
+-- site ground and the cell just outside the door.
 local function shape_site(name, kind, r, side, L)
 	local s = {
 		name = name, kind = kind, rect = r, side = side,
@@ -1066,7 +1031,7 @@ local function shape_site(name, kind, r, side, L)
 		pos = {x = e.x1, z = mid(r.z1, r.z2)}
 	end
 	s.approach = {side = side, edge = e, pos = pos}
-	if kind == "landmark" and L then
+	if kind == "landmark" then
 		local b = landmark_box(L, side)
 		local ent = {x = r.x1 + b.ex, z = r.z1 + b.ez}
 		if side == "-z" or side == "+z" then pos.x = ent.x else pos.z = ent.z end
@@ -1083,11 +1048,6 @@ local function shape_site(name, kind, r, side, L)
 				x2 = r.x1 + rotated.x2, z2 = r.z1 + rotated.z2}
 			s.gate_apron = geometry.exterior_apron(r, s.gate_span, s.facing, 5)
 		end
-	elseif kind == "landmark" then
-		local p = {x = pos.x, z = pos.z}
-		if side == "-z" then p.z = r.z1 elseif side == "+z" then p.z = r.z2
-		elseif side == "-x" then p.x = r.x1 else p.x = r.x2 end
-		s.entrance = p
 	end
 	return s
 end
@@ -1108,7 +1068,7 @@ local function sample_market(rng, C, count, n, min_side)
 	end
 end
 
--- City hall beside the market (profile only, #106). The hall is outside the
+-- City hall beside the market (#106). The hall is outside the
 -- open market rectangle, touching one of its four edges, with its entrance
 -- side facing across that edge: the node in front of the real (possibly
 -- off-centre, recessed) door is then a market pavement node on the edge row.
@@ -1158,36 +1118,24 @@ end
 -- seeded rng, so a feasible layout is found whenever one exists.
 local function sample_cathedral(rng, C, count, bbox, market, profile, hall)
 	local sw = C.STREET_WIDTH
-	local m, p = C.PARVIS_MARGIN, C.PARVIS_DEPTH
 	local found, roomy = {}, {}
 	for k = 1, 4 do
 		local side = SIDES[k]
-		local long_x = (side == "-x" or side == "+x")
-		local w = long_x and C.CATHEDRAL_LONG or C.CATHEDRAL_SHORT
-		local d = long_x and C.CATHEDRAL_SHORT or C.CATHEDRAL_LONG
-		local b
-		if profile then
-			b = landmark_box(profile.cathedral, side)
-			w, d = b.w, b.d
-		end
+		local b = landmark_box(profile.cathedral, side)
+		local w, d = b.w, b.d
 		local hw, pd = math.floor(C.PARVIS_WIDTH / 2), C.PARVIS_FRONT_DEPTH
 		for z1 = bbox.z1, bbox.z2 - d + 1, 2 do
 			for x1 = bbox.x1, bbox.x2 - w + 1, 2 do
 				local c = rect(x1, z1, x1 + w - 1, z1 + d - 1)
+				-- Centred on the real door, not the compound (#105).
+				local lat = (side == "-z" or side == "+z") and (x1 + b.ex) or (z1 + b.ez)
+				local a1 = lat - hw
+				local a2 = a1 + C.PARVIS_WIDTH - 1
 				local pr
-				if b then
-					-- Centred on the real door, not the compound (#105).
-					local lat = (side == "-z" or side == "+z") and (x1 + b.ex) or (z1 + b.ez)
-					local a1 = lat - hw
-					local a2 = a1 + C.PARVIS_WIDTH - 1
-					if side == "-z" then pr = rect(a1, c.z1 - pd, a2, c.z1 - 1)
-					elseif side == "+z" then pr = rect(a1, c.z2 + 1, a2, c.z2 + pd)
-					elseif side == "-x" then pr = rect(c.x1 - pd, a1, c.x1 - 1, a2)
-					else pr = rect(c.x2 + 1, a1, c.x2 + pd, a2) end
-				elseif side == "-z" then pr = rect(c.x1 - m, c.z1 - p, c.x2 + m, c.z1 - 1)
-				elseif side == "+z" then pr = rect(c.x1 - m, c.z2 + 1, c.x2 + m, c.z2 + p)
-				elseif side == "-x" then pr = rect(c.x1 - p, c.z1 - m, c.x1 - 1, c.z2 + m)
-				else pr = rect(c.x2 + 1, c.z1 - m, c.x2 + p, c.z2 + m) end
+				if side == "-z" then pr = rect(a1, c.z1 - pd, a2, c.z1 - 1)
+				elseif side == "+z" then pr = rect(a1, c.z2 + 1, a2, c.z2 + pd)
+				elseif side == "-x" then pr = rect(c.x1 - pd, a1, c.x1 - 1, a2)
+				else pr = rect(c.x2 + 1, a1, c.x2 + pd, a2) end
 				if gap(c, market) >= sw and gap(pr, market) >= sw
 						and (not hall or (gap(c, hall) >= sw and gap(pr, hall) >= sw))
 						and all_filled(count, c) and all_filled(count, pr) then
@@ -1238,37 +1186,31 @@ local function sample_castle(rng, C, count, bbox, n, others, profile)
 	for k = 1, 4 do
 		local side = SIDES[k]
 		local horizontal = (side == "-z" or side == "+z")
-		-- With a profile the gate faces the side opposite the outer edge and
-		-- that rotation fixes the box, so only one orientation exists.
-		for o = 0, profile and 0 or 1 do
-			local w, d = C.CASTLE_X, C.CASTLE_Z
-			if o == 1 then w, d = d, w end
-			if profile then
-				local b = landmark_box(profile.castle, OPPOSITE[side])
-				w, d = b.w, b.d
-			end
-			local lo = horizontal and bbox.x1 or bbox.z1
-			local hi = (horizontal and bbox.x2 - w + 1 or bbox.z2 - d + 1)
-			for along = lo, hi do
-				local r0 = slide_in(count, bbox, side, w, d, along, n)
-				for extra = 0, C.CASTLE_EDGE_SLACK do
-					local r = r0
-					if r then
-						local step = FACING[OPPOSITE[side]]
-						r = shift_rect(r, step.x * extra, step.z * extra)
+		-- The gate faces the side opposite the outer edge and that rotation
+		-- fixes the box, so only one orientation exists.
+		local b = landmark_box(profile.castle, OPPOSITE[side])
+		local w, d = b.w, b.d
+		local lo = horizontal and bbox.x1 or bbox.z1
+		local hi = (horizontal and bbox.x2 - w + 1 or bbox.z2 - d + 1)
+		for along = lo, hi do
+			local r0 = slide_in(count, bbox, side, w, d, along, n)
+			for extra = 0, C.CASTLE_EDGE_SLACK do
+				local r = r0
+				if r then
+					local step = FACING[OPPOSITE[side]]
+					r = shift_rect(r, step.x * extra, step.z * extra)
+				end
+				local g = r and all_filled(count, r)
+					and edge_gap(count, r, side, C.CASTLE_EDGE_SLACK)
+				if g then
+					local ok = true
+					for j = 1, #others do
+						ok = ok and gap(r, others[j]) >= sw
 					end
-					local g = r and all_filled(count, r)
-						and edge_gap(count, r, side, C.CASTLE_EDGE_SLACK)
-					if g then
-						local ok = true
-						for j = 1, #others do
-							ok = ok and gap(r, others[j]) >= sw
-						end
-						if ok then
-							-- Touching edges are weighted over slack ones.
-							for _ = 1, (extra == 0) and 3 or 1 do
-								found[#found + 1] = {r, side, g}
-							end
+					if ok then
+						-- Touching edges are weighted over slack ones.
+						for _ = 1, (extra == 0) and 3 or 1 do
+							found[#found + 1] = {r, side, g}
 						end
 					end
 				end
@@ -1407,8 +1349,8 @@ local function validate_impl(plan, C)
 	-- Sites.
 	local sites = {}
 	-- The city hall (ticket #39) is an extra site outside site_order, present
-	-- only in profile plans; it is validated as a landmark, then against the
-	-- market it stands on.
+	-- only when the profile has one; it is validated as a landmark, then
+	-- against the market it stands on.
 	local names = {}
 	for i, name in ipairs(ORDER) do names[i] = name end
 	if plan.sites.city_hall ~= nil then names[#names + 1] = "city_hall" end
@@ -1430,9 +1372,9 @@ local function validate_impl(plan, C)
 		local px, pz = pos.x - ox, pos.z - oz
 		local kind = (name == "cathedral" or name == "castle" or name == "city_hall")
 			and "landmark" or "square"
-		if kind == "landmark" and s.door ~= nil then
-			-- Profile landmark: the approach node is the edge node in line with
-			-- the real (off-centre, recessed) door, not the middle of the edge.
+		if kind == "landmark" then
+			-- The approach node is the edge node in line with the real
+			-- (off-centre, recessed) door, not the middle of the edge.
 			local inline
 			if s.side == "-z" or s.side == "+z" then
 				inline = px >= e.x1 and px <= e.x2 and pz == e.z1
@@ -1462,36 +1404,28 @@ local function validate_impl(plan, C)
 			-- Door node: on the footprint edge of the entrance side, in line
 			-- with approach.pos.
 			local ex, ez = px, pz
-			local back = 0
 			local d = s.door
-			if d ~= nil then
-				if type(d) ~= "table" or not is_int(d.recess) or d.recess < 0
-						or not is_int(d.rise) or type(d.outside) ~= "table" then
-					return nil, name .. " door is malformed"
-				end
-				back = d.recess
+			if type(d) ~= "table" or not is_int(d.recess) or d.recess < 0
+					or not is_int(d.rise) or type(d.outside) ~= "table" then
+				return nil, name .. " door is missing or malformed"
 			end
+			local back = d.recess
 			if s.side == "-z" then ez = r.z1 + back elseif s.side == "+z" then ez = r.z2 - back
 			elseif s.side == "-x" then ex = r.x1 + back else ex = r.x2 - back end
 			if type(s.entrance) ~= "table" or s.entrance.x - ox ~= ex
 					or s.entrance.z - oz ~= ez then
 				return nil, name .. " entrance is not the door node on its entrance edge"
 			end
-			if d ~= nil then
-				local f = FACING[s.side]
-				if not inside_env(rect(ex, ez, ex, ez)) or not all_filled(count, rect(ex, ez, ex, ez))
-						or d.outside.x - ox ~= ex + f.x or d.outside.z - oz ~= ez + f.z then
-					return nil, name .. " door outside cell does not follow its entrance"
-				end
+			local f = FACING[s.side]
+			if not inside_env(rect(ex, ez, ex, ez)) or not all_filled(count, rect(ex, ez, ex, ez))
+					or d.outside.x - ox ~= ex + f.x or d.outside.z - oz ~= ez + f.z then
+				return nil, name .. " door outside cell does not follow its entrance"
 			end
 		elseif s.entrance ~= nil then
 			return nil, name .. " is a square but has an entrance"
 		end
 		if name == "cathedral" and s.parvis ~= "parvis" then
 			return nil, "cathedral does not reference the parvis"
-		end
-		if name == "city_hall" and s.door == nil then
-			return nil, "city_hall has no door record"
 		end
 		sites[name] = {s = s, r = r, pos = {x = px, z = pz}}
 	end
@@ -1557,25 +1491,18 @@ local function validate_impl(plan, C)
 		elseif side == "-x" then touch = p.x2 == c.x1 - 1
 		else touch = p.x1 == c.x2 + 1 end
 		if not touch then return nil, "parvis not adjacent on the entrance side" end
-		if cath.s.door ~= nil then
-			-- Profile plan (#105): fixed size, centred on the real door.
-			local e = cath.s.entrance
-			local horiz = side == "-z" or side == "+z"
-			local lo, hi = p.x1, p.x2
-			local dlo, dhi = p.z1, p.z2
-			local lat = e.x - ox
-			if not horiz then lo, hi, dlo, dhi = p.z1, p.z2, p.x1, p.x2; lat = e.z - oz end
-			if hi - lo + 1 ~= C.PARVIS_WIDTH or lo ~= lat - math.floor(C.PARVIS_WIDTH / 2) then
-				return nil, "parvis is not " .. C.PARVIS_WIDTH .. " wide and centred on the door"
-			end
-			if dhi - dlo + 1 ~= C.PARVIS_FRONT_DEPTH then
-				return nil, "parvis is not " .. C.PARVIS_FRONT_DEPTH .. " deep"
-			end
-		else
-			local spans
-			if side == "-z" or side == "+z" then spans = p.x1 <= c.x1 and p.x2 >= c.x2
-			else spans = p.z1 <= c.z1 and p.z2 >= c.z2 end
-			if not spans then return nil, "parvis does not span the cathedral front" end
+		-- Fixed size (#105), centred on the real door.
+		local e = cath.s.entrance
+		local horiz = side == "-z" or side == "+z"
+		local lo, hi = p.x1, p.x2
+		local dlo, dhi = p.z1, p.z2
+		local lat = e.x - ox
+		if not horiz then lo, hi, dlo, dhi = p.z1, p.z2, p.x1, p.x2; lat = e.z - oz end
+		if hi - lo + 1 ~= C.PARVIS_WIDTH or lo ~= lat - math.floor(C.PARVIS_WIDTH / 2) then
+			return nil, "parvis is not " .. C.PARVIS_WIDTH .. " wide and centred on the door"
+		end
+		if dhi - dlo + 1 ~= C.PARVIS_FRONT_DEPTH then
+			return nil, "parvis is not " .. C.PARVIS_FRONT_DEPTH .. " deep"
 		end
 	end
 
@@ -1700,15 +1627,6 @@ local function validate_with(plan, constants, base_only)
 		local msg = tostring(err):gsub("^[^\n]-:%d+: ", "")
 		return nil, "malformed plan: " .. msg
 	end
-	if (constants == nil or constants.ENVELOPE == nil) and type(plan) == "table"
-			and type(plan.envelope) == "table" then
-		-- A plan planned with a profile carries its own (larger) envelope.
-		local e = plan.envelope
-		if is_int(e.x1) and is_int(e.x2) and is_int(e.z1) and is_int(e.z2)
-				and e.x2 - e.x1 == e.z2 - e.z1 and e.x2 > e.x1 then
-			C.ENVELOPE = e.x2 - e.x1 + 1
-		end
-	end
 	local ok, a, b = pcall(validate_impl, plan, C)
 	if not ok then return malformed(a) end
 	if not a or base_only then return a, b end
@@ -1741,10 +1659,10 @@ local function attempt(rng, C, profile)
 
 	local market = sample_market(rng, C, count, n, hall_facade(profile))
 	if not market then return nil, "market", "no market square fits near centre" end
-	-- City hall beside the market (#106; profile with a city_hall entry
+	-- City hall beside the market (#106; a profile with a city_hall entry
 	-- only), reserved before the other landmarks so they keep clear of it.
 	local hall, hside
-	if profile and profile.city_hall then
+	if profile.city_hall then
 		hall, hside = sample_city_hall(rng, C, count, market, profile.city_hall)
 		if not hall then
 			return nil, "market", "no city hall placement beside the market square"
@@ -1760,10 +1678,8 @@ local function attempt(rng, C, profile)
 	if not castle then return nil, "castle", "no castle placement on an outer edge" end
 
 	local sites = {
-		cathedral = shape_site("cathedral", "landmark", cathedral, cside,
-			profile and profile.cathedral),
-		castle = shape_site("castle", "landmark", castle, OPPOSITE[outer_side],
-			profile and profile.castle),
+		cathedral = shape_site("cathedral", "landmark", cathedral, cside, profile.cathedral),
+		castle = shape_site("castle", "landmark", castle, OPPOSITE[outer_side], profile.castle),
 	}
 	sites.cathedral.parvis = "parvis"
 	sites.castle.outer_side = outer_side
@@ -1947,123 +1863,125 @@ function M.plan(center, seed, opts)
 	end
 	local max_attempts = M.CONSTANTS.MAX_ATTEMPTS
 	local profile
-	if opts ~= nil then
-		if type(opts) ~= "table" then
-			error("towns planner: opts must be a table", 2)
+	if opts == nil then
+		error("towns planner: medieval plans need opts.landmarks, a landmark "
+			.. "profile (planner.landmark_profile)", 2)
+	end
+	if type(opts) ~= "table" then
+		error("towns planner: opts must be a table", 2)
+	end
+	if opts.town_type ~= nil and opts.town_type ~= "medieval" then
+		if opts.town_type == "roman" then
+			-- Fixed authored civic plan; medieval-only options do not apply.
+			local profile, pwhy = M.roman_profile(catalog.snapshot())
+			if not profile then error("towns planner: " .. tostring(pwhy), 2) end
+			local plan, why, detail = roman_planner.plan(center, seed, nil,
+				M.row_depth(profile))
+			if plan then M.populate(plan, profile, seed, M.resolve_constants(nil)) end
+			return plan, why, detail
 		end
-		if opts.town_type ~= nil and opts.town_type ~= "medieval" then
-			if opts.town_type == "roman" then
-				-- Fixed authored civic plan; medieval-only options do not apply.
-				local profile, pwhy = M.roman_profile(catalog.snapshot())
-				if not profile then error("towns planner: " .. tostring(pwhy), 2) end
-				local plan, why, detail = roman_planner.plan(center, seed, nil,
-					M.row_depth(profile))
-				if plan then M.populate(plan, profile, seed, M.resolve_constants(nil)) end
-				return plan, why, detail
-			end
-			error("towns planner: unknown town type " .. tostring(opts.town_type), 2)
-		end
-		if opts.constants then
-			for k in pairs(opts.constants) do
-				if M.CONSTANTS[k] == nil and DEPTH_POLICY_KEYS[k] == nil then
-					error("towns planner: unknown constant " .. tostring(k), 2)
-				end
-			end
-			local skip = opts.constants.SECONDARY_FAIL_SKIP
-			if skip ~= nil and not (is_int(skip) and skip >= 0) then
-				error("towns planner: SECONDARY_FAIL_SKIP must be an integer >= 0", 2)
+		error("towns planner: unknown town type " .. tostring(opts.town_type), 2)
+	end
+	if opts.constants then
+		for k in pairs(opts.constants) do
+			if M.CONSTANTS[k] == nil and DEPTH_POLICY_KEYS[k] == nil then
+				error("towns planner: unknown constant " .. tostring(k), 2)
 			end
 		end
-		if opts.landmarks ~= nil then
-			local lm = opts.landmarks
-			if type(lm) ~= "table" then
-				error("towns planner: opts.landmarks must be a landmark profile", 2)
-			end
-			profile = {}
-			local names = {"cathedral", "castle"}
-			if lm.city_hall ~= nil then names[#names + 1] = "city_hall" end
-			if lm.jail ~= nil then names[#names + 1] = "jail" end
-			for _, name in ipairs(names) do
-				local L, why = check_landmark(name, lm[name] and {
-					id = lm[name].id, size = lm[name].size, entrance = lm[name].entrance,
-					ground_offset = lm[name].ground_offset, gate_span = lm[name].gate_span})
+		local skip = opts.constants.SECONDARY_FAIL_SKIP
+		if skip ~= nil and not (is_int(skip) and skip >= 0) then
+			error("towns planner: SECONDARY_FAIL_SKIP must be an integer >= 0", 2)
+		end
+	end
+	if opts.landmarks == nil then
+		error("towns planner: medieval plans need opts.landmarks, a landmark "
+			.. "profile (planner.landmark_profile)", 2)
+	end
+	local lm = opts.landmarks
+	if type(lm) ~= "table" then
+		error("towns planner: opts.landmarks must be a landmark profile", 2)
+	end
+	profile = {}
+	local names = {"cathedral", "castle"}
+	if lm.city_hall ~= nil then names[#names + 1] = "city_hall" end
+	if lm.jail ~= nil then names[#names + 1] = "jail" end
+	for _, name in ipairs(names) do
+		local L, why = check_landmark(name, lm[name] and {
+			id = lm[name].id, size = lm[name].size, entrance = lm[name].entrance,
+			ground_offset = lm[name].ground_offset, gate_span = lm[name].gate_span})
+		if not L then
+			error("towns planner: opts.landmarks: " .. tostring(why or name .. " missing"), 2)
+		end
+		profile[name] = L
+	end
+	if lm.services ~= nil then
+		if type(lm.services) ~= "table" then
+			error("towns planner: opts.landmarks.services must be a table", 2)
+		end
+		profile.services = {}
+		for _, role in ipairs(service_reservation.ROLES) do
+			local sv = lm.services[role]
+			if sv ~= nil then
+				local L, why = check_landmark(role, {id = sv.id, size = sv.size,
+					entrance = sv.entrance, ground_offset = sv.ground_offset})
 				if not L then
-					error("towns planner: opts.landmarks: " .. tostring(why or name .. " missing"), 2)
+					error("towns planner: opts.landmarks.services: " .. tostring(why), 2)
 				end
-				profile[name] = L
-			end
-			if lm.services ~= nil then
-				if type(lm.services) ~= "table" then
-					error("towns planner: opts.landmarks.services must be a table", 2)
-				end
-				profile.services = {}
-				for _, role in ipairs(service_reservation.ROLES) do
-					local sv = lm.services[role]
-					if sv ~= nil then
-						local L, why = check_landmark(role, {id = sv.id, size = sv.size,
-							entrance = sv.entrance, ground_offset = sv.ground_offset})
-						if not L then
-							error("towns planner: opts.landmarks.services: " .. tostring(why), 2)
-						end
-						profile.services[role] = L
-						-- Variants (#114) default to the one given entry.
-						local given = lm.service_variants and lm.service_variants[role]
-						if type(given) ~= "table" or #given == 0 then given = {sv} end
-						local variants = {}
-						for _, v in ipairs(given) do
-							local V, vwhy = check_landmark(role, {id = v.id, size = v.size,
-								entrance = v.entrance, ground_offset = v.ground_offset})
-							if not V then
-								error("towns planner: opts.landmarks.service_variants: "
-									.. tostring(vwhy), 2)
-							end
-							variants[#variants + 1] = V
-						end
-						profile.service_variants = profile.service_variants or {}
-						profile.service_variants[role] = variants
+				profile.services[role] = L
+				-- Variants (#114) default to the one given entry.
+				local given = lm.service_variants and lm.service_variants[role]
+				if type(given) ~= "table" or #given == 0 then given = {sv} end
+				local variants = {}
+				for _, v in ipairs(given) do
+					local V, vwhy = check_landmark(role, {id = v.id, size = v.size,
+						entrance = v.entrance, ground_offset = v.ground_offset})
+					if not V then
+						error("towns planner: opts.landmarks.service_variants: "
+							.. tostring(vwhy), 2)
 					end
+					variants[#variants + 1] = V
 				end
+				profile.service_variants = profile.service_variants or {}
+				profile.service_variants[role] = variants
 			end
 		end
-		if opts.landmarks ~= nil and opts.landmarks.content ~= nil then
-			local ct = opts.landmarks.content
-			if type(ct) ~= "table" then
-				error("towns planner: opts.landmarks.content must be a table", 2)
-			end
-			profile.content = {}
-			for k, e in pairs(ct) do
-				local L, why = nil, "entry is not a table"
-				if type(e) == "table" then
-					if not content_planner.ROLES[e.role] then
-						why = "role must be house, shop or workshop"
-					else
-						L, why = check_landmark(e.role, {id = k, size = e.size,
-							entrance = e.entrance, ground_offset = e.ground_offset})
-					end
-				end
-				if not L then
-					error("towns planner: opts.landmarks.content: " .. tostring(k)
-						.. ": " .. tostring(why), 2)
-				end
-				L.role = e.role
-				profile.content[k] = L
-			end
+	end
+	if opts.landmarks.content ~= nil then
+		local ct = opts.landmarks.content
+		if type(ct) ~= "table" then
+			error("towns planner: opts.landmarks.content must be a table", 2)
 		end
-		if opts.max_attempts ~= nil then
-			if not is_int(opts.max_attempts) or opts.max_attempts < 0 then
-				error("towns planner: max_attempts must be an integer >= 0", 2)
+		profile.content = {}
+		for k, e in pairs(ct) do
+			local L, why = nil, "entry is not a table"
+			if type(e) == "table" then
+				if not content_planner.ROLES[e.role] then
+					why = "role must be house, shop or workshop"
+				else
+					L, why = check_landmark(e.role, {id = k, size = e.size,
+						entrance = e.entrance, ground_offset = e.ground_offset})
+				end
 			end
-			max_attempts = opts.max_attempts
+			if not L then
+				error("towns planner: opts.landmarks.content: " .. tostring(k)
+					.. ": " .. tostring(why), 2)
+			end
+			L.role = e.role
+			profile.content[k] = L
 		end
+	end
+	if opts.max_attempts ~= nil then
+		if not is_int(opts.max_attempts) or opts.max_attempts < 0 then
+			error("towns planner: max_attempts must be an integer >= 0", 2)
+		end
+		max_attempts = opts.max_attempts
 	end
 
 	local C = M.resolve_constants(opts)
-	if profile then
-		local fits, why = fit_check(C, profile)
-		if not fits then
-			return nil, "unsupported landmark profile: " .. why,
-				{code = "unsupported_fit", attempts = 0, rejections = {}, last = why}
-		end
+	local fits, why = fit_check(C, profile)
+	if not fits then
+		return nil, "unsupported landmark profile: " .. why,
+			{code = "unsupported_fit", attempts = 0, rejections = {}, last = why}
 	end
 
 	local rng = new_rng(seed)

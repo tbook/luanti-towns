@@ -425,7 +425,8 @@ eq(ew.reads, 1, "emerge failure: only the player's ground node was read")
 
 -- Plan failure: no emerge, counted, not accepted.
 local pw = new_world({})
-r9, s9, d9 = run(pw, PLAYER, {max_radius = 48, planner_opts = {max_attempts = 0}})
+r9, s9, d9 = run(pw, PLAYER, {max_radius = 48,
+	planner_opts = dofile("tests/small_town.lua")(planner).opts({max_attempts = 0})})
 eq(r9, nil, "plan failure: not accepted")
 eq(d9.rejections.plan_failed, 1, "plan failure: fails fast, counted once")
 eq(d9.candidates_tried, 1, "plan failure: no scan of other candidates")

@@ -1,8 +1,10 @@
--- Street, block and frontage tests (ticket #13). Loaded by tests/run.lua:
+-- Street, block and frontage tests (ticket #13), on the small synthetic town
+-- of tests/small_town.lua. Loaded by tests/run.lua:
 --   loadfile("tests/streets_tests.lua")(eq, fails, planner)
 -- Every check below rebuilds its own occupancy from the plan's data; nothing
 -- reuses the router's structures.
 local eq, fails, planner = ...
+local small = dofile("tests/small_town.lua")(planner)
 
 -- Principal street width / route clearance (ticket #88: 5).
 local SW = planner.CONSTANTS.STREET_WIDTH
@@ -139,7 +141,7 @@ local planned = 0
 for _, case in ipairs(cases) do
 	local c, seed = case[1], case[2]
 	local label = ("streets seed %d centre (%d,%d)"):format(seed, c.x, c.z)
-	local plan, why = planner.plan(c, seed)
+	local plan, why = small.plan(c, seed)
 	eq(plan ~= nil, true, label .. " planned (" .. tostring(why) .. ")")
 	if plan then
 		planned = planned + 1
@@ -277,7 +279,7 @@ for _, case in ipairs(cases) do
 
 		-- Determinism.
 		if c.x == 0 and seed <= 3 then
-			eq(deep_equal(plan, planner.plan({x = 0, z = 0}, seed)), true, label .. " deterministic")
+			eq(deep_equal(plan, small.plan({x = 0, z = 0}, seed)), true, label .. " deterministic")
 		end
 		local parts = {}
 		for _, s in ipairs(plan.streets) do
@@ -297,8 +299,8 @@ eq(material_names["mcl_core:cobble"] and material_names["mcl_core:gravel"], true
 
 -- The centre only translates streets, blocks and frontage.
 do
-	local a = planner.plan({x = 0, z = 0}, 17)
-	local b = planner.plan({x = 250, z = -90}, 17)
+	local a = small.plan({x = 0, z = 0}, 17)
+	local b = small.plan({x = 250, z = -90}, 17)
 	local function norm(p, c)
 		local out = {}
 		for _, s in ipairs(p.streets) do
@@ -318,22 +320,22 @@ end
 -- Street failures consume the retry budget and name the stage.
 do
 	local opts = {max_attempts = 40, constants = {MIN_BLOCKS = 999}}
-	local plan, reason, detail = planner.plan({x = 0, z = 0}, 7, opts)
+	local plan, reason, detail = small.plan({x = 0, z = 0}, 7, opts)
 	eq(plan, nil, "unsatisfiable block count fails")
 	eq(detail.code, "retries_exhausted", "street failure code")
 	eq((detail.rejections.streets or 0) > 0, true, "street stage counted")
 	eq(reason:find("streets x", 1, true) ~= nil, true, "reason names street stage")
-	local _, reason2 = planner.plan({x = 0, z = 0}, 7, opts)
+	local _, reason2 = small.plan({x = 0, z = 0}, 7, opts)
 	eq(reason2, reason, "street failure deterministic")
 	-- Wider streets than the town can host fail somewhere in the pipeline.
-	local p2, r2 = planner.plan({x = 0, z = 0}, 7,
+	local p2, r2 = small.plan({x = 0, z = 0}, 7,
 		{max_attempts = 4, constants = {SECONDARY_WIDTH = 60, MIN_SECONDARY_LEN = 2}})
 	eq(p2 ~= nil or type(r2) == "string", true, "extreme secondary width handled")
 end
 
 -- Renderer shows streets, blocks and frontage direction.
 do
-	local plan = planner.plan({x = 0, z = 0}, 7)
+	local plan = small.plan({x = 0, z = 0}, 7)
 	local text = planner.render(plan)
 	for _, ch in ipairs({"#", "b", "M", "p", "C", "K"}) do
 		eq(text:find(ch, 1, true) ~= nil, true, "render has " .. ch)
@@ -353,12 +355,12 @@ do
 	for _ = 1, fuzz_runs do
 		local c = {x = rnd(-3000, 3000), z = rnd(-3000, 3000)}
 		local seed = rnd(-1073741823, 1073741823)
-		local plan = planner.plan(c, seed)
+		local plan = small.plan(c, seed)
 		count = count + 1
 		if not plan then
 			ok_all = false
 		else
-			if not planner.validate(plan) then ok_all = false end
+			if not small.validate(plan) then ok_all = false end
 			local paved = {}
 			for _, st in ipairs(plan.streets) do
 				if st.kind == "principal" then rect_cells(st.rect, function(x, z) paved[key(x, z)] = true end) end
@@ -380,12 +382,12 @@ do
 		for k, x in pairs(v) do o[k] = clone(x) end
 		return o
 	end
-	local base = planner.plan({x = 0, z = 0}, 5)
-	eq(planner.validate(base), true, "base plan validates")
+	local base = small.plan({x = 0, z = 0}, 5)
+	eq(small.validate(base), true, "base plan validates")
 	local function rejects(label, mutate, pattern)
 		local p = clone(base)
 		mutate(p)
-		local ok, reason = planner.validate(p)
+		local ok, reason = small.validate(p)
 		eq(ok, nil, label .. " rejected")
 		eq(type(reason) == "string" and (pattern == nil or reason:find(pattern, 1, true) ~= nil),
 			true, label .. " reason (" .. tostring(reason) .. ")")
@@ -428,11 +430,11 @@ do
 		-- Re-pinned in #88 from seed -1073729107: with 5-wide streets the old
 		-- plan's extension is a legitimate road, so a seed that keeps the
 		-- stub shapes (extension rejected, a free spur site) is used.
-		local b2 = planner.plan({x = -32, z = -8}, 3)
+		local b2 = small.plan({x = -32, z = -8}, 3)
 		eq(b2 ~= nil, true, "stub repro plan exists")
 		if b2 then
 			b2.blocks, b2.frontage = {}, {}
-			eq(planner.validate(b2), true, "stub repro plan validates untouched")
+			eq(small.validate(b2), true, "stub repro plan validates untouched")
 			local pos = b2.sites.castle.approach.pos
 			local idx
 			for i, st in ipairs(b2.streets) do
@@ -451,7 +453,7 @@ do
 					if pos.z <= r.z1 + SW - 1 then r.z1 = r.z1 - SW else r.z2 = r.z2 + SW end
 				end
 				p.streets[idx].axis = (r.x2 - r.x1 >= r.z2 - r.z1) and "x" or "z"
-				local ok, why = planner.validate(p)
+				local ok, why = small.validate(p)
 				eq(ok, nil, "street extended past the door rejected (" .. tostring(why) .. ")")
 				-- (b) an SWxSW spur off the street's side, on free land.
 				local bset, taken = {}, {}
@@ -486,7 +488,7 @@ do
 						width = SW, axis = "x", material = b2.streets[idx].material,
 						route = "spur", rect = {x1 = spur[1], z1 = spur[2],
 							x2 = spur[1] + SW - 1, z2 = spur[2] + SW - 1}}
-					local ok2, why2 = planner.validate(q)
+					local ok2, why2 = small.validate(q)
 					eq(ok2, nil, "SWxSW spur rejected (" .. tostring(why2) .. ")")
 					-- Adjacent to the street, so it is rejected as a dead end,
 					-- not as a detached street.

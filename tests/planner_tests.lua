@@ -1,7 +1,10 @@
--- Planner tests (ticket #12): boundary and civic sites. Loaded by
--- tests/run.lua, which passes its check helpers:
+-- Planner tests (ticket #12): boundary and civic sites, on the small synthetic
+-- town of tests/small_town.lua (a 96-node envelope and a hand-made landmark
+-- profile; the real-catalog planner is tested in tests/landmark_profile_tests.lua).
+-- Loaded by tests/run.lua, which passes its check helpers:
 --   loadfile("tests/planner_tests.lua")(eq, fails, planner)
 local eq, fails, planner = ...
+local small = dofile("tests/small_town.lua")(planner)
 
 local function deep_equal(a, b)
 	if type(a) ~= type(b) then return false end
@@ -220,12 +223,12 @@ for ci, c in ipairs(centers) do
 		if ci == 1 or si % OTHER_CENTER_EVERY == 0 then
 		expected_plans = expected_plans + 1
 		local label = ("seed %d centre %d"):format(seed, ci)
-		local plan, reason = planner.plan(c, seed)
+		local plan, reason = small.plan(c, seed)
 		eq(plan ~= nil, true, label .. " planned (" .. tostring(reason) .. ")")
 		if plan then
 			plans_checked = plans_checked + 1
 			if ci == 1 and si % 4 == 0 then
-				local again = planner.plan({x = c.x, z = c.z}, seed)
+				local again = small.plan({x = c.x, z = c.z}, seed)
 				eq(deep_equal(plan, again), true, label .. " deterministic")
 			end
 			eq(data_only(plan), true, label .. " data only")
@@ -237,7 +240,7 @@ for ci, c in ipairs(centers) do
 
 			local set, total = cell_set(plan)
 			check_routes(plan, set, label)
-			eq(planner.validate(plan), true, label .. " validates")
+			eq(small.validate(plan), true, label .. " validates")
 			local b, env = plan.bounds, plan.envelope
 			eq(b.x1 >= env.x1 and b.x2 <= env.x2 and b.z1 >= env.z1 and b.z2 <= env.z2,
 				true, label .. " bounds inside envelope")
@@ -250,8 +253,8 @@ for ci, c in ipairs(centers) do
 				label .. " exact bounds")
 			eq(plan.width, b.x2 - b.x1 + 1, label .. " width")
 			eq(plan.depth, b.z2 - b.z1 + 1, label .. " depth")
-			eq(math.max(plan.width, plan.depth) >= 80, true, label .. " broad")
-			eq(math.min(plan.width, plan.depth) >= 60, true, label .. " not tiny")
+			eq(math.max(plan.width, plan.depth) >= small.constants.MIN_LONG_SPAN, true, label .. " broad")
+			eq(math.min(plan.width, plan.depth) >= small.constants.MIN_SHORT_SPAN, true, label .. " not tiny")
 			eq(math.abs(plan.width - plan.depth) >= 12, true, label .. " non-square")
 			eq(total < plan.width * plan.depth * 0.9, true, label .. " stepped, not a rectangle")
 			eq(#plan.boundary.rects >= 2, true, label .. " multiple rects")
@@ -295,27 +298,30 @@ for ci, c in ipairs(centers) do
 			eq(parvis.facing.x, cath.facing.x, label .. " parvis facing x")
 			eq(parvis.facing.z, cath.facing.z, label .. " parvis facing z")
 			eq(cath.parvis, "parvis", label .. " cathedral parvis ref")
+			-- The door is recessed behind the edge of the entrance side.
+			local back = cath.door.recess
 			if cath.side == "-z" then
 				eq(pr.z2, cr.z1 - 1, label .. " parvis -z adjacent")
-				eq(cath.entrance.z, cr.z1, label .. " entrance on edge")
+				eq(cath.entrance.z, cr.z1 + back, label .. " entrance behind the edge")
 			elseif cath.side == "+z" then
 				eq(pr.z1, cr.z2 + 1, label .. " parvis +z adjacent")
-				eq(cath.entrance.z, cr.z2, label .. " entrance on edge")
+				eq(cath.entrance.z, cr.z2 - back, label .. " entrance behind the edge")
 			elseif cath.side == "-x" then
 				eq(pr.x2, cr.x1 - 1, label .. " parvis -x adjacent")
-				eq(cath.entrance.x, cr.x1, label .. " entrance on edge")
+				eq(cath.entrance.x, cr.x1 + back, label .. " entrance behind the edge")
 			else
 				eq(pr.x1, cr.x2 + 1, label .. " parvis +x adjacent")
-				eq(cath.entrance.x, cr.x2, label .. " entrance on edge")
+				eq(cath.entrance.x, cr.x2 - back, label .. " entrance behind the edge")
 			end
+			local PW, PD = planner.CONSTANTS.PARVIS_WIDTH, planner.CONSTANTS.PARVIS_FRONT_DEPTH
 			if cath.side == "-z" or cath.side == "+z" then
-				eq(pr.x1 <= cr.x1 and pr.x2 >= cr.x2, true, label .. " parvis spans front")
-				eq(cath.entrance.x >= pr.x1 and cath.entrance.x <= pr.x2, true,
-					label .. " door fronts parvis")
+				eq(pr.x2 - pr.x1 + 1, PW, label .. " parvis width")
+				eq(pr.z2 - pr.z1 + 1, PD, label .. " parvis depth")
+				eq(pr.x1, cath.entrance.x - math.floor(PW / 2), label .. " parvis centred on the door")
 			else
-				eq(pr.z1 <= cr.z1 and pr.z2 >= cr.z2, true, label .. " parvis spans front")
-				eq(cath.entrance.z >= pr.z1 and cath.entrance.z <= pr.z2, true,
-					label .. " door fronts parvis")
+				eq(pr.z2 - pr.z1 + 1, PW, label .. " parvis width")
+				eq(pr.x2 - pr.x1 + 1, PD, label .. " parvis depth")
+				eq(pr.z1, cath.entrance.z - math.floor(PW / 2), label .. " parvis centred on the door")
 			end
 			eq(cath.approach.side, cath.side, label .. " cathedral approach side")
 
@@ -380,7 +386,7 @@ do
 	local c = {x = -645, z = -195}
 	for _, seed in ipairs(FULL and {45000135, 45, 48, 67, 75, 76, 87, 89, 107, 111}
 			or {45000135, 48, 111}) do
-		local plan = planner.plan(c, seed)
+		local plan = small.plan(c, seed)
 		eq(plan ~= nil, true, "regression seed " .. seed .. " planned")
 		if plan then
 			local set = cell_set(plan)
@@ -402,8 +408,8 @@ end
 
 -- The centre translates the layout without changing it.
 do
-	local a = planner.plan({x = 0, z = 0}, 17)
-	local b = planner.plan({x = 250, z = -90}, 17)
+	local a = small.plan({x = 0, z = 0}, 17)
+	local b = small.plan({x = 250, z = -90}, 17)
 	local function norm(p, c)
 		local out = {}
 		local function add(r)
@@ -425,7 +431,7 @@ do
 		return table.concat(out, ";")
 	end
 	eq(norm(a, {x = 0, z = 0}), norm(b, {x = 250, z = -90}), "same seed, translated centre")
-	eq(deep_equal(a, planner.plan({x = 0, z = 0}, 18)), false, "different seed differs")
+	eq(deep_equal(a, small.plan({x = 0, z = 0}, 18)), false, "different seed differs")
 end
 
 -- Invalid inputs fail clearly.
@@ -443,14 +449,20 @@ fails(function() planner.plan({x = 1.5, z = 0}, 1) end, "site_center", "fraction
 fails(function() planner.plan({x = 0, z = "3"}, 1) end, "site_center", "string centre coord")
 fails(function() planner.plan({x = 40000, z = 0}, 1) end, "site_center", "centre out of world")
 fails(function() planner.plan("0,0", 1) end, "site_center", "non-table centre")
-fails(function() planner.plan({x = 0, z = 0}, 1, {max_attempts = -1}) end,
+fails(function() small.plan({x = 0, z = 0}, 1, {max_attempts = -1}) end,
 	"max_attempts", "bad max_attempts")
-fails(function() planner.plan({x = 0, z = 0}, 1, {constants = {NOPE = 1}}) end,
+fails(function() small.plan({x = 0, z = 0}, 1, {constants = {NOPE = 1}}) end,
 	"unknown constant", "unknown constant")
+-- Medieval planning needs the catalog-derived landmark profile.
+fails(function() planner.plan({x = 0, z = 0}, 1) end, "opts.landmarks", "no opts")
+fails(function() planner.plan({x = 0, z = 0}, 1, {}) end, "opts.landmarks", "no landmark profile")
+fails(function() planner.plan({x = 0, z = 0}, 1, {town_type = "medieval"}) end, "opts.landmarks",
+	"medieval needs a profile")
+fails(function() planner.plan({x = 0, z = 0}, 1, "x") end, "opts must be a table", "non-table opts")
 
 -- Exhausted retries return nil plus a useful reason.
 do
-	local plan, reason, detail = planner.plan({x = 0, z = 0}, 5, {max_attempts = 0})
+	local plan, reason, detail = small.plan({x = 0, z = 0}, 5, {max_attempts = 0})
 	eq(plan, nil, "zero budget plan")
 	eq(type(reason), "string", "zero budget reason is a string")
 	eq(reason:find("no valid town plan for seed 5 after 0 attempts", 1, true) ~= nil, true,
@@ -458,28 +470,28 @@ do
 	eq(detail.code, "retries_exhausted", "zero budget code")
 	eq(detail.attempts, 0, "zero budget attempts")
 
-	-- An impossible constant (castle bigger than the envelope) exhausts a
-	-- real budget and names the failing stage.
-	local opts = {max_attempts = 6, constants = {CASTLE_X = 200, CASTLE_Z = 200}}
-	plan, reason, detail = planner.plan({x = 0, z = 0}, 5, opts)
-	eq(plan, nil, "impossible castle plan")
-	eq(detail.code, "retries_exhausted", "impossible castle code")
-	eq(detail.attempts, 6, "impossible castle attempts")
+	-- An impossible constant (a boundary as wide as the whole envelope)
+	-- exhausts a real budget and names the failing stage.
+	local extra = {max_attempts = 6, constants = {MIN_LONG_SPAN = 96, MIN_SHORT_SPAN = 96}}
+	plan, reason, detail = small.plan({x = 0, z = 0}, 5, extra)
+	eq(plan, nil, "impossible boundary plan")
+	eq(detail.code, "retries_exhausted", "impossible boundary code")
+	eq(detail.attempts, 6, "impossible boundary attempts")
 	local total = 0
 	for _, v in pairs(detail.rejections) do total = total + v end
 	eq(total, 6, "every attempt accounted for")
-	eq((detail.rejections.castle or 0) > 0, true, "castle stage reported")
-	eq(reason:find("castle x", 1, true) ~= nil, true, "reason names castle stage")
+	eq((detail.rejections.boundary or 0) > 0, true, "boundary stage reported")
+	eq(reason:find("boundary x", 1, true) ~= nil, true, "reason names boundary stage")
 	eq(reason:find("after 6 attempts", 1, true) ~= nil, true, "reason names budget")
-	local _, reason2 = planner.plan({x = 0, z = 0}, 5, opts)
+	local _, reason2 = small.plan({x = 0, z = 0}, 5, extra)
 	eq(reason2, reason, "failure is deterministic")
 	-- Caller options never leak into later calls.
-	eq(planner.plan({x = 0, z = 0}, 5) ~= nil, true, "defaults unaffected by opts")
+	eq(small.plan({x = 0, z = 0}, 5) ~= nil, true, "defaults unaffected by opts")
 end
 
 -- ASCII renderer.
 do
-	local plan = planner.plan({x = 0, z = 0}, 3)
+	local plan = small.plan({x = 0, z = 0}, 3)
 	local text = planner.render(plan)
 	eq(text:find("seed 3 center (0,0)", 1, true) ~= nil, true, "render header")
 	for _, ch in ipairs({"C", "p", "M", "K", "A", "+", "e", "."}) do
@@ -498,7 +510,7 @@ do
 		536870911, -536870911} or {7919, 7920, 1073741823, 1073741823 - 7919}
 	local sigs, n = {}, 0
 	for _, seed in ipairs(list) do
-		local plan = planner.plan({x = 0, z = 0}, seed)
+		local plan = small.plan({x = 0, z = 0}, seed)
 		eq(plan ~= nil, true, "alias seed " .. seed .. " planned")
 		if plan then
 			local parts = {}
@@ -541,12 +553,16 @@ do
 			if side == "-z" then ent.z = r.z1 elseif side == "+z" then ent.z = r.z2
 			elseif side == "-x" then ent.x = r.x1 else ent.x = r.x2 end
 			s.entrance = ent
+			s.door = {recess = 0, rise = 0, outside = {x = ent.x + s.facing.x, z = ent.z + s.facing.z}}
 		end
 		for k, v in pairs(extra or {}) do s[k] = v end
 		return s
 	end
 	local function build(wall_top)
 		local cath = R(60, 28, 66, wall_top)
+		-- The parvis is PARVIS_WIDTH x PARVIS_FRONT_DEPTH, centred on the door.
+		local lat = 28 + math.floor((wall_top - 28) / 2)
+		local PW, PD = planner.CONSTANTS.PARVIS_WIDTH, planner.CONSTANTS.PARVIS_FRONT_DEPTH
 		local plan = {
 			seed = 1, center = {x = 48, z = 48}, envelope = R(0, 0, 95, 95),
 			bounds = R(20, 28, 79, 67), width = 60, depth = 40,
@@ -554,7 +570,8 @@ do
 			site_order = {"cathedral", "parvis", "market", "castle"},
 			sites = {
 				cathedral = site("cathedral", "landmark", cath, "+x", {parvis = "parvis"}),
-				parvis = site("parvis", "square", R(67, 28, 78, wall_top), "+x"),
+				parvis = site("parvis", "square",
+					R(67, lat - math.floor(PW / 2), 66 + PD, lat - math.floor(PW / 2) + PW - 1), "+x"),
 				market = site("market", "square", R(36, 42, 46, 52), "+x"),
 				castle = site("castle", "landmark", R(22, 28, 40, 35), "+z",
 					{outer_side = "-z", edge_gap = 0}),
@@ -567,13 +584,13 @@ do
 		}
 		return plan
 	end
-	local ok, why = planner.validate(build(55), K)
+	local ok, why = small.validate(build(55), K)
 	-- Site/boundary/route checks pass; a plan with no streets is rejected.
 	eq(ok, nil, "hand-built plan without streets rejected")
 	eq(tostring(why):find("no streets", 1, true) ~= nil, true,
 		"no-streets reason: " .. tostring(why))
 
-	ok, why = planner.validate(build(67), K)
+	ok, why = small.validate(build(67), K)
 	eq(ok, nil, "wall closes the route")
 	eq(tostring(why):find("not connected by a street-wide route", 1, true) ~= nil, true,
 		"blocked route reason: " .. tostring(why))
@@ -581,14 +598,14 @@ do
 	-- Overlapping sites.
 	local p = build(55)
 	p.sites.market = site("market", "square", R(50, 40, 62, 50), "+x")
-	ok, why = planner.validate(p, K)
+	ok, why = small.validate(p, K)
 	eq(ok, nil, "overlapping sites rejected")
 	eq(tostring(why):find("overlap", 1, true) ~= nil, true, "overlap reason: " .. tostring(why))
 
 	-- Site outside the boundary.
 	p = build(55)
 	p.sites.castle = site("castle", "landmark", R(22, 20, 40, 27), "+z", {outer_side = "-z", edge_gap = 0})
-	ok, why = planner.validate(p, K)
+	ok, why = small.validate(p, K)
 	eq(ok, nil, "site outside boundary rejected")
 	eq(tostring(why):find("not contained", 1, true) ~= nil, true, "containment reason: " .. tostring(why))
 
@@ -597,17 +614,17 @@ do
 	p.approaches[2].edge = R(79, 44, 79, 49)
 	p.approaches[1].edge = R(79, 40, 79, 45)
 	p.approaches[1].side = "+x"
-	ok, why = planner.validate(p, K)
+	ok, why = small.validate(p, K)
 	eq(ok, nil, "same-side approaches rejected")
 
 	-- Cut boundary: disconnected.
 	p = build(55)
 	p.boundary.rects = {R(20, 28, 40, 67), R(60, 28, 79, 67)}
-	ok, why = planner.validate(p, K)
+	ok, why = small.validate(p, K)
 	eq(ok, nil, "disconnected boundary rejected")
 
 	-- Garbage in; no internal file:line text leaks.
-	ok, why = planner.validate({seed = 1, center = {x = 0, z = 0}, envelope = {x1 = -48, z1 = -48, x2 = 47, z2 = 47}})
+	ok, why = small.validate({seed = 1, center = {x = 0, z = 0}, envelope = {x1 = -48, z1 = -48, x2 = 47, z2 = 47}})
 	eq(ok, nil, "malformed plan rejected")
 	eq(planner.validate({}), nil, "empty plan rejected")
 	eq(planner.validate("x"), nil, "non-table plan rejected")
@@ -623,12 +640,12 @@ do
 		for k, x in pairs(v) do o[k] = copy(x) end
 		return o
 	end
-	local base = planner.plan({x = 10, z = -20}, 31)
-	eq(planner.validate(base), true, "mutation base validates")
+	local base = small.plan({x = 10, z = -20}, 31)
+	eq(small.validate(base), true, "mutation base validates")
 	local function bad(label, fn)
 		local p = copy(base)
 		fn(p)
-		local ok, why = planner.validate(p)
+		local ok, why = small.validate(p)
 		eq(ok, nil, "validate rejects: " .. label)
 		eq(type(why), "string", "validate gives reason: " .. label)
 	end
@@ -686,10 +703,10 @@ do
 	for _, c in ipairs({{x = 0, z = 0}, {x = -800, z = 1234}}) do
 		local first
 		for _, seed in ipairs(FULL and {70894448, 70894447, 70894449} or {70894448}) do
-			local plan, why = planner.plan(c, seed)
+			local plan, why = small.plan(c, seed)
 			eq(plan ~= nil, true, "fixed-point seed " .. seed .. " planned: " .. tostring(why))
 			if plan then
-				eq(planner.validate(plan), true, "fixed-point seed " .. seed .. " validates")
+				eq(small.validate(plan), true, "fixed-point seed " .. seed .. " validates")
 				if c.x == 0 then sigs[sig(plan)] = true end
 			end
 		end
