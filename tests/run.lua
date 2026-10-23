@@ -11,9 +11,11 @@ local placement = dofile("src/placement.lua")(geometry)
 
 -- TOWNS_TEST_ONLY=tests/x_tests.lua runs just that group (for development).
 local only_group = os.getenv("TOWNS_TEST_ONLY")
+local only_group_ran = false
 local failures, count = 0, 0
 local function run_group(path, ...)
 	if only_group and only_group ~= path then return end
+	only_group_ran = true
 	local started, started_count = os.clock(), count
 	print("RUN " .. path)
 	loadfile(path)(...)
@@ -573,5 +575,9 @@ run_group("tests/wall_rotation_tests.lua", eq, dofile("src/schematic.lua"))
 -- Layout comparison tool (ticket #109): deterministic artifacts and metrics.
 run_group("tests/layout_compare_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
 
+if only_group and not only_group_ran then
+	print("TOWNS_TEST_ONLY matched no group: " .. only_group)
+	os.exit(2)
+end
 print(("%d checks, %d failures"):format(count, failures))
 os.exit(failures == 0 and 0 or 1)

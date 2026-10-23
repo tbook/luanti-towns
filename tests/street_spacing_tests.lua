@@ -32,6 +32,7 @@ do
 		"a deeper catalog raises the minimum block side")
 	local legacy = planner.resolve_constants({})
 	eq(legacy.ROW_DEPTH, nil, "no policy without a profile")
+	eq(legacy.MIN_BLOCK_SIDE, 8, "legacy block side unchanged")
 	local over = planner.resolve_constants({landmarks = base, constants = {ROW_DEPTH = 12}})
 	eq(over.ROW_DEPTH, 12, "explicit constant wins")
 end

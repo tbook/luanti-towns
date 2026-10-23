@@ -304,6 +304,7 @@ do
 	-- The one real-generation case: a populated medieval plan through the
 	-- search, composed and preflighted. (The limit and failure cases below
 	-- use a small authored plan.)
+	local legacy = assert(search({landmarks = profile}, false))
 	local r, why = search({landmarks = profile}, true)
 	eq(r ~= nil, true, "structure bounds: result " .. tostring(why))
 	local comp = assert(preflight.compose(r.plan, catalog.entries, r.ground_y))
@@ -327,6 +328,14 @@ do
 		expect_top = math.max(expect_top, e.size.y - (e.ground_offset or 0))
 	end
 	eq(r.build_bounds.max.y, r.ground_y + expect_top - 1, "exact top of tallest structure")
+	local legacy_h = ss.CONSTANTS.LANDMARK_BLOCKOUT_HEIGHT
+	for _, n in ipairs({"cathedral", "castle"}) do
+		legacy_h = math.max(legacy_h, profile[n].size.y - (profile[n].ground_offset or 0))
+	end
+	eq(legacy.build_bounds.max.y, legacy.ground_y + legacy_h + ss.CONSTANTS.BLOCKOUT_MARGIN,
+		"legacy top keeps the blockout clearance exactly")
+	eq(legacy.structures, nil, "legacy result has no structures")
+	eq(legacy.center.x, r.center.x, "same site")
 	eq(r.build_bounds.min.y <= r.ground_y - 5, true, "bounds include the castle foundation")
 	eq(r.build_volume.max.y, r.build_bounds.max.y, "volume covers the top")
 

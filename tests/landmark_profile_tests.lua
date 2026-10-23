@@ -256,6 +256,8 @@ do
 	-- Block tuning (#86, #89) applies to profile plans only.
 	eq(CL.MAX_BLOCK_DEPTH, 24, "profile max block depth")
 	eq(CL.MIN_BLOCK_SIDE, 12, "profile min block side")
+	eq(planner.resolve_constants().MAX_BLOCK_DEPTH, 12, "legacy max block depth")
+	eq(planner.resolve_constants().MIN_BLOCK_SIDE, 8, "legacy min block side")
 	eq(planner.CONSTANTS.STREET_WIDTH, 5, "principal street width (#88)")
 end
 
