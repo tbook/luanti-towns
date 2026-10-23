@@ -29,7 +29,7 @@ return function(eq, fails, geometry)
 
 	-- Placement at each rotation with explicit expected coordinates.
 	-- geometry.place(castle, {x=100, y=3, z=100}, rotation) derives from
-	-- placement.plan's application of ground_offset when given pos.y=8.
+	-- the ground_offset (5) below a ground level of 8.
 	-- The outside cell is inside the footprint box (property of the z=3 recess).
 	local origin = {x = 100, y = 3, z = 100}
 	local expected = {

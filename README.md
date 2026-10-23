@@ -136,7 +136,7 @@ residents, generate, Roman planner and population, layout comparison). Component
 suites use small explicit plans and fake terrain; a few real medieval and Roman
 generation and build cases are kept as integration checks. Run
 `TOWNS_TEST_FULL=1 lua5.1 tests/run.lua` to add the broad seed and fuzz sweeps
-(several minutes), or `TOWNS_TEST_ONLY=tests/x_tests.lua lua5.1 tests/run.lua`
+(about 3-4 minutes of CPU), or `TOWNS_TEST_ONLY=tests/x_tests.lua lua5.1 tests/run.lua`
 for one group. Each test group prints its elapsed time and check count.
 
 GitHub Actions runs the default command on every pull request and on pushes to

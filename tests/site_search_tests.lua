@@ -973,6 +973,28 @@ do
 	eq(total({}), #ss.candidate_offsets(ss.CONSTANTS.STEP, grown), "reach grows with the plan's extent")
 	eq(total({max_radius = 320}), #ss.candidate_offsets(ss.CONSTANTS.STEP, 320),
 		"explicit max_radius is not grown")
+	-- A medieval town (landmark profile) always reaches the full 376, even
+	-- when this seed's plan is compact (edge 60 < 104); explicit is as given.
+	local compact = setmetatable({
+		plan = function(center, seed)
+			local plan = make_authored_plan(center, seed)
+			plan.bounds = {x1 = center.x - 60, z1 = center.z, x2 = center.x + 15, z2 = center.z + 8}
+			return plan
+		end,
+	}, {__index = small_planner})
+	local compact_ss = factory(placement, compact)
+	local function compact_total(opts)
+		local out
+		opts.planner_opts = {landmarks = dofile("tests/small_town.lua")(planner).profile,
+			constants = {ENVELOPE = 208}}
+		compact_ss.search(PLAYER, SEED, opts, function(_, _, d) out = d.candidates_total end,
+			new_world({}).env)
+		return out
+	end
+	local old_reach = #ss.candidate_offsets(ss.CONSTANTS.STEP, 376)
+	eq(compact_total({entries = catalog.entries}), old_reach, "compact medieval plan still reaches 376")
+	eq(compact_total({entries = catalog.entries, max_radius = 320}),
+		#ss.candidate_offsets(ss.CONSTANTS.STEP, 320), "explicit max_radius wins for medieval")
 end
 
 -- Lava is matched by exact node name (ticket #104).
