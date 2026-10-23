@@ -148,3 +148,49 @@ do
 	caught("market moved off the crossing corner", function(p) shift_rect(p.sites.market.rect, lat.x * 3, lat.z * 3) end,
 		"market beside both principals")
 end
+
+-- Turned plans keep every block's size field in step with its rect.
+for _, turn in ipairs({0, 90, 180, 270}) do
+	local plan = assert(medieval.plan({x = 3, z = 4}, 6, profile, fixed_rng(6),
+		{quadrant = 2, castle_east = false, turn = turn}))
+	local bad = 0
+	for _, b in ipairs(plan.blocks) do
+		if b.size.x ~= b.rect.x2 - b.rect.x1 + 1 or b.size.z ~= b.rect.z2 - b.rect.z1 + 1 then bad = bad + 1 end
+	end
+	eq(bad, 0, "turn " .. turn .. " block sizes match their rects")
+end
+
+-- Forcing a field never shifts the other draws: the market length and the
+-- block cuts equal those of the unforced plan from the same rng stream.
+do
+	local function dims(r)
+		local a, b = r.x2 - r.x1 + 1, r.z2 - r.z1 + 1
+		return math.min(a, b) .. "x" .. math.max(a, b)
+	end
+	local function block_sizes(plan)
+		local out = {}
+		for _, b in ipairs(plan.blocks) do out[#out + 1] = dims(b.rect) end
+		table.sort(out)
+		return table.concat(out, ",")
+	end
+	for seed = 1, 6 do
+		local c = {x = 0, z = 0}
+		local natural = assert(medieval.plan(c, seed, profile, fixed_rng(seed)))
+		local function forced(v) return assert(medieval.plan(c, seed, profile, fixed_rng(seed), v)) end
+		local label = "seed " .. seed
+		for _, turn in ipairs({0, 90, 180, 270}) do
+			local p = forced({turn = turn})
+			eq(dims(p.sites.market.rect), dims(natural.sites.market.rect), label .. " turn " .. turn .. " market length")
+			eq(block_sizes(p), block_sizes(natural), label .. " turn " .. turn .. " block cuts")
+		end
+		for _, east in ipairs({false, true}) do
+			local p = forced({castle_east = east})
+			eq(dims(p.sites.market.rect), dims(natural.sites.market.rect), label .. " castle " .. tostring(east) .. " market length")
+			eq(block_sizes(p), block_sizes(natural), label .. " castle " .. tostring(east) .. " block cuts")
+		end
+		for q = 0, 3 do
+			eq(dims(forced({quadrant = q}).sites.market.rect), dims(natural.sites.market.rect),
+				label .. " quadrant " .. q .. " market length")
+		end
+	end
+end

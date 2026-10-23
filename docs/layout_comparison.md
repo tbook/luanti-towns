@@ -389,3 +389,7 @@ historical records of the retired search planner and were not regenerated.
 (the plan's turn), `market=ab` the market's side along `f` and across it, and
 `castle=c` the castle's side across `f` (tests/medieval_arrangement.lua).
 Bounds are 210x151, or 151x210 when turned a quarter, for every arrangement.
+
+`variation.tsv` is not written by `layout_compare`: it was produced by planning
+each seed with `planner.plan` and printing `plan.bounds`, the ordinary
+building count and `dofile("tests/medieval_arrangement.lua").arrangement(plan)`.
