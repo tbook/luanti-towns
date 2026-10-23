@@ -1,7 +1,10 @@
 -- Plain Lua 5.1 tests for the pure modules. Run from the mod root:
---   lua5.1 tests/run.lua
+--   lua5.1 tests/run.lua                      every group, small seed sets (CI)
+--   TOWNS_TEST_FULL=1 lua5.1 tests/run.lua    also the broad seed/fuzz sweeps
+--   TOWNS_TEST_ONLY=tests/x_tests.lua lua5.1 tests/run.lua   one group
+-- Every group runs by default. Groups that sweep many generated towns read
+-- TOWNS_TEST_FULL themselves and widen only their seed sweeps.
 io.stdout:setvbuf("no")
-local full_tests = os.getenv("TOWNS_TEST_FULL") == "1"
 local geometry = dofile("src/geometry.lua")
 local catalog = dofile("src/catalog.lua")
 local placement = dofile("src/placement.lua")(geometry)
@@ -9,14 +12,8 @@ local placement = dofile("src/placement.lua")(geometry)
 -- TOWNS_TEST_ONLY=tests/x_tests.lua runs just that group (for development).
 local only_group = os.getenv("TOWNS_TEST_ONLY")
 local failures, count = 0, 0
-local slow_groups = {
-}
 local function run_group(path, ...)
 	if only_group and only_group ~= path then return end
-	if slow_groups[path] and not full_tests then
-		print("SKIP " .. path .. " (set TOWNS_TEST_FULL=1 to include)")
-		return
-	end
 	local started, started_count = os.clock(), count
 	print("RUN " .. path)
 	loadfile(path)(...)
