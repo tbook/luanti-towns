@@ -47,7 +47,7 @@ The defining features are:
 - a cathedral parvis;
 - a market square;
 - a dense network of mostly orthogonal streets;
-- secondary streets and alleys;
+- secondary streets;
 - dense street-front buildings;
 - repeated taverns, wells, and possibly small churches or chapels;
 - optional town walls;
@@ -78,7 +78,6 @@ The planner should make decisions such as:
 - landmark positions;
 - streets;
 - squares;
-- alleys;
 - blocks;
 - building positions;
 - public-service locations;
@@ -297,21 +296,6 @@ Their main purpose is to:
 
 An initial width around four nodes may be reasonable, but again this is primarily a play-testing question.
 
-## Alleys
-
-Narrow alleys may appear between or through blocks.
-
-They provide:
-
-- visual complexity;
-- pedestrian-scale passages;
-- access to some interior areas;
-- a stronger medieval feel.
-
-Alleys should remain a secondary feature rather than turning the town into a maze.
-
-A town should still be easy to understand and navigate.
-
 ---
 
 # Street Materials
@@ -333,7 +317,7 @@ Possible biases include:
 
 - major streets using more substantial paving;
 - central streets being better maintained;
-- alleys and peripheral streets using rougher surfaces.
+- peripheral streets using rougher surfaces.
 
 The exact palette should remain flexible.
 
@@ -352,8 +336,7 @@ A useful planning order is:
 1. establish important destinations;
 2. establish gates;
 3. connect major destinations with principal streets;
-4. add secondary streets where needed;
-5. add alleys for local complexity.
+4. add secondary streets where needed.
 
 The exact graph or routing algorithm should be chosen by the implementation agent.
 
@@ -395,7 +378,7 @@ Instead, buildings can be packed along usable street frontage.
 A simple conceptual approach is:
 
 1. identify usable frontage along a block;
-2. reserve space needed for corners, alleys, monuments, or access;
+2. reserve space needed for corners, monuments, or access;
 3. choose a building that fits;
 4. place it facing the street;
 5. continue along the frontage until no appropriate building fits.
@@ -653,7 +636,6 @@ The initial version should keep this system simple.
 Not every interior space needs:
 
 - formal access;
-- an alley;
 - a path;
 - a fully simulated purpose.
 
@@ -1068,15 +1050,14 @@ The exact mechanics are open to implementation choices, but the conceptual order
 7. Lay out principal streets connecting major destinations.
 8. Place or determine the market square.
 9. Add secondary streets to produce manageable blocks.
-10. Add selected alleys.
-11. Place secondary monuments and important public buildings.
-12. Ensure appropriate distribution of taverns, wells, and smaller churches.
-13. Identify usable block street frontages.
-14. Pack ordinary buildings along those frontages.
-15. Add simple interest to block interiors.
-16. Generate walls, towers, and gatehouses if this town is walled.
-17. Add exterior fringe development.
-18. Materialize the final plan into the world.
+10. Place secondary monuments and important public buildings.
+11. Ensure appropriate distribution of taverns, wells, and smaller churches.
+12. Identify usable block street frontages.
+13. Pack ordinary buildings along those frontages.
+14. Add simple interest to block interiors.
+15. Generate walls, towers, and gatehouses if this town is walled.
+16. Add exterior fringe development.
+17. Materialize the final plan into the world.
 
 This sequence is a guide, not a requirement that every internal implementation step correspond exactly to one code module.
 
@@ -1220,7 +1201,7 @@ Important signs of success include:
 - the central area has continuous or near-continuous street frontage;
 - buildings vary enough to avoid obvious repetition;
 - taverns, wells, churches, and other public destinations are reasonably distributed;
-- alleys and block interiors provide smaller-scale detail;
+- block interiors provide smaller-scale detail;
 - density decreases naturally outside the walls;
 - the town is pleasant to explore on foot.
 

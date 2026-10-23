@@ -48,7 +48,7 @@ What a Roman run shows, in `seed_N.svg` and `seed_N.txt`: the forum square
 (`Q`, labelled `forum`), every landmark instance (`L`, labelled by its unique
 site name, such as `temple_east`, `temple_west`, `domus_1` to `domus_4`, the
 four arches, `amphitheater`, `theatre`, `bath`), the streets and ring, ordinary
-buildings, the tavern, well and jail, and access alleys. The ASCII header lists
+buildings, the tavern, well and jail. The ASCII header lists
 each site instance with its kind, catalog id and extent. Medieval-only classes
 (market, parvis, cathedral, castle, city hall, chapel, approach window) are not
 in the Roman legend.
@@ -96,7 +96,7 @@ other metrics apply to both town types.
 Both distinguish: plan boundary, free block ground, secondary and principal
 streets, market, parvis, cathedral and castle compounds, city hall, jail,
 tavern/well/chapel, actual placed houses/shops/workshops (exact footprint
-boxes), access alleys, boundary approach windows, the town centre, and the
+boxes), boundary approach windows, the town centre, and the
 narrow strips measured below.
 
 Hooks for later tickets (legend entries exist; nothing is drawn until the
@@ -112,7 +112,7 @@ All lengths are in nodes. All cells are classified from the finished plan's
 rectangles; a node takes the last-painted class (squares over streets,
 landmarks over blocks, buildings over blocks). "Free ground" is boundary
 ground not covered by a street, square, landmark, jail or service (blocks,
-placed ordinary buildings, access alleys and unblocked boundary all count as
+placed ordinary buildings and unblocked boundary all count as
 free ground, since buildings can sit on it).
 
 - `street_len`: estimated centreline length of the ordinary street network.
@@ -147,9 +147,8 @@ free ground, since buildings can sit on it).
   pavement, in the same units as `frontage_square`. Square runs are packed
   before street runs and measured separately.
 - `ordinary`, `houses`, `shops`, `workshops`: actual placed ordinary
-  buildings from `plan.content.counts` (after alleys). `jail`, `services`,
-  `shortages` count reservations and unmet targets. `alleys` is the number
-  of access alleys; `empty_runs` the street and square runs that received no building;
+  buildings from `plan.content.counts`. `jail`, `services`,
+  `shortages` count reservations and unmet targets; `empty_runs` the street and square runs that received no building;
   `unused_len` the total length of run intervals no building covers
   (continuity of rows: lower is more continuous).
 - `blocks`, `block_cells`: planner blocks and their area. `blocks_single_row`

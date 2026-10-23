@@ -14,8 +14,6 @@ local slow_groups = {
 	["tests/jail_reservation_tests.lua"] = true,
 	["tests/service_reservation_tests.lua"] = true,
 	["tests/content_planner_tests.lua"] = true,
-	["tests/interior_access_tests.lua"] = true,
-	["tests/access_alley_tests.lua"] = true,
 	["tests/street_spacing_tests.lua"] = true,
 	["tests/site_search_tests.lua"] = true,
 	["tests/preflight_tests.lua"] = true,
@@ -541,12 +539,6 @@ run_group("tests/service_reservation_tests.lua", eq, fails, dofile("src/planner.
 -- Frontage content planning (ticket #42).
 run_group("tests/content_planner_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
--- Interior access validation (ticket #54).
-run_group("tests/interior_access_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
-
--- Access alleys (ticket #43).
-run_group("tests/access_alley_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
-
 -- Streets, blocks and frontage (ticket #13).
 run_group("tests/streets_tests.lua", eq, fails, dofile("src/planner.lua"))
 run_group("tests/street_spacing_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
@@ -566,7 +558,7 @@ run_group("tests/preflight_tests.lua", eq, fails, dofile("src/planner.lua"), cat
 run_group("tests/builder_tests.lua", eq, fails, placement, dofile("src/planner.lua"),
 	dofile("src/site_search.lua"), dofile("src/builder.lua"))
 
--- Town placement (ticket #45): schematics, alleys, door routes, failures.
+-- Town placement (ticket #45): schematics, door routes, failures.
 run_group("tests/town_build_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, placement,
 	dofile("src/site_search.lua"), dofile("src/builder.lua"))
 

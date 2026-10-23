@@ -287,7 +287,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
     end
     local town = summary.town
     check(town and town.complete, 'summary marked complete')
-    report.counts = {structures = #town.structures, alleys = town.alleys, nodes_changed = summary.nodes.changed}
+    report.counts = {structures = #town.structures, nodes_changed = summary.nodes.changed}
     -- Re-read every structure against its schematic, rotation by rotation.
     local mismatches, compared = 0, 0
     for _, b in ipairs(town.structures) do
@@ -340,17 +340,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
     local content_n = 0
     for _, b in ipairs(town.structures) do if b.kind == 'content' then content_n = content_n + 1 end end
     if content_n >= 2 then check(touching >= 1, 'at least one pair of adjacent buildings (' .. touching .. ')') end
-    -- Alleys paved and standable.
     local plan = result.plan
-    local alleys = plan.content.alleys or {}
-    report.plan_alleys = #alleys
-    for _, a in ipairs(alleys) do
-     local cell = core.get_node({x = a.rect.x1, y = g, z = a.rect.z1}).name
-     check(cell == 'mcl_core:cobble' or cell == 'mcl_core:gravel', 'alley ' .. a.id .. ' paved: ' .. cell)
-     local above = core.get_node({x = a.rect.x1, y = g + 1, z = a.rect.z1}).name
-     check(above == 'air', 'alley ' .. a.id .. ' open above: ' .. above)
-    end
-    report.alleys_in_plan = #alleys > 0
     -- City hall (#106) stands beside the market: the market node in front
     -- of its door is pavement, its facade end cells are not.
     local hall = plan.sites.city_hall

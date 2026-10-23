@@ -162,18 +162,14 @@ end
 
 local AIR_INFO = {walkable = false, liquid = false}
 
-local function rects_overlap(a, b)
-	return a.x1 <= b.x2 and b.x1 <= a.x2 and a.z1 <= b.z2 and b.z1 <= a.z2
-end
-
 -- Town mode setup (ticket #45): composes every structure box, decides which
--- landmarks are real (no blockout) and collects alleys and unpaved holes.
--- Fills `town` {comp, real, alleys, holes}; returns true or nil, message.
+-- landmarks are real (no blockout) and collects unpaved holes.
+-- Fills `town` {comp, real, holes}; returns true or nil, message.
 function M.prepare_town(town, plan, g, bb)
 	local comp, why = preflight.compose(plan, town.entries, g)
 	if not comp then return nil, "town content: " .. tostring(why) end
 	if #comp.structures == 0 then return nil, "the plan has no buildings to place" end
-	town.comp, town.real, town.alleys, town.holes = comp, {}, {}, {}
+	town.comp, town.real, town.holes = comp, {}, {}
 	for _, b in ipairs(comp.structures) do
 		if b.min.x < bb.min.x or b.max.x > bb.max.x or b.min.y < bb.min.y
 				or b.max.y > bb.max.y or b.min.z < bb.min.z or b.max.z > bb.max.z then
@@ -185,14 +181,6 @@ function M.prepare_town(town, plan, g, bb)
 		if type(e) ~= "table" or type(e.path) ~= "string" then
 			return nil, ("'%s' has no schematic path"):format(tostring(b.id))
 		end
-	end
-	for _, a in ipairs(type(plan.content) == "table" and plan.content.alleys or {}) do
-		for _, b in ipairs(comp.structures) do
-			if rects_overlap(a.rect, b.rect) then
-				return nil, ("alley %s overlaps %s '%s'"):format(tostring(a.id), b.kind, b.id)
-			end
-		end
-		town.alleys[#town.alleys + 1] = a
 	end
 	return true
 end
@@ -439,7 +427,7 @@ local function build_impl(result, opts, env, st)
 			max_y = bb.max.y,
 		}
 		if st.town then
-			lopts.real, lopts.alleys, lopts.holes = st.town.real, st.town.alleys, st.town.holes
+			lopts.real, lopts.holes = st.town.real, st.town.holes
 		end
 		local lok, L = pcall(TL.new, plan, g, lopts)
 		if not lok then
@@ -652,7 +640,7 @@ local function build_impl(result, opts, env, st)
 			log("action", "towns builder: [6c/6] node setup: " .. (env.format_setup and env.format_setup(rep) or "done"))
 		end
 		town_info = {structures = t.comp.structures, bounds = bounds, doors = doors,
-			alleys = t.alleys, placed = #placed, setup = setup}
+			placed = #placed, setup = setup}
 	end
 	log("action", "towns builder: construction complete")
 
@@ -690,7 +678,7 @@ local function build_impl(result, opts, env, st)
 		summary.town = {
 			complete = true,
 			structures = town_info.structures, placed = town_info.placed,
-			doors = town_info.doors, alleys = #town_info.alleys,
+			doors = town_info.doors,
 			bounds = town_info.bounds,
 			setup = town_info.setup,
 		}
@@ -730,7 +718,7 @@ end
 
 -- builder.build_town(result, opts, env): ticket #45. Everything build() does
 -- except that real cathedral and castle schematics replace the blockouts,
--- planned alleys are paved, and then every composed structure is placed in
+-- and then every composed structure is placed in
 -- stable order (preflight.compose order: cathedral, castle, city hall, jail,
 -- services, ordinary buildings) with its explicit rotation at its minimum
 -- corner. Afterwards each door's approach route is checked.
@@ -754,7 +742,7 @@ end
 -- is placement_failed, engine_error, door_unreachable, door_check_error,
 -- node_setup_failed or node_setup_error.
 -- Success: the build() summary plus summary.town {complete = true, structures,
--- placed, doors, alleys, bounds}; write_bounds then covers every structure.
+-- placed, doors, bounds}; write_bounds then covers every structure.
 -- The caller runs preflight.check first (files, node registration, emerge).
 function M.build_town(result, opts, env)
 	opts = opts or {}

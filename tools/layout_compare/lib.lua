@@ -41,7 +41,6 @@ local CLASSES = {
 	{"house", "h", "#f7f7f7", "ordinary house"},
 	{"shop", "s", "#9fd8d0", "ordinary shop"},
 	{"workshop", "w", "#d8c19f", "ordinary workshop"},
-	{"alley", "a", "#bbbbbb", "access alley"},
 	{"approach", "A", "#ffd400", "boundary approach window", overlay = true, medieval = true},
 	{"core", "o", "#ff8c00", "town core (HOOK: plan.core, not yet planned)", overlay = true},
 	{"footprint", "f", "#000000", "construction footprint (HOOK: plan.footprint)", overlay = true, outline = true},
@@ -124,7 +123,6 @@ local function layers(plan)
 	for _, s in ipairs(res.services or {}) do add(s.role, s.rect) end
 	local content = plan.content or {}
 	for _, b in ipairs(content.buildings or {}) do add(b.role, b.rect) end
-	for _, a in ipairs(content.alleys or {}) do add("alley", a.rect) end
 	for _, a in ipairs(plan.approaches or {}) do add("approach", a.edge) end
 	-- Hooks for later layout tickets; field names are provisional.
 	if type(plan.core) == "table" and plan.core.x1 then add("core", plan.core) end
@@ -233,7 +231,7 @@ local function residue_test(b, free, D)
 end
 
 local FREE = {boundary = true, block = true, house = true, shop = true,
-	workshop = true, alley = true}
+	workshop = true}
 
 -- Width of the first street of `kind`; `fallback` when the plan has none.
 local function kind_width(plan, kind, fallback)
@@ -266,7 +264,7 @@ function M.analyze(plan, profile)
 	for _, n in pairs(count) do in_boundary = in_boundary + n end
 	m.boundary_cells = in_boundary
 	m.free_cells = (count.boundary or 0) + (count.block or 0) + (count.house or 0)
-		+ (count.shop or 0) + (count.workshop or 0) + (count.alley or 0)
+		+ (count.shop or 0) + (count.workshop or 0)
 
 	-- Streets: unique pavement cells not covered by a square.
 	m.street_cells_principal = count.principal or 0
@@ -336,7 +334,6 @@ function M.analyze(plan, profile)
 		end
 	end
 	m.frontage_used, m.frontage_square_used = used, square_used
-	m.alleys = #(content.alleys or {})
 	m.empty_runs = #(content.empty_runs or {})
 	local unused = 0
 	for _, u in ipairs(content.unused or {}) do unused = unused + u.length end
@@ -543,7 +540,7 @@ local COLUMNS = {
 	"frontage_ordinary", "frontage_usable", "frontage_square", "frontage_used",
 	"frontage_square_used",
 	"ordinary", "houses", "shops", "workshops", "jail", "services", "shortages",
-	"alleys", "empty_runs", "unused_len",
+	"empty_runs", "unused_len",
 	"row_depth", "strips", "strip_cells", "specks", "speck_cells",
 	"parvis_x", "parvis_z", "parvis_area",
 	"market_x", "market_z", "market_area", "market_open", "market_open_share",
@@ -747,7 +744,7 @@ function M.run(planner, catalog, opts)
 		"street_len_secondary", "frontage_ordinary", "frontage_usable", "frontage_used",
 		"ordinary", "houses", "shops", "workshops", "blocks", "blocks_single_row", "strips",
 		"strip_cells", "specks", "parvis_x", "parvis_z", "market_area", "market_open_share",
-		"market_open_square", "jail", "services", "alleys", "empty_runs"}
+		"market_open_square", "jail", "services", "empty_runs"}
 	P("| " .. table.concat(show, " | ") .. " |")
 	local sep = {}
 	for i = 1, #show do sep[i] = "---" end

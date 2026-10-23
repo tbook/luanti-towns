@@ -5,8 +5,7 @@ local eq, fails, planner, catalog, geometry = ...
 
 local packer = dofile("src/frontage_packer.lua")(geometry)
 local jailmod = dofile("src/jail_reservation.lua")(packer)
-local access = dofile("src/interior_access.lua")
-local content = dofile("src/content_planner.lua")(geometry, packer, jailmod.occupied_rects, access)
+local content = dofile("src/content_planner.lua")(geometry, packer, jailmod.occupied_rects)
 
 -- Documented seed set: 1 and 2 are compared pairwise, 3 and 7 add coverage.
 local SEEDS = {1, 2, 3, 7}
@@ -103,11 +102,8 @@ for _, seed in ipairs(SEEDS) do
 	eq(street > 0, true, tag .. " populates street frontage")
 	eq(forum > 0, true, tag .. " populates forum frontage")
 
-	-- Clearance, door approaches and interior access.
+	-- Clearance and door approaches.
 	eq(content.validate(plan, plan.content, snapshot), true, tag .. " content validates")
-	local acc = assert(access.check(plan))
-	eq(acc.ok, true, tag .. " interior access")
-	eq(#acc.components, 0, tag .. " no sealed ground")
 
 	eq(signature(plan_at(0, 0, seed)), signature(plan), tag .. " reproduces placements")
 	-- A shifted centre translates the same packing.
