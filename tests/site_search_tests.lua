@@ -7,6 +7,7 @@
 -- no medieval town is generated per search; the real planner is only asked to
 -- fail (an unknown catalog id) and for the one populated-catalog integration case.
 local eq, fails, placement, planner, factory = ...
+local medieval_profile = assert(planner.landmark_profile(dofile("src/catalog.lua").snapshot()))
 local make_authored_plan = dofile("tests/authored_plan_fixture.lua")
 local small_planner = setmetatable({
 	plan = function(center, seed, popts)
@@ -425,11 +426,10 @@ eq(ew.reads, 1, "emerge failure: only the player's ground node was read")
 
 -- Plan failure: no emerge, counted, not accepted.
 local pw = new_world({})
-local broken = dofile("tests/small_town.lua")(planner)
 local broken_landmarks = {}
-for k, v in pairs(broken.profile) do broken_landmarks[k] = v end
-broken_landmarks.cathedral = {id = "no_such_cathedral", size = broken.profile.cathedral.size,
-	entrance = broken.profile.cathedral.entrance}
+for k, v in pairs(medieval_profile) do broken_landmarks[k] = v end
+broken_landmarks.cathedral = {id = "no_such_cathedral", size = medieval_profile.cathedral.size,
+	entrance = medieval_profile.cathedral.entrance}
 r9, s9, d9 = run(pw, PLAYER, {max_radius = 48, planner_opts = {landmarks = broken_landmarks}})
 eq(r9, nil, "plan failure: not accepted")
 eq(d9.rejections.plan_failed, 1, "plan failure: fails fast, counted once")
@@ -989,8 +989,7 @@ do
 	local compact_ss = factory(placement, compact)
 	local function compact_total(opts)
 		local out
-		opts.planner_opts = {landmarks = dofile("tests/small_town.lua")(planner).profile,
-			constants = {ENVELOPE = 208}}
+		opts.planner_opts = {landmarks = medieval_profile}
 		compact_ss.search(PLAYER, SEED, opts, function(_, _, d) out = d.candidates_total end,
 			new_world({}).env)
 		return out
@@ -1012,7 +1011,7 @@ do
 	local selected = {
 		SEED_LIMIT = planner.SEED_LIMIT,
 		check_seed = planner.check_seed,
-		resolve_constants = planner.resolve_constants,
+		CONSTANTS = planner.CONSTANTS,
 		validate = planner.validate,
 		plan = function(center, seed) return make_authored_plan(center, seed) end,
 	}

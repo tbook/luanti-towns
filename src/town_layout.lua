@@ -132,15 +132,6 @@ function TL.pavement_map(plan, extra)
 			end
 		end
 	end
-	local castle = plan.sites and plan.sites.castle
-	if castle and castle.gate_apron then
-		local material
-		for _, street in ipairs(plan.streets) do
-			if street.kind == "principal" then material = street.material; break end
-		end
-		if type(material) ~= "string" then error("town layout: gate apron without principal street material", 3) end
-		claim(castle.gate_apron, material, 1)
-	end
 	return map
 end
 

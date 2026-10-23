@@ -4,7 +4,7 @@
 --   loadfile("tests/generate_tests.lua")(eq, fails, planner, generate_factory)
 local eq, fails, planner, generate_factory = ...
 local generate = generate_factory(planner)
-local small = dofile("tests/small_town.lua")(planner)
+local medieval_profile = assert(planner.landmark_profile(dofile("src/catalog.lua").snapshot()))
 local LIMIT = planner.SEED_LIMIT
 
 local function has(s, needle) return tostring(s):find(needle, 1, true) ~= nil end
@@ -152,12 +152,12 @@ eq(valid(generate.random_seed(1, function(lo) return lo end)), true, "rng lower 
 ------------------------------------------------------------------------
 -- Formatting
 ------------------------------------------------------------------------
-local plan = assert(small.plan({x = 3000, z = 2952}, 11))
+local plan = assert(planner.plan({x = 3000, z = 2952}, 11, {landmarks = medieval_profile}))
 local function sites_summary(p)
 	local sites = {}
 	for _, n in ipairs(p.site_order) do
 		local s = p.sites[n]
-		sites[n] = {rect = s.rect, side = s.side, entrance = s.entrance}
+		sites[n] = {rect = s.rect, facing = s.facing, entrance = s.entrance}
 	end
 	return sites
 end
@@ -170,7 +170,7 @@ local function make_summary()
 		seed = plan.seed, center = {x = 3000, z = 2952}, ground_y = 104,
 		bounds = {min = {x = plan.bounds.x1, y = 100, z = plan.bounds.z1},
 			max = {x = plan.bounds.x2, y = 148, z = plan.bounds.z2}},
-		plan_bounds = plan.bounds, sites = sites_summary(plan), approaches = plan.approaches,
+		plan_bounds = plan.bounds, sites = sites_summary(plan),
 		counts = {streets = #plan.streets, principal = principal, secondary = secondary,
 			blocks = #plan.blocks, frontage = #plan.frontage},
 		nodes = {changed = 12345},
@@ -237,7 +237,6 @@ eq(has(text, ("gate at (%d,105,%d)"):format(cas.entrance.x, cas.entrance.z)), tr
 	"report: castle gate")
 eq(has(text, ("Streets %d (%d principal, %d secondary), blocks %d, frontage runs %d."):format(
 	#plan.streets, principal, secondary, #plan.blocks, #plan.frontage)), true, "report: counts")
-eq(has(text, "Boundary approach"), false, "report: no boundary approaches (the row-grid plan has none)")
 eq(has(text, "12345 nodes changed"), true, "report: nodes")
 
 eq(has(generate.format_search_failure("No suitable town site within 160 nodes."), "Nothing was changed"),
@@ -630,7 +629,7 @@ local function roman_summary(extra)
 		seed = rplan.seed, center = {x = 3000, z = 2952}, ground_y = 104,
 		bounds = {min = {x = rplan.bounds.x1, y = 100, z = rplan.bounds.z1},
 			max = {x = rplan.bounds.x2, y = 148, z = rplan.bounds.z2}},
-		plan_bounds = rplan.bounds, sites = sites_summary(rplan), approaches = rplan.approaches,
+		plan_bounds = rplan.bounds, sites = sites_summary(rplan),
 		counts = {streets = #rplan.streets, principal = 4, secondary = 0,
 			blocks = #rplan.blocks, frontage = #rplan.frontage},
 		nodes = {changed = 999}, town_type = "roman",

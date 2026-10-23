@@ -4,9 +4,18 @@
 -- Loaded by tests/run.lua, which passes its check helpers:
 --   loadfile("tests/planner_tests.lua")(eq, fails, planner)
 local eq, fails, planner = ...
-local small = dofile("tests/small_town.lua")(planner)
 local authored_plan = dofile("src/authored_plan.lua")
-local ROW = small.row
+-- The real medieval catalog town, planned through planner.plan. ROW is its
+-- deepest ordinary building, the row depth the blocks must hold.
+local catalog = dofile("src/catalog.lua")
+local profile = assert(planner.landmark_profile(catalog.snapshot()))
+local ROW = 0
+for _, e in pairs(profile.content) do ROW = math.max(ROW, e.size.z) end
+local small = {
+	profile = profile, row = ROW,
+	plan = function(center, seed) return planner.plan(center, seed, {landmarks = profile}) end,
+	validate = function(plan) return authored_plan.validate(plan, {min_block_depth = ROW}) end,
+}
 
 local function deep_equal(a, b)
 	if type(a) ~= type(b) then return false end
@@ -108,8 +117,6 @@ local function check_plan(plan, c, seed, label)
 		x2, z2 = math.max(x2, r.x2), math.max(z2, r.z2)
 	end
 	eq(x1 == b.x1 and z1 == b.z1 and x2 == b.x2 and z2 == b.z2, true, label .. " exact bounds")
-	eq(plan.width, b.x2 - b.x1 + 1, label .. " width")
-	eq(plan.depth, b.z2 - b.z1 + 1, label .. " depth")
 
 	-- Sites.
 	local sorted = {}
@@ -276,8 +283,6 @@ fails(function() planner.plan({x = 1.5, z = 0}, 1) end, "site_center", "fraction
 fails(function() planner.plan({x = 0, z = "3"}, 1) end, "site_center", "string centre coord")
 fails(function() planner.plan({x = 40000, z = 0}, 1) end, "site_center", "centre out of world")
 fails(function() planner.plan("0,0", 1) end, "site_center", "non-table centre")
-fails(function() small.plan({x = 0, z = 0}, 1, {constants = {NOPE = 1}}) end,
-	"unknown constant", "unknown constant")
 -- Medieval planning needs the catalog-derived landmark profile.
 fails(function() planner.plan({x = 0, z = 0}, 1) end, "opts.landmarks", "no opts")
 fails(function() planner.plan({x = 0, z = 0}, 1, {}) end, "opts.landmarks", "no landmark profile")
@@ -300,121 +305,6 @@ do
 		end
 	end
 	eq(set_size(sigs), n, "aliasing-prone seeds give distinct layouts")
-end
-
-local legacy_constants = {
-	ENVELOPE = 96, MIN_LONG_SPAN = 80, MIN_SHORT_SPAN = 60,
-	CENTER_JITTER = 8, MAX_SECONDARY = 8, MAX_BLOCK_SCAN = 64,
-}
-local function legacy_validate(plan, constants)
-	local c = {}
-	for k, v in pairs(legacy_constants) do c[k] = v end
-	for k, v in pairs(constants or {}) do c[k] = v end
-	return planner.validate(plan, c)
-end
-
--- Validator rejects bad plans. Hand-built plan in a 96-node envelope at the
--- origin (centre 48,48): 60x40 boundary, cathedral wall on the right with
--- `wall_top` as its far Z edge, castle on the -Z edge, market near centre.
-do
-	local K = {MIN_LONG_SPAN = 50, MIN_SHORT_SPAN = 40, MAX_FILL = 1.0}
-	local function R(x1, z1, x2, z2) return {x1 = x1, z1 = z1, x2 = x2, z2 = z2} end
-	local function site(name, kind, r, side, extra)
-		local e
-		if side == "-z" then e = R(r.x1, r.z1 - 1, r.x2, r.z1 - 1)
-		elseif side == "+z" then e = R(r.x1, r.z2 + 1, r.x2, r.z2 + 1)
-		elseif side == "-x" then e = R(r.x1 - 1, r.z1, r.x1 - 1, r.z2)
-		else e = R(r.x2 + 1, r.z1, r.x2 + 1, r.z2) end
-		local s = {name = name, kind = kind, rect = r, side = side,
-			size = {x = r.x2 - r.x1 + 1, z = r.z2 - r.z1 + 1},
-			approach = {side = side, edge = e,
-				pos = {x = e.x1 + math.floor((e.x2 - e.x1) / 2),
-					z = e.z1 + math.floor((e.z2 - e.z1) / 2)}}}
-		local F = {["-z"] = {0, -1, 0}, ["+z"] = {0, 1, 180}, ["-x"] = {-1, 0, 90}, ["+x"] = {1, 0, 270}}
-		s.facing = {x = F[side][1], z = F[side][2]}
-		s.rotation = F[side][3]
-		if kind == "landmark" then
-			local ent = {x = s.approach.pos.x, z = s.approach.pos.z}
-			if side == "-z" then ent.z = r.z1 elseif side == "+z" then ent.z = r.z2
-			elseif side == "-x" then ent.x = r.x1 else ent.x = r.x2 end
-			s.entrance = ent
-			s.door = {recess = 0, rise = 0, outside = {x = ent.x + s.facing.x, z = ent.z + s.facing.z}}
-		end
-		for k, v in pairs(extra or {}) do s[k] = v end
-		return s
-	end
-	local function build(wall_top)
-		local cath = R(60, 28, 66, wall_top)
-		-- The parvis is PARVIS_WIDTH x PARVIS_FRONT_DEPTH, centred on the door.
-		local lat = 28 + math.floor((wall_top - 28) / 2)
-		local PW, PD = planner.CONSTANTS.PARVIS_WIDTH, planner.CONSTANTS.PARVIS_FRONT_DEPTH
-		local plan = {
-			seed = 1, center = {x = 48, z = 48}, envelope = R(0, 0, 95, 95),
-			bounds = R(20, 28, 79, 67), width = 60, depth = 40,
-			boundary = {rects = {R(20, 28, 79, 67)}},
-			site_order = {"cathedral", "parvis", "market", "castle"},
-			sites = {
-				cathedral = site("cathedral", "landmark", cath, "+x", {parvis = "parvis"}),
-				parvis = site("parvis", "square",
-					R(67, lat - math.floor(PW / 2), 66 + PD, lat - math.floor(PW / 2) + PW - 1), "+x"),
-				market = site("market", "square", R(36, 42, 46, 52), "+x"),
-				castle = site("castle", "landmark", R(22, 28, 40, 35), "+z",
-					{outer_side = "-z", edge_gap = 0}),
-			},
-			approaches = {
-				{name = "approach_1", side = "-x", edge = R(20, 44, 20, 43 + planner.CONSTANTS.STREET_WIDTH), pos = {x = 20, z = 46}},
-				{name = "approach_2", side = "+x", edge = R(79, 44, 79, 43 + planner.CONSTANTS.STREET_WIDTH), pos = {x = 79, z = 46}},
-			},
-			streets = {}, blocks = {}, frontage = {},
-		}
-		return plan
-	end
-	local ok, why = legacy_validate(build(55), K)
-	-- Site/boundary/route checks pass; a plan with no streets is rejected.
-	eq(ok, nil, "hand-built plan without streets rejected")
-	eq(tostring(why):find("no streets", 1, true) ~= nil, true,
-		"no-streets reason: " .. tostring(why))
-
-	ok, why = legacy_validate(build(67), K)
-	eq(ok, nil, "wall closes the route")
-	eq(tostring(why):find("not connected by a street-wide route", 1, true) ~= nil, true,
-		"blocked route reason: " .. tostring(why))
-
-	-- Overlapping sites.
-	local p = build(55)
-	p.sites.market = site("market", "square", R(50, 40, 62, 50), "+x")
-	ok, why = legacy_validate(p, K)
-	eq(ok, nil, "overlapping sites rejected")
-	eq(tostring(why):find("overlap", 1, true) ~= nil, true, "overlap reason: " .. tostring(why))
-
-	-- Site outside the boundary.
-	p = build(55)
-	p.sites.castle = site("castle", "landmark", R(22, 20, 40, 27), "+z", {outer_side = "-z", edge_gap = 0})
-	ok, why = legacy_validate(p, K)
-	eq(ok, nil, "site outside boundary rejected")
-	eq(tostring(why):find("not contained", 1, true) ~= nil, true, "containment reason: " .. tostring(why))
-
-	-- Castle door blocked: moved far from the edge with no door room.
-	p = build(55)
-	p.approaches[2].edge = R(79, 44, 79, 49)
-	p.approaches[1].edge = R(79, 40, 79, 45)
-	p.approaches[1].side = "+x"
-	ok, why = legacy_validate(p, K)
-	eq(ok, nil, "same-side approaches rejected")
-
-	-- Cut boundary: disconnected.
-	p = build(55)
-	p.boundary.rects = {R(20, 28, 40, 67), R(60, 28, 79, 67)}
-	ok, why = legacy_validate(p, K)
-	eq(ok, nil, "disconnected boundary rejected")
-
-	-- Garbage in; no internal file:line text leaks.
-	ok, why = legacy_validate({seed = 1, center = {x = 0, z = 0}, envelope = {x1 = -48, z1 = -48, x2 = 47, z2 = 47}})
-	eq(ok, nil, "malformed plan rejected")
-	eq(planner.validate({}), nil, "empty plan rejected")
-	eq(planner.validate("x"), nil, "non-table plan rejected")
-	eq(tostring(why):find("malformed", 1, true) ~= nil, true, "malformed reason")
-	eq(tostring(why):find("planner.lua", 1, true) == nil, true, "no source location in reason: " .. tostring(why))
 end
 
 -- Schema fields consumers read are validated (mutations of a real plan).

@@ -121,12 +121,12 @@ destinations connect naturally.
 Agreed behavior (replaces the earlier "modest rectangle, dry-run preview"
 sketch):
 
-- **Boundary.** A broad, stepped orthogonal outline, not a square, generated
-  from the seed (first about 96 nodes across; the envelope is now 208, see
-  phase 3). There is no fixed template: the
-  boundary, the two landmark sites, the parvis, the market square, the
-  principal and secondary streets and the blocks all come from rules and the
-  seed.
+- **Boundary.** Superseded in #184 (stage 3 of the row-grid planner): the
+  town is a cross of building rows crossed by one north-south principal
+  street, see `src/medieval_planner.lua`. The outline is simple and
+  orthogonal and follows from the rows; the seed varies block lengths and
+  the market length. The stepped outline described in earlier versions of
+  this section was removed.
 - **Parvis (#105).** A 12-wide (`PARVIS_WIDTH`) by 8-deep
   (`PARVIS_FRONT_DEPTH`) rect on the entrance side, touching the compound box
   edge and centred on the catalog door's lateral coordinate (not the compound
@@ -138,8 +138,8 @@ sketch):
   first version used temporary physical blockouts while the handmade
   structures were being built; they were replaced in phase 3 and removed.)
 - **Streets and blocks.** Orthogonal principal and secondary streets connect
-  the boundary approaches, market, parvis and castle gate; leftover blocks
-  are left empty with recorded buildable frontage. One or two coherent
+  the market, parvis and castle gate; leftover blocks are left empty with
+  recorded buildable frontage. One or two coherent
   paving materials.
 - **Site search.** Search outward from the command player for a site whose
   middle 95% of surface heights span at most 16 nodes, with no water and
@@ -155,7 +155,7 @@ sketch):
   builder changes below are shared: `/towns_generate` output also differs
   whenever liquid is buried in the cut or beside the town above ground
   level (previously `inspection_failed` or ignored). Flow is treated as
-  4-neighbour horizontal; paved and approach columns keep headroom unsealed. `/towns_place_town` opts into
+  4-neighbour horizontal; paved columns keep headroom unsealed. `/towns_place_town` opts into
   `WET_DEFAULTS`: a column covered by at most `MAX_WATER_DEPTH` = 6 nodes of
   water or ice (bed found within that depth) is "wet" and is landfilled; wet
   columns may be at most `MAX_WET_FRACTION` = 25% of the footprint, deeper
@@ -191,7 +191,9 @@ sketch):
 - **Not in this phase.** Natural generation, ordinary buildings, residents,
   walls, edge smoothing and real landmark schematics.
 
-Implementation: `src/planner.lua` and `src/streets.lua` (pure plan),
+Implementation: `src/planner.lua` (dispatcher), `src/medieval_planner.lua`
+and `src/roman_planner.lua` (layouts), `src/authored_plan.lua` (the one
+validator for both town types) (pure plan),
 `src/site_search.lua` (read-only candidate search), `src/builder.lua` with
 `src/town_layout.lua` (ground and paving layout), and
 `src/generate.lua` plus `src/generate_command.lua` (the command; pure
@@ -218,11 +220,10 @@ Agreed scope:
 - **Existing landmarks and town scale.** Import the intended complete castle
   and current cathedral from TownsWorkshop. Their footprints are much larger
   than the Phase 2 reservations (the original nominal footprints, since
-  removed). Derive reservations and approaches from the
-  current schematics, preserving the stepped boundary, parvis and connected
-  streets. Enlargement of the town is authorized. Engineering trials began at
+  removed). Derive reservations and site approaches from the
+  current schematics, keeping the parvis and connected streets. Enlargement of the town is authorized. Engineering trials began at
   a 192-node envelope; the profile envelope is
-  now 208 (#89) with principal streets 5 wide (#88), wider-spaced secondary
+  now 208 (#89) with principal streets 5 wide (#88; 6 wide since #184), wider-spaced secondary
   streets (#86); the street spacing and minimum block side are derived
   from the catalog's ordinary building depth (#86, `docs/layout_comparison.md`). Tune the size for usable
   residential frontage and acceptable planning cost; this is not a fixed
@@ -403,8 +404,8 @@ is fun to explore.
 
 `planner.plan(center, seed, opts)` and `planner.validate(plan)` remain the
 shared entry points. Generated plans carry `town_type = "medieval"`; omitting
-the field when validating an older plan also selects the medieval validator.
-An authored Roman plan sets `town_type = "roman"` and supplies an envelope,
+the field when validating an older plan leaves it to the same shared validator.
+An authored Roman plan sets `town_type = "roman"` and supplies its bounds,
 boundary rectangles, named sites, streets, blocks, and frontage. Roman
 validation checks those authored fields and public pavement access to each
 landmark approach without requiring medieval civic sites. Authored frontage

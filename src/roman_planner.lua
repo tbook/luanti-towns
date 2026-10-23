@@ -176,7 +176,7 @@ function M.build(layout, center, seed, row_depth)
 		local vertical = ARMS[arm].x == 0
 		local street = {
 			id = #streets + 1, name = spec.street, arm = arm, kind = "principal",
-			width = W, axis = vertical and "z" or "x", material = layout.street_material,
+			width = W, material = layout.street_material,
 			rect = translate(arm_rect(layout, arm, 0, spec.length - 1, -half, half - 1), dx, dz),
 		}
 		streets[#streets + 1] = street
@@ -233,7 +233,7 @@ function M.build(layout, center, seed, row_depth)
 		for _, arm in ipairs(arm_names) do
 			streets[#streets + 1] = {
 				id = #streets + 1, name = "ring_" .. arm, ring = arm, kind = "secondary",
-				width = W, axis = ARMS[arm].x == 0 and "x" or "z",
+				width = W,
 				material = ring.material or layout.street_material,
 				rect = translate(bands[arm], dx, dz),
 			}
@@ -256,7 +256,7 @@ function M.build(layout, center, seed, row_depth)
 		if spec.side:sub(1, 1) == "+" then l1, l2 = half, half + across - 1
 		else l1, l2 = -half - across, -half - 1 end
 		local rect = translate(arm_rect(layout, spec.arm, spec.at, spec.at + along - 1, l1, l2), dx, dz)
-		add(landmark(spec.name, spec.id, spec.rotation, rect, toward, {arm = spec.arm, side = spec.side}))
+		add(landmark(spec.name, spec.id, spec.rotation, rect, toward, {arm = spec.arm}))
 	end
 
 	local bounds
@@ -270,13 +270,10 @@ function M.build(layout, center, seed, row_depth)
 	bounds = {x1 = bounds.x1 - m, z1 = bounds.z1 - m, x2 = bounds.x2 + m, z2 = bounds.z2 + m}
 	local plan = {
 		town_type = "roman", seed = seed, center = {x = dx, z = dz},
-		envelope = {x1 = bounds.x1, z1 = bounds.z1, x2 = bounds.x2, z2 = bounds.z2},
 		bounds = bounds,
-		width = bounds.x2 - bounds.x1 + 1, depth = bounds.z2 - bounds.z1 + 1,
 		boundary = {rects = {{x1 = bounds.x1, z1 = bounds.z1, x2 = bounds.x2, z2 = bounds.z2}}},
 		sites = sites, site_order = order,
 		streets = streets, blocks = {}, frontage = {},
-		attempts = 1,
 	}
 	add_blocks(layout, plan, row_depth, dx, dz)
 	return plan
@@ -289,11 +286,11 @@ function M.plan(center, seed, layout, row_depth)
 	local ok, plan = pcall(M.build, layout or M.layout, center, seed, row_depth)
 	if not ok then
 		local why = tostring(plan)
-		return nil, why, {code = "invalid_layout", attempts = 0, rejections = {}, last = why}
+		return nil, why, {code = "invalid_layout", last = why}
 	end
 	local valid, why = authored_plan.validate(plan, {min_block_depth = row_depth})
 	if not valid then
-		return nil, why, {code = "invalid_layout", attempts = 0, rejections = {}, last = why}
+		return nil, why, {code = "invalid_layout", last = why}
 	end
 	return plan
 end

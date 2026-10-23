@@ -197,7 +197,7 @@ function M.format_report(summary, command)
 		local e = site.entrance
 		local where = ("%s at (%d,%d,%d)"):format(door, e.x, site.entrance_y or (g + 1), e.z)
 		if facing then
-			where = where .. " facing " .. (SIDE_NAME[site.side] or tostring(site.side))
+			where = where .. " facing " .. SIDE_NAME[site.facing.x > 0 and "+x" or site.facing.x < 0 and "-x" or site.facing.z > 0 and "+z" or "-z"]
 		end
 		add("%s: %s; %s.", label, rect_str(site.rect), where)
 	end
@@ -225,10 +225,6 @@ function M.format_report(summary, command)
 		square("Parvis", "parvis")
 		square("Market", "market")
 		landmark("Castle", "castle", "gate", true)
-	end
-	for _, a in ipairs(s.approaches or {}) do
-		add("Boundary approach %s: (%d,%d) on side %s.", tostring(a.name), a.pos.x, a.pos.z,
-			SIDE_NAME[a.side] or tostring(a.side))
 	end
 	local c = s.counts
 	add("Streets %d (%d principal, %d secondary), blocks %d, frontage runs %d.",

@@ -26,7 +26,7 @@ local CLASSES = {
 	{"boundary", ".", "#e9efe2", "town boundary (free ground)"},
 	{"block", ",", "#cfe3b4", "block (free ground behind frontage)"},
 	{"secondary", "=", "#b9a98a", "secondary street (4 wide)"},
-	{"principal", "#", "#8a7a5e", "principal street (5 wide)"},
+	{"principal", "#", "#8a7a5e", "principal street"},
 	{"market", "M", "#f0d98c", "market square", medieval = true},
 	{"parvis", "p", "#e8c4a0", "parvis (cathedral square)", medieval = true},
 	{"cathedral", "C", "#7b5ea7", "cathedral compound", medieval = true},
@@ -41,7 +41,6 @@ local CLASSES = {
 	{"house", "h", "#f7f7f7", "ordinary house"},
 	{"shop", "s", "#9fd8d0", "ordinary shop"},
 	{"workshop", "w", "#d8c19f", "ordinary workshop"},
-	{"approach", "A", "#ffd400", "boundary approach window", overlay = true, medieval = true},
 	{"core", "o", "#ff8c00", "town core (HOOK: plan.core, not yet planned)", overlay = true},
 	{"footprint", "f", "#000000", "construction footprint (HOOK: plan.footprint)", overlay = true, outline = true},
 	{"exit", "x", "#00a000", "designated exit (HOOK: plan.exits)", overlay = true},
@@ -80,7 +79,7 @@ function M.catalog_hash(snapshot)
 	return hash(table.concat(parts, ";")), #parts
 end
 
--- Row depth D of the catalog-derived depth policy (ticket #86): the depth a
+-- Row depth D (ticket #86): the depth a
 -- block must have for one row of ordinary buildings, computed by
 -- planner.row_depth from the same profile the planner used (the lower median
 -- of the eligible entries' depth; see src/planner.lua). Metrics that need a
@@ -123,7 +122,6 @@ local function layers(plan)
 	for _, s in ipairs(res.services or {}) do add(s.role, s.rect) end
 	local content = plan.content or {}
 	for _, b in ipairs(content.buildings or {}) do add(b.role, b.rect) end
-	for _, a in ipairs(plan.approaches or {}) do add("approach", a.edge) end
 	-- Hooks for later layout tickets; field names are provisional.
 	if type(plan.core) == "table" and plan.core.x1 then add("core", plan.core) end
 	if type(plan.footprint) == "table" and plan.footprint.x1 then add("footprint", plan.footprint) end
@@ -269,8 +267,8 @@ function M.analyze(plan, profile)
 	-- Streets: unique pavement cells not covered by a square.
 	m.street_cells_principal = count.principal or 0
 	m.street_cells_secondary = count.secondary or 0
-	-- Medieval streets are 5 and 4 nodes wide; Roman streets carry their own width.
-	local PW, SW = 5, 4
+	-- Medieval streets are 6 and 4 nodes wide; Roman streets carry their own width.
+	local PW, SW = 6, 4
 	if plan.town_type == "roman" then
 		PW = kind_width(plan, "principal", 1)
 		SW = kind_width(plan, "secondary", 1)
@@ -533,7 +531,7 @@ end
 ------------------------------------------------------------------------
 
 local COLUMNS = {
-	"seed", "center", "status", "attempts", "width", "depth", "boundary_cells",
+	"seed", "center", "status", "width", "depth", "boundary_cells",
 	"streets", "street_len", "street_len_principal", "street_len_secondary",
 	"street_cells_principal", "street_cells_secondary", "street_rect_run_sum",
 	"blocks", "blocks_single_row", "block_cells", "free_cells",
@@ -580,16 +578,15 @@ function M.one(planner, profile, seed, center, town_type)
 		row.status = "FAILED"
 		row.failure = tostring(why)
 		row.failure_code = detail and detail.code or "?"
-		row.attempts = detail and detail.attempts or 0
 		return row, nil
 	end
 	row.status = "ok"
-	row.attempts = plan.attempts
-	row.width, row.depth = plan.width, plan.depth
+	row.width = plan.bounds.x2 - plan.bounds.x1 + 1
+	row.depth = plan.bounds.z2 - plan.bounds.z1 + 1
 	local m, grid, over = M.analyze(plan, profile)
 	for k, v in pairs(m) do row[k] = v end
 	local title = ("seed %d centre (%d,%d)"):format(seed, center.x, center.z)
-	local head = {title .. (" bounds %dx%d attempts %d"):format(plan.width, plan.depth, plan.attempts),
+	local head = {title .. (" bounds %dx%d"):format(row.width, row.depth),
 		"scale: 1 char = 2x2 nodes, north (+Z) up, east (+X) right", "legend:"}
 	for _, c in ipairs(legend_classes(plan.town_type == "roman")) do
 		head[#head + 1] = ("  %s  %s"):format(c[2], c[4])
@@ -649,11 +646,9 @@ function M.run(planner, catalog, opts)
 		profile = assert(planner.landmark_profile(snapshot))
 	end
 	local chash, ncat = M.catalog_hash(snapshot)
-	local C, layout_lines, layout_hash
+	local layout_lines, layout_hash
 	if roman then
 		layout_lines, layout_hash = M.roman_settings()
-	else
-		C = planner.resolve_constants({landmarks = profile})
 	end
 	local files, rows = {}, {}
 	-- Planning time (os.clock, CPU seconds) per run, so a slowdown shows up.
@@ -704,7 +699,7 @@ function M.run(planner, catalog, opts)
 	if roman then
 		P("- Planner call: `planner.plan(center, seed, {town_type = \"roman\"})`")
 	else
-		P("- Planner call: `planner.plan(center, seed, {landmarks = planner.landmark_profile(catalog.snapshot())})`, default max_attempts")
+		P("- Planner call: `planner.plan(center, seed, {landmarks = planner.landmark_profile(catalog.snapshot())})`")
 	end
 	P("")
 	if roman then
@@ -718,13 +713,6 @@ function M.run(planner, catalog, opts)
 		P("")
 		P("Medieval-only metrics are `n/a` in `metrics.tsv` and this report: " .. table.concat(MEDIEVAL_ONLY, ", ") .. ". Roman plans have no market, parvis, cathedral, castle, city hall or chapel.")
 		P("")
-	else
-		P("## Layout constants (planner.resolve_constants with the landmark profile)")
-		P("")
-		P("```")
-		for _, k in ipairs(sorted_keys(C)) do P(("%s = %s"):format(k, tostring(C[k]))) end
-		P("```")
-		P("")
 	end
 	P("## Planning failures")
 	P("")
@@ -732,15 +720,15 @@ function M.run(planner, catalog, opts)
 	for _, r in ipairs(rows) do
 		if r.status ~= "ok" then
 			nfail = nfail + 1
-			P(("- seed %d centre %s: %s (code %s, attempts %s)"):format(r.seed, r.center,
-				r.failure, r.failure_code, tostring(r.attempts)))
+			P(("- seed %d centre %s: %s (code %s)"):format(r.seed, r.center,
+				r.failure, r.failure_code))
 		end
 	end
 	if nfail == 0 then P("None: every seed in the set planned successfully.") end
 	P("")
 	P("## Metrics")
 	P("")
-	local show = {"seed", "center", "status", "attempts", "street_len", "street_len_principal",
+	local show = {"seed", "center", "status", "street_len", "street_len_principal",
 		"street_len_secondary", "frontage_ordinary", "frontage_usable", "frontage_used",
 		"ordinary", "houses", "shops", "workshops", "blocks", "blocks_single_row", "strips",
 		"strip_cells", "specks", "parvis_x", "parvis_z", "market_area", "market_open_share",
@@ -794,7 +782,7 @@ function M.run(planner, catalog, opts)
 		end
 	end
 	files["report.md"] = table.concat(R, "\n") .. "\n"
-	return {files = files, rows = rows, catalog_hash = chash, constants = C,
+	return {files = files, rows = rows, catalog_hash = chash,
 		layout_settings = layout_lines, layout_hash = layout_hash, timing = timing}
 end
 

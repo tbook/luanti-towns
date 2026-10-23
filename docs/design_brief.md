@@ -137,23 +137,11 @@ Even when a town is not walled, this boundary defines the dense urban area.
 
 The desired shape is:
 
-- broadly square or rectangular;
-- entirely or almost entirely orthogonal;
-- irregular enough to avoid looking like a single rectangle.
+- a cross: east-west bands of building rows crossed by one north-south principal street;
+- entirely orthogonal, with no stepped or notched outline;
+- made of a few rectangles (the core, the cathedral compound and the castle compound), so every boundary run is straight.
 
-A useful visual model is **several large rectangles overlapping or stacked together**.
-
-From above, this might produce a shape with:
-
-- projecting sections;
-- recessed sections;
-- convex corners;
-- occasional concave corners;
-- runs of different lengths.
-
-The result should still feel simple and deliberate.
-
-Avoid overly noisy outlines, tiny notches, narrow appendages, or excessive small turns.
+The outline follows from the rows. Inner rows are two buildings deep, back to back, and edge rows are one building deep with their backs to the countryside. The seed varies block lengths and market length; the outline itself is fixed by the rows.
 
 The boundary is important because it influences:
 
@@ -179,7 +167,7 @@ It should have:
 - a prominent position;
 - a parvis or open square in front of its principal entrance.
 
-The cathedral does not need to sit exactly in the geographic center of the town, but it should normally be relatively central and well connected to the principal streets.
+The cathedral stands outside the north edge of the town, facing inward, with its door on the north-south principal street. Its parvis lies in the north edge row in front of the facade, so the principal street ends in the parvis and the cathedral is reached from the street network through it.
 
 The parvis is part of the cathedral site rather than an unrelated open area.
 
@@ -1043,9 +1031,9 @@ The exact mechanics are open to implementation choices, but the conceptual order
 
 1. Find a suitable town site.
 2. Determine a target ground level and prepare the site.
-3. Generate the overall town boundary.
-4. Position the cathedral and its parvis.
-5. Position the castle in relation to the boundary.
+3. Lay out the rows and the principal streets; the boundary follows from them.
+4. Attach the cathedral and its parvis to the north edge.
+5. Attach the castle to the west edge, its gate on the east-west principal street.
 6. Choose important gates.
 7. Lay out principal streets connecting major destinations.
 8. Place or determine the market square.
@@ -1071,7 +1059,7 @@ Even within the medieval town type, towns should not be identical.
 
 Variation can come from:
 
-- boundary shape;
+- block lengths and market length along the rows;
 - landmark placement;
 - castle position;
 - street network;
