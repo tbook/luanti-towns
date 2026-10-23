@@ -39,7 +39,9 @@ were not re-exported: their only changes were grass/dirt flips in the ground row
 The TownsWorkshop world has since changed, so the vespasianum (#207) and
 basilica (#211) records were captured from a byte-identical copy of the current
 file and their `source_map_sha256` is `d073c3fb...`. Records captured before that
-change keep `6eab09ff...`.
+change keep `6eab09ff...`. The bath and domus were then re-exported again with
+`--only` after the owner tweaked the workshop, from a byte-identical copy whose
+`source_map_sha256` is `852b14cd...`; their records carry that hash.
 
 The exporter reads a consistent, read-only SQLite snapshot and writes only to
 this directory. In a game with this mod enabled, a server-privileged player
