@@ -231,6 +231,7 @@ local content_planner = load_sibling("content_planner.lua")(
 	geometry, frontage_packer, jail_reservation.occupied_rects)
 local authored_plan = load_sibling("authored_plan.lua")
 local roman_planner = load_sibling("roman_planner.lua")
+local medieval_planner = load_sibling("medieval_planner.lua")
 local catalog = load_sibling("catalog.lua")
 
 M.CONSTANTS = {
@@ -1638,10 +1639,10 @@ end
 
 function M.validate(plan, constants)
 	if type(plan) == "table" and plan.town_type ~= nil then
-		if plan.town_type == "roman" then return authored_plan.validate(plan) end
-		if plan.town_type ~= "medieval" then
-			return nil, "unknown town type " .. tostring(plan.town_type)
+		if plan.town_type == "roman" or plan.town_type == "medieval" then
+			return authored_plan.validate(plan)
 		end
+		return nil, "unknown town type " .. tostring(plan.town_type)
 	end
 	return validate_with(plan, constants, false)
 end
@@ -1861,7 +1862,6 @@ function M.plan(center, seed, opts)
 	if not seed_ok then
 		error("towns planner: " .. seed_msg, 2)
 	end
-	local max_attempts = M.CONSTANTS.MAX_ATTEMPTS
 	local profile
 	if opts == nil then
 		error("towns planner: medieval plans need opts.landmarks, a landmark "
@@ -1970,64 +1970,11 @@ function M.plan(center, seed, opts)
 			profile.content[k] = L
 		end
 	end
-	if opts.max_attempts ~= nil then
-		if not is_int(opts.max_attempts) or opts.max_attempts < 0 then
-			error("towns planner: max_attempts must be an integer >= 0", 2)
-		end
-		max_attempts = opts.max_attempts
-	end
-
 	local C = M.resolve_constants(opts)
-	local fits, why = fit_check(C, profile)
-	if not fits then
-		return nil, "unsupported landmark profile: " .. why,
-			{code = "unsupported_fit", attempts = 0, rejections = {}, last = why}
-	end
-
-	local rng = new_rng(seed)
-	local rejections = {}
-	local last
-	for i = 1, max_attempts do
-		local p, stage, why = attempt(rng, C, profile)
-		if p then
-			local world = to_world(p, seed, center, C, i)
-			world.town_type = "medieval"
-			local ok, vwhy = validate_with(world, C, true)
-			if ok then
-				local full, swhy = streets.fill(world, rng, C)
-				if full then
-					ok, vwhy = M.validate(full, C)
-					if ok then
-						M.populate(full, profile, seed, C)
-						return full
-					end
-					stage, why = "validate", vwhy
-				else
-					stage, why = "streets", swhy
-				end
-			else
-				stage, why = "validate", vwhy
-			end
-		end
-		rejections[stage] = (rejections[stage] or 0) + 1
-		last = why
-	end
-
-	local parts = {}
-	for _, stage in ipairs({"boundary", "market", "cathedral", "castle", "approach", "validate", "streets"}) do
-		if rejections[stage] then
-			parts[#parts + 1] = stage .. " x" .. rejections[stage]
-		end
-	end
-	local reason = ("no valid town plan for seed %d after %d attempts"):format(seed, max_attempts)
-	if #parts > 0 then
-		reason = reason .. " (rejected: " .. table.concat(parts, ", ")
-			.. "; last: " .. tostring(last) .. ")"
-	end
-	return nil, reason, {
-		code = "retries_exhausted", attempts = max_attempts,
-		rejections = rejections, last = last,
-	}
+	local plan, why, detail = medieval_planner.plan(center, seed, profile, new_rng(seed))
+	if not plan then return nil, why, detail end
+	M.populate(plan, profile, seed, C)
+	return plan
 end
 
 -- ASCII top-down rendering for debugging. North (+Z) is up, east (+X) right.

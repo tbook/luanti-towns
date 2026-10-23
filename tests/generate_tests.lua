@@ -237,7 +237,7 @@ eq(has(text, ("gate at (%d,105,%d)"):format(cas.entrance.x, cas.entrance.z)), tr
 	"report: castle gate")
 eq(has(text, ("Streets %d (%d principal, %d secondary), blocks %d, frontage runs %d."):format(
 	#plan.streets, principal, secondary, #plan.blocks, #plan.frontage)), true, "report: counts")
-eq(has(text, "Boundary approach approach_1"), true, "report: approaches")
+eq(has(text, "Boundary approach"), false, "report: no boundary approaches (the row-grid plan has none)")
 eq(has(text, "12345 nodes changed"), true, "report: nodes")
 
 eq(has(generate.format_search_failure("No suitable town site within 160 nodes."), "Nothing was changed"),

@@ -5,12 +5,12 @@
 -- Search behaviour is tested against a small authored plan (the notched
 -- variant of tests/authored_plan_fixture.lua) standing in for the planner, so
 -- no medieval town is generated per search; the real planner is only asked to
--- fail (max_attempts = 0) and for the one populated-catalog integration case.
+-- fail (an unknown catalog id) and for the one populated-catalog integration case.
 local eq, fails, placement, planner, factory = ...
 local make_authored_plan = dofile("tests/authored_plan_fixture.lua")
 local small_planner = setmetatable({
 	plan = function(center, seed, popts)
-		if type(popts) == "table" and popts.max_attempts ~= nil then
+		if type(popts) == "table" and popts.landmarks ~= nil then
 			return planner.plan(center, seed, popts)
 		end
 		return make_authored_plan(center, seed, {notched = true})
@@ -425,14 +425,18 @@ eq(ew.reads, 1, "emerge failure: only the player's ground node was read")
 
 -- Plan failure: no emerge, counted, not accepted.
 local pw = new_world({})
-r9, s9, d9 = run(pw, PLAYER, {max_radius = 48,
-	planner_opts = dofile("tests/small_town.lua")(planner).opts({max_attempts = 0})})
+local broken = dofile("tests/small_town.lua")(planner)
+local broken_landmarks = {}
+for k, v in pairs(broken.profile) do broken_landmarks[k] = v end
+broken_landmarks.cathedral = {id = "no_such_cathedral", size = broken.profile.cathedral.size,
+	entrance = broken.profile.cathedral.entrance}
+r9, s9, d9 = run(pw, PLAYER, {max_radius = 48, planner_opts = {landmarks = broken_landmarks}})
 eq(r9, nil, "plan failure: not accepted")
 eq(d9.rejections.plan_failed, 1, "plan failure: fails fast, counted once")
 eq(d9.candidates_tried, 1, "plan failure: no scan of other candidates")
 eq(#pw.emerges, 0, "plan failure: no emerge")
 eq(s9:find("No town plan for seed", 1, true) ~= nil, true, "plan failure: summary")
-eq(s9:find("no valid town plan", 1, true) ~= nil, true, "plan failure: planner reason surfaced")
+eq(s9:find("no_such_cathedral", 1, true) ~= nil, true, "plan failure: planner reason surfaced")
 
 -- Asynchronous emerge: nothing completes until the callbacks fire.
 local aw = new_world({deferred = true})

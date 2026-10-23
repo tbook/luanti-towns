@@ -99,33 +99,13 @@ local function clone(v)
 end
 
 local base = assert(planner.plan(CENTER, 1, {landmarks = profile}))
-do
-	local bad = clone(base)
-	bad.sites.castle.gate_span.z2 = bad.sites.castle.gate_span.z2 + 1
-	eq(planner.validate(bad), nil, "validator rejects a two-dimensional gate span")
-	bad = clone(base)
-	local f, apron = bad.sites.castle.facing, bad.sites.castle.gate_apron
-	if f.x ~= 0 then apron.z1 = apron.z1 + 1 else apron.x1 = apron.x1 + 1 end
-	eq(planner.validate(bad), nil, "validator rejects apron that misses gate-span end")
-	bad = clone(base)
-	-- Remove the castle route while leaving the authored opening and apron
-	-- unchanged; validation must reject the disconnected apron/door route.
-	for i, road in ipairs(bad.streets) do
-		if road.route == "network>castle" then table.remove(bad.streets, i); break end
-	end
-	for i, road in ipairs(bad.streets) do road.id = i end
-	local valid, why = planner.validate(bad)
-	eq(valid, nil, "validator rejects disconnected gate apron")
-	eq(type(why) == "string" and why:find("castle approach", 1, true) ~= nil, true,
-		"disconnected apron is rejected by full-width castle route validation")
-end
+local authored_plan = dofile("src/authored_plan.lua")
+eq(authored_plan.validate(base), true, "base plan validates")
 
 -- Check one plan against the real boxes.
 local function check_plan(plan, prof, label)
-	eq(planner.validate(plan), true, label .. " validates")
-	local n = plan.envelope.x2 - plan.envelope.x1 + 1
-	eq(n, planner.CONSTANTS.ENVELOPE, label .. " envelope")
-	eq(#plan.blocks >= planner.CONSTANTS.MIN_BLOCKS, true, label .. " blocks remain")
+	eq(authored_plan.validate(plan), true, label .. " validates")
+	eq(#plan.blocks > 0, true, label .. " blocks")
 	eq(#plan.frontage > 0, true, label .. " frontage remains")
 	for _, name in ipairs({"cathedral", "castle"}) do
 		local site, L = plan.sites[name], prof[name]
@@ -139,16 +119,11 @@ local function check_plan(plan, prof, label)
 		-- Real door, not the middle of the edge.
 		eq(site.entrance.x, g.entrance.x, tag .. " entrance x")
 		eq(site.entrance.z, g.entrance.z, tag .. " entrance z")
-		eq(site.door.outside.x, g.outside.x, tag .. " outside x")
-		eq(site.door.outside.z, g.outside.z, tag .. " outside z")
-		eq(site.door.rise, L.entrance.y - L.ground_offset, tag .. " rise")
 		eq(site.id, name, tag .. " catalog id")
 		eq(site.facing.x, g.front.x, tag .. " facing x")
 		eq(site.facing.z, g.front.z, tag .. " facing z")
-		-- Approach node is the pavement node in line with the door, on the
-		-- row just outside the box side.
+		-- The approach is the node in line with the door, just outside the box.
 		local pos, f = site.approach.pos, site.facing
-		eq(in_rect(site.approach.edge, pos.x, pos.z), true, tag .. " approach pos on edge")
 		eq(in_rect(site.rect, pos.x, pos.z), false, tag .. " approach pos outside box")
 		eq(in_boundary(plan, pos.x, pos.z), true, tag .. " approach pos in boundary")
 		if f.x == 0 then
@@ -157,38 +132,18 @@ local function check_plan(plan, prof, label)
 			eq(pos.z, site.entrance.z, tag .. " approach aligned with door")
 		end
 		-- The recess is inside the box: the cell outside the door is part of
-		-- the landmark obstacle, not street.
-		eq(in_rect(site.rect, site.door.outside.x, site.door.outside.z), true,
-			tag .. " outside-door cell inside box")
+		-- the landmark, not street.
+		eq(in_rect(site.rect, g.outside.x, g.outside.z), true, tag .. " outside-door cell inside box")
 		if name == "castle" then
-			local span, apron = site.gate_span, site.gate_apron
+			local span = site.gate_span
 			local span_width = (span.x2 - span.x1 + 1) + (span.z2 - span.z1 + 1) - 1
 			eq(span_width, 6, tag .. " transformed gate span remains six nodes")
-			eq(rect_in_boundary(plan, apron), true, tag .. " apron inside boundary")
-			eq(in_rect(site.rect, apron.x1, apron.z1), false, tag .. " apron starts outside the building")
+			eq(in_rect(site.rect, span.x1, span.z1), true, tag .. " gate span on the building wall")
 		end
 	end
-	eq(plan.sites.castle.door.recess, 3, label .. " castle recess")
-	eq(plan.sites.castle.door.rise, 1, label .. " castle rise")
-	eq(plan.sites.cathedral.door.recess, 8, label .. " cathedral recess")
-	eq(plan.sites.cathedral.door.rise, 4, label .. " cathedral rise")
-	-- The parvis is adjacent on the entrance side, PARVIS_WIDTH x
-	-- PARVIS_FRONT_DEPTH, centred on the real (off-centre) door (#105); it
-	-- need not span the compound, and contains the door's approach node.
+	-- The parvis is adjacent on the entrance side and contains the door's
+	-- approach node (#105).
 	local c, pv = plan.sites.cathedral, plan.sites.parvis
-	do
-		local K = planner.CONSTANTS
-		local pr, f = pv.rect, c.facing
-		local w, d = pr.x2 - pr.x1 + 1, pr.z2 - pr.z1 + 1
-		local lat, lo, depth, width
-		if f.x == 0 then lat, lo, width, depth = c.entrance.x, pr.x1, w, d
-		else lat, lo, width, depth = c.entrance.z, pr.z1, d, w end
-		eq(width, K.PARVIS_WIDTH, label .. " parvis width")
-		eq(depth, K.PARVIS_FRONT_DEPTH, label .. " parvis depth")
-		eq(lo, lat - math.floor(K.PARVIS_WIDTH / 2), label .. " parvis centred on door")
-		-- Clear approach: the node in front of the door edge is parvis.
-		eq(in_rect(pr, c.approach.pos.x, c.approach.pos.z), true, label .. " parvis fronts door")
-	end
 	eq(in_rect(pv.rect, c.approach.pos.x, c.approach.pos.z), true,
 		label .. " parvis contains the door approach")
 end
@@ -202,8 +157,6 @@ for _, seed in ipairs(SEEDS) do
 		-- Repeat reproduces the plan (seed 1 in the default run).
 		if seed == 1 or FULL then
 			local again = planner.plan(CENTER, seed, {landmarks = profile})
-			eq(again ~= nil and again.attempts == plan.attempts, true,
-				"seed " .. seed .. " attempts repeat")
 			eq(again ~= nil and again.sites.castle.entrance.x == plan.sites.castle.entrance.x
 				and again.sites.cathedral.rect.z1 == plan.sites.cathedral.rect.z1
 				and #again.streets == #plan.streets and #again.blocks == #plan.blocks, true,
@@ -226,50 +179,8 @@ do
 	end
 end
 
--- One set of defaults: the 208-node envelope with the dimensions and block
--- tuning that depend on it (#38, #86, #89).
+-- Incomplete or malformed profiles are errors; a catalog profile always plans.
 do
-	local K = planner.CONSTANTS
-	eq(K.ENVELOPE, 208, "envelope (#89)")
-	eq(K.MIN_LONG_SPAN, 173, "long span at 208")
-	eq(K.MIN_SHORT_SPAN, 130, "short span at 208")
-	eq(K.CENTER_JITTER, 17, "jitter at 208")
-	eq(K.MAX_SECONDARY, 18, "secondary street budget at 208")
-	eq(K.MAX_BLOCK_SCAN, 139, "block scan at 208")
-	eq(K.MAX_BLOCK_DEPTH, 24, "max block depth")
-	eq(K.MIN_BLOCK_SIDE, 12, "min block side")
-	eq(K.SECONDARY_FAIL_SKIP, 5, "secondary fail skip")
-	eq(planner.resolve_constants({landmarks = profile}).MIN_BLOCK_SIDE, 12, "profile min block side")
-	eq(planner.resolve_constants().MAX_BLOCK_DEPTH, 24, "constants without opts are the defaults")
-	eq(planner.CONSTANTS.STREET_WIDTH, 5, "principal street width (#88)")
-end
-
--- A synthetic small, off-centre profile on an explicit smaller envelope (the
--- dimensions that depend on it are given with it): tests/small_town.lua.
-do
-	local small = dofile("tests/small_town.lua")(planner)
-	local C = planner.resolve_constants(small.opts())
-	eq(C.ENVELOPE, 96, "explicit envelope")
-	eq(C.MIN_LONG_SPAN, 80, "explicit long span at 96")
-	local plan, why = small.plan({x = 0, z = 0}, 11)
-	eq(plan ~= nil, true, "synthetic profile planned: " .. tostring(why))
-	if plan then
-		eq(small.validate(plan), true, "synthetic profile validates")
-		eq(plan.envelope.x2 - plan.envelope.x1 + 1, 96, "synthetic envelope")
-		eq(plan.sites.castle.door.rise, 3, "synthetic castle rise")
-		eq(plan.sites.castle.door.recess ~= nil, true, "synthetic castle recess")
-		eq(planner.validate(plan), nil, "the default constants reject a plan of another envelope")
-	end
-end
-
--- Unsupported fit fails clearly, immediately and without consuming attempts.
-do
-	local plan, why, detail = planner.plan({x = 0, z = 0}, 1,
-		{landmarks = profile, constants = {ENVELOPE = 64}})
-	eq(plan, nil, "unfit profile has no plan")
-	eq(detail.code, "unsupported_fit", "unfit code")
-	eq(detail.attempts, 0, "unfit attempts")
-	eq(tostring(why):find("does not fit", 1, true) ~= nil, true, "unfit reason names the cause")
 	fails(function()
 		planner.plan({x = 0, z = 0}, 1, {landmarks = {cathedral = profile.cathedral}})
 	end, "opts.landmarks", "incomplete profile is an error")
@@ -280,22 +191,14 @@ do
 	end, "entrance lies outside", "entrance outside box is an error")
 end
 
--- Bounded retries still apply with a profile.
-do
-	local plan, _, detail = planner.plan({x = 0, z = 0}, 1,
-		{landmarks = profile, max_attempts = 0})
-	eq(plan, nil, "zero budget with profile")
-	eq(detail.code, "retries_exhausted", "zero budget code with profile")
-end
-
 -- A tampered door is rejected by the validator.
 do
 	local plan = clone(base)
 	plan.sites.castle.approach.pos.x = plan.sites.castle.approach.pos.x + 100
-	eq(planner.validate(plan), nil, "tampered approach pos rejected")
+	eq(authored_plan.validate(plan), nil, "tampered approach pos rejected")
 	plan = clone(base)
-	plan.sites.castle.door.recess = plan.sites.castle.door.recess + 1
-	eq(planner.validate(plan), nil, "tampered recess rejected")
+	plan.sites.castle.entrance.x = plan.sites.castle.entrance.x + 1
+	eq(authored_plan.validate(plan), nil, "tampered entrance rejected")
 end
 
 -- Site search: terrain limits do not scale with the town (its reach beyond

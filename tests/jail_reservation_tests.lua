@@ -5,6 +5,7 @@
 -- with the real catalog jail. A generated medieval plan is used only for the
 -- integration cases at the end; TOWNS_TEST_FULL=1 sweeps seeds 1-8.
 local eq, fails, planner, catalog, geometry = ...
+local authored_plan = dofile("src/authored_plan.lua")
 
 local FULL = os.getenv("TOWNS_TEST_FULL") == "1"
 local row_plan = dofile("tests/frontage_plan_fixture.lua")
@@ -145,7 +146,7 @@ local function check_planned(seed)
 	local plan, why = planner.plan({x = 10, z = -30}, seed, {landmarks = base})
 	eq(plan ~= nil, true, label .. " planned: " .. tostring(why))
 	if not plan then return end
-	eq(planner.validate(plan), true, label .. " validates")
+	eq(authored_plan.validate(plan), true, label .. " validates")
 	eq(#plan.shortages, 0, label .. " shortages")
 	local j = plan.reservations and plan.reservations.jail
 	eq(j ~= nil, true, label .. " has a jail")
@@ -180,7 +181,7 @@ do
 	local plan, why = planner.plan({x = 0, z = 0}, 2, {landmarks = prof})
 	eq(plan ~= nil, true, "no-fit plan still succeeds: " .. tostring(why))
 	if plan then
-		eq(planner.validate(plan), true, "no-fit plan validates")
+		eq(authored_plan.validate(plan), true, "no-fit plan validates")
 		eq(plan.reservations.jail, nil, "no jail placed")
 		eq(#plan.shortages, 1, "one shortage")
 		local s = plan.shortages[1]
