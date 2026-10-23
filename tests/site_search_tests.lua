@@ -1059,3 +1059,137 @@ do
 	eq(failed_result, nil, "authored preflight: missing entry rejected")
 	eq(type(failed_summary), "string", "authored preflight: useful failure")
 end
+
+-- Translation (#185): a candidate is inspected on the origin plan translated
+-- to its centre; the accepted centre is planned once more and must have that
+-- same footprint (bounds and boundary rectangles). Planner calls are counted
+-- through a wrapper over the real planner; `mutate(n, plan)` may alter the
+-- nth returned plan (tests only).
+do
+	local catalog = dofile("src/catalog.lua")
+	local profile = assert(planner.landmark_profile(catalog.snapshot()))
+	local MED = {landmarks = profile}
+	local ROMAN = {town_type = "roman"}
+	local ROMAN_PLAYER = {x = 0.4, y = 21, z = -0.3}
+
+	local function rect_text(r)
+		return ("%d,%d,%d,%d"):format(r.x1, r.z1, r.x2, r.z2)
+	end
+	local function footprint_text(plan)
+		local out = {"bounds " .. rect_text(plan.bounds)}
+		for i, r in ipairs(plan.boundary.rects) do out[#out + 1] = "rect" .. i .. " " .. rect_text(r) end
+		return table.concat(out, "; ")
+	end
+	local function shift_rect(r, dx, dz)
+		return {x1 = r.x1 + dx, z1 = r.z1 + dz, x2 = r.x2 + dx, z2 = r.z2 + dz}
+	end
+	-- The real planner by default; `base` may be another planner-shaped table.
+	local function wrapped(mutate, base)
+		base = base or planner
+		local log = {calls = {}}
+		local p = setmetatable({
+			plan = function(center, seed, popts)
+				local n = #log.calls + 1
+				log.calls[n] = {x = center.x, z = center.z}
+				local plan, why, detail = base.plan(center, seed, popts)
+				if plan and mutate then mutate(n, plan) end
+				return plan, why, detail
+			end,
+		}, {__index = planner})
+		return p, log
+	end
+	local function search_with(p, ppos, seed, popts, max_radius)
+		local found, summary, details
+		factory(placement, p).search(ppos, seed, {
+			entries = catalog.entries, planner_opts = popts, max_radius = max_radius,
+		}, function(r, s, d) found, summary, details = r, s, d end, new_world({}).env)
+		return found, summary, details
+	end
+
+	-- Successful searches: exactly two planner calls (origin, accepted centre),
+	-- and the accepted footprint is the origin footprint translated.
+	local cases = {
+		{label = "medieval", opts = MED, pos = {x = 0.4, y = 21, z = -0.3}},
+		{label = "roman", opts = ROMAN, pos = ROMAN_PLAYER},
+		{label = "medieval negative", opts = MED, pos = {x = -210.4, y = 21, z = -190.3}},
+		{label = "roman negative", opts = ROMAN, pos = {x = -210.4, y = 21, z = -190.3}},
+		{label = "roman positive", opts = ROMAN, pos = {x = 210.4, y = 21, z = 190.3}},
+	}
+	for _, c in ipairs(cases) do
+		local p, log = wrapped()
+		local found, summary = search_with(p, c.pos, 101, c.opts, 160)
+		eq(found ~= nil, true, c.label .. ": search accepted (" .. tostring(summary) .. ")")
+		if found then
+			eq(#log.calls, 2, c.label .. ": planner called twice (origin, accepted centre)")
+			eq(log.calls[2].x, found.center.x, c.label .. ": second call at accepted x")
+			eq(log.calls[2].z, found.center.z, c.label .. ": second call at accepted z")
+			local origin = planner.plan({x = 0, z = 0}, 101, c.opts)
+			local dx, dz = found.center.x - origin.center.x, found.center.z - origin.center.z
+			local expected = {bounds = shift_rect(origin.bounds, dx, dz), boundary = {rects = {}}}
+			for i, r in ipairs(origin.boundary.rects) do
+				expected.boundary.rects[i] = shift_rect(r, dx, dz)
+			end
+			eq(footprint_text(found.plan), footprint_text(expected),
+				c.label .. ": accepted footprint is the origin footprint translated")
+			eq(found.plan.center.x == found.center.x and found.plan.center.z == found.center.z, true,
+				c.label .. ": plan centre is the accepted centre")
+			if c.label:find("negative", 1, true) then
+				eq(found.center.x < 0 and found.center.z < 0, true, c.label .. ": centre is negative")
+			elseif c.label:find("positive", 1, true) then
+				eq(found.center.x > 0 and found.center.z > 0, true, c.label .. ": centre is positive")
+			end
+		end
+	end
+
+	-- The origin plan that was inspected is not mutated by the search.
+	do
+		local origin_plan, before
+		local p = wrapped()
+		local spy = setmetatable({
+			plan = function(center, seed, popts)
+				local plan, why, detail = p.plan(center, seed, popts)
+				if plan and center.x == 0 and center.z == 0 and not origin_plan then
+					origin_plan = plan
+					before = footprint_text(plan)
+				end
+				return plan, why, detail
+			end,
+		}, {__index = p})
+		local found = search_with(spy, ROMAN_PLAYER, 101, ROMAN, 160)
+		eq(found ~= nil, true, "source plan: search accepted")
+		eq(origin_plan ~= nil and footprint_text(origin_plan) == before, true,
+			"source plan: origin footprint unchanged by the search")
+	end
+
+	-- Mutation: a shifted bounds field or a shifted boundary rectangle on the
+	-- accepted centre's plan makes every candidate fail as plan_failed. The
+	-- authored fixture (cheap, planner-shaped) stands in for the planner here.
+	local fixture_base = {plan = function(c, s) return make_authored_plan(c, s) end}
+	local function shift_bounds(n, plan)
+		if n > 1 then
+			plan.bounds = {x1 = plan.bounds.x1 + 1, z1 = plan.bounds.z1,
+				x2 = plan.bounds.x2, z2 = plan.bounds.z2}
+		end
+	end
+	local function shift_rects(n, plan)
+		if n > 1 then
+			plan.boundary.rects = {shift_rect(plan.boundary.rects[1], 0, -1)}
+		end
+	end
+	for _, m in ipairs({
+		{label = "bounds shifted", mutate = shift_bounds},
+		{label = "boundary rect shifted", mutate = shift_rects},
+	}) do
+		local p, log = wrapped(m.mutate, fixture_base)
+		local found, summary, details = search_with(p, ROMAN_PLAYER, 101, ROMAN, 48)
+		eq(found, nil, m.label .. ": footprint mismatch not accepted")
+		local counted = details and details.rejections.plan_failed or 0
+		eq(counted > 0, true, m.label .. ": counted as plan_failed")
+		eq(type(summary) == "string" and summary:find("plan_failed", 1, true) ~= nil, true,
+			m.label .. ": summary reports plan_failed")
+		eq(#log.calls > 1, true, m.label .. ": accepted centre was planned")
+	end
+	-- Control for the mutations: the unmutated search is accepted.
+	local control = search_with((wrapped(nil, fixture_base)), ROMAN_PLAYER, 101, ROMAN, 48)
+	eq(control ~= nil, true, "footprint control: unmutated search accepted")
+end
