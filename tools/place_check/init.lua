@@ -345,7 +345,8 @@ core.register_on_mods_loaded(function() core.after(0, function()
     -- of its door is pavement, its facade end cells are not.
     local hall = plan.sites.city_hall
     if hall then
-     local r, side = hall.rect, hall.side
+     local r, f = hall.rect, hall.facing
+     local side = f.x > 0 and '+x' or f.x < 0 and '-x' or f.z > 0 and '+z' or '-z'
      local ends
      if side == '-z' then ends = {{r.x1, r.z1}, {r.x2, r.z1}}
      elseif side == '+z' then ends = {{r.x1, r.z2}, {r.x2, r.z2}}

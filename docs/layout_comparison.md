@@ -81,8 +81,8 @@ other metrics apply to both town types.
   entry count and a 32-bit hash (djb2, base 33, start 5381) over the sorted
   entries `id|role|size x,y,z|entrance x,y,z|ground_offset` joined by `;`. A
   changed hash means the real catalog changed and plans are not comparable.
-- Layout constants: every value of `planner.resolve_constants({landmarks =
-  profile})` is printed in `report.md`.
+- Layout constants: none are printed. The medieval layout is fixed by
+  `src/medieval_planner.lua` and varies only with the seed and centre.
 - Failed seeds stay in the report (`status = FAILED`, with the planner's
   reason); they get no artifact files. The baseline set has none.
 
@@ -96,7 +96,7 @@ other metrics apply to both town types.
 Both distinguish: plan boundary, free block ground, secondary and principal
 streets, market, parvis, cathedral and castle compounds, city hall, jail,
 tavern/well/chapel, actual placed houses/shops/workshops (exact footprint
-boxes), boundary approach windows, the town centre, and the
+boxes), the town centre, and the
 narrow strips measured below.
 
 Hooks for later tickets (legend entries exist; nothing is drawn until the
@@ -176,7 +176,6 @@ free ground, since buildings can sit on it).
   `market_open_square` is the side of the largest all-open square inside the
   market. Openness is area based, so a market that is open but squeezed into a
   thin strip shows a small `market_open_square`.
-- `attempts`: planner attempt number that succeeded (not a quality metric).
 
 Not yet measured (hooks only): inward landmark approaches, core bounds,
 construction footprint, exits. Add them with the ticket that introduces the
@@ -211,8 +210,8 @@ D is the smallest depth that admits at least half of the eligible entries
 the deepest (13). With the stock catalog (11 entries) the depths are
 7, 9, 9, 9, 9, 9, 11, 11, 12, 13, 13 and D = 9.
 
-`planner.depth_policy(profile)` turns D into the constants listed in the
-report: `MIN_BLOCK_SIDE = max(D, 12)`, `ROAD_GAP = 2 D` (two opposing rows between
+Historical (removed by #184 stage 3 with `src/streets.lua`): `planner.depth_policy(profile)`
+turned D into the constants listed in the report: `MIN_BLOCK_SIDE = max(D, 12)`, `ROAD_GAP = 2 D` (two opposing rows between
 roads), `SQUARE_GAP`, `LANDMARK_GAP` and `BOUNDARY_GAP = D` (one row from a
 square, a landmark or the town edge; `BOUNDARY_GAP` is the named gap that
 walls #95 will claim). Squares (market, parvis) are paved edges: a road
@@ -325,7 +324,7 @@ The #86 checks were per street rectangle, and a gap of 0 (a road touching a
 road) passed. Two things followed: a route could run directly beside an
 existing one (an 8 to 10 wide band with no building row between the two), and a
 road split into several rectangles got an exemption at every piece's ends.
-Now (`src/streets.lua`):
+Then (`src/streets.lua`, removed by #184 stage 3):
 
 - Spacing is judged on the exposed edges of the combined road footprint
   (`gap_scan` `edge_runs`), so the verdict does not depend on how a route is
@@ -343,7 +342,7 @@ Now (`src/streets.lua`):
 - Blocks and frontage are carved after this, from what is left.
 
 `streets.narrow_gaps(plan, C)` and `streets.wide_pavement(plan, C)` measure a
-finished plan (fixtures in `tests/route_consolidation_tests.lua`).
+finished plan (the fixtures and tests went with `src/streets.lua`).
 
 ### Before and after (#122)
 

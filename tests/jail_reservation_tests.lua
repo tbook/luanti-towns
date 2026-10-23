@@ -23,9 +23,6 @@ end
 local base = assert(planner.landmark_profile(catalog.snapshot()))
 eq(base.jail ~= nil, true, "catalog profile carries the jail")
 eq(base.jail.id, "jail", "catalog jail id")
--- The street spacing depth comes from the content; the jail-less plan below
--- has none, so it is passed explicitly (ticket #86).
-local depth_policy = planner.depth_policy(base)
 
 local function dist2(plan, e)
 	local m = plan.sites.market.rect
@@ -163,12 +160,11 @@ end
 if plan1 then
 	local plain = planner.plan({x = 10, z = -30}, 1,
 		{landmarks = {cathedral = base.cathedral, castle = base.castle,
-			city_hall = base.city_hall}, constants = depth_policy})
+			city_hall = base.city_hall}})
 	eq(plain ~= nil and plain.reservations == nil and plain.shortages == nil, true,
 		"jail-less plan carries no reservation fields")
 	if plain then
-		eq(#plain.streets == #plan1.streets and #plain.frontage == #plan1.frontage
-			and plain.attempts == plan1.attempts, true, "rest of plan unchanged")
+		eq(#plain.streets == #plan1.streets and #plain.frontage == #plan1.frontage, true, "rest of plan unchanged")
 	end
 end
 

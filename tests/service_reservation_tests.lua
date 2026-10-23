@@ -320,8 +320,11 @@ for seed = 1, FULL and 8 or 1 do check_planned(seed) end
 
 -- Impossible chapel minimums are diagnostics, not failed plans.
 do
-	local plan = assert(planner.plan({x = 0, z = 0}, 2, {landmarks = base,
-		constants = {CHAPEL_MIN_FROM_CATHEDRAL = 100000}}))
+	-- populate reads planner.CONSTANTS when it runs; restore straight after.
+	local saved = planner.CONSTANTS.CHAPEL_MIN_FROM_CATHEDRAL
+	planner.CONSTANTS.CHAPEL_MIN_FROM_CATHEDRAL = 100000
+	local plan = assert(planner.plan({x = 0, z = 0}, 2, {landmarks = base}))
+	planner.CONSTANTS.CHAPEL_MIN_FROM_CATHEDRAL = saved
 	eq(plan.reservations.service_counts.chapel.placed, 0, "impossible chapel unmet")
 	eq(#plan.shortages, 1, "one shortage")
 	eq(plan.shortages[1].role, "chapel", "chapel shortage role")

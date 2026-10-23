@@ -202,15 +202,13 @@ local function build(center, seed, profile, rng)
 		sites[name] = site
 		order[#order + 1] = name
 	end
-	-- `side` is the direction the entrance faces.
-	landmark("cathedral", profile.cathedral, 0, cathedral_rect, {parvis = "parvis", side = "-z"})
+	landmark("cathedral", profile.cathedral, 0, cathedral_rect, {parvis = "parvis"})
 	landmark("castle", profile.castle, 270, castle_rect, {
-		side = "+x",
 		gate_span = R(castle_rect.x1 + gate.x1, castle_rect.z1 + gate.z1,
 			castle_rect.x1 + gate.x2, castle_rect.z1 + gate.z2),
 	})
 	if hall_rect then
-		landmark("city_hall", profile.city_hall, 90, hall_rect, {square = "market", side = "-x"})
+		landmark("city_hall", profile.city_hall, 90, hall_rect, {square = "market"})
 	end
 
 	local core = R(X1, Z0, X2, Z2)
@@ -223,8 +221,6 @@ local function build(center, seed, profile, rng)
 	local plan = {
 		town_type = "medieval", seed = seed, center = {x = center.x, z = center.z},
 		bounds = bounds,
-		width = bounds.x2 - bounds.x1 + 1, depth = bounds.z2 - bounds.z1 + 1,
-		attempts = 1,
 		boundary = {rects = {core, cathedral_rect, castle_rect}},
 		sites = sites, site_order = order,
 		streets = streets, blocks = blocks, frontage = {},
@@ -240,11 +236,11 @@ function M.plan(center, seed, profile, rng)
 	local ok, plan, row = pcall(build, center, seed, profile, rng)
 	if not ok then
 		local why = "medieval layout: " .. tostring(plan)
-		return nil, why, {code = "invalid_layout", attempts = 0, rejections = {}, last = why}
+		return nil, why, {code = "invalid_layout", last = why}
 	end
 	local valid, why = authored_plan.validate(plan, {min_block_depth = row})
 	if not valid then
-		return nil, why, {code = "invalid_layout", attempts = 0, rejections = {}, last = why}
+		return nil, why, {code = "invalid_layout", last = why}
 	end
 	return plan
 end

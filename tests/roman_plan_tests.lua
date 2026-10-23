@@ -1,7 +1,7 @@
 -- Roman civic plan: counts, separation, connectivity and invariance (issue #148).
 local eq, fails, planner = ...
 local roman = dofile("src/roman_planner.lua")
-local small = dofile("tests/small_town.lua")(planner)
+local medieval_profile = assert(planner.landmark_profile(dofile("src/catalog.lua").snapshot()))
 
 local row_depth = planner.row_depth(roman.content_profile())
 local function copy(t)
@@ -248,7 +248,7 @@ end
 eq(plan.sites.forum.lane, nil, "forum has no lane")
 for _, s in ipairs(list) do eq(s.lane, nil, s.name .. " has no lane") end
 local medieval_lanes = 0
-for _, st in ipairs(small.plan({x = 0, z = 0}, 1).streets) do
+for _, st in ipairs(planner.plan({x = 0, z = 0}, 1, {landmarks = medieval_profile}).streets) do
 	if st.lane then medieval_lanes = medieval_lanes + 1 end
 end
 eq(medieval_lanes, 0, "medieval streets have no lanes")
@@ -406,7 +406,7 @@ fails(function() planner.plan({x = 0.5, z = 0}, 1, {town_type = "roman"}) end,
 	"site_center", "Roman planning checks the centre")
 fails(function() planner.plan({x = 0, z = 0}, 2 ^ 40, {town_type = "roman"}) end,
 	"seed", "Roman planning checks the seed")
-local medieval = small.plan({x = 0, z = 0}, 1)
+local medieval = planner.plan({x = 0, z = 0}, 1, {landmarks = medieval_profile})
 eq(medieval.town_type, "medieval", "default town type remains medieval")
 eq(medieval.sites.cathedral ~= nil, true, "default plan keeps medieval civic sites")
 

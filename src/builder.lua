@@ -64,7 +64,6 @@
 --   sites = {[name] = {rect, side, entrance}} for every named site;
 --            entrance_y (the real door height) is added for the sites that
 --            hold a placed landmark,
---   approaches = {{name, side, pos}, ...},
 --   counts = {streets, principal, secondary, blocks, frontage, columns,
 --             paved_columns},
 --   nodes = {examined, changed, by_kind = {clear, fill, support, surface,
@@ -359,10 +358,6 @@ local function build_impl(result, opts, env, st)
 	st.wbounds = wbounds
 	local wet = result.wet and result.wet.surfaces or {}
 	local function is_wet(x, z) return wet[x] ~= nil and wet[x][z] ~= nil end
-	local approach_cols = {}
-	for _, a in ipairs(plan.approaches or {}) do
-		if a.pos then approach_cols[a.pos.x .. "," .. a.pos.z] = true end
-	end
 	local NEIGH = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
 	local function read_phase()
 		-- One node wider in X/Z so liquids just outside the town can be
@@ -480,12 +475,10 @@ local function build_impl(result, opts, env, st)
 					-- Seal: open air above ground beside a liquid outside
 					-- the town would be flooded. Keep natural solid terrain
 					-- there, else put stone (confined to the town columns).
-					-- Flow is 4-neighbour horizontal only. Paved columns and
-					-- approach columns keep their headroom (y <= g+2) so no
-					-- street or door approach is walled off; their sides
-					-- are left to the door/approach validation.
+					-- Flow is 4-neighbour horizontal only. Paved columns
+					-- keep their headroom (y <= g+2) so no street is walled off.
 					if want == TL.AIR and y > g
-							and not (y <= g + 2 and (L.pavement(x, z) or approach_cols[x .. "," .. z])) then
+							and not (y <= g + 2 and L.pavement(x, z)) then
 						for _, d in ipairs(NEIGH) do
 							local nx, nz = x + d[1], z + d[2]
 							if not L.in_town(nx, nz) then
@@ -634,7 +627,7 @@ local function build_impl(result, opts, env, st)
 	local sites = {}
 	for _, item in ipairs(plan_sites.list(plan)) do
 		local name, s = item.name, item.site
-		sites[name] = {rect = s.rect, side = s.side, entrance = s.entrance}
+		sites[name] = {rect = s.rect, facing = s.facing, entrance = s.entrance}
 	end
 	local principal, secondary = 0, 0
 	for _, s in ipairs(plan.streets) do
@@ -649,7 +642,6 @@ local function build_impl(result, opts, env, st)
 		plan_bounds = plan.bounds,
 		volume = result.build_volume,
 		sites = sites,
-		approaches = plan.approaches,
 		counts = {
 			streets = #plan.streets, principal = principal, secondary = secondary,
 			blocks = #plan.blocks, frontage = #plan.frontage,
