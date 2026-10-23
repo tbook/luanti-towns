@@ -1,10 +1,10 @@
 # Issue 139 Roman building imports
 
 These are cleaned captures from TownsWorkshop. `catalog.lua` registers arch,
-temple, domus, theatre, amphitheater, bath, and insula with the shared generator
-as fixed `landmark` entries. They do not enter medieval random building pools;
-domus and insula are not random houses. Villa and aqueduct remain standalone
-imports.
+temple, domus, theatre, amphitheater, bath, insula, and vespasianum with the
+shared generator as fixed `landmark` entries. They do not enter medieval random
+building pools; domus, insula and vespasianum are not random houses. Villa and
+aqueduct remain standalone imports.
 Each `.mts` is a native Luanti schematic in the orientation and dimensions
 recorded in `manifest.json`; the matching `.lua` stores node metadata,
 inventories, and required node names for tooling that supports the Towns
@@ -35,7 +35,9 @@ top-level `snapshot_sha256`. Since #193 the bath, domus, amphitheater, villa,
 aqueduct and insula records were re-exported with `--only` from a byte-identical
 scratch copy of TownsWorkshop (`--world <copy>`), so `source_map_sha256` equals
 the workshop file's hash (`6eab09ff...`). Temple, theatre and arch were not
-re-exported: their only changes were grass/dirt flips in the ground row.
+re-exported: their only changes were grass/dirt flips in the ground row. The
+vespasianum record (#207) was captured the same way, from a byte-identical copy,
+so its `source_map_sha256` is the same hash.
 
 The exporter reads a consistent, read-only SQLite snapshot and writes only to
 this directory. In a game with this mod enabled, a server-privileged player
@@ -63,6 +65,14 @@ axis **before** placement rotation; omitted facing defaults to `-Z`.
 | amphitheater | 29×9×29 | 15,3,0 | -Z | 2 | Gravel approach at X=15, Y=2 (re-captured in #193); open entrance under outer structure. |
 | bath | 88×18×43 | 4,4,20 | -X | 2 | Central front door over quartz at Y=3 (quartz approach slab at X=0); perimeter grass at Y=2 above lower dirt layer. |
 | insula | 35×20×27 | 17,3,2 | -Z | 2 | Spruce door in the front wall at Y=3 over a stone threshold at Y=2; gravel approach at Y=2 (Z=0). A second front door is at X=11, and a rear spruce door at (17,3,24). |
+| vespasianum | 10×8×8 | 1,3,3 | -X | 2 | No door. A 1-wide, 2-high opening in the -X wall at Y=3 over a hardened-clay threshold at Y=2, with gravel at (0,2,3) outside; the only air route into the room. Trapdoors inside, a water channel, a flower pot and an item frame. |
+
+The vespasianum capture (#207) is the issue's box 285..294 × 7..14 × 406..413
+with the empty top row (Y=14) removed and a Y=6 dirt row added below, so two
+dirt rows sit under the Y=8 grass datum: world box (285,6,406)-(294,13,413),
+10×8×8. It has no doors, so its entrance is the only opening from outside into
+the room, not a chosen front door. Its facing (-X) follows from that single
+opening; the layout work should confirm which side faces the street.
 
 The insula capture (#193) is the issue's box 213..248 × 6..25 × 399..426 with
 only the x=0 column and z=27 row of grass and dirt platform removed: world box
@@ -90,7 +100,8 @@ marker, without portal-aware or through-building street routing.
 
 There are no authored resident-bed exclusions for these captures. The shared
 resident adapter accepts all eight domus beds, all six bath basement beds and
-all 23 insula beds at every rotation; the other four assets have no beds.
+all 23 insula beds at every rotation; the other assets, including vespasianum,
+have no beds.
 
 See [validation evidence](../../../docs/roman_assets_validation.md) for the
 disposable-world run and preserved capture caveats.

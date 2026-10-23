@@ -748,6 +748,58 @@
         "mcl_wool:white_carpet",
         "xpanes:pane_natural_flat"
       ]
+    },
+    {
+      "id": "vespasianum",
+      "min": {
+        "x": 285,
+        "y": 6,
+        "z": 406
+      },
+      "max": {
+        "x": 294,
+        "y": 13,
+        "z": 413
+      },
+      "building_origin": {
+        "x": 285,
+        "y": 6,
+        "z": 406
+      },
+      "building_size": {
+        "x": 10,
+        "y": 8,
+        "z": 8
+      },
+      "size": {
+        "x": 10,
+        "y": 8,
+        "z": 8
+      },
+      "snapshot_sha256": "c43687e886185f7eafb427fd63d936ca84241ef2381230fbb52074dc17d1042d",
+      "source_map_sha256": "d073c3fbf3ec6754f4dd2740bc2b8311158bc10a59ca9a23805b6e05758a00cb",
+      "non_air_node_types": 18,
+      "metadata_nodes": 1,
+      "required_nodes": [
+        "mcl_colorblocks:hardened_clay",
+        "mcl_colorblocks:hardened_clay_brown",
+        "mcl_colorblocks:hardened_clay_grey",
+        "mcl_colorblocks:hardened_clay_orange",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:gravel",
+        "mcl_core:water_flowing",
+        "mcl_core:water_source",
+        "mcl_doors:dark_oak_trapdoor_open",
+        "mcl_flowerpots:flower_pot",
+        "mcl_itemframes:frame",
+        "mcl_mangrove:mangrove_trapdoor",
+        "mcl_stairs:slab_copper_cut",
+        "mcl_stairs:slab_copper_cut_top",
+        "mcl_stairs:slab_copper_exposed_cut",
+        "mcl_stairs:slab_copper_exposed_cut_top",
+        "mcl_torches:torch_wall"
+      ]
     }
   ],
   "generator_catalog": false

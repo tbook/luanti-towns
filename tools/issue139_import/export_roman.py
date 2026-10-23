@@ -21,10 +21,14 @@ FIXED_BOXES = {
     # Insula (#193): the issue's box (213..248, 6..25, 399..426) minus the x=0 and
     # z=27 grass/dirt platform margin; the eaves at x=1..35 and z=0..26 are kept.
     'insula': ({'x': 214, 'y': 6, 'z': 399}, {'x': 248, 'y': 25, 'z': 425}),
+    # Vespasianum (#207): the issue's box (285..294, 7..14, 406..413) without the
+    # empty top row (Y=14), plus a Y=6 dirt row so two dirt rows (Y=6..7) sit under
+    # the grass datum at Y=8. The architecture is 285..294 x 8..13 x 406..413.
+    'vespasianum': ({'x': 285, 'y': 6, 'z': 406}, {'x': 294, 'y': 13, 'z': 413}),
 }
-# Buildings recorded in the Issue 139 workshop report; insula is not.
+# Buildings recorded in the Issue 139 workshop report; insula and vespasianum are not.
 RECORDED = ('domus', 'arch', 'theatre', 'villa', 'aqueduct', 'amphitheater', 'temple', 'bath')
-IDS = RECORDED + ('insula',)
+IDS = RECORDED + ('insula', 'vespasianum')
 
 
 def main():
