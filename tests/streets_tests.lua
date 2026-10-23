@@ -108,22 +108,29 @@ local function window_touches(seen, r, sw)
 	return false
 end
 
+-- The default run uses a small seed set; TOWNS_TEST_FULL=1 runs the wider
+-- seed list, every review repro and a longer fuzz.
+local FULL = os.getenv("TOWNS_TEST_FULL") == "1"
 local seeds = {}
-for i = 1, 7 do seeds[#seeds + 1] = i end
-for _, s in ipairs({0, -7, 1073741823}) do
-	seeds[#seeds + 1] = s
+if FULL then
+	for i = 1, 7 do seeds[#seeds + 1] = i end
+	for _, s in ipairs({0, -7, 1073741823}) do seeds[#seeds + 1] = s end
+else
+	seeds = {1, 2, 3, 0}
 end
 local cases = {}
 for _, s in ipairs(seeds) do cases[#cases + 1] = {{x = 0, z = 0}, s} end
-for i, s in ipairs({3, 11, 23, 77}) do
+for i, s in ipairs(FULL and {3, 11, 23, 77} or {3, 11}) do
 	cases[#cases + 1] = {i % 2 == 0 and {x = 1000, z = -2000} or {x = -317, z = 4096}, s}
 end
 -- Review repro cases (castle door was once left unpaved).
-for _, rc in ipairs({
+for i, rc in ipairs({
 	{-166, -162, -1073711202}, {-2266, -2787, 50}, {-1713, -800, 55},
 	{-133, -168, -1073731110}, {-2132, -793, -1073721938}, {-1378, 2747, -1073719420},
 }) do
+	if FULL or i <= 2 then
 	cases[#cases + 1] = {{x = rc[1], z = rc[2]}, rc[3]}
+	end
 end
 
 local sig, with_secondary, kinds = {}, 0, {}
@@ -284,7 +291,7 @@ eq(planned, #cases, "all street cases planned")
 local nsig = 0
 for _ in pairs(sig) do nsig = nsig + 1 end
 eq(nsig, #seeds, "every seed gives distinct street layouts")
-eq(with_secondary >= 4, true, "secondary streets appear for many seeds")
+eq(with_secondary >= (FULL and 4 or 1), true, "secondary streets appear")
 eq(material_names["mcl_core:cobble"] and material_names["mcl_core:gravel"], true,
 	"both street materials used")
 
@@ -342,7 +349,8 @@ do
 		return a + state % (b - a + 1)
 	end
 	local ok_all, doors_ok, count = true, true, 0
-	for _ = 1, 14 do
+	local fuzz_runs = FULL and 14 or 3
+	for _ = 1, fuzz_runs do
 		local c = {x = rnd(-3000, 3000), z = rnd(-3000, 3000)}
 		local seed = rnd(-1073741823, 1073741823)
 		local plan = planner.plan(c, seed)
@@ -359,7 +367,7 @@ do
 			if not paved[key(p.x, p.z)] then doors_ok = false end
 		end
 	end
-	eq(count, 14, "fuzz plans attempted")
+	eq(count, fuzz_runs, "fuzz plans attempted")
 	eq(ok_all, true, "fuzz plans valid")
 	eq(doors_ok, true, "fuzz castle door nodes paved")
 end
