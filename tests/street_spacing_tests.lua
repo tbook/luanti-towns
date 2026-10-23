@@ -124,12 +124,28 @@ do
 		local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
 			eq(#streets.narrow_gaps(plan, planner.resolve_constants({landmarks = base})), 0,
 			"seed " .. seed .. " has no narrow run with gate apron")
+		eq((streets.wide_pavement(plan, planner.resolve_constants({landmarks = base}))), 0,
+			"seed " .. seed .. " has no parallel paving (#122)")
 		local plain = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = civic}))
 		local Cp = planner.resolve_constants({landmarks = civic})
 		for k, v in pairs(policy) do Cp[k] = v end
 		without_total = without_total + #streets.narrow_gaps(plain, Cp)
 	end
 	eq(without_total > 0, true, "plans without the policy do keep narrow runs")
+end
+
+-- The castle-adjacent pattern of issue #122 (saved plan: seed 99999 before the
+-- consolidation, tests/route_consolidation_fixture.lua) re-planned: no pair of
+-- adjacent roads, every street still on the network, the castle door reached
+-- by a full-width corridor (planner.plan validates all of it).
+do
+	local C = planner.resolve_constants({landmarks = base})
+	local saved = dofile("tests/route_consolidation_fixture.lua")
+	eq(streets.wide_pavement(saved, C) > 0, true, "saved plan has parallel paving")
+	local plan = assert(planner.plan({x = 0, z = 0}, 99999, {landmarks = base}))
+	eq(streets.wide_pavement(plan, C), 0, "re-planned seed 99999 has none")
+	eq(#streets.narrow_gaps(plan, C), 0, "re-planned seed 99999 has no narrow run")
+	eq(planner.validate(plan, C), true, "re-planned seed 99999 validates")
 end
 
 -- streets.fill() level: a hand-built town where unconstrained secondaries

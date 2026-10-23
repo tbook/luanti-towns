@@ -35,6 +35,16 @@
 --    building row's depth to squares, landmarks, the boundary edge and
 --    (two rows) other roads: see gap_scan, the router penalty, the
 --    secondary shift/shorten/reject and the final gate in fill().
+--    Issue #122 judges spacing on the exposed edges of the COMBINED road
+--    footprint (gap_scan's edge_runs), not per route rectangle, so how a route
+--    is split into rectangles cannot change a verdict. Exemptions are
+--    geometric and bounded: the first STREET_WIDTH positions of an edge beside
+--    a concave corner (a real junction or a square), a street end cap, the
+--    entrance transition of each exit (its window grown by one street width),
+--    the landmark door windows and the castle gate apron. Routes and strips
+--    that would run beside or overlap a road (a fully paved STREET_WIDTH + 1
+--    square, wide_cells) are penalised or refused, so such routes share one
+--    normal-width corridor; fill() rejects what is left.
 -- 4. Frontage runs are contiguous stretches of a block edge whose outer row
 --    is one street (or square), at least MIN_FRONTAGE_RUN long.
 
@@ -132,9 +142,36 @@ local function noise(x, z, salt)
 end
 
 ------------------------------------------------------------------------
+-- Wide pavement (ticket #122)
+------------------------------------------------------------------------
+-- Road cells (layer Rd: streets only, not squares or the gate apron) covered
+-- by a fully paved (width + 1) square window. A street is `width` wide
+-- (5 principal, 4 secondary) and a junction, bend or crossing never fills a
+-- (sw + 1) square, so any hit is redundant paving: two routes side by side or
+-- overlapping with an offset. Returns the number of such cells and the first
+-- one ({x, z}, local coordinates). Squares are not roads and so never count.
+local function wide_cells(Rd, n, size)
+	local count = make_count(Rd, n)
+	local hit, first = {}, nil
+	for z = 0, n - size do
+		for x = 0, n - size do
+			if count(x, z, x + size - 1, z + size - 1) == size * size then
+				for zz = z, z + size - 1 do
+					for xx = x, x + size - 1 do hit[zz * n + xx + 1] = true end
+				end
+				first = first or {x, z}
+			end
+		end
+	end
+	local total = 0
+	for _ in pairs(hit) do total = total + 1 end
+	return total, first
+end
+
+------------------------------------------------------------------------
 -- Row-depth gaps (ticket #86)
 ------------------------------------------------------------------------
--- gap_scan(n, B, F, R, S, C) -> {ray, narrow, runs} over n*n envelope-local
+-- gap_scan(n, B, F, R, S, C) -> {ray, narrow, edge_runs} over n*n envelope-local
 -- layers (flat, cell (x, z) at z * n + x + 1): B inside the boundary, F free
 -- ground (inside the boundary, not a landmark), R pavement, S square-like
 -- pavement (market, parvis, and the dedicated castle gate apron). The apron
@@ -145,9 +182,12 @@ end
 -- boundary edge; the gap is narrow when it is shorter than the depth the
 -- ending needs (C.ROAD_GAP two opposing rows, C.SQUARE_GAP / C.LANDMARK_GAP /
 -- C.BOUNDARY_GAP one row). A gap of 0 is a street touching pavement or a
--- landmark (a junction, a wall of a landmark) and is fine, but a street
--- touching the boundary edge with an empty outer side is not.
-local function gap_scan(n, B, F, R, S, C)
+-- landmark (a wall of a landmark) is fine, but a street touching the boundary
+-- edge with an empty outer side is not. Spacing is judged on the exposed edges
+-- of the combined pavement (edge_runs, issue #122), not per rectangle. The
+-- optional P marks a square that is planned but not paved yet (the parvis
+-- while the first routes are laid): rays stop at it like at a square.
+local function gap_scan(n, B, F, R, S, C, P)
 	local sw = C.STREET_WIDTH
 	local cap = C.ROAD_GAP
 	local function idx(x, z) return z * n + x + 1 end
@@ -160,6 +200,8 @@ local function gap_scan(n, B, F, R, S, C)
 			local i = idx(x, z)
 			if R[i] == 1 then
 				return g, (S[i] == 1) and "square" or "road"
+			elseif P and P[i] == 1 then
+				return g, "square"
 			elseif F[i] == 0 then
 				return g, "landmark"
 			end
@@ -179,56 +221,136 @@ local function gap_scan(n, B, F, R, S, C)
 		return g < C.LANDMARK_GAP
 	end
 
-	-- Narrow runs beside the long sides of rect r (local coordinates). Only
+	-- Narrow runs along the EXPOSED edges of the combined road footprint (issue
+	-- #122), independent of how routes are split into rectangles. Rd marks road
+	-- cells (streets, not squares); an edge cell is a road cell whose neighbour
+	-- in a direction is not pavement (R), so two roads that touch have no edge
+	-- between them (that case is a wide band, see wide_cells). Edge cells of one
+	-- direction and line form a segment. A position is exempt only where the
+	-- geometry makes a real transition:
+	--   * the first `sw` positions of a segment end at a concave corner (a
+	--     junction with another road or a square);
+	--   * a whole segment that is an end cap (convex at both ends and at most
+	--     `sw` long: a street end, which cannot hold a frontage row);
+	--   * positions inside an exemption zone (`zones`, local rects the caller
+	--     keeps live: entrance windows of both exits, landmark door windows
+	--     and the castle gate apron, each grown by `sw`).
+	-- A rectangle endpoint that is not one of these is not an exemption. Only
 	-- runs of at least MIN_FRONTAGE_RUN positions count (shorter slivers hold
-	-- no frontage run), and the first and last positions of a street, as many
-	-- as the street is wide (its own width: 5 principal, 4 secondary), are
-	-- exempt: junctions, bends and short entrance approaches. Returns a list
-	-- of {a1, a2} coordinates along the street.
-	local function runs(r)
+	-- no frontage run). `win` ({x1, z1, x2, z2}) limits which edge cells are
+	-- reported. Returns {dir, x1, z1, x2, z2, a1, a2} sorted by position, where
+	-- a1..a2 are the coordinates along the edge.
+	local DIRS = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}}
+	local function edge_runs(Rd, zones, win)
 		local out = {}
-		local ex, ez = r.x2 - r.x1 + 1, r.z2 - r.z1 + 1
-		local w = math.min(ex, ez)
-		for _, axis in ipairs({"x", "z"}) do
-			if (axis == "x" and ex >= ez) or (axis == "z" and ez >= ex) then
-				local lo = (axis == "x") and r.x1 or r.z1
-				local hi = (axis == "x") and r.x2 or r.z2
-				local c1 = (axis == "x") and r.z1 or r.x1
-				local c2 = (axis == "x") and r.z2 or r.x2
-				for _, side in ipairs({-1, 1}) do
-					local run_start, last
-					local function close()
-						if run_start and last - run_start + 1 >= C.MIN_FRONTAGE_RUN then
-							out[#out + 1] = {a1 = run_start, a2 = last}
+		win = win or {x1 = 0, z1 = 0, x2 = n - 1, z2 = n - 1}
+		local function inr(x, z) return x >= 0 and z >= 0 and x < n and z < n end
+		local function source(x, z) return inr(x, z) and Rd[idx(x, z)] == 1 and S[idx(x, z)] == 0 end
+		local function exposed(x, z, dx, dz)
+			if not source(x, z) then return false end
+			local nx, nz = x + dx, z + dz
+			return not inr(nx, nz) or R[idx(nx, nz)] == 0
+		end
+		local function in_zone(x, z)
+			for _, q in ipairs(zones or {}) do
+				if x >= q.x1 and x <= q.x2 and z >= q.z1 and z <= q.z2 then
+					return true
+				end
+			end
+			return false
+		end
+		-- "concave" when the cell beyond a segment end is pavement that
+		-- continues past the edge line (a junction), "convex" when it is not.
+		local function end_kind(x, z, ex, ez)
+			local px, pz = x + ex, z + ez
+			if not inr(px, pz) or R[idx(px, pz)] == 0 then return "convex" end
+			return "concave"
+		end
+		for di, d in ipairs(DIRS) do
+			local dx, dz = d[1], d[2]
+			local ex, ez = dz ~= 0 and 1 or 0, dx ~= 0 and 1 or 0
+			local seen = {}
+			for z = win.z1, win.z2 do
+				for x = win.x1, win.x2 do
+					if exposed(x, z, dx, dz) and not seen[idx(x, z)] then
+						-- Segment start: walk back along the edge line.
+						local sx, sz = x, z
+						while exposed(sx - ex, sz - ez, dx, dz) do sx, sz = sx - ex, sz - ez end
+						local cells = {}
+						local cx, cz = sx, sz
+						while exposed(cx, cz, dx, dz) do
+							cells[#cells + 1] = {cx, cz}
+							seen[idx(cx, cz)] = true
+							cx, cz = cx + ex, cz + ez
 						end
-						run_start = nil
+						local k1 = end_kind(sx, sz, -ex, -ez)
+						local last = cells[#cells]
+						local k2 = end_kind(last[1], last[2], ex, ez)
+						if not (k1 == "convex" and k2 == "convex" and #cells <= sw) then
+							local run
+							local function close(last_i)
+								if run and last_i - run + 1 >= C.MIN_FRONTAGE_RUN then
+									local c1, c2 = cells[run], cells[last_i]
+									if c2[1] >= win.x1 and c1[1] <= win.x2
+											and c2[2] >= win.z1 and c1[2] <= win.z2 then
+										out[#out + 1] = {dir = di, x1 = c1[1], z1 = c1[2],
+											x2 = c2[1], z2 = c2[2],
+											a1 = (ex ~= 0) and c1[1] or c1[2],
+											a2 = (ex ~= 0) and c2[1] or c2[2]}
+									end
+								end
+								run = nil
+							end
+							for i, c in ipairs(cells) do
+								local nr = true
+								if k1 == "concave" and i <= sw then nr = false end
+								if k2 == "concave" and i > #cells - sw then nr = false end
+								if nr and in_zone(c[1], c[2]) then nr = false end
+								if nr then
+									local g, class = ray(c[1] + dx, c[2] + dz, dx, dz)
+									nr = narrow(g, class)
+								end
+								if nr then
+									run = run or i
+								else
+									close(i - 1)
+								end
+							end
+							close(#cells)
+						end
 					end
-					for a = lo + w, hi - w do
-						local g, class
-						if axis == "x" then
-							g, class = ray(a, (side < 0) and c1 - 1 or c2 + 1, 0, side)
-						else
-							g, class = ray((side < 0) and c1 - 1 or c2 + 1, a, side, 0)
-						end
-						if narrow(g, class) then
-							run_start = run_start or a
-							last = a
-						else
-							close()
-						end
-					end
-					close()
 				end
 			end
 		end
 		table.sort(out, function(p, q)
-			if p.a1 ~= q.a1 then return p.a1 < q.a1 end
+			if p.dir ~= q.dir then return p.dir < q.dir end
+			if p.z1 ~= q.z1 then return p.z1 < q.z1 end
+			if p.x1 ~= q.x1 then return p.x1 < q.x1 end
 			return p.a2 < q.a2
 		end)
 		return out
 	end
 
-	return {ray = ray, narrow = narrow, runs = runs}
+	return {ray = ray, narrow = narrow, edge_runs = edge_runs}
+end
+
+local function grow(r, k)
+	return {x1 = r.x1 - k, z1 = r.z1 - k, x2 = r.x2 + k, z2 = r.z2 + k}
+end
+
+-- The street an edge run belongs to (for reports): the first street whose
+-- rect holds both ends of the run, else the first holding its first cell.
+local function run_owner(list, run, to_local)
+	local function has(q, x, z) return x >= q.x1 and x <= q.x2 and z >= q.z1 and z <= q.z2 end
+	local first
+	for _, st in ipairs(list) do
+		local q = to_local(st.rect)
+		if has(q, run.x1, run.z1) then
+			if has(q, run.x2, run.z2) then return st.id end
+			first = first or st.id
+		end
+	end
+	return first or 0
 end
 
 ------------------------------------------------------------------------
@@ -284,8 +406,14 @@ function M.fill(plan, rng, C)
 		set_rect(S, n, market, 1)
 		set_rect(S, n, parvis, 1)
 	end
+	-- Rd: road cells only (streets, no squares or apron), for the exposed-edge
+	-- scan and the wide-pavement check (issue #122); zones: local rects around
+	-- the exits, landmark doors and gate apron that exempt their ends.
+	local Rd = new_layer(n, 0)
+	local rdcount = make_count(Rd, n)
+	local zones = {}
 	local gap
-	if depth then gap = gap_scan(n, B, F, R, S, C) end
+	if depth then gap = gap_scan(n, B, F, R, S, C, pl) end
 	local ray, narrow = gap and gap.ray, gap and gap.narrow
 
 	local streets = {}
@@ -336,11 +464,60 @@ function M.fill(plan, rng, C)
 		return v
 	end
 
+	-- Whether stepping the window from (x, z) to (nx, nz) (move m) would make
+	-- fully paved (sw + 1) squares with the roads laid so far: the route would
+	-- hug an existing road instead of joining it. Memoised per route() call.
+	local wide_memo = {}
+	local function wide_step(x, z, nx, nz, m)
+		local key = (z * n + x) * 4 + m
+		local v = wide_memo[key]
+		if v ~= nil then return v end
+		v = false
+		local size = sw + 1
+		local bx1, bz1 = math.min(x, nx), math.min(z, nz)
+		local bx2, bz2 = math.max(x, nx) + sw - 1, math.max(z, nz) + sw - 1
+		local function cnt(x1, z1, x2, z2)
+			if x1 < 0 then x1 = 0 end
+			if z1 < 0 then z1 = 0 end
+			if x2 > n - 1 then x2 = n - 1 end
+			if z2 > n - 1 then z2 = n - 1 end
+			if x2 < x1 or z2 < z1 then return 0 end
+			return rdcount(x1, z1, x2, z2)
+		end
+		if cnt(bx1 - 1, bz1 - 1, bx2 + 1, bz2 + 1) > 0 then
+			local P = {x1 = x, z1 = z, x2 = x + sw - 1, z2 = z + sw - 1}
+			local W = {x1 = nx, z1 = nz, x2 = nx + sw - 1, z2 = nz + sw - 1}
+			local function clip(a, b)
+				local r = {x1 = math.max(a.x1, b.x1), z1 = math.max(a.z1, b.z1),
+					x2 = math.min(a.x2, b.x2), z2 = math.min(a.z2, b.z2)}
+				if r.x2 < r.x1 or r.z2 < r.z1 then return nil end
+				return r
+			end
+			local function area(r) return r and (r.x2 - r.x1 + 1) * (r.z2 - r.z1 + 1) or 0 end
+			local function rd(r) return r and cnt(r.x1, r.z1, r.x2, r.z2) or 0 end
+			for wz = bz1 - size + 1, bz2 do
+				for wx = bx1 - size + 1, bx2 do
+					if wx >= 0 and wz >= 0 and wx + size <= n and wz + size <= n then
+						local win = {x1 = wx, z1 = wz, x2 = wx + size - 1, z2 = wz + size - 1}
+						local pw, ww = clip(P, win), clip(W, win)
+						local pww = pw and ww and clip(pw, ww)
+						local have = rd(win) + area(pw) + area(ww) - area(pww)
+							- rd(pw) - rd(ww) + rd(pww)
+						if have == size * size then v = true; break end
+					end
+				end
+				if v then break end
+			end
+		end
+		wide_memo[key] = v
+		return v
+	end
+
 	-- Dijkstra over window top-left corners. State = (x, z, last move).
 	-- Returns a list of {x, z} windows or nil.
 	local function route(sources, goal, pos, avoid_parvis, inside)
 		local salt = rng.int(1, 1000000)
-		side_memo = {}
+		side_memo, wide_memo = {}, {}
 		local heap = heap_new()
 		local dist, prev, done = {}, {}, {}
 		-- A* heuristic: 0.4 is the cheapest possible step.
@@ -412,6 +589,9 @@ function M.fill(plan, rng, C)
 						end
 						if depth and rc ~= full and side_narrow(nx, nz, m) then
 							step = step + C.NARROW_PENALTY
+						end
+						if depth and rc ~= full and wide_step(x, z, nx, nz, m) then
+							step = step + C.WIDE_PENALTY
 						end
 						if avoid_parvis and pcount(nx, nz, nx + sw - 1, nz + sw - 1) > 0 then
 							step = step + 2
@@ -498,13 +678,23 @@ function M.fill(plan, rng, C)
 		for _, r in ipairs(rects) do
 			add_street("principal", r, name)
 			set_rect(R, n, r, 1)
+			set_rect(Rd, n, r, 1)
 		end
 		rcount = make_count(R, n)
+		rdcount = make_count(Rd, n)
 	end
 
 	local function centre(site) return {x = site.approach.pos.x - ox, z = site.approach.pos.z - oz} end
 
 	local sites = plan.sites
+	-- Exemption zones: both exits' entrance windows and the doors of the
+	-- landmarks (the castle gate apron is added below).
+	for _, a in ipairs(plan.approaches) do zones[#zones + 1] = grow(lrect(a.edge), sw) end
+	for _, name in ipairs({"castle", "cathedral"}) do
+		local p = centre(sites[name])
+		local h = math.floor((sw - 1) / 2)
+		zones[#zones + 1] = {x1 = p.x - h, z1 = p.z - h, x2 = p.x + h, z2 = p.z + h}
+	end
 	local mpos = centre(sites.market)
 	for i = 1, 2 do
 		local a = plan.approaches[i]
@@ -546,6 +736,7 @@ function M.fill(plan, rng, C)
 			end
 		end
 		gate_apron_local = ar
+		zones[#zones + 1] = ar
 		set_rect(R, n, ar, 1)
 		if S then set_rect(S, n, ar, 1) end
 		rcount = make_count(R, n)
@@ -595,9 +786,60 @@ function M.fill(plan, rng, C)
 		return dist
 	end
 
-	local function narrow_runs(r)
+	-- Narrow runs that paving the strip r (running along `axis`) would
+	-- create on the combined footprint: along its own sides and along the
+	-- edges of other roads that now face it (a run is new unless the roads
+	-- laid so far already had it). Returns {a1, a2} runs in coordinates along
+	-- the axis, and true when a new run is not parallel to the strip, which
+	-- trimming the strip cannot cure.
+	local function narrow_runs(r, axis)
 		if not depth then return {} end
-		return gap.runs(r)
+		local cap = C.ROAD_GAP
+		local win = {x1 = math.max(0, r.x1 - cap), z1 = math.max(0, r.z1 - cap),
+			x2 = math.min(n - 1, r.x2 + cap), z2 = math.min(n - 1, r.z2 + cap)}
+		local before = gap.edge_runs(Rd, zones, win)
+		set_rect(R, n, r, 1)
+		set_rect(Rd, n, r, 1)
+		local after = gap.edge_runs(Rd, zones, win)
+		set_rect(R, n, r, 0)
+		set_rect(Rd, n, r, 0)
+		local out, perpendicular = {}, false
+		for _, run in ipairs(after) do
+			local known = false
+			for _, b in ipairs(before) do
+				if b.dir == run.dir and b.a1 <= run.a1 and b.a2 >= run.a2
+						and ((run.dir <= 2 and b.z1 == run.z1) or (run.dir > 2 and b.x1 == run.x1)) then
+					known = true
+					break
+				end
+			end
+			if not known then
+				if (run.dir <= 2) == (axis == "x") then
+					out[#out + 1] = {a1 = run.a1, a2 = run.a2}
+				else
+					perpendicular = true
+				end
+			end
+		end
+		return out, perpendicular
+	end
+
+	-- Whether paving the strip r beside the roads laid so far would make a
+	-- fully paved (sw + 1) square, i.e. parallel paving instead of one corridor.
+	local function strip_wide(r)
+		if not depth then return false end
+		local size = sw + 1
+		for wz = math.max(0, r.z1 - size + 1), math.min(n - size, r.z2) do
+			for wx = math.max(0, r.x1 - size + 1), math.min(n - size, r.x2) do
+				local ix1, iz1 = math.max(wx, r.x1), math.max(wz, r.z1)
+				local ix2, iz2 = math.min(wx + size - 1, r.x2), math.min(wz + size - 1, r.z2)
+				local inside = (ix2 >= ix1 and iz2 >= iz1) and (ix2 - ix1 + 1) * (iz2 - iz1 + 1) or 0
+				if rdcount(wx, wz, wx + size - 1, wz + size - 1) + inside == size * size then
+					return true
+				end
+			end
+		end
+		return false
 	end
 
 	-- Straight strip nw wide through (cx, cz) along `axis`, or nil.
@@ -649,20 +891,29 @@ function M.fill(plan, rng, C)
 			local rect = (axis == "x")
 				and {x1 = lo, z1 = b1, x2 = hi, z2 = b1 + nw - 1}
 				or {x1 = b1, z1 = lo, x2 = b1 + nw - 1, z2 = hi}
-			local runs = narrow_runs(rect)
+			local runs, perpendicular = narrow_runs(rect, axis)
+			if perpendicular then return nil end
 			if #runs == 0 then break end
 			if t_lo and t_hi then return nil end
 			if t_lo then
-				hi = runs[1].a1 - 1
+				local first = runs[1].a1
+				for _, run in ipairs(runs) do first = math.min(first, run.a1) end
+				hi = first - 1
 			else
-				lo = runs[#runs].a2 + 1
+				local last = runs[1].a2
+				for _, run in ipairs(runs) do last = math.max(last, run.a2) end
+				lo = last + 1
 			end
 			if hi - lo + 1 < C.MIN_SECONDARY_LEN then return nil end
 		end
+		local result
 		if axis == "x" then
-			return {x1 = lo, z1 = b1, x2 = hi, z2 = b1 + nw - 1}
+			result = {x1 = lo, z1 = b1, x2 = hi, z2 = b1 + nw - 1}
+		else
+			result = {x1 = b1, z1 = lo, x2 = b1 + nw - 1, z2 = hi}
 		end
-		return {x1 = b1, z1 = lo, x2 = b1 + nw - 1, z2 = hi}
+		if strip_wide(result) then return nil end
+		return result
 		end
 
 		-- The strip normally passes through the worst cell at offsets
@@ -718,6 +969,8 @@ function M.fill(plan, rng, C)
 		if r then
 			add_street("secondary", r, "secondary")
 			set_rect(R, n, r, 1)
+			set_rect(Rd, n, r, 1)
+			rdcount = make_count(Rd, n)
 			added = added + 1
 			dist = nil
 		else
@@ -737,11 +990,14 @@ function M.fill(plan, rng, C)
 	-- (the router and the secondary pass avoid and shorten these; what is
 	-- left makes the attempt fail so the planner retries).
 	if depth then
-		for _, s in ipairs(streets) do
-			local runs = narrow_runs(lrect(s.rect))
-			if #runs > 0 then
-				return nil, ("street %d keeps a strip too narrow for a building row"):format(s.id)
-			end
+		local runs = gap.edge_runs(Rd, zones)
+		if #runs > 0 then
+			local owner_id = run_owner(streets, runs[1], lrect)
+			return nil, ("street %d keeps a strip too narrow for a building row (%d,%d to %d,%d)")
+				:format(owner_id, runs[1].x1 + ox, runs[1].z1 + oz, runs[1].x2 + ox, runs[1].z2 + oz)
+		end
+		if wide_cells(Rd, n, sw + 1) > 0 then
+			return nil, "parallel routes were not consolidated into one corridor"
 		end
 	end
 	if gate_apron_local then
@@ -943,22 +1199,15 @@ function M.fill(plan, rng, C)
 end
 
 ------------------------------------------------------------------------
--- Narrow gaps of a finished plan (ticket #86)
+-- Narrow gaps and wide pavement of a finished plan (tickets #86, #122)
 ------------------------------------------------------------------------
--- Returns a list of {street = id, a1, a2} for runs of ground beside a street
--- that are too shallow for a building row (see gap_scan), measured from the
--- plan's streets, squares, gate apron, landmarks and boundary. Needs the depth
--- policy constants (C.ROW_DEPTH and friends, planner.depth_policy); returns
--- an empty list without them. The street-end exemption (one street width at
--- each end) and the shortest reported run (MIN_FRONTAGE_RUN) are the same
--- bounded exceptions fill() uses. Used by the regression fixtures.
-function M.narrow_gaps(plan, C)
-	local out = {}
-	if not C.ROW_DEPTH then return out end
+-- Pavement layers of a plan, rebuilt from its rects (envelope-local).
+local function plan_layers(plan, C)
 	local n = C.ENVELOPE
 	local ox, oz = plan.envelope.x1, plan.envelope.z1
 	local function lr(r) return shift(r, -ox, -oz) end
-	local B, F, R, S = new_layer(n, 0), new_layer(n, 0), new_layer(n, 0), new_layer(n, 0)
+	local B, F, R, S, Rd = new_layer(n, 0), new_layer(n, 0), new_layer(n, 0),
+		new_layer(n, 0), new_layer(n, 0)
 	for _, r in ipairs(plan.boundary.rects) do
 		set_rect(B, n, lr(r), 1)
 		set_rect(F, n, lr(r), 1)
@@ -972,19 +1221,62 @@ function M.narrow_gaps(plan, C)
 	end
 	local hall = plan.sites.city_hall
 	if hall then set_rect(R, n, lr(hall.rect), 0) end
-	for _, st in ipairs(plan.streets) do set_rect(R, n, lr(st.rect), 1) end
-	if plan.sites.castle and plan.sites.castle.gate_apron then
-		set_rect(R, n, lr(plan.sites.castle.gate_apron), 1)
-		set_rect(S, n, lr(plan.sites.castle.gate_apron), 1)
-	end
-	local gap = gap_scan(n, B, F, R, S, C)
 	for _, st in ipairs(plan.streets) do
-		for _, run in ipairs(gap.runs(lr(st.rect))) do
-			out[#out + 1] = {street = st.id, a1 = run.a1 + ((st.axis == "x") and ox or oz),
-				a2 = run.a2 + ((st.axis == "x") and ox or oz)}
+		set_rect(R, n, lr(st.rect), 1)
+		set_rect(Rd, n, lr(st.rect), 1)
+	end
+	local zones = {}
+	for _, a in ipairs(plan.approaches or {}) do
+		zones[#zones + 1] = grow(lr(a.edge), C.STREET_WIDTH)
+	end
+	for _, name in ipairs({"castle", "cathedral"}) do
+		local p = plan.sites[name] and plan.sites[name].approach and plan.sites[name].approach.pos
+		if p then
+			local h = math.floor((C.STREET_WIDTH - 1) / 2)
+			zones[#zones + 1] = lr({x1 = p.x - h, z1 = p.z - h, x2 = p.x + h, z2 = p.z + h})
 		end
 	end
+	local apron = plan.sites.castle and plan.sites.castle.gate_apron
+	if apron then
+		set_rect(R, n, lr(apron), 1)
+		set_rect(S, n, lr(apron), 1)
+		zones[#zones + 1] = lr(apron)
+	end
+	return {n = n, ox = ox, oz = oz, lr = lr, B = B, F = F, R = R, S = S, Rd = Rd, zones = zones}
+end
+
+-- Returns a list of {street = id, a1, a2, x1, z1, x2, z2} for runs along the
+-- exposed edges of the combined road footprint that are too shallow for a
+-- building row (see gap_scan), measured against the plan's streets, squares,
+-- gate apron, landmarks and boundary. The verdict depends only on the paved
+-- cells, not on how the streets are split into rectangles. `street` is the
+-- street owning the run's first cell and a1..a2 the absolute coordinates along
+-- the edge. Needs the depth policy constants (C.ROW_DEPTH and friends,
+-- planner.depth_policy); returns an empty list without them. Exemptions are the
+-- geometric ones of gap_scan's edge_runs. Used by the regression fixtures.
+function M.narrow_gaps(plan, C)
+	local out = {}
+	if not C.ROW_DEPTH then return out end
+	local L = plan_layers(plan, C)
+	local gap = gap_scan(L.n, L.B, L.F, L.R, L.S, C)
+	for _, run in ipairs(gap.edge_runs(L.Rd, L.zones)) do
+		local owner = run_owner(plan.streets, run, L.lr)
+		local off = (run.dir <= 2) and L.ox or L.oz
+		out[#out + 1] = {street = owner, a1 = run.a1 + off, a2 = run.a2 + off,
+			x1 = run.x1 + L.ox, z1 = run.z1 + L.oz, x2 = run.x2 + L.ox, z2 = run.z2 + L.oz}
+	end
 	return out
+end
+
+-- Number of street cells (squares and the gate apron excluded) that lie in a
+-- fully paved (STREET_WIDTH + 1) square: redundant parallel or overlapping
+-- paving where one normal-width corridor would do (issue #122). A junction,
+-- bend or crossing of normal streets never fills such a square. Returns the
+-- count and the first window's absolute {x, z}.
+function M.wide_pavement(plan, C)
+	local L = plan_layers(plan, C)
+	local total, first = wide_cells(L.Rd, L.n, C.STREET_WIDTH + 1)
+	return total, first and {x = first[1] + L.ox, z = first[2] + L.oz}
 end
 
 ------------------------------------------------------------------------

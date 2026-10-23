@@ -138,11 +138,12 @@ end
 
 -- Stock catalog: pinned results, deterministic, plan unchanged. Count sealed
 -- cells with the alley pass disabled; #121 adds square-facing content and
--- packs those runs before street rows. Seeds 6, 13, 16 and 19 seal 22, 14,
--- 116 and 83 cells; all other tested seeds leave no sealed component.
--- (#114: with tavern_2 among the tavern variants, seed 6 seals nothing and
--- seed 13 seals 14 cells under the variant layout; seeds 16 and 19 are
--- unchanged.)
+-- packs those runs before street rows. Seeds 3, 11, 12 and 19 seal 38,
+-- 18, 22 and 196 cells; all other tested seeds leave no sealed component.
+-- (#114: tavern_2 among the tavern variants changed seeds 6 and 13. #122:
+-- consolidating adjacent routes re-plans the streets, so the pinned seeds
+-- changed again; the alley pass of the real pipeline still connects them,
+-- see access_alley_tests.)
 do
 	local geometry = dofile("src/geometry.lua")
 	local packer = dofile("src/frontage_packer.lua")(geometry)
@@ -150,7 +151,7 @@ do
 	local content = dofile("src/content_planner.lua")(geometry, packer,
 		jailmod.occupied_rects, access)
 	local base = assert(planner.landmark_profile(catalog.snapshot()))
-	local pinned = {[13] = 14, [16] = 116, [19] = 83}
+	local pinned = {[3] = 38, [11] = 18, [12] = 22, [19] = 196}
 	for seed = 1, 22 do pinned[seed] = pinned[seed] or 0 end
 	local function inside(r, x, z)
 		return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2

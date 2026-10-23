@@ -551,6 +551,9 @@ run_group("tests/access_alley_tests.lua", eq, fails, dofile("src/planner.lua"), 
 run_group("tests/streets_tests.lua", eq, fails, dofile("src/planner.lua"))
 run_group("tests/street_spacing_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
 
+-- Route consolidation and spacing on the combined pavement (issue #122).
+run_group("tests/route_consolidation_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
+
 -- Site search (ticket #14): mocked-world search harness.
 run_group("tests/site_search_tests.lua", eq, fails, placement, dofile("src/planner.lua"),
 	dofile("src/site_search.lua"))
