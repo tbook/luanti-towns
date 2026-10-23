@@ -43,20 +43,23 @@ return {
 	},
 	arch_id = "arch",
 
-	-- Ring street (issue #164): a square-ish loop behind the main streets,
-	-- as four secondary bands one street wide. Each band is the node range
+	-- Ring street (issue #164): a loop behind the main streets, as secondary
+	-- bands one street wide (six since issue #202). Each band is the node range
 	-- from..to outward from the forum edge (as arm positions) along the axis
 	-- of its arm, and span = {lo, hi}, the compass extent across it (x for
-	-- north and south bands, z for east and west). The north and east bands
-	-- cross the cardo and the decumanus; the south and west bands start
-	-- beside the south and west arms (T-junctions) and the south-west
+	-- north and south bands, z for east and west). The north bands cross the
+	-- cardo; the north and north_outer bands cross the east and west bands; the
+	-- south and south_outer bands abut the east band; the south and west bands
+	-- start beside the south and west arms (T-junctions) and the south-west
 	-- quadrant, where the bath stands, is left out. Listed in street order.
 	band_material = "mcl_core:gravel",
 	bands = {
-		{name = "north", arm = "north", from = 18, to = 23, span = {-43, 42}},
-		{name = "south", arm = "south", from = 26, to = 31, span = {3, 42}},
-		{name = "east", arm = "east", from = 22, to = 27, span = {-47, 38}},
-		{name = "west", arm = "west", from = 22, to = 27, span = {3, 38}},
+		{name = "north", arm = "north", from = 18, to = 23, span = {-44, 43}},
+		{name = "north_outer", arm = "north", from = 51, to = 56, span = {-44, 43}},
+		{name = "south", arm = "south", from = 26, to = 31, span = {3, 37}},
+		{name = "south_outer", arm = "south", from = 59, to = 64, span = {6, 37}},
+		{name = "east", arm = "east", from = 23, to = 28, span = {-80, 71}},
+		{name = "west", arm = "west", from = 23, to = 28, span = {3, 71}},
 	},
 
 	-- arm/side: street arm and which side of it the building stands on.
@@ -68,12 +71,17 @@ return {
 		{name = "temple_east", id = "temple", arm = "north", side = "+x", at = 0, rotation = 270, faces = "forum"},
 		{name = "temple_west", id = "temple", arm = "north", side = "-x", at = 0, rotation = 270, faces = "forum"},
 		-- Outside the ring, east arm, north side: the north-east outer corner.
-		{name = "amphitheater", id = "amphitheater", arm = "east", side = "+z", at = 28, rotation = 0},
+		{name = "amphitheater", id = "amphitheater", arm = "east", side = "+z", at = 29, rotation = 0},
+		-- Insulae stand flush against the inner north and south bands, on their
+		-- outer side (ring + side); `at` is the low edge along the band.
+		{name = "insula_north_east", id = "insula", ring = "north", side = "outer", at = 3, rotation = 0},
+		{name = "insula_north_west", id = "insula", ring = "north", side = "outer", at = -38, rotation = 0},
+		{name = "insula_south", id = "insula", ring = "south", side = "outer", at = 3, rotation = 180},
 		-- domus_2 stands inside the ring; the others stand outside it.
-		{name = "domus_1", id = "domus", arm = "north", side = "+x", at = 24, rotation = 0},
+		{name = "domus_1", id = "domus", ring = "east", side = "outer", at = 39, rotation = 0},
 		{name = "domus_2", id = "domus", arm = "east", side = "-z", at = 0, rotation = 90},
-		{name = "domus_3", id = "domus", arm = "east", side = "-z", at = 28, rotation = 90},
-		{name = "domus_4", id = "domus", arm = "west", side = "+z", at = 28, rotation = 270},
+		{name = "domus_3", id = "domus", arm = "east", side = "-z", at = 29, rotation = 90},
+		{name = "domus_4", id = "domus", arm = "west", side = "+z", at = 29, rotation = 270},
 		{name = "theatre", id = "theatre", arm = "west", side = "-z", at = 10, rotation = 0},
 		{name = "bath", id = "bath", arm = "south", side = "-x", at = 8, rotation = 180},
 	},
@@ -93,18 +101,17 @@ return {
 	-- "inner". from..to are compass coordinates along the band, relative to
 	-- the forum centre (x for north and south bands, z for east and west).
 	blocks = {
-		{name = "north_end_east", arm = "north", side = "+x", from = 46, to = 58},
-		{name = "north_outer_west", arm = "north", side = "-x", from = 24, to = 58},
-		{name = "east_forum_north", arm = "east", side = "+z", from = 0, to = 21},
-		{name = "east_end_south", arm = "east", side = "-z", from = 50, to = 58},
+		{name = "east_forum_north", arm = "east", side = "+z", from = 0, to = 22},
+		{name = "east_end_south", arm = "east", side = "-z", from = 51, to = 58},
 		{name = "south_east_inner", arm = "south", side = "+x", from = 0, to = 25},
-		{name = "south_east_outer", arm = "south", side = "+x", from = 32, to = 58},
 		{name = "west_forum_south", arm = "west", side = "-z", from = 0, to = 9},
 		{name = "west_end_south", arm = "west", side = "-z", from = 31, to = 58},
-		{name = "west_forum_north", arm = "west", side = "+z", from = 0, to = 21},
-		{name = "west_end_north", arm = "west", side = "+z", from = 50, to = 58},
-		{name = "ring_north_inner_east", ring = "north", side = "inner", from = 15, to = 36},
-		{name = "ring_north_outer_west", ring = "north", side = "outer", from = -43, to = -13},
-		{name = "ring_south_outer", ring = "south", side = "outer", from = 12, to = 42},
+		{name = "west_forum_north", arm = "west", side = "+z", from = 0, to = 22},
+		{name = "west_end_north", arm = "west", side = "+z", from = 51, to = 58},
+		{name = "ring_north_inner_east", ring = "north", side = "inner", from = 15, to = 37},
+		{name = "outer_north_east", ring = "north_outer", side = "outer", from = 6, to = 43},
+		{name = "outer_north_west", ring = "north_outer", side = "outer", from = -44, to = -7},
+		{name = "ring_west_outer_north", ring = "west", side = "outer", from = 42, to = 71},
+		{name = "ring_east_outer_south", ring = "east", side = "outer", from = -80, to = -42},
 	},
 }
