@@ -14,17 +14,17 @@ local function same_files(a, b)
 	return true
 end
 
-local opts = {seeds = {42}, centers = {{x = 0, z = 0}}}
+local opts = {seeds = {1}, centers = {{x = 0, z = 0}}}
 local r1 = lib.run(planner, catalog, opts)
 local r2 = lib.run(planner, catalog, opts)
 local same, which = same_files(r1.files, r2.files)
 eq(same, true, "layout compare is deterministic for a fixed seed (" .. tostring(which) .. ")")
-eq(r1.files["seed_42.svg"] ~= nil, true, "layout compare emits an SVG")
-eq(r1.files["seed_42.txt"] ~= nil, true, "layout compare emits an ASCII plan")
+eq(r1.files["seed_1.svg"] ~= nil, true, "layout compare emits an SVG")
+eq(r1.files["seed_1.txt"] ~= nil, true, "layout compare emits an ASCII plan")
 eq(r1.files["metrics.tsv"] ~= nil, true, "layout compare emits metrics.tsv")
 
 local row = r1.rows[1]
-eq(row.status, "ok", "seed 42 plans")
+eq(row.status, "ok", "seed 1 plans")
 eq(row.ordinary, row.houses + row.shops + row.workshops, "ordinary count is the role sum")
 eq(row.frontage_usable <= row.frontage_ordinary, true, "usable frontage within theoretical")
 eq(row.frontage_square_used > 0, true, "square frontage has placed content")
@@ -33,7 +33,7 @@ eq(row.market_open <= row.market_area, true, "open market within market")
 
 -- The centre only translates the layout: the metrics (not the centre
 -- column) are identical at another centre.
-local other = lib.run(planner, catalog, {seeds = {42}, centers = {{x = 700, z = -900}}})
+local other = lib.run(planner, catalog, {seeds = {1}, centers = {{x = 700, z = -900}}})
 local o = other.rows[1]
 for _, col in ipairs(lib.COLUMNS) do
 	if col ~= "center" then
@@ -60,11 +60,11 @@ eq(arg_error({"docs/layout_x", "--town-type=roman"}, "under docs/"), true,
 	"Roman output stays out of docs/")
 eq(arg_error({"/tmp/x", "--town-type=tower"}, "unknown town type"), true, "unknown town type fails")
 eq(arg_error({"/tmp/x", "--bogus"}, "unknown option"), true, "unknown option fails")
-local ok_type = pcall(lib.run, planner, catalog, {seeds = {42}, town_type = "tower"})
+local ok_type = pcall(lib.run, planner, catalog, {seeds = {1}, town_type = "tower"})
 eq(ok_type, false, "lib.run rejects an unknown town type")
 
 -- Medieval: an explicit medieval town type is the default output.
-local explicit = lib.run(planner, catalog, {seeds = {42}, centers = {{x = 0, z = 0}},
+local explicit = lib.run(planner, catalog, {seeds = {1}, centers = {{x = 0, z = 0}},
 	town_type = "medieval"})
 eq(same_files(r1.files, explicit.files), true, "explicit medieval equals the default")
 eq(r1.files["report.md"]:find("Town type: medieval", 1, true) ~= nil, true,

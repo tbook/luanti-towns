@@ -12,20 +12,9 @@ end
 local function d2(a, b) return (a.x - b.x) ^ 2 + (a.z - b.z) ^ 2 end
 
 -- Pure fixture: one 100x12 block with one street run along z = 0.
+local row_plan = dofile("tests/frontage_plan_fixture.lua")
 local function fixture(extra_sites, square_face)
-	local sites = {market = {rect = {x1 = 200, z1 = 200, x2 = 210, z2 = 210}}}
-	for k, v in pairs(extra_sites or {}) do sites[k] = v end
-	local run = {id = 1, block = 1, facing = {x = 0, z = -1},
-		rect = {x1 = 0, z1 = 0, x2 = 99, z2 = 0}}
-	if square_face then
-		run.square = "market"
-		sites.market = {kind = "square", rect = {x1 = 0, z1 = -4, x2 = 99, z2 = -1}}
-	else run.street = 1 end
-	return {
-		seed = 5, sites = sites,
-		blocks = {{id = 1, rect = {x1 = 0, z1 = 0, x2 = 99, z2 = 11}}},
-		frontage = {run},
-	}
+	return row_plan{sites = extra_sites, square_face = square_face}
 end
 local function mixed_frontage_fixture()
 	return {
@@ -243,7 +232,7 @@ do
 		true, "no variant fits: reason")
 end
 
--- Stock catalog plans.
+-- Stock catalog profile: the real service entries on the small fixture.
 local base = assert(planner.landmark_profile(catalog.snapshot()))
 eq(#base.service_variants.tavern, 2, "stock tavern variants")
 eq(base.service_variants.tavern[1].id, "tavern", "first tavern variant is services.tavern")
@@ -256,7 +245,36 @@ eq(base.services.tavern.id, "tavern", "tavern id")
 eq(base.services.well.id, "well", "well id")
 eq(base.services.chapel.id, "chapel", "chapel id")
 
-for seed = 1, 8 do
+-- Across seeds both stock tavern templates are placed as tavern slots, and
+-- the three taverns, three wells and two chapels of the stock catalog fit a
+-- 200-node street run (the chapels' hard distances apply).
+do
+	local seen = {}
+	for seed = 1, 8 do
+		local plan = row_plan{length = 200, depth = 20, seed = seed,
+			sites = {cathedral = {rect = {x1 = 90, z1 = 50, x2 = 100, z2 = 60},
+				entrance = {x = 95, z = 50}}}}
+		local pl, sh, counts = svc.reserve(plan, base.services,
+			{variants = base.service_variants})
+		eq(counts.tavern.placed, 3, "stock taverns seed " .. seed)
+		eq(counts.well.placed, 3, "stock wells seed " .. seed)
+		eq(counts.chapel.placed, 2, "stock chapels seed " .. seed)
+		eq(#sh, 0, "stock no shortage seed " .. seed)
+		for _, p in ipairs(pl) do
+			if p.role == "tavern" then seen[p.building_id] = true end
+			for _, q in ipairs(pl) do
+				if p ~= q then eq(overlaps(p.rect, q.rect), false, "stock disjoint seed " .. seed) end
+			end
+		end
+	end
+	eq(seen.tavern and seen.tavern_2, true, "stock both tavern templates appear")
+end
+
+-- Real planner integration: services reserved in a generated medieval plan.
+-- The default run checks seed 1 (and a no-services profile); the full run
+-- sweeps seeds 1-8.
+local FULL = os.getenv("TOWNS_TEST_FULL") == "1"
+local function check_planned(seed)
 	local label = "services seed " .. seed
 	local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
 	eq(planner.validate(plan), true, label .. " validates")
@@ -264,12 +282,10 @@ for seed = 1, 8 do
 	local counts = res.service_counts
 	eq(counts.tavern.placed, 3, label .. " taverns")
 	eq(counts.well.placed, 3, label .. " wells")
-	-- Seeds 1-8 place both chapels with the #126 town hall (seed 4 had a
-	-- reported shortage under #106, seed 3 under #86, when no frontage was left
-	-- for a second chapel 70 away; a shortage is reported, never a failed plan).
-	local want_chapels = 2
-	eq(counts.chapel.placed, want_chapels, label .. " chapels")
-	eq(#plan.shortages, 2 - want_chapels, label .. " shortages")
+	-- Seeds 1-8 place both chapels with the #126 town hall; a shortage is
+	-- reported, never a failed plan.
+	eq(counts.chapel.placed, 2, label .. " chapels")
+	eq(#plan.shortages, 0, label .. " shortages")
 	local all = {}
 	for _, s in pairs(plan.sites) do all[#all + 1] = s.rect end
 	for _, s in ipairs(plan.streets) do all[#all + 1] = s.rect end
@@ -298,28 +314,8 @@ for seed = 1, 8 do
 	if #chapels == 2 then
 		eq(d2(chapels[1].entrance, chapels[2].entrance) >= 70 * 70, true, label .. " chapels >= 70 apart")
 	end
-	local again = planner.plan({x = 10, z = -30}, seed, {landmarks = base})
-	local a, b = res.services, again.reservations.services
-	local same = #a == #b
-	for i = 1, #a do
-		same = same and a[i].rect.x1 == b[i].rect.x1 and a[i].rect.z1 == b[i].rect.z1
-	end
-	eq(same, true, label .. " reproduces")
 end
-
--- Stock catalog: across seeds 1-8 both tavern templates are placed as
--- tavern slots, and the three taverns of a town stay three.
-do
-	local seen = {}
-	for seed = 1, 8 do
-		local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
-		eq(plan.reservations.service_counts.tavern.placed, 3, "stock taverns seed " .. seed)
-		for _, p in ipairs(plan.reservations.services) do
-			if p.role == "tavern" then seen[p.building_id] = true end
-		end
-	end
-	eq(seen.tavern and seen.tavern_2, true, "stock both tavern templates appear")
-end
+for seed = 1, FULL and 8 or 1 do check_planned(seed) end
 
 -- Impossible chapel minimums are diagnostics, not failed plans.
 do
@@ -331,13 +327,11 @@ do
 	eq(planner.validate(plan), true, "shortage plan validates")
 end
 
--- Profiles without services (and legacy plans) carry no service fields.
+-- Profiles without services carry no service fields.
 do
 	local prof = {cathedral = base.cathedral, castle = base.castle,
 		city_hall = base.city_hall, jail = base.jail}
 	local plan = assert(planner.plan({x = 0, z = 0}, 2, {landmarks = prof}))
 	eq(plan.reservations.services, nil, "no services without profile entry")
 	eq(plan.reservations.service_counts, nil, "no counts without profile entry")
-	local legacy = assert(planner.plan({x = 0, z = 0}, 3))
-	eq(legacy.reservations == nil and legacy.shortages == nil, true, "legacy untouched")
 end

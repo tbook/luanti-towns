@@ -1,8 +1,23 @@
 -- Site search tests (ticket #14), a small mocked Luanti world. Loaded by
 -- tests/run.lua, which passes its check helpers:
 --   loadfile("tests/site_search_tests.lua")(eq, fails, placement, planner, factory)
+--
+-- Search behaviour is tested against a small authored plan (the notched
+-- variant of tests/authored_plan_fixture.lua) standing in for the planner, so
+-- no medieval town is generated per search; the real planner is only asked to
+-- fail (max_attempts = 0) and for the one populated-catalog integration case.
 local eq, fails, placement, planner, factory = ...
-local ss = factory(placement, planner)
+local make_authored_plan = dofile("tests/authored_plan_fixture.lua")
+local small_planner = setmetatable({
+	plan = function(center, seed, popts)
+		if type(popts) == "table" and popts.max_attempts ~= nil then
+			return planner.plan(center, seed, popts)
+		end
+		return make_authored_plan(center, seed, {notched = true})
+	end,
+}, {__index = planner})
+local ss = factory(placement, small_planner)
+local ss_real = factory(placement, planner)
 
 local SEED = 20260101
 
@@ -186,7 +201,10 @@ do
 	local content_plan = assert(planner.plan({x = 0, z = 0}, 101, opts.planner_opts))
 	eq(content_plan.content and #content_plan.content.buildings > 0, true,
 		"populated catalog fixture includes content buildings")
-	local result, summary, details = run(new_world({}), {x = 0, y = 21, z = 0}, opts, 101)
+	local result, summary, details
+	ss_real.search({x = 0, y = 21, z = 0}, 101, opts, function(r, s, d)
+		result, summary, details = r, s, d
+	end, new_world({}).env)
 	eq(result ~= nil, true, "populated catalog search accepts translated plan")
 	if result then
 		eq(result.candidate.dx ~= 0 or result.candidate.dz ~= 0, true,
@@ -205,13 +223,13 @@ end
 local function expected_first_clear(opts)
 	opts = opts or {}
 	local list = ss.candidate_offsets(opts.step or 16, opts.max_radius or 320)
-	local base = planner.plan({x = 0, z = 0}, SEED)
+	local base = small_planner.plan({x = 0, z = 0}, SEED)
 	for i, o in ipairs(list) do
 		-- (translation only; the test of the real plan is the final check)
 		local bb = base.bounds
 		local bounds = {x1 = bb.x1 + o.dx, z1 = bb.z1 + o.dz, x2 = bb.x2 + o.dx, z2 = bb.z2 + o.dz}
 		if not ss.player_inside(bounds, 0, 0, opts.player_margin or 4) then
-			local plan = planner.plan({x = o.dx, z = o.dz}, SEED)
+			local plan = small_planner.plan({x = o.dx, z = o.dz}, SEED)
 			eq(plan.bounds.x1, bounds.x1, "planner layout translates with the centre")
 			return i, o, plan
 		end
@@ -358,10 +376,10 @@ local function lake_in(plan)
 end
 local partial = new_world({
 	surface = function(x, z)
-		return (x >= lplan.bounds.x1 + 20 and x <= lplan.bounds.x1 + 22) and 10 or 20
+		return (x >= lplan.bounds.x1 + 5 and x <= lplan.bounds.x1 + 7) and 10 or 20
 	end,
 	water = function(x, z)
-		if x >= lplan.bounds.x1 + 20 and x <= lplan.bounds.x1 + 22 then return 20 end
+		if x >= lplan.bounds.x1 + 5 and x <= lplan.bounds.x1 + 7 then return 20 end
 	end,
 })
 r = run(partial, {x = 0, y = 21, z = 0}, nil)
@@ -680,6 +698,7 @@ do
 			if not hole and not inunion[x .. "," .. z] then hole = {x, z} end
 		end
 	end
+	eq(hole ~= nil, true, "fixture boundary has a notch inside its bounding box")
 	if hole then
 		rr = run(new_world({
 			surface = function(x, z) if x == hole[1] and z == hole[2] then return 15 end return 20 end,
@@ -869,14 +888,11 @@ do
 	local _, code7, msg7 = ss.inspect_columns(cols, function() return nil, "lava", 5 end, 100, 16, 5, 24, cfg)
 	eq(code7 == "lava" and msg7:find("lava", 1, true) ~= nil, true, "lava code")
 
-	-- Whole searches on the mock world: a 10x10 pond inside the first
+	-- Whole searches on the mock world: a 4x4 pond inside the first
 	-- candidate that is clear of the player.
-	local big
-	for _, r in ipairs(eplan.boundary.rects) do
-		if r.x2 - r.x1 >= 14 and r.z2 - r.z1 >= 14 then big = r; break end
-	end
+	local big = eplan.boundary.rects[1]
 	local px1, pz1 = big.x1 + 2, big.z1 + 2
-	local function in_pond(x, z) return x >= px1 and x <= px1 + 9 and z >= pz1 and z <= pz1 + 9 end
+	local function in_pond(x, z) return x >= px1 and x <= px1 + 3 and z >= pz1 and z <= pz1 + 3 end
 	local function pond_world(bed, level)
 		return new_world({
 			surface = function(x, z) return in_pond(x, z) and bed or 20 end,
@@ -890,7 +906,7 @@ do
 	local wr = run(pond_world(16, 20), P0, opts)
 	eq(wr ~= nil and wr.candidate.index, ei, "pond wet: first clear candidate accepted")
 	eq(wr and wr.ground_y, 20, "pond wet: ground at water level")
-	eq(wr and wr.wet and wr.wet.count, 100, "pond wet: 100 landfilled columns")
+	eq(wr and wr.wet and wr.wet.count, 16, "pond wet: 16 landfilled columns")
 	eq(wr and wr.wet and wr.wet.max_depth, 4, "pond wet: depth")
 	eq(wr and wr.min_height, 16, "pond wet: lowest bed in min_height")
 	eq(wr and wr.heights[px1][pz1], 16, "pond wet: height is the bed")

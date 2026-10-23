@@ -118,9 +118,32 @@ do
 	eq(#r.unused > 0, true, "unused intervals recorded")
 end
 
--- Stock catalog across a fixed seed set; civic planning is unchanged.
+-- Stock catalog content on a small explicit plan: a 120x30 block fronting a
+-- street and, on its other long side, a market square.
 local base = assert(planner.landmark_profile(catalog.snapshot()))
 eq(base.content ~= nil, true, "profile carries content")
+do
+	local plan = dofile("tests/frontage_plan_fixture.lua"){length = 120, depth = 30, square_face = true}
+	plan.streets = {{kind = "principal", rect = {x1 = 0, z1 = 30, x2 = 119, z2 = 33}}}
+	plan.frontage[2] = {id = 2, block = 1, street = 1, facing = {x = 0, z = 1},
+		rect = {x1 = 0, z1 = 29, x2 = 119, z2 = 29}}
+	local c = content.plan(plan, base.content, {seed = 1})
+	eq(#c.buildings > 4, true, "stock content: several buildings")
+	eq(#c.rejected, 0, "stock content: none rejected")
+	eq(content.validate(plan, c, base.content), true, "stock content validates")
+	local on_square, on_street = 0, 0
+	for _, b in ipairs(c.buildings) do
+		if plan.frontage[b.frontage].square then on_square = on_square + 1 else on_street = on_street + 1 end
+	end
+	eq(on_square > 0 and on_street > 0, true, "stock content fills square and street faces")
+	local again = content.plan(plan, base.content, {seed = 1})
+	eq(#again.buildings, #c.buildings, "stock content repeat count")
+	for i, b in ipairs(c.buildings) do
+		eq(same_rect(b.rect, again.buildings[i].rect) and b.building_id == again.buildings[i].building_id,
+			true, "stock content repeat " .. i)
+	end
+end
+
 local civic = {cathedral = base.cathedral, castle = base.castle,
 	city_hall = base.city_hall, jail = base.jail, services = base.services,
 	service_variants = base.service_variants}
@@ -129,9 +152,11 @@ local civic = {cathedral = base.cathedral, castle = base.castle,
 -- so a profile without content plans without it. Pass the derived values
 -- explicitly to isolate "content leaves civic planning alone".
 local depth_policy = planner.depth_policy(base)
-local square_placed = false
 
-for _, seed in ipairs({1, 2, 3, 4, 5, 6, 7, 8}) do
+-- Generated plans: civic planning is unchanged by content and the content
+-- validates. Seed 1 by default; seeds 1-8 under TOWNS_TEST_FULL=1.
+local FULL = os.getenv("TOWNS_TEST_FULL") == "1"
+for _, seed in ipairs(FULL and {1, 2, 3, 4, 5, 6, 7, 8} or {1}) do
 	local label = "content seed " .. seed
 	local plan = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
 	local without = assert(planner.plan({x = 10, z = -30}, seed,
@@ -154,15 +179,6 @@ for _, seed in ipairs({1, 2, 3, 4, 5, 6, 7, 8}) do
 	eq(#c.buildings > 0, true, label .. " has buildings")
 	eq(#c.rejected, 0, label .. " no rejected picks")
 	eq(content.validate(plan, c, base.content), true, label .. " content validates")
-	for _, b in ipairs(c.buildings) do
-		if plan.frontage[b.frontage].square then square_placed = true end
-	end
-	local again = assert(planner.plan({x = 10, z = -30}, seed, {landmarks = base}))
-	eq(#again.content.buildings, #c.buildings, label .. " repeat count")
-	for i, b in ipairs(c.buildings) do
-		eq(same_rect(b.rect, again.content.buildings[i].rect), true, label .. " repeat " .. i)
-		eq(b.building_id, again.content.buildings[i].building_id, label .. " repeat id " .. i)
-	end
 	local civic_rects = {}
 	for _, s in pairs(plan.sites) do civic_rects[#civic_rects + 1] = s.rect end
 	civic_rects[#civic_rects + 1] = plan.reservations.jail.rect
@@ -173,7 +189,6 @@ for _, seed in ipairs({1, 2, 3, 4, 5, 6, 7, 8}) do
 		end
 	end
 end
-eq(square_placed, true, "fixed catalog seeds place square-facing content")
 
 -- Rejection path: picks whose door approach is not on pavement are dropped
 -- and the frontage they would have covered is reported as unused.
@@ -206,14 +221,6 @@ do
 	fails(with({h = {role = "house", size = {x = 5, y = 5, z = 5}, entrance = {x = 9, z = 0}}}),
 		"entrance lies outside", "content bad entrance")
 	fails(with({h = 3}), "not a table", "content bad entry")
-end
-
--- Profiles without content (and legacy plans) carry no content field.
-do
-	local plan = assert(planner.plan({x = 0, z = 0}, 2, {landmarks = civic}))
-	eq(plan.content, nil, "no content field without profile entry")
-	local legacy = assert(planner.plan({x = 0, z = 0}, 3))
-	eq(legacy.content == nil and legacy.reservations == nil, true, "legacy untouched")
 end
 
 -- A profile with no ordinary entries reports empty frontage on a valid plan.

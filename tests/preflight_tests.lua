@@ -301,6 +301,9 @@ local function search(planner_opts, structure_bounds, top, radius, search_ss)
 end
 
 do
+	-- The one real-generation case: a populated medieval plan through the
+	-- search, composed and preflighted. (The limit and failure cases below
+	-- use a small authored plan.)
 	local legacy = assert(search({landmarks = profile}, false))
 	local r, why = search({landmarks = profile}, true)
 	eq(r ~= nil, true, "structure bounds: result " .. tostring(why))
@@ -319,21 +322,22 @@ do
 		eq(g.max.z, st.max.z, "box max z " .. st.id)
 	end
 	eq(r.build_bounds.max.y, math.max(r.max_height, tallest), "top is the tallest structure")
-	local expect_top, legacy_h = 0, ss.CONSTANTS.LANDMARK_BLOCKOUT_HEIGHT
+	local expect_top = 0
 	for _, st in ipairs(comp.structures) do
 		local e = catalog.entries[st.id]
 		expect_top = math.max(expect_top, e.size.y - (e.ground_offset or 0))
 	end
+	eq(r.build_bounds.max.y, r.ground_y + expect_top - 1, "exact top of tallest structure")
+	local legacy_h = ss.CONSTANTS.LANDMARK_BLOCKOUT_HEIGHT
 	for _, n in ipairs({"cathedral", "castle"}) do
 		legacy_h = math.max(legacy_h, profile[n].size.y - (profile[n].ground_offset or 0))
 	end
-	eq(r.build_bounds.max.y, r.ground_y + expect_top - 1, "exact top of tallest structure")
 	eq(legacy.build_bounds.max.y, legacy.ground_y + legacy_h + ss.CONSTANTS.BLOCKOUT_MARGIN,
 		"legacy top keeps the blockout clearance exactly")
-	eq(r.build_bounds.min.y <= r.ground_y - 5, true, "bounds include the castle foundation")
-	eq(r.build_volume.max.y, r.build_bounds.max.y, "volume covers the top")
 	eq(legacy.structures, nil, "legacy result has no structures")
 	eq(legacy.center.x, r.center.x, "same site")
+	eq(r.build_bounds.min.y <= r.ground_y - 5, true, "bounds include the castle foundation")
+	eq(r.build_volume.max.y, r.build_bounds.max.y, "volume covers the top")
 
 	-- Preflight accepts the real site and emerges the build volume.
 	local w = new_env(catalog.entries)
@@ -345,14 +349,33 @@ do
 	eq(w.emerges[1].max.y, r.build_volume.max.y, "real site: emerges the whole volume")
 end
 
+-- Small authored plan (tests/authored_plan_fixture.lua) for the bounds and
+-- failure cases: no medieval generation, explicit catalog entries.
+local make_authored_plan = dofile("tests/authored_plan_fixture.lua")
+local small_planner = setmetatable({
+	plan = function(center, seed) return make_authored_plan(center, seed) end,
+}, {__index = planner})
+local small_ss = site_search(dofile("src/placement.lua")(geometry), small_planner)
+local house = catalog.get("demo_house")
+local function small_entries(height)
+	return {demo_house = {size = {x = house.size.x, y = height or house.size.y, z = house.size.z},
+		entrance = house.entrance, ground_offset = 5}}
+end
+local function search_small(entries, top, radius)
+	local result, summary
+	top = top or 20
+	small_ss.search({x = 0.4, y = top + 1, z = 0.4}, SEED, {entries = entries,
+		max_radius = radius or 48},
+		function(r, s) result, summary = r, s end, flat_env(top))
+	return result, summary
+end
+
 -- A taller landmark than the old 40-node limit raises the bounds.
 do
-	local tall = copy(profile)
-	tall.cathedral.size.y = 120
-	local r, why = search({landmarks = tall}, true)
-	eq(r ~= nil, true, "tall cathedral: result " .. tostring(why))
-	eq(r.build_bounds.max.y, r.ground_y - tall.cathedral.ground_offset + 120 - 1,
-		"tall cathedral: top is the real height")
+	local r, why = search_small(small_entries(120))
+	eq(r ~= nil, true, "tall structure: result " .. tostring(why))
+	eq(r and r.build_bounds.max.y, r and r.ground_y - 5 + 120 - 1,
+		"tall structure: top is the real height above its foundation")
 end
 
 -- Unknown option values and bad profiles.
@@ -364,15 +387,8 @@ fails(function() search(nil, true) end, "requires opts.planner_opts.landmarks",
 	"structure_bounds without a profile")
 
 do
-	local wrapped = setmetatable({plan = function(...)
-		local p, a, b = planner.plan(...)
-		if p and p.content and p.content.buildings[1] then
-			p.content.buildings[1].building_id = "ghost"
-		end
-		return p, a, b
-	end}, {__index = planner})
-	local wss = site_search(dofile("src/placement.lua")(geometry), wrapped)
-	local r, why = search({landmarks = profile}, true, 20, 160, wss)
+	-- An entry missing for a composed structure ends the search clearly.
+	local r, why = search_small({})
 	eq(r, nil, "invalid content: no result")
 	eq(tostring(why):find("Town content is invalid", 1, true) ~= nil, true,
 		"invalid content: message " .. tostring(why))
@@ -380,19 +396,17 @@ do
 end
 
 do
-	local tall = copy(profile)
-	tall.cathedral.size.y = 31500
-	local r, why = search({landmarks = tall}, true, 20, 110)
+	local r, why = search_small(small_entries(31500), 20, 40)
 	eq(r, nil, "top beyond the limit: no result")
 	eq(tostring(why):find("out_of_range", 1, true) ~= nil, true,
 		"top beyond the limit: out_of_range " .. tostring(why))
 	-- Bottom: the cut/fill margin below the foundation passes -31000.
-	r, why = search({landmarks = profile}, true, -30990, 110)
+	r, why = search_small(small_entries(), -30990, 40)
 	eq(r, nil, "bottom beyond the limit: no result")
 	eq(tostring(why):find("out_of_range", 1, true) ~= nil, true,
 		"bottom beyond the limit: out_of_range " .. tostring(why))
-	-- Exactly at the limit is accepted: foundation -30995 - margin 8 = -31003 fails,
-	-- so raise the surface by 3.
-	r, why = search({landmarks = profile}, true, -30987, 110)
+	-- Exactly at the limit is accepted: the surface at -30987 leaves the
+	-- cut/fill margin inside -31000.
+	r, why = search_small(small_entries(), -30987, 40)
 	eq(r ~= nil, true, "bottom exactly at the limit accepted " .. tostring(why))
 end
