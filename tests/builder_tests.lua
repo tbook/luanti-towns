@@ -396,7 +396,10 @@ local function site_cells_inside(plan, name, x, z)
 	return in_rect(plan.sites[name].rect, x, z)
 end
 
+-- Full end-to-end builds: seed 1 by default, three seeds under TOWNS_TEST_FULL=1.
+local FULL = os.getenv("TOWNS_TEST_FULL") == "1"
 local SEEDS = {{1, 100, -50}, {7, -240, 130}, {20260101, 0, 0}}
+if not FULL then SEEDS = {SEEDS[1]} end
 for _, spec in ipairs(SEEDS) do
 	local seed = spec[1]
 	local label = "seed " .. seed .. ": "
@@ -626,15 +629,12 @@ do
 	-- pavement material unregistered
 	nodes = nodes_table()
 	nodes[COBBLE] = nil
-	local with_cobble
-	for seed = 1, 40 do
-		local r = make_result(seed, 0, 0)
-		for _, s in ipairs(r.plan.streets) do
-			if s.material == COBBLE then with_cobble = r end
-		end
-		if with_cobble then break end
+	local with_cobble = copy_result() -- seed 1 has cobble streets
+	local has_cobble = false
+	for _, st in ipairs(with_cobble.plan.streets) do
+		if st.material == COBBLE then has_cobble = true end
 	end
-	eq(with_cobble ~= nil, true, "a seed with secondary streets exists")
+	eq(has_cobble, true, "the fixture plan has cobble streets")
 	expect_rejection("palette cobble", with_cobble, new_world({nodes = nodes}), "invalid_palette", COBBLE)
 	-- a surface node the world reports that is not registered anywhere
 	nodes = nodes_table()
@@ -998,7 +998,11 @@ do
 
 	local plan1 = planner.plan({x = 0, z = 0}, 1)
 	local function flat(k) return function() return 64 + k end end
-	for _, k in ipairs({0, 1, 2, 3, 15}) do
+	-- Mapblock alignment cases: the edge residues by default, all under
+	-- TOWNS_TEST_FULL=1.
+	local flat_residues = FULL and {0, 1, 2, 3, 15} or {0, 15}
+	local hilly_residues = FULL and {0, 1, 2, 3, 15} or {1}
+	for _, k in ipairs(flat_residues) do
 		local g = vm_case("vm flat g%16=" .. k, flat(k), plan1)
 		eq(g % 16, k, "flat ground level residue " .. k)
 	end
@@ -1006,7 +1010,7 @@ do
 	local function hilly(shift)
 		return function(x, z) return 64 + shift + math.floor(4 + 4 * math.sin(x / 9) * math.sin(z / 11 + 1)) end
 	end
-	for _, k in ipairs({0, 1, 2, 3, 15}) do
+	for _, k in ipairs(hilly_residues) do
 		local probe = make_result(1, 0, 0, hilly(0), plan1).ground_y
 		local shift = (k - probe) % 16
 		local g = vm_case("vm hilly g%16=" .. k, hilly(shift), plan1)
@@ -1062,7 +1066,7 @@ end
 ------------------------------------------------------------------------
 -- Pure layout over many seeds: openings stay open, nothing leaves the plan
 ------------------------------------------------------------------------
-for seed = 100, 130 do
+for seed = 100, FULL and 130 or 102 do
 	local plan = planner.plan({x = 0, z = 0}, seed)
 	local g = 50
 	local L = TL.new(plan, g, {heights = function() return g end, max_y = g + 44})
