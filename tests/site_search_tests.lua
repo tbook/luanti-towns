@@ -1176,11 +1176,29 @@ do
 			plan.boundary.rects = {shift_rect(plan.boundary.rects[1], 0, -1)}
 		end
 	end
+	-- Two-rectangle fixture: a later rectangle, an extra rectangle after
+	-- identical leading ones, and a centre mismatch must each be rejected.
+	local notched_base = {plan = function(c, s) return make_authored_plan(c, s, {notched = true}) end}
+	local function shift_second(n, plan)
+		if n > 1 then plan.boundary.rects[2] = shift_rect(plan.boundary.rects[2], 0, 1) end
+	end
+	local function extra_rect(n, plan)
+		if n > 1 then
+			local rects = plan.boundary.rects
+			rects[#rects + 1] = {x1 = 40, z1 = 40, x2 = 41, z2 = 41}
+		end
+	end
+	local function shift_centre(n, plan)
+		if n > 1 then plan.center = {x = plan.center.x + 1, z = plan.center.z} end
+	end
 	for _, m in ipairs({
-		{label = "bounds shifted", mutate = shift_bounds},
-		{label = "boundary rect shifted", mutate = shift_rects},
+		{label = "bounds shifted", mutate = shift_bounds, base = fixture_base},
+		{label = "boundary rect shifted", mutate = shift_rects, base = fixture_base},
+		{label = "later boundary rect shifted", mutate = shift_second, base = notched_base},
+		{label = "extra boundary rect", mutate = extra_rect, base = notched_base},
+		{label = "centre shifted", mutate = shift_centre, base = fixture_base},
 	}) do
-		local p, log = wrapped(m.mutate, fixture_base)
+		local p, log = wrapped(m.mutate, m.base)
 		local found, summary, details = search_with(p, ROMAN_PLAYER, 101, ROMAN, 48)
 		eq(found, nil, m.label .. ": footprint mismatch not accepted")
 		local counted = details and details.rejections.plan_failed or 0
@@ -1192,4 +1210,6 @@ do
 	-- Control for the mutations: the unmutated search is accepted.
 	local control = search_with((wrapped(nil, fixture_base)), ROMAN_PLAYER, 101, ROMAN, 48)
 	eq(control ~= nil, true, "footprint control: unmutated search accepted")
+	local notched_control = search_with((wrapped(nil, notched_base)), ROMAN_PLAYER, 101, ROMAN, 48)
+	eq(notched_control ~= nil, true, "footprint control: unmutated two-rect search accepted")
 end

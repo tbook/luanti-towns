@@ -500,8 +500,12 @@ local function same_rect(a, b)
 end
 
 -- Does a re-planned plan have the footprint that was inspected? `rects` are
--- the inspected boundary rectangles (already translated to the centre).
-local function same_footprint(plan, bounds, rects)
+-- the inspected boundary rectangles (already translated to the centre), and
+-- `center` the accepted centre the plan must be built at.
+local function same_footprint(plan, bounds, rects, center)
+	if type(plan.center) ~= "table" or plan.center.x ~= center.x or plan.center.z ~= center.z then
+		return false
+	end
 	if type(plan.bounds) ~= "table" or not same_rect(plan.bounds, bounds) then return false end
 	local got = type(plan.boundary) == "table" and plan.boundary.rects
 	if type(got) ~= "table" or #got ~= #rects then return false end
@@ -737,7 +741,7 @@ function M.search(player_pos, seed, opts, done, env)
 			-- Real plan for the accepted site; its footprint must be exactly
 			-- the translated layout that was inspected.
 			local pok, plan, pwhy = pcall(planner.plan, center, seed, opts.planner_opts)
-			local same = pok and plan and same_footprint(plan, bounds, rects)
+			local same = pok and plan and same_footprint(plan, bounds, rects, center)
 			if not same then
 				return reject("plan_failed", (not pok and tostring(plan)) or (pwhy and tostring(pwhy))
 					or "plan footprint differs from the inspected layout")
