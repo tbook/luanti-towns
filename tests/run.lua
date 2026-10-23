@@ -313,7 +313,7 @@ end
 -- 3. Verify metadata and required nodes.
 local cath_data = dofile(cathedral.data_path)
 -- The #139 cathedral/monastery re-import includes the current workshop edit.
-eq(#(cath_data.metadata or {}), 289, "cathedral metadata entries")
+eq(#(cath_data.metadata or {}), 293, "cathedral metadata entries")
 local cath_composters = 0
 for _, m in ipairs(cath_data.metadata or {}) do
 	if m.name == "mcl_composters:composter" then cath_composters = cath_composters + 1 end
