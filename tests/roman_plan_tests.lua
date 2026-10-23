@@ -49,6 +49,12 @@ eq(#plan.site_order, 17, "forum plus 16 monuments in site order")
 
 -- Arms: the theatre and amphitheater differ, and the bath uses the south arm.
 eq(plan.sites.theatre.arm, "west", "theatre on the west arm")
+-- Theatre (#213): turned 180 so the cavea's back opening (file z=0) faces the street;
+-- the footprint is unchanged and the entrance is the street-side edge at x=64.
+eq(plan.sites.theatre.rotation, 180, "theatre rotation 180 (cavea side toward the street)")
+eq(plan.sites.theatre.rect.x1 == 54 and plan.sites.theatre.rect.z1 == -67
+	and plan.sites.theatre.rect.x2 == 74 and plan.sites.theatre.rect.z2 == -54, true, "theatre rect at origin plan")
+eq(plan.sites.theatre.entrance.x == 64 and plan.sites.theatre.entrance.z == -54, true, "theatre entrance on the street edge")
 eq(plan.sites.amphitheater.arm, "east", "amphitheater on the east arm, outside the ring")
 eq(plan.sites.bath.arm, "south", "bath on the south arm")
 for _, name in ipairs({"temple_east", "temple_west"}) do

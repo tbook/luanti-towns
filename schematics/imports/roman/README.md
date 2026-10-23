@@ -63,7 +63,7 @@ axis **before** placement rotation; omitted facing defaults to `-Z`.
 | arch | 12×11×8 | 5,1,0 | -Z | 0 | Cobble path at Y=0, open feet/head at the -Z mouth. |
 | temple | 18×11×12 | 3,2,5 | -X | 0 | Spruce double door at X=3 on the quartz platform (Y=1, first stair at X=0); terrain row (dirt, grass at the edge) at Y=0 (#134). |
 | domus | 38×11×22 | 1,2,9 | -X | 1 | Spruce double front door; grass/path surface at Y=1. |
-| theatre | 21×11×14 | 10,5,13 | +Z | 3 | Open central front apron over cobble at Y=4; perimeter grass at Y=3. |
+| theatre | 21×11×14 | 10,5,0 | -Z | 3 | Open central gap (X=10..11, Y=5..7) in the cavea's back row at Z=0, up the stair at (10,4,0); no door. The stage and scaenae door at Z=13 face away from the street (#213). Perimeter grass at Y=3. |
 | amphitheater | 29×9×29 | 15,3,0 | -Z | 2 | Gravel approach at X=15, Y=2 (re-captured in #193); open entrance under outer structure. |
 | bath | 88×18×43 | 4,4,20 | -X | 2 | Central front door over quartz at Y=3 (quartz approach slab at X=0); perimeter grass at Y=2 above lower dirt layer. |
 | insula | 35×20×27 | 17,3,2 | -Z | 2 | Spruce door in the front wall at Y=3 over a stone threshold at Y=2; gravel approach at Y=2 (Z=0). A second front door is at X=11, and a rear spruce door at (17,3,24). |

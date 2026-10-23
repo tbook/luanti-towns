@@ -82,7 +82,7 @@ return {
 		{name = "domus_2", id = "domus", arm = "east", side = "-z", at = 0, rotation = 90},
 		{name = "domus_3", id = "domus", arm = "east", side = "-z", at = 29, rotation = 90},
 		{name = "domus_4", id = "domus", arm = "west", side = "+z", at = 29, rotation = 270},
-		{name = "theatre", id = "theatre", arm = "west", side = "-z", at = 10, rotation = 0},
+		{name = "theatre", id = "theatre", arm = "west", side = "-z", at = 10, rotation = 180},
 		{name = "bath", id = "bath", arm = "south", side = "-x", at = 8, rotation = 180},
 	},
 
