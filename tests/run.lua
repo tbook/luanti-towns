@@ -11,7 +11,6 @@ local only_group = os.getenv("TOWNS_TEST_ONLY")
 local failures, count = 0, 0
 local slow_groups = {
 	["tests/planner_tests.lua"] = true,
-	["tests/content_planner_tests.lua"] = true,
 	["tests/street_spacing_tests.lua"] = true,
 	["tests/site_search_tests.lua"] = true,
 	["tests/preflight_tests.lua"] = true,
