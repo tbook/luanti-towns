@@ -106,7 +106,7 @@ local function run()
     for _, sample in ipairs({
      {{x=0,y=1,z=0},'mcl_core:dirt'},
      {{x=0,y=2,z=0},'mcl_core:dirt_with_grass'},
-     {{x=44,y=1,z=35},'mcl_beds:bed_brown_bottom'},
+     {{x=40,y=1,z=33},'mcl_beds:bed_brown_bottom'},
     }) do
      local p = vector.add(pos, schematic.rotate_offset(source.size,sample[1],rotation))
      assert(core.get_node(p).name == sample[2], 'bath plinth/basement mismatch')

@@ -471,14 +471,14 @@
     {
       "id": "bath",
       "min": {
-        "x": 97,
+        "x": 101,
         "y": 7,
-        "z": 397
+        "z": 399
       },
       "max": {
-        "x": 191,
-        "y": 27,
-        "z": 444
+        "x": 188,
+        "y": 24,
+        "z": 441
       },
       "building_origin": {
         "x": 100,
@@ -491,10 +491,12 @@
         "z": 43
       },
       "size": {
-        "x": 95,
-        "y": 21,
-        "z": 48
+        "x": 88,
+        "y": 18,
+        "z": 43
       },
+      "snapshot_sha256": "7e0e85f8e2decaa52b09ae11a68293d790e0f5d1cc6dcb4cabbbf921202e7c0c",
+      "source_map_sha256": "bb0f342094d4a0f76c56c6a3f044df2e0600ae3473d851d8f0c070c0cc0c0623",
       "non_air_node_types": 124,
       "metadata_nodes": 288,
       "required_nodes": [

@@ -28,8 +28,8 @@ local entries = {
 		entrance_kind = "opening", ground_offset = 2,
 	},
 	bath = {
-		size = {x = 95, y = 21, z = 48},
-		entrance = {x = 8, y = 4, z = 22, facing = "-X"},
+		size = {x = 88, y = 18, z = 43},
+		entrance = {x = 4, y = 4, z = 20, facing = "-X"},
 		entrance_kind = "door", ground_offset = 2,
 	},
 }

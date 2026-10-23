@@ -47,7 +47,9 @@ walkable floor. The outward ray through each captured margin reached the
 exterior site ground with two nodes of headroom and floor changes of at most
 one node. Ground probes aligned exactly with Y=100. Bath samples confirmed
 the lower dirt plinth at local `(0,1,0)`, surface at `(0,2,0)`, and basement
-bed at `(44,1,35)` below site ground. Six basement beds remained valid.
+bed at `(44,1,35)` below site ground (the #139 95x21x48 capture; the #171
+88x18x43 trim keeps `(0,1,0)` and `(0,2,0)` and moves the bed to
+`(40,1,33)`). Six basement beds remained valid.
 
 ## Preserved capture caveats
 

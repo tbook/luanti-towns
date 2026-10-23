@@ -11,7 +11,7 @@ local fixtures = {
 	domus = {{38,11,22}, 2, 1, {{1,9},{9,36},{36,12},{12,1}}, 2},
 	theatre = {{21,11,14}, 5, 3, {{10,13},{13,10},{10,0},{0,10}}, 3},
 	amphitheater = {{29,9,29}, 3, 2, {{15,0},{0,13},{13,28},{28,15}}, 1},
-	bath = {{95,21,48}, 4, 2, {{8,22},{22,86},{86,25},{25,8}}, 2},
+	bath = {{88,18,43}, 4, 2, {{4,20},{20,83},{83,22},{22,4}}, 2},
 }
 local fronts = {{0,-1},{-1,0},{0,1},{1,0}}
 local cache = {}
@@ -126,7 +126,7 @@ end end end
 local bath = cache["./" .. catalog.get("bath").path]
 eq(bath.at(0,1,0), "mcl_core:dirt", "bath lower plinth layer")
 eq(bath.at(0,2,0), "mcl_core:dirt_with_grass", "bath surface datum")
-eq(bath.at(44,1,35), "mcl_beds:bed_brown_bottom", "bath basement retained below datum")
+eq(bath.at(40,1,33), "mcl_beds:bed_brown_bottom", "bath basement retained below datum")
 
 -- Temple (#134): the terrain row sits below the quartz platform, so the floor
 -- is row 1, the door is on it, and row 0 (the ground datum) is dirt/grass.
