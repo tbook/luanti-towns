@@ -145,6 +145,8 @@ do
 		"castle approach on the principal")
 	caught("castle gate not on the wall", function(p) shift_rect(p.sites.castle.gate_span, g.x * 3, g.z * 3) end,
 		"gate on the castle's wall facing the town")
+	caught("castle one block off the principal", function(p) shift_site(p.sites.castle, glat.x, glat.z) end,
+		"real gate opening covers the principal")
 	caught("market moved off the crossing corner", function(p) shift_rect(p.sites.market.rect, lat.x * 3, lat.z * 3) end,
 		"market beside both principals")
 end

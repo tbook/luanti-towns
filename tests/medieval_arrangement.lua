@@ -9,6 +9,25 @@
 --   A.arrangement(plan) -> "f=..,market=..,castle=.." key identifying the arrangement
 local A = {}
 
+local read_mts = dofile("tests/mts_reader.lua")
+local geometry = dofile("src/geometry.lua")
+
+-- The real gate opening, read from the castle schematic and not the catalog:
+-- the paved gate threshold is the run of stone on the ground row (y=5) of the
+-- -Z face (z=0). Returns the file size and the file-local rect of that run.
+local real_gate_cache
+local function real_gate()
+	if real_gate_cache then return real_gate_cache end
+	local castle = read_mts("schematics/templates/castle.mts")
+	local xs = {}
+	for x = 0, castle.size.x - 1 do
+		if castle.at(x, 5, 0) == "mcl_core:stone" then xs[#xs + 1] = x end
+	end
+	assert(#xs == 6 and xs[6] - xs[1] == 5, "castle gate threshold is one six-node run")
+	real_gate_cache = {size = castle.size, rect = {x1 = xs[1], z1 = 0, x2 = xs[6], z2 = 0}}
+	return real_gate_cache
+end
+
 -- Largest coordinate of rect r measured along unit vector f.
 local function far(r, f)
 	if f.x > 0 then return r.x2 elseif f.x < 0 then return -r.x1
@@ -89,6 +108,13 @@ function A.problems(plan)
 	local gate = castle.gate_span
 	local gl = perp(g)
 	check("gate covers the principal", gate ~= nil and near(gate, gl) == near(ew, gl) and far(gate, gl) == far(ew, gl))
+	-- The same rule against the real opening in castle.mts, turned like the site.
+	local real = real_gate()
+	local rr = geometry.rotate_rect(real.size, real.rect, castle.rotation)
+	local opening = {x1 = castle.rect.x1 + rr.x1, z1 = castle.rect.z1 + rr.z1,
+		x2 = castle.rect.x1 + rr.x2, z2 = castle.rect.z1 + rr.z2}
+	check("real gate opening covers the principal", near(opening, gl) == near(ew, gl)
+		and far(opening, gl) == far(ew, gl))
 	check("gate on the castle's wall facing the town", gate ~= nil and far(gate, g) == far(castle.rect, g)
 		and near(gate, g) == far(gate, g))
 	local a = castle.approach.pos
