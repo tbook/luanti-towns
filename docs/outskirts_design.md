@@ -44,13 +44,13 @@ FARM_COUNT = 18,              -- farms wanted
 HUT_COUNT = 6,                -- shepherd's huts wanted
 VILLA_COUNT = 2,              -- Roman towns only
 CHAPEL_COUNT = 1,             -- medieval towns only
-FARM_BAND_NEAR = 36,          -- farms: gap to plan.bounds, nodes (inclusive)
-FARM_BAND_FAR = 76,           -- ... (exclusive)
-OUTER_BAND_NEAR = 76,         -- huts, villas, chapel: gap to plan.bounds (inclusive)
-OUTER_BAND_FAR = 144,         -- ... (exclusive)
+FARM_BAND_NEAR = 14,          -- farms: gap to plan.bounds, nodes (inclusive)
+FARM_BAND_FAR = 48,           -- ... (exclusive); farms stay within villager job reach of town houses
+OUTER_BAND_NEAR = 48,         -- huts, villas, chapel: gap to plan.bounds (inclusive)
+OUTER_BAND_FAR = 116,         -- ... (exclusive)
 MIN_SPACING = 20,             -- minimum gap between two plot rects
-PROTECT_MARGIN = 24,          -- protected rectangle = plan.bounds grown by this
-TERRAFORM_REACH = 10,         -- Living Villages margin 2 + radius 8 (defaults), for derived checks
+PROTECT_MARGIN = 4,           -- Living Villages protected margin around plan.bounds
+TERRAFORM_REACH = 10,         -- Living Villages margin 2 + radius 8 (defaults), for spacing checks only
 PLAYER_MARGIN = 16,           -- plots stay this far from the player
 ATTEMPTS_PER_BUILDING = 6,    -- candidate sites tried per building
 SAMPLE_LIMIT = 50,            -- random draws to find a rect inside the band, per attempt
@@ -63,8 +63,9 @@ SALT = 226,                   -- private random stream
 *Gap* means the Chebyshev distance between a plot rect and `plan.bounds`:
 `max(b.x1 - r.x2, r.x1 - b.x2, b.z1 - r.z2, r.z1 - b.z2)`; a positive value is
 outside. Derived checks (tested): the bands are ordered and farms are nearer;
-`FARM_BAND_NEAR >= PROTECT_MARGIN + TERRAFORM_REACH` (the nearest pad's
-terraform reach stays outside the protected rectangle); `MIN_SPACING >= 2 *
+`FARM_BAND_NEAR > PROTECT_MARGIN` (the pads themselves are outside the
+protected rectangle; keeping the terraform reach out of it is Living Villages'
+job, section 6.3); `MIN_SPACING >= 2 *
 TERRAFORM_REACH` (neighbouring pads' reaches do not overlap);
 `PLAYER_MARGIN >= TERRAFORM_REACH`; each band holds at least twice its
 buildings at the packing `MIN_SPACING` implies, for the Roman and the medieval
@@ -135,11 +136,11 @@ bounded crop visit (`farmer.lua`). Consequences:
 - A farm has no bed, so nobody lives there; its composter is a **workplace for
   townspeople**. An unemployed townsperson claims it only if the composter is
   within 48 nodes of them when they look for work, and they are sent home when
-  they stray more than about 50 nodes from their bed. A farm at gap 36 is
-  reachable from houses within about 12 nodes of the town edge; a farm at gap 76
-  is out of reach of every resident. The near band therefore provides workplaces
-  only for the edge of town. Whether that is acceptable or `FARM_BAND_FAR`
-  should shrink is a tuning question for #238 (section 10).
+  they stray more than about 50 nodes from their bed. The farm band (gap 14..48)
+  is chosen for this: a farm at gap 14 is reachable from houses up to about 34
+  nodes inside the town edge, one at gap 48 only from houses at the edge, so most
+  farms are within the search of some town houses. Huts and the rest lie farther
+  out and are not meant to supply workplaces.
 
 ## 5. The scatter planner
 
@@ -174,10 +175,11 @@ Classes in fixed order: farms (`FARM_COUNT`), huts (`HUT_COUNT`), then villas
      band's outer box (`plan.bounds` grown by the far gap) and keeps the first
      whose gap to `plan.bounds` lies in the band, after at most `SAMPLE_LIMIT`
      draws; none: reject `no_site`.
-   - `outskirts.fits(rect, plots, protected, player_pos)`: the rect's reach
-     (rect grown by `TERRAFORM_REACH`) must not touch the protected rectangle
-     (`plot_protected`), the gap to every accepted plot must be at least
-     `MIN_SPACING` (`plot_spacing`), and the gap to the player must be at least
+   - `outskirts.fits(rect, plots, protected, player_pos)`: the rect itself must
+     not touch the protected rectangle (`plot_protected`; the terraform reach
+     around it is kept out of the protected rectangle by Living Villages, not
+     by Towns), the gap to every accepted plot must be at least `MIN_SPACING`
+     (`plot_spacing`), and the gap to the player must be at least
      `PLAYER_MARGIN` (`plot_player`); coordinates beyond +/-31000 are
      `plot_out_of_range`.
    - Emerge the plot's terraform volume (section 6) and read the footprint
@@ -216,7 +218,7 @@ outskirts_result = {
   status = "planned",     -- "planned" | "empty" (nothing fit; not an error)
   seed = 8, center = {x, z},          -- must equal result.plan.seed / result.center
   ground_y = 62,                      -- the urban ground (reader window reference)
-  protected = {x1, z1, x2, z2},       -- plan.bounds grown by PROTECT_MARGIN
+  protected = {x0, z0, x1, z1, margin},   -- plan.bounds, margin = PROTECT_MARGIN (Living Villages spelling)
   entries = {...},                    -- merged id -> catalog entry (not serialisable)
   plots = {plot, ...},                -- accepted, in planning order
   structures = {structure, ...},      -- composed (below), same order
@@ -243,7 +245,7 @@ The farm composes as `kind = "object"` (no entrance); the others as
 | Code | Meaning |
 | --- | --- |
 | `no_site` | no position inside the band within `SAMPLE_LIMIT` draws |
-| `plot_protected` | the plot's terraform reach touches the protected rectangle |
+| `plot_protected` | the plot rect touches the protected rectangle |
 | `plot_spacing` | closer than `MIN_SPACING` to an accepted plot |
 | `plot_player` | closer than `PLAYER_MARGIN` to the player's X/Z |
 | `plot_out_of_range` | a coordinate would leave +/-31000 |
@@ -253,38 +255,39 @@ The farm composes as `kind = "object"` (no entrance); the others as
 | `emerge_failed` | the plot's volume could not be loaded |
 | `terraform_declined` | Living Villages returned `false, reason` for the plot (apply stage) |
 | `terraform_incomplete` | Living Villages skipped unloaded blocks for the plot (apply stage) |
+| `door_unreachable` | a hut's door cannot be reached after terraforming and placement (apply stage, warning) |
+| `placement_failed` | a plot's schematic could not be placed (apply stage, warning) |
 
 ## 6. What Towns needs from Living Villages
 
-Designed against the three issues as filed (not yet implemented). Today
-(`village_smoothing.lua`, installed commit 457c485) `M.terraform(plan, pr, env,
-config)` does the right pipeline (load area, `clear_trees`, smooth, `apply`,
-holes) but: it is reachable only by `dofile`; it reads footprints from
-`env.settlements.schematic_table` and needs `mcl_vars`; on an empty plan or an
-unreadable area it calls the VoxeLibre `env.original` terraform and returns
-`false`; it returns only a boolean (the numbers go to the log); and nothing
-keeps it out of a protected area. Its defaults are `margin 2, radius 8, cap 5,
-wall 6`; Towns uses them unchanged (the cap, wall and holes limits are Living
-Villages' business, not ours).
+Designed against the three issues and the API draft in the Living Villages
+working tree (`docs/terrain-api.md`, uncommitted when this was written), whose
+spelling is adopted. Today (`village_smoothing.lua`, installed) `M.terraform(plan,
+pr, env, config)` is the right pipeline (load area, `clear_trees`, smooth,
+`apply`, holes) but it is reachable only by `dofile`, reads footprints from
+`env.settlements.schematic_table`, falls back to the VoxeLibre terraform on an
+empty plan or unreadable area, returns only a boolean, and nothing keeps it out of
+a protected area. Its defaults are `margin 2, radius 8, cap 5, wall 6`; Towns
+uses them unchanged.
 
-### 6.1 luanti-villages#274: public table
+### 6.1 luanti-villages#274: the public table
 
-Towns needs exactly this from `living_villages.terrain` (name as proposed):
+`living_villages.terrain` as the draft describes it. Towns uses exactly:
 
-- `version`: an integer API version; Towns requires `1`. Anything else is a
-  dependency failure.
-- `terraform(plan, schematics, opts)` (from #275).
-- `volume(plan, schematics, opts) -> {minp, maxp}`: **an addition to the issue
-  as filed.** The box that `terraform` reads and writes for those pads
-  (`area_of` plus the tree margin `fragments.config.cap_radius`, the hole area
-  `holes.area`, below/above), so Towns can emerge it. `terraform` never emerges.
+- `terraform(plan, pr, env, opts)` (6.2).
+- `volume(...)`: **the one addition Towns asks of Living Villages.** It returns
+  the box that `terraform` reads and writes for the same arguments (pads, the
+  radius, tree margin, hole area, below/above), `{minp, maxp}`, so Towns can
+  emerge it first; `terraform` never emerges. Exact parameters to be agreed in
+  #274; it should take the same `plan`, `schematic_table` and `opts`.
 
-Towns does not need `targets`, `pads`, `structure_test`, `heights`, `set_column`
-or the site planner. It does not `dofile` Living Villages files.
+There is no `version` field and Towns does not depend on one. Towns does not
+`dofile` Living Villages files and does not use `pads`, `targets`,
+`structure_test`, `heights` or the site planner.
 
 ### 6.2 luanti-villages#275: caller-supplied plan, no fallback
 
-`terraform(plan, schematics, opts) -> true, result | false, reason`
+`terraform(plan, pr, env, opts) -> true, stats | false, reason`
 
 - `plan`: settlement-style entries `{name, pos, rotat, surface_mat}`. Towns passes
   one entry per call: `pos` = the footprint's minimum X/Z corner and **`pos.y` =
@@ -292,49 +295,44 @@ or the site planner. It does not `dofile` Living Villages files.
   Villages' default). The rotated footprint Living Villages derives
   (`village_terrain.footprint`: `rotat` "90"/"270" swap width and depth) equals
   the plot rect (tested).
-- `schematics`: caller-supplied table
-  `{ {name, hwidth, hdepth, hheight}, ... }` = the file size x, z, y of the entry
-  (no `settlements` global).
-- `opts`: `protected` (6.3) and optionally `config`; nothing else.
-- Must not call the VoxeLibre fallback, `settlements.*` or `mcl_vars`; loads
-  nodes through the engine.
-- Returns `true, result` with `result = {stats = {changed, cut, filled,
-  steepest, violations, unloaded, trees, holes}, box = {min, max}}` (the numbers
-  it logs today, and the X/Y/Z box it wrote), or `false, reason` when it cannot
-  run (empty plan, unreadable terrain). `stats.unloaded > 0` (blocks it skipped)
-  is Towns' `terraform_incomplete`; `false` is `terraform_declined`.
-- Existing village behaviour unchanged.
+- `opts.schematic_table`: `{ {name, hwidth, hdepth, hheight}, ... }` = the file
+  size x, z, y of the entry (no `settlements` global). `opts.config`: not passed.
+- `pr`, `env`: the draft has `env` supply `engine`, `settlements.surface_mat`,
+  `load_node`, `scan` and `clear_trees`. Towns passes `pr = nil` and an `env`
+  with `engine` (the `core` table) and `load_node`; it cannot supply
+  `clear_trees` or `scan` itself because those are Living Villages' own
+  `village_fragments` functions. **Open request:** when `env.clear_trees` /
+  `env.scan` are absent `terraform` should use its own (the same defaults
+  `village_smoothing.install` wires), or `living_villages.terrain` should
+  expose them. Section 10, question 5.
+- Never calls the VoxeLibre fallback; returns `false, reason` when it cannot load
+  or plan the work.
+- `stats`: changed, cut and filled columns, steep steps and walls, unloaded block
+  counts, and `written`, the inclusive `{minp, maxp}` XYZ box of changed columns
+  (nil if none changed). `stats.unloaded > 0` is Towns' `terraform_incomplete`;
+  `false` is `terraform_declined`.
 
 ### 6.3 luanti-villages#276: protected rectangles
 
-`opts.protected = { {x1, z1, x2, z2}, ... }` (inclusive X/Z). No column inside
-is read as changeable or written, including tree removal and cleanup, hole
-filling and ramps; protected columns are fixed ground for the slope limit.
-Towns passes one rectangle: `plan.bounds` grown by `PROTECT_MARGIN`, which is
-`F.protected` in the fixture. Towns also asserts `result.box` does not intersect
-it; a violation is a programming error (`outskirts_error`), reported honestly
-after the fact.
+`opts.protected = { {x0, z0, x1, z1, margin}, ... }` (inclusive, `margin` an
+optional nonnegative expansion). No protected column is read as changeable or
+written, including tree removal and cleanup, hole filling and ramps; protected
+columns stay fixed slope constraints. Towns passes one rectangle: `plan.bounds`
+(`x0 = b.x1`, ...) with `margin = PROTECT_MARGIN` (4). **Living Villages, not
+Towns, guarantees that the terraform reach (about 10 nodes, more for trees and
+holes) of a pad near the town never writes inside it**; that is why the farm band
+may start 14 nodes from the bounds. Towns itself only guarantees that the pads
+are outside the protected rectangle, and asserts after each call that
+`stats.written` does not intersect it (a violation is a programming error,
+reported after the fact).
 
-### 6.4 A draft already exists
-
-The Living Villages working tree (uncommitted when this was written) has
-`docs/terrain-api.md` describing `living_villages.terrain.terraform(plan, pr, env,
-{config, schematic_table, protected})` returning `false, reason` or `true,
-stats` with `written` (the inclusive `minp`/`maxp` box), protected rectangles
-as `{x0, z0, x1, z1, margin}` (so `PROTECT_MARGIN` could be passed as `margin`
-instead of growing the rectangle), plus pure `pads`/`targets`/`structure_test`.
-It matches the capabilities above with different spellings (positional `pr`
-and `env`, `schematic_table` in `opts`, `stats.written` for the box) and does
-not mention `version` or `volume`. Towns needs the capabilities, not the
-spellings: whatever lands, `outskirts_terrain` (#231) is the only module that
-spells the call, and the missing `volume` and `version` remain requests.
-
-### 6.5 The plot-to-call mapping (worked example, section 9)
+### 6.4 The plot-to-call mapping (worked example, section 9)
 
 Farm `f01`: rect `x 1000..1006, z -1875..-1867` (rotation 90 of a 9 x 7
-footprint), ground 61: plan `{name = "farm", pos = {x = 1000, y = 61, z =
--1875}, rotat = "90"}`, schematic `{name = "farm", hwidth = 9, hdepth = 7, hheight
-= 8}`.
+footprint), ground 61: `plan = {{name = "farm", pos = {x = 1000, y = 61, z =
+-1875}, rotat = "90"}}`, `opts = {schematic_table = {{name = "farm", hwidth = 9,
+hdepth = 7, hheight = 8}}, protected = {{x0 = 905, z0 = -2086, x1 = 1085, z1 =
+-1915, margin = 4}}}`.
 
 ## 7. Integration
 
@@ -366,8 +364,8 @@ Reads and emerges only. `opts = {assets, terrain, player_pos}` where `player_pos
 is the `pos` that `generate_command.search` already receives and `terrain` is
 `living_villages.terrain`. `env` is the `site_search` env. Steps:
 
-1. Dependencies: `terrain.version == 1`, `terrain.terraform` and `terrain.volume`
-   are functions, `outskirts.assets` succeeds (rural catalog readable, shared ids
+1. Dependencies: `living_villages.terrain` exists with `terraform` and `volume`
+   functions, `outskirts.assets` succeeds (rural catalog readable, shared ids
    present). Otherwise `done(nil, message, "outskirts_dependency")`.
 2. Plan as in 5.2. Each candidate emerges
    `outskirts.volume(plot, ground_ref)`: X/Z from `terrain.volume`, Y from the
@@ -403,11 +401,14 @@ Runs after `builder.build_town` returned a summary, so the urban town is
 complete. Then, in this order:
 
 1. **Terraform every plot**, one `terrain.terraform` call per plot, with
-   `protected`. A `false` or `stats.unloaded > 0` marks that plot skipped
+   `opts.protected`. A `false` or `stats.unloaded > 0` marks that plot skipped
    (`terraform_declined` / `terraform_incomplete`, reported); the others go on.
 2. **Place every non-skipped plot's schematic** with the same
    `env.place_structure` the urban build uses, then run `check_door` with the
-   plot's ground for structures that have an entrance.
+   plot's ground for structures that have an entrance. A placement that returns
+   nil, or a door that is not reachable, is a **warning**: recorded as
+   `placement_failed` / `door_unreachable` in `summary.outskirts.warnings`, the
+   plot stays as it is, and the command continues.
 3. `env.setup_nodes(outskirts_structures, entries)` (functional nodes: the
    composter, loom, chests; `node_setup` keys placements by `id@min`, so a
    second call is independent).
@@ -425,10 +426,12 @@ Risks, stated plainly:
 - Living Villages writes through `swap_node` outside Towns' preflight and region
   model, so there is no "prove zero writes first" for the outskirts; a failure
   in `apply` is a post-write failure. The urban town is already complete and
-  untouched by construction (protected rectangle, `result.box` assertion).
-- A plot can be terraformed and then fail to place (placement error, unreachable
-  door). That is a `write_failed` with every attempted box (urban box and each
-  plot's `result.box`); no retry, no rollback.
+  untouched by construction (protected rectangle, `stats.written` assertion).
+- A plot can be terraformed and then fail to place, or its hut door can be
+  unreachable. These are warnings, not failures (the terrain stays modified);
+  only an engine error that is raised (not returned) is a `write_failed`, with
+  every attempted box (urban box and each plot's `stats.written`); no retry, no
+  rollback.
 - Towns no longer writes outskirts terrain through its own region, so the
   fresh-region-per-commit rule of the earlier design does not apply. If Towns
   ever writes a region again it must open it just before its own commit.
@@ -445,10 +448,10 @@ boxes}` for the report (#238).
 
 | Class | Examples | Signal | Result |
 | --- | --- | --- | --- |
-| **Omission** | every code in 5.4: no site, water, uneven, spacing, protected, player nearby, emerge failure, Living Villages declining or skipping a pad | `nil, rejection` / `skipped` entry | Never an error. Fewer buildings, possibly none; reported with counts. Urban town builds. |
-| **Dependency failure** | `living_villages.terrain` missing, wrong `version`, or lacking `terraform`/`volume`; rural catalog or schematic missing, wrong size or unregistered node | `outskirts_dependency` | Whole command stops before any write. |
-| **Programming error** | malformed plan or record, `validate` failure, a structure that is not its rotated footprint, a plot overlapping another or the protected rectangle, rural/urban id collision, a Living Villages box inside the protected rectangle | `error(...)`, `pcall` in `search`; code `outskirts_error` (after the fact: `write_failed`) | Whole command stops before any write; reported as an error. |
-| **Post-write failure** | `place_structure` error, unreachable door, node setup failure, a plot that cannot be placed after its terraform | `outskirts_build.apply` | `write_failed` listing attempted boxes; partial world; no retry; no residents. |
+| **Omission** | every code in 5.4: no site, water, uneven, spacing, protected, player nearby, emerge failure, Living Villages declining or skipping a pad; and the apply-stage warnings `placement_failed` and `door_unreachable` | `nil, rejection` / `skipped` / `warnings` entry | Never an error. Fewer or flawed buildings, possibly none; reported with counts and warnings. The command completes. |
+| **Dependency failure** | `living_villages.terrain` missing or lacking `terraform`/`volume`; rural catalog or schematic missing, wrong size or unregistered node | `outskirts_dependency` | Whole command stops before any write. |
+| **Programming error** | malformed plan or record, `validate` failure, a structure that is not its rotated footprint, a plot overlapping another or the protected rectangle, rural/urban id collision, a Living Villages `written` box inside the protected rectangle | `error(...)`, `pcall` in `search`; code `outskirts_error` (after the fact: `write_failed`) | Whole command stops before any write; reported as an error. |
+| **Post-write failure** | an engine error raised while terraforming, placing or setting up nodes; node setup failure | `outskirts_build.apply` | `write_failed` listing attempted boxes; partial world; no retry; no residents. |
 
 Not finding places, unsuitable terrain and Living Villages declining a pad are
 omissions and never fail the command.
@@ -457,51 +460,52 @@ omissions and never fail the command.
 
 Fixture: `tests/outskirts_fixture.lua`. Roman town, seed 8, centre `(1000,
 -2000)`, urban ground 62, `plan.bounds x 905..1085, z -2086..-1915`; protected
-rectangle `x 881..1109, z -2110..-1891` (bounds + 24).
+rectangle `{x0 = 905, z0 = -2086, x1 = 1085, z1 = -1915, margin = 4}`, i.e.
+`x 901..1089, z -2090..-1911`.
 
 | | `f01` farm | `h01` hut |
 | --- | --- | --- |
-| band, gap to bounds | near, 40 (36..75) | far, 125 (76..143) |
+| band, gap to bounds | near, 40 (14..47) | far, 90 (48..115) |
 | rotation | 90 (first stream draw: 22928725 % 4 = 1) | 0 |
-| rect | x 1000..1006, z -1875..-1867 (7 x 9) | x 1210..1218, z -2010..-2003 (9 x 8) |
+| rect | x 1000..1006, z -1875..-1867 (7 x 9) | x 1175..1183, z -2010..-2003 (9 x 8) |
 | footprint heights | 60..62 (spread 2), ground 61 | 63..65 (spread 2), ground 64 |
 | schematic origin Y / box | 61 (`ground_offset` 0), y 61..68 | 64, y 64..72 |
-| entrance | none (object) | file (4,2,2): world `(1214, 66, -2008)`, front -Z, feet Y 66 |
-| terraform reach to protected | 16 | far |
+| entrance | none (object) | file (4,2,2): world `(1179, 66, -2008)`, front -Z, feet Y 66 |
+| gap to protected rectangle | 36 | 86 |
 
 The hut's canonical entrance front (-Z) is an assumption until #227 measures the
 import; the door position, loom and bed are measured. The Living Villages call for
-the farm is the plan and schematic of 6.5 with `protected = {F.protected}`; an
-illustrative result is `{stats = {changed = 152, cut = 40, filled = 112,
-steepest = 2, violations = 0, unloaded = 0}, box = {min = (988, 41, -1885),
-max = (1018, 85, -1857)}}`, whose box stays outside the protected rectangle (its
-south edge z -1885 is above -1891). The example town ends with 16 of 18 farms, 6
-huts, 1 of 2 villas; the 9 recorded rejections (`plot_water` 5, `plot_uneven` 3,
-`no_site` 1) account for the shortfall.
+the farm is the one in 6.4. An illustrative result is `true, {changed = 152, cut
+= 40, filled = 112, steepest = 2, violations = 0, unloaded = 0, written = {minp =
+(988, 41, -1885), maxp = (1018, 85, -1857)}}`; `written` stays outside the
+protected rectangle (its south edge z -1885 is above -1911). The example town ends
+with 16 of 18 farms, 6 huts and 1 of 2 villas; the 9 recorded rejections
+(`plot_water` 5, `plot_uneven` 3, `no_site` 1) account for the shortfall.
 
 ## 10. Open questions and added complexity
 
 For the product owner:
 
-1. **Farm reach versus job reach.** Villagers find a composter only within 48
-   nodes and are sent home beyond about 50 from their bed (section 4). With the
-   near band at gap 36..76, farms give work only to residents near the town edge.
-   Options: narrow the band (for example 36..56), accept it, or later give farms
-   a bed. Unchanged unless told.
-2. **Door failure after terraform** is a `write_failed` of the whole command
-   (consistent with the urban builder). A softer rule (report and leave the
-   hut) is possible.
-3. **No structure protection.** Ruined portals and outposts in the countryside
-   can be damaged by terraforming (Living Villages' site planner avoids them;
-   its terraform does not unless a `scan` is passed). Not planned for v1.
-4. **No special handling when the town ends on a cliff.** Plots are planned from
+1. **Farm reach versus job reach.** The farm band (gap 14..48) keeps most farms
+   within the villagers' +/-48 job search of some town houses (section 4), but
+   residents deep in the town still never see a composter. Tune in #238.
+2. **Foreign structures.** Ruined portals and outposts in the countryside can be
+   damaged by terraforming (Living Villages' site planner avoids them; its
+   terraform does not unless a `scan` is passed). Not planned for v1.
+3. **No special handling when the town ends on a cliff.** Plots are planned from
    the bands as if the ground were open; `plot_uneven` and `plot_water` thin them
    out.
 
-Added complexity of this direction (for the product owner): it depends on three
-unmerged Living Villages issues (#274 plus the `volume` addition, #275, #276) and
-cannot start there; terraform runs 27 times in one server step after the urban
-build, with tree clearing and hole filling (a visible stall); up to about 160
-emerges during planning; the farm gives workplaces only near the town edge;
-huts add six residents; and the near/far bands, counts and spacing are
-placeholders that will need playtesting.
+For Living Villages (#274-#276):
+
+4. **`volume(...)`** is the one addition Towns requests (6.1).
+5. **`env.clear_trees` / `env.scan` defaults.** The draft makes the caller supply
+   them, but they are Living Villages' own `village_fragments` functions that a
+   caller cannot reach. Towns needs `terraform` to default them (or the table to
+   expose them).
+
+Added complexity of this direction: it depends on three unmerged Living Villages
+issues plus the `volume` request; terraform runs up to 27 times in one server
+step after the urban build, with tree clearing and hole filling (a visible
+stall); planning can need up to about 160 emerges; huts add six residents; and
+the bands, counts and spacing are placeholders that will need playtesting.

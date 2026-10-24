@@ -23,12 +23,12 @@ F.constants = {
 	HUT_COUNT = 6,
 	VILLA_COUNT = 2,
 	CHAPEL_COUNT = 1,
-	FARM_BAND_NEAR = 36,
-	FARM_BAND_FAR = 76,
-	OUTER_BAND_NEAR = 76,
-	OUTER_BAND_FAR = 144,
+	FARM_BAND_NEAR = 14,
+	FARM_BAND_FAR = 48,
+	OUTER_BAND_NEAR = 48,
+	OUTER_BAND_FAR = 116,
 	MIN_SPACING = 20,
-	PROTECT_MARGIN = 24,
+	PROTECT_MARGIN = 4,
 	TERRAFORM_REACH = 10,
 	PLAYER_MARGIN = 16,
 	ATTEMPTS_PER_BUILDING = 6,
@@ -43,7 +43,7 @@ F.constants = {
 F.rejection_codes = {
 	"no_site", "plot_protected", "plot_spacing", "plot_player", "plot_out_of_range",
 	"plot_unloaded", "plot_water", "plot_uneven", "emerge_failed",
-	"terraform_declined", "terraform_incomplete",
+	"terraform_declined", "terraform_incomplete", "door_unreachable", "placement_failed",
 }
 
 F.town = {type = "roman", seed = 8, center = {x = 1000, z = -2000}, ground_y = 62}
@@ -68,7 +68,8 @@ F.assets = {
 	},
 }
 
-F.protected = {x1 = 881, z1 = -2110, x2 = 1109, z2 = -1891}   -- plan.bounds + PROTECT_MARGIN
+-- Living Villages protected rectangle spelling: inclusive x0..z1 plus margin.
+F.protected = {x0 = 905, z0 = -2086, x1 = 1085, z1 = -1915, margin = 4}   -- plan.bounds
 F.bounds = {x1 = 905, z1 = -2086, x2 = 1085, z2 = -1915}      -- Roman plan.bounds at this centre
 
 -- Accepted plots. distance = Chebyshev gap between rect and plan.bounds.
@@ -78,7 +79,7 @@ F.plots = {
 		rect = {x1 = 1000, z1 = -1875, x2 = 1006, z2 = -1867}, distance = 40,
 		heights = {min = 60, max = 62}, ground_y = 61},
 	{id = "h01", class = "hut", asset = "shepherd_hut", rotation = 0, band = "far",
-		rect = {x1 = 1210, z1 = -2010, x2 = 1218, z2 = -2003}, distance = 125,
+		rect = {x1 = 1175, z1 = -2010, x2 = 1183, z2 = -2003}, distance = 90,
 		heights = {min = 63, max = 65}, ground_y = 64},
 }
 
@@ -89,32 +90,32 @@ F.structures = {
 		min = {x = 1000, y = 61, z = -1875}, max = {x = 1006, y = 68, z = -1867},
 		size = {x = 7, y = 8, z = 9}, ground_offset = 0, site_ground_y = 61},
 	{id = "shepherd_hut", kind = "outskirts", role = "hut", plot = "h01", rotation = 0,
-		rect = {x1 = 1210, z1 = -2010, x2 = 1218, z2 = -2003},
-		min = {x = 1210, y = 64, z = -2010}, max = {x = 1218, y = 72, z = -2003},
+		rect = {x1 = 1175, z1 = -2010, x2 = 1183, z2 = -2003},
+		min = {x = 1175, y = 64, z = -2010}, max = {x = 1183, y = 72, z = -2003},
 		size = {x = 9, y = 9, z = 8}, ground_offset = 0, site_ground_y = 64,
-		entrance = {x = 1214, y = 66, z = -2008}, front = {x = 0, z = -1}},
+		entrance = {x = 1179, y = 66, z = -2008}, front = {x = 0, z = -1}},
 }
 
--- What Towns hands to the Living Villages terraform call (issue luanti-villages#275),
--- one call per plot: a settlement-style plan entry (pos = footprint minimum corner,
--- pos.y = site ground Y) and a caller-supplied schematic table.
+-- What Towns hands to terraform(plan, pr, env, opts) (luanti-villages#275/#276 and the
+-- draft docs/terrain-api.md), one call per plot: a settlement-style plan entry
+-- (pos = footprint minimum corner, pos.y = site ground Y) and opts.
 F.lv_calls = {
 	{plot_id = "f01",
 		plan = {{name = "farm", pos = {x = 1000, y = 61, z = -1875}, rotat = "90"}},
-		schematics = {{name = "farm", hwidth = 9, hdepth = 7, hheight = 8}},
-		protected = {F.protected}},
+		opts = {schematic_table = {{name = "farm", hwidth = 9, hdepth = 7, hheight = 8}},
+			protected = {F.protected}}},
 	{plot_id = "h01",
-		plan = {{name = "shepherd_hut", pos = {x = 1210, y = 64, z = -2010}, rotat = "0"}},
-		schematics = {{name = "shepherd_hut", hwidth = 9, hdepth = 8, hheight = 9}},
-		protected = {F.protected}},
+		plan = {{name = "shepherd_hut", pos = {x = 1175, y = 64, z = -2010}, rotat = "0"}},
+		opts = {schematic_table = {{name = "shepherd_hut", hwidth = 9, hdepth = 8, hheight = 9}},
+			protected = {F.protected}}},
 }
 
--- Illustrative result of the farm's terraform call (shape requested in
--- luanti-villages#275; the numbers are invented but consistent).
+-- Illustrative result of the farm's terraform call (`true, stats`; the numbers
+-- are invented but consistent; `written` is the inclusive box of changed columns).
 F.lv_result = {
 	ok = true,
-	stats = {changed = 152, cut = 40, filled = 112, steepest = 2, violations = 0, unloaded = 0},
-	box = {min = {x = 988, y = 41, z = -1885}, max = {x = 1018, y = 85, z = -1857}},
+	stats = {changed = 152, cut = 40, filled = 112, steepest = 2, violations = 0, unloaded = 0,
+		written = {minp = {x = 988, y = 41, z = -1885}, maxp = {x = 1018, y = 85, z = -1857}}},
 }
 
 -- Result counts of the example town (shortfalls are normal).

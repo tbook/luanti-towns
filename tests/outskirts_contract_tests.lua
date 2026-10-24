@@ -47,8 +47,8 @@ end
 ------------------------------------------------------------------------
 eq(C.FARM_BAND_NEAR < C.FARM_BAND_FAR and C.FARM_BAND_FAR <= C.OUTER_BAND_NEAR
 	and C.OUTER_BAND_NEAR < C.OUTER_BAND_FAR, true, "the two bands are ordered, farms nearer")
-eq(C.FARM_BAND_NEAR >= C.PROTECT_MARGIN + C.TERRAFORM_REACH, true,
-	"the nearest plot's terraform reach stays outside the protected rectangle")
+eq(C.FARM_BAND_NEAR > C.PROTECT_MARGIN, true,
+	"pads themselves are outside the protected rectangle (the terraform reach is Living Villages' job)")
 eq(C.MIN_SPACING >= 2 * C.TERRAFORM_REACH, true, "neighbouring plots' terraform reaches do not overlap")
 eq(C.PLAYER_MARGIN >= C.TERRAFORM_REACH, true, "the player is outside a plot's terraform reach")
 
@@ -97,10 +97,10 @@ local roman = assert(planner.plan(F.town.center, F.town.seed, {town_type = "roma
 local b = roman.bounds
 eq(b.x1 == F.bounds.x1 and b.z1 == F.bounds.z1 and b.x2 == F.bounds.x2 and b.z2 == F.bounds.z2, true,
 	"the Roman plan.bounds at this centre")
-local P = F.protected
-eq(P.x1 == b.x1 - C.PROTECT_MARGIN and P.z1 == b.z1 - C.PROTECT_MARGIN
-	and P.x2 == b.x2 + C.PROTECT_MARGIN and P.z2 == b.z2 + C.PROTECT_MARGIN, true,
-	"protected rectangle = plan.bounds + PROTECT_MARGIN")
+local PR = F.protected
+eq(PR.x0 == b.x1 and PR.z0 == b.z1 and PR.x1 == b.x2 and PR.z1 == b.z2 and PR.margin == C.PROTECT_MARGIN, true,
+	"protected rectangle = plan.bounds with margin PROTECT_MARGIN")
+local P = {x1 = PR.x0 - PR.margin, z1 = PR.z0 - PR.margin, x2 = PR.x1 + PR.margin, z2 = PR.z1 + PR.margin}
 
 local function distance(bounds, r)
 	return math.max(bounds.x1 - r.x2, r.x1 - bounds.x2, bounds.z1 - r.z2, r.z1 - bounds.z2)
@@ -142,7 +142,7 @@ for i, plot in ipairs(F.plots) do
 	local band = band_of[plot.band]
 	eq(plot.distance >= band[1] and plot.distance < band[2], true, label .. " lies in its band")
 	eq(overlap(plot.rect, P), false, label .. " lies outside the protected rectangle")
-	eq(gap(plot.rect, P) >= C.TERRAFORM_REACH, true, label .. " terraform reach clears the protected rectangle")
+	eq(gap(plot.rect, P) > 0, true, label .. " lies clear of the protected rectangle margin")
 	eq(plot.heights.max - plot.heights.min <= C.MAX_SPREAD, true, label .. " footprint spread")
 	eq(plot.ground_y >= plot.heights.min and plot.ground_y <= plot.heights.max, true, label .. " ground inside the heights")
 end
@@ -152,7 +152,8 @@ eq(gap(F.plots[1].rect, F.plots[2].rect) >= C.MIN_SPACING, true, "plots keep MIN
 -- Living Villages call data.
 for i, call in ipairs(F.lv_calls) do
 	local plot, asset = F.plots[i], F.assets[F.plots[i].asset]
-	local entry, sch = call.plan[1], call.schematics[1]
+	local entry, sch = call.plan[1], call.opts.schematic_table[1]
+	eq(call.opts.protected[1], F.protected, call.plot_id .. " passes the protected rectangle")
 	eq(entry.name, sch.name, call.plot_id .. " plan and schematic table name the same asset")
 	eq(entry.pos.y, plot.ground_y, call.plot_id .. " pad y is the site ground Y")
 	eq(entry.pos.x == plot.rect.x1 and entry.pos.z == plot.rect.z1, true, call.plot_id .. " pos is the minimum corner")
@@ -166,12 +167,12 @@ for i, call in ipairs(F.lv_calls) do
 	eq(entry.rotat, tostring(plot.rotation), call.plot_id .. " rotation")
 end
 do
-	local box = F.lv_result.box
-	local r = {x1 = box.min.x, z1 = box.min.z, x2 = box.max.x, z2 = box.max.z}
+	local box = F.lv_result.stats.written
+	local r = {x1 = box.minp.x, z1 = box.minp.z, x2 = box.maxp.x, z2 = box.maxp.z}
 	local f = F.plots[1].rect
 	eq(r.x1 <= f.x1 and r.z1 <= f.z1 and r.x2 >= f.x2 and r.z2 >= f.z2, true, "written box contains the footprint")
 	eq(overlap(r, P), false, "written box stays outside the protected rectangle")
-	eq(F.lv_result.stats.cut + F.lv_result.stats.filled, F.lv_result.stats.changed - 0, "cut + filled = changed (illustrative)")
+	eq(F.lv_result.stats.cut + F.lv_result.stats.filled, F.lv_result.stats.changed, "cut + filled = changed (illustrative)")
 end
 
 -- Counts.
@@ -281,10 +282,10 @@ do
 	eq(cfg.margin + cfg.radius, C.TERRAFORM_REACH, "default margin + radius = TERRAFORM_REACH")
 	for i, call in ipairs(F.lv_calls) do
 		local box = terrain.footprint({name = call.plan[1].name, pos = call.plan[1].pos, rotat = call.plan[1].rotat},
-			call.schematics)
+			call.opts.schematic_table)
 		local rect = F.plots[i].rect
 		eq(box ~= nil and box.minp.x == rect.x1 and box.minp.z == rect.z1 and box.maxp.x == rect.x2
 			and box.maxp.z == rect.z2, true, call.plot_id .. ": village_terrain.footprint equals the plot rect")
-		eq(box and box.height, call.schematics[1].hheight, call.plot_id .. ": footprint height")
+		eq(box and box.height, call.opts.schematic_table[1].hheight, call.plot_id .. ": footprint height")
 	end
 end
