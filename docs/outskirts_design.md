@@ -94,7 +94,7 @@ and well templates.
 | --- | --- | --- | --- |
 | farm | VoxeLibre `mcl_villages/schematics/farm.mts` | 9, 8, 7 | no door, no bed; one `mcl_composters:composter` at (4,2,0); water sources and crops (wheat 13, potato 4, carrot 3) |
 | hut ("shepherd's hut") | `mcl_villages/schematics/small_house.mts` | 9, 9, 8 | door at (4,2,2); `mcl_loom:loom` at (3,2,5); one bed at (4,2,5) |
-| villa | existing Roman villa (`schematics/imports/roman/villa.mts`, #229) | measured by #229 | Roman towns only |
+| villa | existing Roman villa (`schematics/imports/roman/villa.mts`, #229) | 46, 20, 26 | door at (26,2,22), facing +Z; dirt ground row at Y=0; Roman towns only |
 | chapel | existing medieval `chapel` template (shared catalog entry) | 9, 14, 17 | medieval towns only |
 
 (Facts for the first two are checked against the installed game by the test.)

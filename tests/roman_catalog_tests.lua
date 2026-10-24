@@ -76,7 +76,7 @@ for id, f in pairs(fixtures) do
 end
 eq(table.concat(catalog.ids_for_role("landmark"), ","),
 	"amphitheater,arch,basilica,bath,domus,insula,temple,theatre,vespasianum", "exactly nine fixed Roman templates")
-eq(catalog.entries.villa, nil, "villa remains import only")
+eq(catalog.entries.villa, nil, "villa remains outside the urban catalog")
 eq(catalog.entries.aqueduct, nil, "aqueduct remains import only")
 local profile = assert(planner.landmark_profile(snapshot))
 for id in pairs(fixtures) do

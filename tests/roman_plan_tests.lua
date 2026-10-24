@@ -44,6 +44,7 @@ for id, want in pairs({arch = 4, temple = 2, domus = 3, basilica = 1, theatre = 
 	eq(counts[id], want, id .. " count")
 	n = n + 1
 end
+eq(counts.villa, nil, "villa remains absent from the Roman authored plan")
 eq(n, 9, "nine templates")
 eq(#plan.site_order, 18, "forum plus 17 monuments in site order")
 

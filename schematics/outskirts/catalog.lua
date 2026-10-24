@@ -15,4 +15,12 @@ return {
 		entrance_kind = "door",
 		loom = {x = 3, y = 2, z = 5}, bed = {x = 4, y = 2, z = 5},
 	},
+	villa = {
+		id = "villa", label = "Roman villa", class = "villa", role = "villa",
+		path = "schematics/imports/roman/villa.mts",
+		data_path = "schematics/imports/roman/villa.lua",
+		size = {x = 46, y = 20, z = 26}, ground_offset = 0,
+		entrance = {x = 26, y = 2, z = 22, facing = "+Z"},
+		entrance_kind = "door",
+	},
 }

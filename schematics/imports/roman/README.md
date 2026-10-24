@@ -4,7 +4,8 @@ These are cleaned captures from TownsWorkshop. `catalog.lua` registers arch,
 temple, domus, theatre, amphitheater, bath, insula, vespasianum, and basilica
 with the shared generator as fixed `landmark` entries. They do not enter medieval
 random building pools; domus, insula, vespasianum and basilica are not random
-houses. Villa and aqueduct remain standalone imports.
+houses. The villa is also registered separately as a rural outskirts building;
+it remains outside the shared urban catalog. Aqueduct remains a standalone import.
 Each `.mts` is a native Luanti schematic in the orientation and dimensions
 recorded in `manifest.json`; the matching `.lua` stores node metadata,
 inventories, and required node names for tooling that supports the Towns
@@ -71,6 +72,7 @@ axis **before** placement rotation; omitted facing defaults to `-Z`.
 | insula | 35×20×27 | 17,3,2 | -Z | 2 | Spruce door in the front wall at Y=3 over a stone threshold at Y=2; gravel approach at Y=2 (Z=0). A second front door is at X=11, and a rear spruce door at (17,3,24). |
 | vespasianum | 10×8×8 | 1,3,3 | -X | 2 | No door. A 1-wide, 2-high opening in the -X wall at Y=3 over a hardened-clay threshold at Y=2, with gravel at (0,2,3) outside; the only air route into the room. Trapdoors inside, a water channel, a flower pot and an item frame. |
 | basilica | 28×14×16 | 23,3,7 | +X | 2 | Spruce double door at X=23 (Z=7..8) at Y=3 over a stone threshold at Y=2, with stone outside at (24,2,7). Two more single doors at Z=3 and Z=12 on the same +X face, a trapdoor above the central door, and a granite arcade on the outside. |
+| villa | 46×20×26 | 26,2,22 | +Z | 0 | Main double wooden door at X=26..27; courtyard approach at Z=23. Dirt ground row at Y=0. Registered separately for rural Roman outskirts (#229). |
 
 The basilica capture (#211) is the issue's box 53..79 × 7..20 × 415..430,
 widened one column to x=52 (the roof eave slabs at Z=420 and 425) and with the
