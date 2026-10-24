@@ -41,8 +41,9 @@ local roman = dofile(modpath .. "/schematics/imports/roman/catalog.lua")
 for id, entry in pairs(roman) do entries[id] = entry end
 
 -- The castle's six-node gate is wider than its entrance marker. Coordinates
--- are canonical template X/Z and were measured from the captured gate.
-entries.castle.gate_span = {x1 = 21, z1 = 0, x2 = 26, z2 = 0}
+-- are canonical template X/Z: the paved gate threshold (stone at y=5 on the
+-- -Z face, z=0) and the wall opening above it (air at z=3) are both x 22..27.
+entries.castle.gate_span = {x1 = 22, z1 = 0, x2 = 27, z2 = 0}
 
 for id, e in pairs(entries) do
 	e.id = id

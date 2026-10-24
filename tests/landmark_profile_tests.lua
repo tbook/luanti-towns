@@ -44,21 +44,21 @@ eq(profile.castle.size.z, 54, "castle size z")
 eq(profile.castle.entrance.x, 24, "castle entrance x")
 eq(profile.castle.entrance.z, 3, "castle entrance z")
 eq(profile.castle.ground_offset, 5, "castle ground offset")
-eq(profile.castle.gate_span.x1, 21, "castle gate starts at canonical x 21")
+eq(profile.castle.gate_span.x1, 22, "castle gate starts at canonical x 22")
 eq(profile.castle.gate_span.z1, 0, "castle gate is on canonical z 0")
-eq(profile.castle.gate_span.x2, 26, "castle gate ends at canonical x 26")
+eq(profile.castle.gate_span.x2, 27, "castle gate ends at canonical x 27")
 
 local rotated_gate = {
-	[0] = {x1 = 21, z1 = 0, x2 = 26, z2 = 0},
-	[90] = {x1 = 0, z1 = 23, x2 = 0, z2 = 28},
-	[180] = {x1 = 23, z1 = 53, x2 = 28, z2 = 53},
-	[270] = {x1 = 53, z1 = 21, x2 = 53, z2 = 26},
+	[0] = {x1 = 22, z1 = 0, x2 = 27, z2 = 0},
+	[90] = {x1 = 0, z1 = 22, x2 = 0, z2 = 27},
+	[180] = {x1 = 22, z1 = 53, x2 = 27, z2 = 53},
+	[270] = {x1 = 53, z1 = 22, x2 = 53, z2 = 27},
 }
 local rotated_apron = {
-	[0] = {x1 = 21, z1 = -5, x2 = 26, z2 = -1},
-	[90] = {x1 = -5, z1 = 23, x2 = -1, z2 = 28},
-	[180] = {x1 = 23, z1 = 54, x2 = 28, z2 = 58},
-	[270] = {x1 = 54, z1 = 21, x2 = 58, z2 = 26},
+	[0] = {x1 = 22, z1 = -5, x2 = 27, z2 = -1},
+	[90] = {x1 = -5, z1 = 22, x2 = -1, z2 = 27},
+	[180] = {x1 = 22, z1 = 54, x2 = 27, z2 = 58},
+	[270] = {x1 = 54, z1 = 22, x2 = 58, z2 = 27},
 }
 for _, rotation in ipairs(geometry.ROTATIONS) do
 	local actual = geometry.rotate_rect(profile.castle.size, profile.castle.gate_span, rotation)
