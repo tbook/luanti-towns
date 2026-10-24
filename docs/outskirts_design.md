@@ -197,7 +197,38 @@ building, two draws per sample), so the plan is a function of the seed and of
 the terrain the reader saw. Everything in section 5 except the emerge and the
 reader is pure; the planner never writes.
 
-### 5.3 Records
+### 5.3 Pure planner interface
+
+`src/outskirts.lua` exposes the deterministic geometry and the small state used
+by the later asynchronous search. `outskirts.new(plan, seed, entries,
+player_pos)` starts the private stream from the completed urban plan. Repeated
+`state:next()` calls return the next candidate that passes `sample` and `fits`,
+or `nil` when all requested buildings have been considered. A yielded candidate
+must be resolved before calling `next()` again:
+
+```lua
+local state = outskirts.new(result.plan, result.plan.seed, entries, player_pos)
+while true do
+  local candidate = state:next()
+  if not candidate then break end
+  -- #234 emerges and reads the candidate footprint here.
+  if accepted_by_terrain then
+    state:accept(candidate, {min = min_y, max = max_y}, ground_y)
+  else
+    state:reject(candidate, rejection_code, detail)
+  end
+end
+local out = state:result(result.ground_y)
+```
+
+The planner itself performs no terrain reads, emerges or writes. Sampling and
+spatial failures are recorded as rejections internally; `accept` and `reject`
+resume the same bounded attempt order after the caller's terrain decision.
+`sample(band, size, bounds, rng)` and `fits(rect, plots, protected,
+player_pos)` are also available to the async search without duplicating these
+rules. The accepted urban plan and its random stream are never modified.
+
+### 5.4 Records
 
 ```lua
 plot = {
@@ -240,7 +271,7 @@ rejection = { stage = "plot" | "terraform" | "emerge", code = "plot_water",
 The farm composes as `kind = "object"` (no entrance); the others as
 `"outskirts"`.
 
-### 5.4 Rejection codes (omissions)
+### 5.5 Rejection codes (omissions)
 
 | Code | Meaning |
 | --- | --- |
@@ -428,7 +459,7 @@ boxes}` for the report (#238).
 
 | Class | Examples | Signal | Result |
 | --- | --- | --- | --- |
-| **Omission** | every code in 5.4: no site, water, uneven, spacing, protected, player nearby, emerge failure, Living Villages declining or skipping a pad; and the apply-stage warnings `placement_failed` and `door_unreachable` | `nil, rejection` / `skipped` / `warnings` entry | Never an error. Fewer or flawed buildings, possibly none; reported with counts and warnings. The command completes. |
+| **Omission** | every code in 5.5: no site, water, uneven, spacing, protected, player nearby, emerge failure, Living Villages declining or skipping a pad; and the apply-stage warnings `placement_failed` and `door_unreachable` | `nil, rejection` / `skipped` / `warnings` entry | Never an error. Fewer or flawed buildings, possibly none; reported with counts and warnings. The command completes. |
 | **Dependency failure** | `living_villages.terrain` missing or lacking `terraform`/`volume`; rural catalog or schematic missing, wrong size or unregistered node | `outskirts_dependency` | Whole command stops before any write. |
 | **Programming error** | malformed plan or record, `validate` failure, a structure that is not its rotated footprint, a plot overlapping another or the protected rectangle, rural/urban id collision, a Living Villages `written` box inside the protected rectangle | `error(...)`, `pcall` in `search`; code `outskirts_error` (after the fact: `write_failed`) | Whole command stops before any write; reported as an error. |
 | **Post-write failure** | an engine error raised while terraforming, placing or setting up nodes; node setup failure | `outskirts_build.apply` | `write_failed` listing attempted boxes; partial world; no retry; no residents. |
