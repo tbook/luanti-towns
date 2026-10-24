@@ -33,15 +33,19 @@ F.constants = {
 	CUT_FILL_CAP = 2,
 	VILLA_CAP = 1,
 	ROAD_CAP = 2,
-	ROAD_MAX_LENGTH = 60,
+	ROAD_MAX_LENGTH = 100,
 	SLOT_FIRST = 10,
 	SLOT_STEP = 26,
 	SLOTS_PER_EXIT = 2,
 	GROUP_WINDOW = 24,
 	SETBACK = 3,
 	ATTEMPTS_PER_EXIT = 4,
-	GROUP_EVALS = 12,
-	LANDMARK_EVALS = 4,
+	LANDMARK_GAP = 2,
+	PLAYER_MARGIN = 4,
+	SERVICE_WELL_RADIUS = 42,
+	SERVICE_JUKEBOX_RADIUS = 48,
+	ENVELOPE_LATERAL = 56,
+	ENVELOPE_ALONG_END = 16,
 	TERRAIN_MARGIN = 2,
 	TERRAIN_RADIUS = 6,
 	TERRAIN_WALL = 4,
@@ -60,9 +64,9 @@ F.rejection_codes = {
 	"no_exits", "exit_inside_bounds",
 	"road_unloaded", "road_water", "road_steep", "road_short",
 	"plot_unloaded", "plot_water", "plot_overlap", "plot_inside_town",
-	"approach_blocked", "approach_steep",
+	"plot_player", "plot_structure", "approach_blocked", "approach_steep",
 	"pad_cut_fill", "yard_not_level", "skirt_steep", "group_small",
-	"region_overlap", "emerge_failed", "out_of_range",
+	"services_missing", "emerge_failed", "out_of_range",
 }
 
 F.town = {type = "roman", seed = 8, center = {x = 1000, z = -2000}, ground_y = 62}
@@ -77,6 +81,12 @@ F.cottage = {
 	entrance = {x = 3, y = 2, z = 0},   -- file-local; y = ground_offset + 1
 	ground_offset = 1,
 }
+
+-- The Roman arch's clear corridor (schematics/imports/roman/README.md): file-local
+-- X=5..6, Z=0..7 (wall posts at X=4 and X=7, Z=2 and Z=5; floor a half slab
+-- at Y=1). Rotated through geometry.rotate_rect it is world -1..0 across
+-- every arch at centre offset 0, so the lane centre -1 lies inside it.
+F.arch_corridor = {x1 = 5, z1 = 0, x2 = 6, z2 = 7}
 
 -- 1. Exits of the Roman plan at this centre, in canonical order (N, E, S, W).
 -- cross = the principal street's extent across its axis; lane = the
@@ -103,14 +113,17 @@ F.order = {"e1", "e2", "e3", "e4"}
 
 -- 2. Road along e1. y[k] is the finished surface of lane column k (k = 1 is
 -- the start column, z = start.z + k - 1). Start from the urban ground (62) and
--- move at most one node per column toward the natural height. reach = how far
+-- move at most one node per column toward the natural height, with the landing rule. reach = how far
 -- the road could run before a column failed (here the limit of the data we
 -- scanned); length = what is built: only as far as the farthest accepted
 -- approach needs (road_k + (PATH_WIDTH - 1) / 2).
+-- Landing rule: y may change after a column only if the previous column was
+-- level (y[k-1] == y[k-2]; the urban join counts as level), so steps are
+-- separated by at least one level column.
 F.road = {
 	exit_id = "e1", reach = 33, length = 14, join_y = 62,
 	natural = {64, 65, 65, 65, 65, 65, 65, 66, 66, 66, 66, 66, 66, 67},
-	y       = {63, 64, 65, 65, 65, 65, 65, 66, 66, 66, 66, 66, 66, 67},
+	y       = {63, 63, 64, 64, 65, 65, 65, 66, 66, 66, 66, 66, 66, 67},
 }
 
 -- 3. One accepted group. Window k = 10..33 (slot 1); the candidate listed six
@@ -173,13 +186,16 @@ F.structures = {
 -- volume = bounds + CUT_FILL_MARGIN (8) around and below.
 F.region = {
 	id = "r1", exit_id = "e1",
-	bounds = {min = {x = 979, y = 60, z = -1914}, max = {x = 1019, y = 84, z = -1891}},
-	volume = {min = {x = 971, y = 52, z = -1922}, max = {x = 1027, y = 84, z = -1883}},
+	-- X/Z = box of the WRITTEN columns: footprints, yards, changed skirt
+	-- columns, lane and approaches (unchanged skirt columns are not written).
+	written_box = {x1 = 985, z1 = -1914, x2 = 1013, z2 = -1897},
+	bounds = {min = {x = 985, y = 60, z = -1914}, max = {x = 1013, y = 84, z = -1897}},
+	volume = {min = {x = 977, y = 52, z = -1922}, max = {x = 1021, y = 84, z = -1889}},
 	-- Living Villages targets() over the two pads (config margin 2, radius 6,
 	-- cap 2, wall 4): columns owned per kind, and how many changed.
 	targets = {
 		bbox = {x1 = 979, z1 = -1913, x2 = 1019, z2 = -1891},
-		owned = 807, violations = 0, walls = 0,
+		owned = 807, written = 276, violations = 0, walls = 0,
 		by_kind = {
 			footprint1 = {n = 56, changed = 32, cut = 0, fill = 32},
 			footprint2 = {n = 56, changed = 24, cut = 24, fill = 0},
@@ -194,7 +210,7 @@ F.region = {
 		{x = 990, z = -1902, kind = "footprint", was = 66, at = 67, pad = "g1p1"},
 		{x = 1008, z = -1899, kind = "footprint", was = 68, at = 67, pad = "g1p4"},
 		{x = 985, z = -1907, kind = "yard", was = 66, at = 67, pad = "g1p1"},
-		{x = 980, z = -1902, kind = "skirt", was = 66, at = 66, pad = "g1p1"},
+		{x = 985, z = -1908, kind = "skirt", was = 65, at = 66, pad = "g1p1"},
 		{x = 999, z = -1901, kind = "road", was = 67, at = 67, road_k = 14},
 		{x = 996, z = -1902, kind = "approach", was = 66, at = 66, pad = "g1p1"},
 	},

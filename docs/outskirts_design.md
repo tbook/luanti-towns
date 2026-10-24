@@ -33,10 +33,10 @@ feature, so each has one name:
 | --- | --- | --- |
 | *schematic origin Y* | world Y of schematic layer 0 = `site_ground_y - ground_offset` | `preflight.compose` places at `{rect.x1, ground_y - ground_offset, rect.z1}` |
 | *site ground Y* (`ground_y`) | Y of the finished **surface node row**; the node at `ground_y` is the walking surface, everything above it is air | urban `result.ground_y`; for outskirts `group.ground_y`, `road.y[k]`, `column.at` |
-| *entrance feet Y* | `origin Y + entrance.y` (`geometry.place(...).entrance.y`); the door's bottom node. For catalog entries `entrance.y = ground_offset + 1`, so feet stand on the surface row: `feet = ground_y + 1` | `src/geometry.lua`, `builder.check_door` stands at `ground_y + 1` |
+| *entrance feet Y* | `origin Y + entrance.y` (`geometry.place(...).entrance.y`); the door's bottom node. It is a per-entry catalog value and **cannot be derived from `ground_offset`** (the chapel, tavern, corner_house, soup_shop, castle and cathedral entries all differ). `builder.check_door` owns door height: it starts at the approach node `(approach, ground_y + 1)` and climbs the authored steps (rise 1, drop 3) to the entrance node | `src/geometry.lua`, `src/builder.lua` |
 
-Example (section 12): `ground_offset = 1`, ground 67, schematic origin 66,
-entrance feet 68. `ground_offset` is the depth of captured foundation below the
+Example (section 12, illustrative entry): `ground_offset = 1`, ground 67,
+schematic origin 66, `entrance.y = 2`, entrance feet 68. `ground_offset` is the depth of captured foundation below the
 site ground, so layers `0 .. ground_offset - 1` lie under the surface row and are
 overwritten by the schematic.
 
@@ -50,7 +50,7 @@ origin Y.**
 
 | Rows | Content |
 | --- | --- |
-| `y > at` up to `region.bounds.max.y` | air (clears trees, snow, plants, the old terrain above a cut) |
+| `y > at` up to `region.bounds.max.y` | air (clears trees, snow, plants, the old terrain above a cut); written columns only, see section 8 |
 | `y == at` | surface node: the column's natural surface node as read (`opts.surface(x, z)`, as `town_layout` does), falling back to `SURFACE_NODE` when that is not a soil; `PATH_NODE` on road and approach columns |
 | `at - SUPPORT_ROWS <= y < at` | filled or support rows, as `town_layout` does for `FILL_DIRT_DEPTH`: dirt in rows that were not solid stable ground |
 | below | untouched |
@@ -68,10 +68,10 @@ every line verbatim.
 ```lua
 VERSION = 1,                  -- result.version
 TARGET_GROUPS = 2,            -- village groups wanted
-ORDINARY_MIN = 8,             -- visual target (2 groups x 4); never a reason to search more
-ORDINARY_MAX = 12,            -- hard cap on ordinary buildings (2 groups x 6)
-GROUP_PLOTS_MIN = 4,          -- visual target per group
-GROUP_PLOTS_MAX = 6,          -- plots a candidate may list (3 per side)
+ORDINARY_MIN = 8,             -- visual target (2 groups x 4); PROVISIONAL
+ORDINARY_MAX = 12,            -- hard cap on ordinary buildings (2 x 6); PROVISIONAL
+GROUP_PLOTS_MIN = 4,          -- visual target per group; PROVISIONAL
+GROUP_PLOTS_MAX = 6,          -- plots a candidate may list (3 per side); PROVISIONAL
 MIN_ACCEPTED_PLOTS = 2,       -- a group with fewer surviving plots is rejected
 MAX_VILLAS = 2,               -- Roman towns only
 MAX_CHAPELS = 1,              -- medieval towns only
@@ -79,15 +79,17 @@ PATH_WIDTH = 3,               -- road lane and every entrance approach
 CUT_FILL_CAP = 2,             -- ordinary pad/yard/skirt/approach: max |finished - natural|
 VILLA_CAP = 1,                -- the same for a villa pad
 ROAD_CAP = 2,                 -- road lane column: max |finished - natural|
-ROAD_MAX_LENGTH = 60,         -- lane columns beyond the join, per exit
-SLOT_FIRST = 10,              -- first window starts at this road column k
-SLOT_STEP = 26,               -- k distance between window starts
+ROAD_MAX_LENGTH = 100,        -- lane columns beyond the join, per exit
+SLOT_FIRST = 10,              -- first window starts at road column k; PROVISIONAL
+SLOT_STEP = 26,               -- k distance between window starts; PROVISIONAL
 SLOTS_PER_EXIT = 2,
-GROUP_WINDOW = 24,            -- road columns a group may use (3 plots of 7 + gaps per side)
+GROUP_WINDOW = 24,            -- road columns a group may use; PROVISIONAL
 SETBACK = 3,                  -- free nodes between lane edge and a plot rect
 ATTEMPTS_PER_EXIT = 4,        -- 2 slots x {both sides, one side}
-GROUP_EVALS = 12,             -- terrain evaluations for village groups, whole town
-LANDMARK_EVALS = 4,           -- terrain evaluations for villas and the chapel, whole town
+LANDMARK_GAP = 2,             -- a villa/chapel window starts this many columns after its group window
+PLAYER_MARGIN = 4,            -- equals preflight.PLAYER_MARGIN
+SERVICE_WELL_RADIUS = 42,     -- Living Villages well.lua recognition distance
+SERVICE_JUKEBOX_RADIUS = 48,  -- Living Villages tavern.lua jukebox distance
 TERRAIN_MARGIN = 2,           -- Living Villages config.margin (flat yard around a footprint)
 TERRAIN_RADIUS = 6,           -- Living Villages config.radius (skirt)
 TERRAIN_WALL = 4,             -- Living Villages config.wall
@@ -96,6 +98,8 @@ CLEAR_ABOVE = 12,             -- air rows above the highest surface or structure
 SCAN_UP = 24,                 -- reader window above the urban ground
 SCAN_DOWN = 24,               -- ... and below it
 CUT_FILL_MARGIN = 8,          -- emerged margin around and below, as site_search.build_volume
+ENVELOPE_LATERAL = 56,        -- exit envelope half width around the lane centre line
+ENVELOPE_ALONG_END = 16,      -- exit envelope extends this far past ROAD_MAX_LENGTH
 SALT = 226,                   -- private random stream
 PATH_NODE = "mcl_core:grass_path",
 SURFACE_NODE = "mcl_core:dirt_with_grass",
@@ -110,11 +114,26 @@ cap 5, wall 6`; Towns passes the frozen values explicitly (section 7).
 (`is_path[hash]`), so explicit paths are never reverted. `grass_path` is neither
 `partial` nor `tall` in `builder.check_door`, so approaches pass the door check.
 
+**Provisional constants.** `ORDINARY_MIN`, `ORDINARY_MAX`, `GROUP_PLOTS_MIN`,
+`GROUP_PLOTS_MAX`, `SLOT_FIRST`, `SLOT_STEP` and `GROUP_WINDOW` were chosen
+before any cottage was measured. The sizes measured for #227 (file x, y, z) are
+small_house 9, 9, 8; medium_house 9, 9, 12; large_house 12, 10, 12; farm 9, 8, 7.
+Three 9-wide plots with one free node between them need about 29 nodes along
+the road, more than `GROUP_WINDOW = 24`, so with real assets a window holds two
+plots per side (four per group, eight in all; `ORDINARY_MAX = 12` is then
+unreachable). **#232 recalibrates these seven from the real sizes and changes
+the block above, the fixture and the derived checks in one commit.** Everything
+else in this document depends on them only through the formulas below, not their
+values.
+
 Derived checks (tested): two minimal groups reach `ORDINARY_MIN`, two full groups
-`ORDINARY_MAX`; the last window ends at column
+`ORDINARY_MAX`; the last village window ends at column
 `SLOT_FIRST + (SLOTS_PER_EXIT - 1) * SLOT_STEP + GROUP_WINDOW - 1 = 59 <=
 ROAD_MAX_LENGTH`; `SLOT_FIRST - (TERRAIN_MARGIN + TERRAIN_RADIUS) >= 2` so the
-first window's smoothing reach never touches the join column.
+first window's smoothing reach never touches the join column. A landmark window
+starts at `group.window.k2 + LANDMARK_GAP`: a 46-long villa (measured along the
+road, to be confirmed by #229) fits after a slot-1 group (columns 35..80) but not
+after a slot-2 group (61..106 > `ROAD_MAX_LENGTH`).
 
 ## 3. Exits
 
@@ -141,14 +160,17 @@ long axis of `street.rect`:
    Classify each cell:
    - `outside`: in no `plan.boundary.rects` rect;
    - `pass`: inside a site with `kind == "landmark"` and `id == "arch"`;
-   - `blocked`: inside any other site (landmark or square), any block, or any
-     other street's rect;
+   - `blocked`: inside any other site (landmark or square), any block, any
+     other street's rect, or the rect of any composed urban structure in
+     `result.structures` (content buildings, services, jail, oaks, gardens);
    - `free`: inside the union and none of the above (the Roman margin).
 3. All `outside`: the exit is found; `start` is that cell on the lane centre
    line, `join = start - dir`. Mixed `outside` with anything else, or any
    `blocked`, or a mixture of `pass` and `free`: no exit at this end (the end is
    reported as blocked by the blocker's name). All `pass` or all `free`:
-   continue with `k + 1`. `via` is the last arch name crossed.
+   continue with `k + 1`. `via` is the last arch name crossed. If an arch was
+   crossed, the lane centre must lie inside the arch's clear corridor (below),
+   else there is no exit at this end (blocked by `arch_corridor`).
 4. `start` must lie outside `plan.bounds`; otherwise the exit is dropped with
    rejection `exit_inside_bounds`.
 
@@ -157,6 +179,21 @@ long axis of `street.rect`:
 middle coordinate. For a six-wide street the lane sits one node inside the lower
 edge (half a node off the street's own centre; cosmetic and deterministic).
 
+*Arch corridor.* The Roman arch does **not** open across the six-wide street.
+`schematics/imports/roman/README.md`: "cobble paving occupies X=4..7; wall posts
+at X=4 and X=7, Z=2 and Z=5 narrow the continuous unobstructed corridor to
+X=5..6, Z=0..7 (clear at Y=2..3 over the half-slab floor at Y=1)". The corridor
+is the file-local rect `{x1 = 5, z1 = 0, x2 = 6, z2 = 7}` of the 12 x 8 arch;
+`geometry.rotate_rect(arch.size, rect, site.rotation)` plus the site rect's
+minimum corner gives its world extent. For all four arches at centre offset 0
+that is `-1..0` across the street, so the lane (`-2..0`, centre `-1`) has its
+centre inside it, but its first column (`-2`, file X=4) is a post column: the
+road is not driven through the arch. Traffic crosses the two-node corridor (a
+half-slab floor one step above the ground layer), walks the four free margin
+nodes (plain ground at `ground_y`), and meets the lane at its centre column.
+`tests/outskirts_contract_tests.lua` checks the lane centre against the rotated
+corridor for every Roman exit.
+
 ### 3.2 Results on real plans
 
 Verified by the test over the real planners.
@@ -164,8 +201,8 @@ Verified by the test over the real planners.
 *Roman* (centre `(0,0)`; the plan translates with the centre): the four
 principals end `59` nodes beyond the forum at `z = 73 / -74` and `x = 73 / -74`.
 Each is followed by an arch (`arch_north` z 74..81, `arch_south` -82..-75,
-`arch_east` x 74..81, `arch_west` -82..-75; 12 wide, so it covers the 6-wide
-street) and then four free margin nodes up to the boundary (`plan.bounds` is
+`arch_east` x 74..81, `arch_west` -82..-75; 12 wide with a 2-wide clear
+corridor, see above) and then four free margin nodes up to the boundary (`plan.bounds` is
 `x -95..85, z -86..85`, one rect). Exits: north start `(−1, 86)`, east
 `(86, −1)`, south `(−1, −87)`, west `(−96, −1)`, all `via` their arch. Four
 exits.
@@ -290,7 +327,8 @@ region = {
   id = "r1", exit_id = "e1",
   bounds = {min = {x, y, z}, max = {x, y, z}},   -- exact write bounds
   volume = {min, max},                           -- emerged volume
-  columns = {column, ...},                       -- sorted by x then z; each column once
+  columns = {column, ...},                       -- WRITTEN columns only, sorted by x then z, each once
+                                                 --   (unchanged skirt columns are not listed)
   structures = {structure, ...},                 -- the arm's structures
 }
 
@@ -305,8 +343,8 @@ rejection = {
 -- complete outskirts result: result.outskirts
 outskirts_result = {
   version = 1,
-  status = "planned",     -- "planned" | "empty" | "unavailable"
-  reason = nil,           -- why, for "empty" and "unavailable"
+  status = "planned",     -- "planned" | "empty"
+  reason = nil,           -- why, for "empty"
   seed = 8, center = {x = 1000, z = -2000},   -- must equal result.plan.seed / result.center
   ground_y = 62,          -- the urban ground the roads were joined to
   entries = {...},        -- merged id -> catalog entry lookup (not serialisable), section 9
@@ -318,14 +356,14 @@ outskirts_result = {
   structures = {structure, ...},   -- all accepted structures, group then plot order
   regions = {region, ...},         -- disjoint boxes, one per arm that has anything to build
   rejections = {rejection, ...},   -- every omission, in decision order
-  counts = {groups = 1, ordinary = 2, landmarks = 0, evals = 1,
+  counts = {groups = 1, ordinary = 2, landmarks = 0, evals = 1,   -- evals = terrain.adapt calls
             rejected = {pad_cut_fill = 1}},
 }
 ```
 
-`status = "empty"` means the planner ran and nothing fit; `"unavailable"` means a
-dependency was missing (section 11). Both have empty `groups`, `regions`,
-`structures`; neither blocks the town.
+`status = "empty"` means the planner ran and nothing fit; it has empty `groups`,
+`regions` and `structures` and does not block the town. There is no
+"unavailable" status: a missing dependency stops the command (section 11).
 
 ## 5. Candidate, road and acceptance rules
 
@@ -337,19 +375,21 @@ dependency was missing (section 11). Both have empty `groups`, `regions`,
 | `exit_inside_bounds` | an exit start lies inside `plan.bounds` |
 | `road_unloaded` | a lane column's block was not available |
 | `road_water` | a lane column is water, ice or lava |
-| `road_steep` | a lane column cannot be reached within `ROAD_CAP` of its natural height |
+| `road_steep` | a lane column cannot be reached within `ROAD_CAP` of its natural height under the one-step and landing rules (this includes `k = 1` when the edge terrain is more than about 3 nodes from the urban ground, see 5.4) |
 | `road_short` | the road's reach does not cover the candidate's window |
 | `plot_unloaded` | a footprint or yard column was not available |
 | `plot_water` | a footprint or yard column is water, ice or lava |
 | `plot_overlap` | the plot overlaps another plot, structure or yard |
 | `plot_inside_town` | the plot, yard or reach touches `plan.bounds` |
+| `plot_player` | a plot, yard or approach lies within `PLAYER_MARGIN` of the player's X/Z |
+| `plot_structure` | the top solid node of a footprint or yard column is a structure node (Living Villages `structure_test`) |
 | `approach_blocked` | the approach crosses another plot or yard |
 | `approach_steep` | ground and road differ by more than `SETBACK - 1`, or an approach column is farther than `ROAD_CAP` from its natural height |
 | `pad_cut_fill` | a footprint or yard column differs from the group ground by more than the cap |
 | `yard_not_level` | Living Villages left a footprint or yard column not at `pad.y` |
 | `skirt_steep` | after merging roads, a changed column has a neighbour more than one node away |
 | `group_small` | fewer than `MIN_ACCEPTED_PLOTS` plots survive |
-| `region_overlap` | the arm's write box would intersect another region |
+| `services_missing` | the `outskirts.services` coverage hook failed (section 5.7) |
 | `emerge_failed` | the volume could not be loaded |
 | `out_of_range` | a volume would leave +/-31000 |
 
@@ -362,27 +402,31 @@ Per exit, in trial order, attempts `a = 1 .. ATTEMPTS_PER_EXIT`:
 - Odd `a`: plots on both sides. Even `a`: one side only, `-1` when `a / 2` is
   odd, else `+1`.
 - On each side, plots follow each other from `k1` with one free node between
-  them, up to 3 per side and `GROUP_PLOTS_MAX` in total. A plot's near edge is
-  `SETBACK` free nodes beyond the lane edge (`rect.x2 = lane.c1 - 1 - SETBACK`
-  on the lower side for a north/south road, `rect.x1 = lane.c2 + 1 + SETBACK`
-  on the higher side; mirrored for east/west). The rotation makes the entrance
-  face the lane (`geometry.place` `front`). A plot whose along-road extent no
-  longer fits in the window is not listed. Fewer than `MIN_ACCEPTED_PLOTS`
-  listed: `group_small`.
+  them, up to `GROUP_PLOTS_MAX / 2` per side (provisional, section 2). A plot's
+  near edge is `SETBACK` free nodes beyond the lane edge (`rect.x2 = lane.c1 - 1
+  - SETBACK` on the lower side for a north/south road, `rect.x1 = lane.c2 + 1 +
+  SETBACK` on the higher side; mirrored for east/west). The rotation makes the
+  entrance face the lane (`geometry.place` `front`). A plot whose along-road
+  extent no longer fits in the window is not listed. Fewer than
+  `MIN_ACCEPTED_PLOTS` listed: `group_small`.
 - Plot assets come from the pools (section 9) by the private stream. Whatever a
   rejected attempt consumed from the stream is lost; the stream is only a
   function of `(seed, order of calls)`.
 - The first accepted group on an exit ends that exit's attempts (one village
-  group per exit). The loop stops at `TARGET_GROUPS` accepted village groups,
-  `GROUP_EVALS` terrain evaluations (calls of `terrain.adapt`), or when exits
-  run out. Cheap rejections (`road_short`, `plot_*` before the targets call) do
-  not consume an evaluation but are bounded by `#exits * ATTEMPTS_PER_EXIT`.
-- Villas (Roman only, at most `MAX_VILLAS`) and the chapel (medieval only, at
-  most `MAX_CHAPELS`) are candidates of `kind` `"villa"`/`"chapel"` with one
-  plot, tried after the village loop over the same exits and unused slots, at
-  most `LANDMARK_EVALS` evaluations in total, pad cap `VILLA_CAP` for villas. A
-  window is widened to the plot's along-road extent if that is larger, but must
-  still end at or before `ROAD_MAX_LENGTH`.
+  group per exit). The loop stops at `TARGET_GROUPS` accepted village groups or
+  when exits run out. The work is bounded by `#exits * ATTEMPTS_PER_EXIT` group
+  attempts plus at most two landmark attempts per accepted group; there is no
+  separate evaluation budget. All attempts on one exit run synchronously after
+  one emerge (section 10.2).
+- **Landmarks.** Right after a village group is accepted on an exit, a villa
+  (Roman only, at most `MAX_VILLAS` in total) or the chapel (medieval only, at
+  most `MAX_CHAPELS`) is tried on the **same exit**: a candidate of `kind`
+  `"villa"`/`"chapel"` with one plot whose window starts at `group.window.k2 +
+  LANDMARK_GAP` and is as long as the plot's along-road extent, tried first on
+  side `-1`, then `+1`. Its road reach limit is `ROAD_MAX_LENGTH` (100), so a
+  window ending beyond it is `road_short`. Pad cap `VILLA_CAP` for a villa,
+  `CUT_FILL_CAP` for the chapel. A landmark close behind its group shares the
+  group's services (5.7).
 
 ### 5.3 Random stream
 
@@ -405,25 +449,40 @@ ROAD_MAX_LENGTH`. `read(x, z)` returns the natural height of a column (section
 the *natural* of the column is the median of the three. Then:
 
 ```
-y[0] = ground_y                                  -- the leveled urban surface at the join
-y[k] = y[k-1] + clamp(natural[k] - y[k-1], -1, 1)
+y[0] = y[-1] = ground_y                          -- the leveled urban surface at the join
+level(k)  = (y[k-1] == y[k-2])                   -- the previous column was a landing
+y[k] = y[k-1] + (level(k) and clamp(natural[k] - y[k-1], -1, 1) or 0)
 the column stops the road when any lane column is unreadable, water, or
   |y[k] - its own natural| > ROAD_CAP
 ```
 
 `reach` is the number of columns before the first stop. The three lane columns
-share `y[k]` (no cross slope). One step per node means every road node is
-reachable by the builder's own walk rule (rise 1, drop 3; `builder.check_door`).
+share `y[k]` (no cross slope). Landings: the height may change after a column
+only if the previous column was level, so every step is followed by at least
+one level column (the join column counts as level). One step per node means every
+road node is reachable by the builder's own walk rule (rise 1, drop 3;
+`builder.check_door`). Steps up to `ROAD_CAP` between a lane column and the
+untouched natural column beside it are allowed: the slope check of 5.6 covers
+merged (written) columns only.
 
 **The join.** The urban surface is flat at `result.ground_y` over the whole
 boundary union (`town_layout`: `y == g` is pavement or the natural surface node,
 everything above `g` is cleared) including the Roman four-node margin beyond the
 arch. The first outskirts column (`k = 1`) is the first node outside the union;
 `y[0] = ground_y` is the join, so `|y[1] - ground_y| <= 1` by construction. The
-transition from the six-wide urban street (and a Roman arch, whose opening is
-not modelled) to the three-wide path is not smoothed: the path begins where the
+transition from the six-wide urban street (and the two-node Roman arch corridor,
+section 3.1) to the three-wide path is not smoothed: the path begins where the
 street ends, and in the Roman case the margin nodes between the arch and the
 first road column stay plain ground at `ground_y`.
+
+**Known limitation: the urban edge.** `town_layout.lua` (the column rules,
+roughly lines 217-233) grades the union to `ground_y` with no skirt outside it,
+so terrain just beyond the boundary can stand above or below the flat town.
+The road starts at the urban ground, may change by one node at `k = 1` and, by
+the landing rule, by one more only after a landing; with `ROAD_CAP = 2` an exit
+whose edge natural height differs from `ground_y` by more than about 3 therefore
+ends with `road_steep` at `k = 1` and gets no outskirts. v1 adds no ramp or
+cliff treatment; #238 measures how often this happens before anyone adds one.
 
 ### 5.5 Approach planning
 
@@ -444,40 +503,72 @@ first approach cell (`check_door`), whose floor is exactly `ground_y`.
 ### 5.6 Acceptance
 
 `accept(group, road, site, read, terrain)` runs these steps in order, and
-returns `accepted` or `nil, rejection`:
+returns `accepted` or `nil, rejection`. `site = {plan, ground_y, entries,
+player_pos, structures}`.
 
-1. Limits: every volume within +/-31000 (`out_of_range`); reach covers the
-   window (`road_short`).
+1. Limits: every volume within +/-31000 and inside the exit envelope
+   (`out_of_range`); reach covers the window (`road_short`).
 2. Per plot, in order: footprint, yard and the smoothing reach outside
-   `plan.bounds` (`plot_inside_town`); no overlap with earlier plots and yards, with accepted
-   regions' structures and with any already accepted region's box
-   (`plot_overlap`, `region_overlap`); every footprint and yard column readable
-   (`plot_unloaded`, `plot_water`). A failing plot is dropped with its
-   rejection.
-3. `ground_y` = upper median of the natural heights under the surviving
-   footprints (the element at index `floor(n / 2) + 1` of the sorted list).
+   `plan.bounds` (`plot_inside_town`); footprint and yard farther than
+   `PLAYER_MARGIN` from the player (`plot_player`; the approach is checked in
+   step 5); no overlap with earlier plots and yards or with accepted structures
+   (`plot_overlap`); every footprint and yard column readable (`plot_unloaded`,
+   `plot_water`) and, read with the structure check, not a structure node
+   (`plot_structure`). A failing plot is dropped with its rejection.
+3. `ground_y` = `site_search.median` (the lower median, element
+   `floor((n + 1) / 2)` of the sorted list) of the natural heights under the
+   surviving footprints.
 4. Drop each plot with a footprint or yard column farther than the cap (2, or
    1 for a villa) from `ground_y` (`pad_cut_fill`). No recomputation of the
    median.
-5. Approaches (5.5); drop failing plots.
+5. Approaches (5.5); drop failing plots, including any approach cell within
+   `PLAYER_MARGIN` of the player (`plot_player`).
 6. Fewer than `MIN_ACCEPTED_PLOTS` survivors: reject the group
    (`group_small`).
 7. `terrain.adapt` over the survivors' pads (section 7). Every footprint and yard
    column must end at `pad.y` and have a kind, else reject the group
    (`yard_not_level`).
 8. Merge columns by priority `footprint > road/approach > yard > skirt`; one
-   owner per column. Road and approach columns take their planned `y`. Then
-   every pair of adjacent columns of the merged table where at least one changed
-   must differ by at most 1 (`skirt_steep`), and every changed column must stay
-   within the cap of its natural height (the cap is already guaranteed for yard
-   and skirt by Living Villages, for footprint by step 4, for road/approach by
-   `ROAD_CAP`).
-9. Compose structures at `ground_y` (section 8) and compute the arm region box;
-   reject on overlap with another arm's box (`region_overlap`).
+   owner per column. Road and approach columns take their planned `y`. Keep only
+   columns that are written (footprint, yard, road, approach, and skirt columns
+   whose `at ~= was`). Then every pair of adjacent merged columns where at least
+   one changed must differ by at most 1 (`skirt_steep`), and every changed column
+   must stay within the cap of its natural height (guaranteed for yard and skirt
+   by Living Villages, for footprint by step 4, for road/approach by
+   `ROAD_CAP`). This check does not look at untouched natural columns next to
+   written ones, so steps up to `ROAD_CAP` beside the road are allowed.
+9. Compose structures at `ground_y` (section 8) and compute the written
+   columns' box. An accepted column that is already owned by an earlier region is
+   a programming error (assert), not a rejection.
+10. `outskirts.services(group, structures, entries)` (5.7); failure rejects the
+    group (`services_missing`).
 
 Failures inside `accept` that mean the inputs are malformed (nil rects, an
 unknown asset id, a structure that does not equal its rotated footprint) are
 programming errors: `error(...)`, not a rejection.
+
+### 5.7 Services hook
+
+`outskirts.services(group, structures, entries) -> true | nil, rejection` is the
+coverage seam for #235. `structures` is the arm's accepted structures so far
+(this group plus any landmark behind it on the same exit, so a villa or chapel
+can share the group's services). It is called after a group is accepted and
+again after a landmark is added to it (a landmark whose addition would leave a
+residential structure uncovered is rejected, not the group).
+
+- A catalog entry that provides a service declares file-local node offsets,
+  `entry.services = {well = {x, y, z}, jukebox = {x, y, z}}`. The world position
+  is the offset rotated with `geometry.rotate_rect(entry.size, {x1 = x, z1 = z,
+  x2 = x, z2 = z}, rotation)` added to the structure's `min` (and `y` added to
+  `min.y`).
+- Every residential structure (class `cottage`, `farm`, `villa`; #235 may
+  refine) must have a well within `SERVICE_WELL_RADIUS` (42) and a jukebox
+  within `SERVICE_JUKEBOX_RADIUS` (48), measured conservatively from the service
+  node to the farthest corner of the structure's box. Structures of the arm
+  count whether they belong to the group or the landmark.
+- Which assets supply the services (always one well and one inn per group, or
+  whatever the pools happen to contain) is **not decided here**; see Open
+  questions. Until #235 sets it the hook may return `true` for every group.
 
 ## 6. Functions
 
@@ -506,28 +597,30 @@ local layout    = dofile(modpath .. "/src/outskirts_layout.lua")
 | `outskirts.assets(urban_entries) -> assets \| nil, message` | rural catalog + pools + merged lookup (section 9); `nil, message` when a rural file or shared id is missing | reads two Lua data files |
 | `outskirts.exits(plan) -> exits` | section 3; raises on a malformed plan | pure |
 | `outskirts.order_exits(exits, seed) -> exits` | rotated trial order | pure |
-| `outskirts.road_volume(exit, ground_y) -> {min, max}` | lane columns `k = 1..ROAD_MAX_LENGTH` grown by one node, Y window `ground_y - SCAN_DOWN .. ground_y + SCAN_UP + 1` | pure |
-| `outskirts.make_reader(class_at, top, bottom) -> read` | `read(x, z) -> y \| nil, why` with `why` in `"water"`, `"unknown"`, `"none"`; `placement.scan_column` semantics (topmost solid ground; vegetation and leaves are not ground); any liquid or ice rejects (no landfill in outskirts) | pure over `class_at(x, y, z)` |
+| `outskirts.envelope(exit, ground_y) -> {min, max}` | the one volume emerged per exit: along the exit axis from `k = 1 - CUT_FILL_MARGIN` to `ROAD_MAX_LENGTH + ENVELOPE_ALONG_END`, across it `lane centre +/- ENVELOPE_LATERAL`, Y from `ground_y - SCAN_DOWN - CUT_FILL_MARGIN` to `ground_y + SCAN_UP + 1 + CLEAR_ABOVE` | pure |
+| `outskirts.make_reader(class_at, top, bottom, is_structure) -> read` | `read(x, z, check_structure) -> y \| nil, why` with `why` in `"water"`, `"unknown"`, `"none"`, `"structure"`; `placement.scan_column` semantics (topmost solid ground; vegetation and leaves are not ground); any liquid or ice rejects (no landfill in outskirts). With `check_structure` the name of the topmost solid node is tested with `is_structure` (Living Villages `structure_test`) | pure over `class_at(x, y, z) -> class, name` |
 | `outskirts.plan_road(exit, ground_y, read) -> road \| nil, rejection` | 5.4; `nil, road_*` when `reach` would be 0 | pure given `read` |
 | `outskirts.candidate(exit, attempt, assets, rng, kind) -> group \| nil, rejection` | 5.2 (candidate generation) | pure |
-| `outskirts.read_volume(group, exit, ground_y) -> {min, max}` | pads' bbox grown by `TERRAIN_MARGIN + TERRAIN_RADIUS`, union the lane columns `k = 1..window.k2`, Y window as above | pure |
 | `outskirts.plan_approach(plot, structure, road, ground_y) -> approach \| nil, rejection` | 5.5 (route planning) | pure |
-| `outskirts.accept(group, road, site, read, terrain) -> accepted \| nil, rejection` | 5.6 (candidate acceptance); `accepted = {group, approaches, columns, structures, bounds}`; `site = {plan, ground_y, entries}` | pure given `read`; calls `terrain.adapt` |
+| `outskirts.accept(group, road, site, read, terrain) -> accepted \| nil, rejection` | 5.6 (candidate acceptance); `accepted = {group, approaches, columns, structures, bounds}`; `site = {plan, ground_y, entries, player_pos, structures}` | pure given `read`; calls `terrain.adapt` and `outskirts.services` |
+| `outskirts.services(group, structures, entries) -> true \| nil, rejection` | coverage hook (5.7): well within `SERVICE_WELL_RADIUS`, jukebox within `SERVICE_JUKEBOX_RADIUS` of every residential structure, offsets rotated through `geometry` | pure |
 | `outskirts.assemble(exits, order, roads, accepted, rejections, site, C) -> outskirts_result` | builds regions per arm, trims `road.length`, computes bounds and volumes | pure |
 | `outskirts.validate(out, site) -> true \| nil, message` | structural and geometric invariants (no overlaps, inside regions, outside `plan.bounds`, caps respected, `out.seed`/`center` match); a failure is a programming error | pure |
-| `outskirts.search(result, opts, done, env)` | orchestration, section 10; calls `done(out)` or `done(nil, message, "outskirts_error")` exactly once; never writes | reads (emerge + `get_node_name`) |
-| `terrain.load(dofile) -> adapter \| nil, message` | loads `living_villages/village_smoothing.lua`; `nil, message` is a dependency failure | file read |
+| `outskirts.search(result, opts, done, env)` | orchestration, section 10; `opts = {assets, terrain, player_pos}` where `player_pos` is the `pos` that `generate_command.search` already receives; calls `done(out)` or `done(nil, message, "outskirts_dependency" \| "outskirts_error")` exactly once; never writes | reads (emerge + `get_node_name`) |
+| `terrain.load(dofile) -> adapter \| nil, message` | loads `living_villages/village_smoothing.lua` (`targets`) and `village_fragments.lua` (`structure_test`), returns `{targets, is_structure}`; `nil, message` is a dependency failure | file read |
 | `terrain.pad(plot, ground_y) -> pad` | plot to pad record | pure |
 | `terrain.adapt(pads, read, cap) -> adaptation \| nil, rejection` | read-only terrain adaptation (section 7): `adaptation = {bbox, columns, stats}` | pure given `read` |
 | `layout.new(region, opts) -> L` | the node layout of one region, same shape as `town_layout`: `L.columns`, `L.column_range(x, z)`, `L.node_at(x, y, z) -> name, kind \| nil`, `L.in_area(x, z)`, `L.palette()`; `opts.surface(x, z)` and `opts.max_y = region.bounds.max.y` | pure |
-| `preflight.compose_outskirts(out, entries) -> comp \| nil, message, reason` | structures at their own ground; same checks as `compose` per region | pure |
+| `preflight.compose_outskirts(out, entries) -> comp \| nil, message, reason` | structures at their own ground; same checks as `compose` per region. It must pass **the region's X/Z box** as the bounds that `preflight.resolve` checks (`resolve` rejects rects outside the bounds it is given, and the urban `plan.bounds` would reject every outskirts structure) | pure |
 | `builder.build_town(result, opts, env)` | writes the terrain regions, then the structures (section 10) | **world-writing** |
 
-*Terrain writing* is `builder.build_town` driving `layout.new`: it reads each
-region through `env.open_region`, collects changed nodes exactly like the urban
-read phase (same `is_ground`, liquid and stale-surface checks), and only after
-every region and the urban area passed does it call `region.set` and
-`region.commit`.
+*Terrain writing* is `builder.build_town` driving `layout.new`. Reads come
+first: it reads the urban area and each outskirts region through
+`env.open_region`, collects the changed nodes exactly like the urban read phase
+(same `is_ground`, liquid and stale-surface checks) into per-region change
+lists, and only after everything passed does it write. The write phase opens a
+**fresh** region for each outskirts region just before applying its stored
+change list (section 10.4); no buffer is kept across a commit.
 
 ### 6.1 Pure, read-only and world-writing functions
 
@@ -544,7 +637,8 @@ every region and the urban area passed does it call `region.set` and
 | LV `village_smoothing.load_area` | no | `env.load_node` | no |
 | LV `village_terrain.footprint`, `.area`, `.materials`, `.is_overhang`, `.is_decor`, `.is_growth`, `.top_name`, `.is_top_half` | yes | no | no |
 | LV `village_terrain.heights` | no | VoxelManip read | no |
-| LV `village_fragments.structure_test`, `.scan_structures` | no | node registry, VoxelManip read | no |
+| LV `village_fragments.structure_test` | no | node registry only | no |
+| LV `village_fragments.scan_structures` | no | VoxelManip read | no |
 | LV `village_holes.plan`, `.area` | yes | no | no |
 | LV `village_smoothing.apply`, `.terraform`, `.install` | no | yes | **yes** (`swap_node`; `install` replaces `settlements.terraform`) |
 | LV `village_terrain.set_column`, `.fill_below`, `.put_decor`, `.take_decor` (reads), `.emerge`, `.install` | no | yes | yes (`emerge` generates map) |
@@ -552,9 +646,10 @@ every region and the urban area passed does it call `region.set` and
 | LV `village_fragments.clear_trees` | no | yes | **yes** |
 | LV `site_planner.plan`, `.install`, `.register_command` | no | yes | install replaces `settlements.create_site_plan` |
 
-Towns v1 calls exactly one Living Villages function: `village_smoothing.targets`.
-It does not call `terraform`, `apply`, `install`, `village_holes.*`,
-`clear_trees`, `scan_structures` or the village site planner (which assumes a
+Towns v1 calls two Living Villages functions: `village_smoothing.targets` (pure)
+and `village_fragments.structure_test` (reads the node registry). It does not
+call `terraform`, `apply`, `install`, `village_holes.*`, `clear_trees`,
+`scan_structures` or the village site planner (which assumes a
 standalone village and must not be installed as the outskirts planner).
 
 ## 7. Terrain adaptation (Living Villages)
@@ -655,29 +750,39 @@ same sentinel convention as `site_search.inspection_volume`. `why` is `"water"`
 (liquid or ice, which includes `lava`), `"unknown"` (ignore/unregistered node)
 or `"none"` (no solid node in the window; includes a surface reaching the top
 sentinel). Outskirts never landfills: any water in an owned column rejects it.
+`"structure"` is returned only when the caller asks for the structure check
+(footprint and yard columns): the name of the topmost solid node is tested with
+`village_fragments.structure_test(engine)` (a node whose definition is not
+ground content and not on the natural whitelist: planks of a village house,
+ruined-portal bricks, ...). Only the surface node is tested, so a structure
+buried under a natural top node is not seen; skirt, road and approach columns
+are not tested. A rejected column gives `plot_structure`.
 
 ## 8. Bounds
 
 Per region (one per arm), all inclusive:
 
-- **X/Z box**: the union of every group's `targets` box
+- **Read box (X/Z)**: the union of every group's `targets` box
   (`bbox = pads grown by TERRAIN_MARGIN + TERRAIN_RADIUS`, which contains the
-  yard, the skirt and one context ring) and the lane and approach columns. It
-  is read in full. Only owned columns are written: those with `pad(x, z) ~= nil`
-  in a `targets` result, and road and approach columns; each column has exactly
-  one owner (merge priority of 5.6 step 8).
+  yard, the skirt and one context ring) and the lane and approach columns. It is
+  read in full and lies inside the exit envelope.
+- **Written columns**: footprint and yard columns of every pad, road lane and
+  approach columns, and skirt columns whose finished height differs from the
+  natural one. **Unchanged skirt columns are not written and not cleared**:
+  plants and trees on them stay. Each written column has exactly one owner
+  (merge priority of 5.6 step 8).
 - **Y range of a column**: `at - SUPPORT_ROWS` up to the region top.
 - **Region top**: `max(highest structure max.y, highest natural-or-finished
-  surface in the region) + CLEAR_ABOVE`. Everything above the finished surface
-  in an owned column is air up to the top, which clears trunks, canopies, plants
-  and snow standing in owned columns. A tree standing partly outside the owned
-  columns keeps its outside part; leaves with no trunk decay on their own
-  (VoxeLibre leaf decay). `village_fragments.clear_trees` is not used (it
-  writes).
-- **`region.bounds`**: X/Z = the box above; Y from the lowest
-  `at - SUPPORT_ROWS` to the region top. This is the exact write box (the
-  builder's confinement check refuses any write outside it or outside the owned
-  columns).
+  surface among the written columns) + CLEAR_ABOVE`. Everything above the
+  finished surface in a written column is air up to the top, which clears
+  trunks, canopies, plants and snow standing in written columns. A tree standing
+  partly outside the written columns keeps its outside part; leaves with no
+  trunk decay on their own (VoxeLibre leaf decay). `village_fragments.clear_trees`
+  is not used (it writes).
+- **`region.bounds`**: X/Z = the bounding box of the written columns; Y from the
+  lowest `at - SUPPORT_ROWS` to the region top. This is the exact write box (the
+  builder's confinement check refuses any write outside it or outside the
+  written columns).
 - **Schematic air volumes**: a structure's whole box `min..max` (including its
   air nodes: `place_schematic` rewrites the box) must lie inside
   `region.bounds`, and the schematic file must have exactly the declared size
@@ -686,15 +791,13 @@ Per region (one per arm), all inclusive:
   so the foundation rows `ground_y - ground_offset .. ground_y - 1` are filled by
   the layout and overwritten by the schematic exactly as in the urban builder.
 - **`region.volume`**: `bounds` plus `CUT_FILL_MARGIN` around and below
-  (`site_search.build_volume`); this is what is emerged after acceptance.
-- **Inspection volume** while reading (`read_volume`, `road_volume`): the reach
-  box plus the lane columns, one node wider for liquids, Y window as the
-  reader's. Reads therefore cover every column that can later be owned.
-- **Disjointness.** Regions of different arms must not intersect as boxes: a
-  VoxelManip commit rewrites its whole area, so overlapping regions would
-  restore stale data. Overlap rejects the later candidate (`region_overlap`).
-  All regions also lie outside `plan.bounds`, hence outside the urban write
-  box.
+  (`site_search.build_volume`). It must lie inside the exit envelope, which is
+  the only volume emerged (a candidate whose volume would leave it is rejected
+  `out_of_range`), so no further emerge is needed after acceptance.
+- **Regions never share a written column** (asserted by `validate`). Their boxes
+  may overlap or share mapblocks; that is harmless only because the write phase
+  never reuses a buffer across a commit (section 10.4). All regions lie outside
+  `plan.bounds`, hence outside the urban write box.
 
 ## 9. Rural asset isolation
 
@@ -739,9 +842,10 @@ Per region (one per arm), all inclusive:
     site_search.search(...)  -> result            -- unchanged; plans twice: the
                                                   --   origin plan for inspection and
                                                   --   the accepted-centre plan for the build
-    outskirts.search(result, opts, cb, env)       -- NEW; read-only
+    outskirts.search(result, {player_pos = pos, ...}, cb, env)   -- NEW; read-only
          cb(out)  -> result.outskirts = out; done(result, nil, details)
-         cb(nil, msg, "outskirts_error") -> done(nil, msg, ...)       -- programming error
+         cb(nil, msg, "outskirts_dependency" | "outskirts_error") -> done(nil, msg, ...)
+                                                      -- command stops, nothing written
   generate_command.build(result)
     preflight.check({... outskirts = result.outskirts})   -- urban unchanged, then outskirts
     builder.build_town(result, {entries = catalog.entries}, env)
@@ -760,24 +864,23 @@ the accepted-centre plan is the one `same_footprint` verified.
 
 ### 10.2 `outskirts.search(result, opts, done, env)`
 
-`opts = {assets = <outskirts.assets(...)>, terrain = <adapter>}` (both supplied
-by `generate_command`; tests pass fakes). Steps, all reads:
+`opts = {assets = <outskirts.assets(...)>, terrain = <adapter>, player_pos =
+{x, y, z}}` (supplied by `generate_command`; tests pass fakes). Steps, all reads:
 
-1. `terrain.load` / `assets` failed: `done({status = "unavailable", reason = ...,
-   version = 1, ...empty lists})`.
+1. `terrain.load` or `assets` failed: `done(nil, message, "outskirts_dependency")`.
 2. `exits = outskirts.exits(plan)`; none: `done` with `status = "empty"` and
    rejection `no_exits`.
-3. For each exit in trial order: emerge `road_volume`; `read` the lane;
-   `plan_road`; for each attempt, `candidate`; `road_short` if the reach does
-   not cover the window; emerge `read_volume`; `accept`. Every `emerge` follows
-   the `site_search` pattern (`emerge(min, max, cb)`, watchdog with
-   `EMERGE_TIMEOUT`, failure becomes an `emerge_failed` rejection, three
-   consecutive timeouts stop the outskirts, not the town).
-4. Landmark pass (villas or chapel).
-5. `assemble`, emerge each `region.volume`, `validate`, `done(out)`.
+3. For each exit in trial order: **one** emerge of `outskirts.envelope(exit,
+   ground_y)` (the `site_search` pattern: `emerge(min, max, cb)`, watchdog with
+   `EMERGE_TIMEOUT`; a failure or timeout becomes an `emerge_failed` rejection
+   for that exit, three consecutive timeouts stop the outskirts with a
+   dependency failure). Then, synchronously and with no further emerge: `read`
+   the lane, `plan_road`, every attempt of 5.2 (`candidate`, `accept`), and the
+   landmark candidates of an accepted group.
+4. `assemble`, `validate`, `done(out)`.
 
-It is wrapped in `pcall`; any raised error becomes
-`done(nil, "internal error in outskirts: ...", "outskirts_error")`.
+It is wrapped in `pcall`; any raised error becomes `done(nil, "internal error in
+outskirts: ...", "outskirts_error")`.
 
 ### 10.3 Preflight
 
@@ -785,20 +888,20 @@ It is wrapped in `pcall`; any raised error becomes
 checks are unchanged and decide the result as today. For the outskirts part:
 
 - `preflight.compose_outskirts(out, entries)` resolves each accepted structure
-  at its own `group.ground_y` (not the urban `ground_y`): rect equals the
-  rotated footprint, box inside its region, no overlap with any other structure
-  (urban or outskirts), nothing inside `plan.bounds`.
+  at its own `group.ground_y` (not the urban `ground_y`), passing the **region's
+  X/Z box** as the bounds `resolve` checks: rect equals the rotated footprint,
+  box inside its region, no overlap with any other structure (urban or
+  outskirts), nothing inside `plan.bounds`.
 - Files, sizes and node registrations are checked once per id over the
   outskirts ids (with `out.entries`), merged with the urban list into
   `report.files`/`report.nodes`.
 - `report.outskirts = {structures, regions, files, nodes}` on success.
 
-Failures split by cause: geometry/overlap/bounds errors are programming errors
-(`inspection_failed`, reason `outskirts_invalid`, whole command stops, nothing
-written); a missing rural file, a size mismatch or an unregistered node used
-only by rural assets is a dependency failure of the optional layer: the report
-carries `report.outskirts = {dropped = {reason, message}}`, `generate_command`
-sets `result.outskirts = nil` and the urban build proceeds.
+Every outskirts failure here stops the whole command with `inspection_failed`
+and zero writes, with a distinct reason: geometry, overlap or bounds errors are
+`outskirts_error`; a missing rural file, a size mismatch or an unregistered node
+required by a rural asset is `outskirts_dependency`. There is no "drop the
+outskirts and build the town" path.
 
 ### 10.4 Builder and node setup
 
@@ -810,16 +913,30 @@ nil. Otherwise:
 2. The urban `prepare_town` composes the **urban** plan at `result.ground_y`
    exactly as today; it is not asked to compose the outskirts, so nothing is
    recomposed at the urban ground height.
-3. Read phase: the urban area, then every region (`env.open_region` over the
-   region's `bounds`, one node wider for the liquid read), including the
-   stale-surface check that every owned column's `was` row is still solid
-   ground and that no liquid stands above it. Any failure is
+3. **Read phase (reads first, as today).** The urban area, then every region
+   (`env.open_region` over the region's `bounds`, one node wider for the liquid
+   read), including the stale-surface check that every written column's `was` row
+   is still solid ground and that no liquid stands above it. Each region yields a
+   precomputed change list (positions, node names, param2). Any failure is
    `inspection_failed` before the first write (no partial drop of one region in
-   v1).
-4. Write phase: urban commit, then each region commit, then schematics in this
+   v1). The outskirts buffers are discarded after their lists are collected.
+4. **Write phase.** First the urban region is committed (the buffer opened for
+   the read phase, exactly as today). Then, for each outskirts region in order, a
+   **fresh** `env.open_region` over the region's bounds is opened immediately
+   before its stored change list is applied and committed. Reason:
+   `builder.core_env.open_region` reads whole mapblocks
+   (`vm:read_from_map` snapped to mapblock edges) and `commit` writes the whole
+   buffer back (`write_to_map`), `src/builder.lua` roughly lines 763-813. The
+   urban region is opened over `plan.bounds` plus one node and outskirts regions
+   start just outside `plan.bounds`, so they share mapblocks: an outskirts buffer
+   read before the urban commit would restore stale urban nodes. The same holds
+   between outskirts regions. A fresh region that cannot be opened is a
+   `write_failed` (urban terrain is already committed). Then schematics in this
    order: urban structures (compose order), then outskirts structures (region
    order, then group, then plot).
-5. Door checks: `check_door(b, b.site_ground_y or result.ground_y, node)`.
+5. Door checks: `check_door(b, b.site_ground_y or result.ground_y, node)`;
+   `check_door` starts at `(approach, ground + 1)` and finds the way to the
+   entrance node over the authored steps.
 6. `env.setup_nodes(combined, entries)` with `combined = urban structures ++
    outskirts structures` and `entries` the union lookup; `node_setup` keys
    placements by `id@min`, so the combined list is safe.
@@ -832,7 +949,8 @@ nil. Otherwise:
 
 ### 10.5 Failure shapes
 
-- `inspection_failed`: nothing written (urban or outskirts).
+- `inspection_failed`: nothing written (urban or outskirts), including the
+  outskirts reasons `outskirts_dependency` and `outskirts_error`.
 - `write_failed`: as today, with `extra.bounds` the urban box (unchanged
   meaning) and `extra.regions = {urban box, region boxes...}` listing every box
   that may be partially written; `extra.outskirts = {planned, placed}` when the
@@ -841,12 +959,15 @@ nil. Otherwise:
 
 ## 11. Outcome classes
 
-| Class | Examples | Where | Result |
+Four classes, each with its own signal. Only omissions let the town build
+without (some of) the outskirts.
+
+| Class | Examples | Signal | Result |
 | --- | --- | --- | --- |
-| **Omission** | any code of 5.1: water, steep, overlap, short road, too few plots, emerge failure of an optional volume | `nil, rejection` from pure functions; collected in `out.rejections`/`counts.rejected` | Never an error. Fewer or no groups. `status = "empty"` if none. Urban town builds. Logged at `action`, summarized in the report. |
-| **Dependency failure** | `living_villages` smoothing module missing or without `targets`; rural catalog or pool file missing; shared id absent; rural schematic missing, wrong size or unregistered node (found in preflight) | `terrain.load`, `outskirts.assets`, preflight outskirts part | Outskirts skipped (`status = "unavailable"` with `reason`, or `report.outskirts.dropped`). Urban town builds. Reported as a warning with the reason. |
-| **Programming error** | malformed plan or record, `validate` failure, structure not equal to its rotated footprint, overlapping or out-of-box structures, rural/urban id collision, fill deeper than `SUPPORT_ROWS` | `error(...)`, `pcall` in `search`, preflight `outskirts_invalid`, builder check | Whole command stops before any write: `done(nil, message, "outskirts_error")` or `inspection_failed`. Reported as an error so the defect is seen. |
-| **Post-write failure** | engine error while committing a region, `place_structure` failure, unreachable door, node setup failure | `builder.build_town` after the first write | `write_failed` with attempted boxes, as today; partial world; no retry, no residents. |
+| **Omission** | any code of 5.1: water, steep, overlap, short road, player nearby, too few plots, emerge failure of one exit | `nil, rejection` from pure functions; collected in `out.rejections`/`counts.rejected` | Never an error. Fewer or no groups; `status = "empty"` if none. Urban town builds. Logged at `action`, summarized in the report. |
+| **Dependency failure** | `living_villages` smoothing or fragments module missing or without `targets`/`structure_test`; rural catalog or pool file missing; shared id absent; rural schematic missing, wrong size or unregistered node (found in preflight) | `outskirts_dependency` (`done(nil, message, "outskirts_dependency")`, or `inspection_failed` with reason `outskirts_dependency`) | Whole command stops before any write; nothing built. The message names the missing dependency. |
+| **Programming error** | malformed plan or record, `validate` failure, structure not equal to its rotated footprint, overlapping or out-of-box structures, a column owned by two regions, rural/urban id collision, fill deeper than `SUPPORT_ROWS` | `error(...)`, `pcall` in `search`, preflight/builder check; code `outskirts_error` | Whole command stops before any write; reported as an error so the defect is seen. |
+| **Post-write failure** | engine error while committing a region, a region that cannot be reopened, `place_structure` failure, unreachable door, node setup failure | `builder.build_town` after the first write: `write_failed` | `write_failed` with attempted boxes, as today; partial world; no retry, no residents. |
 
 An unexpected change in the world between planning and the builder read phase
 (stale surface, liquid above the surface) is an `inspection_failed`
@@ -864,7 +985,9 @@ z -86..85` translated), a single boundary rect.
 
 **Exits.** North `e1`: street 1 (`cardo_north`, `x 997..1002`), `via
 arch_north` (`z -1926..-1919`), four free margin nodes `z -1918..-1915`, so
-`join = (999, -1915)`, `start = (999, -1914)`, `lane x 998..1000`. East `e2`
+`join = (999, -1915)`, `start = (999, -1914)`, `lane x 998..1000`. The arch's
+clear corridor is world `x -1..0` offset by the centre, i.e. `999..1000`, and the
+lane centre 999 lies inside it. East `e2`
 start `(1086, -2001)`, south `e3` `(999, -2087)`, west `e4` `(904, -2001)`. Trial
 order for seed 8 is `e1, e2, e3, e4` (8 % 4 + 1 = 1).
 
@@ -873,9 +996,11 @@ a hill rising one node per six nodes northward, one node higher east of the
 road.
 
 **Road (e1).** Joined to ground 62. Natural heights of lane columns `k = 1..14`:
-`64 65 65 65 65 65 65 66 66 66 66 66 66 67`. Finished `y`: `63 64 65 65 65 65
-65 66 66 66 66 66 66 67`. The join clamps the first two columns by one node
-(`62 -> 63` against natural 64, `63 -> 64` against 65): `y[1] ~= natural[1]`.
+`64 65 65 65 65 65 65 66 66 66 66 66 66 67`. Finished `y`: `63 63 64 64 65 65
+65 66 66 66 66 66 66 67`. The join column is level, so `k = 1` may step
+(`62 -> 63` against natural 64); `k = 2` must be a landing (63, two below its
+natural 65, still within `ROAD_CAP`); `k = 3` steps to 64, `k = 4` lands, `k = 5`
+steps to 65, and so on: `y[1] ~= natural[1]`.
 `reach = 33` (covers the window), built `length = 14` = the farthest
 approach column plus one.
 
@@ -896,9 +1021,10 @@ The cottage asset is **illustrative** (no cottage exists in any catalog until
 | pad yard | x 985..996, z -1907..-1897 | x 1002..1013, z -1907..-1897 |
 | natural under footprint | 66 (4 rows), 67 (3 rows) | 67 (4 rows), 68 (3 rows) |
 
-`group.ground_y = 67`: the upper median of the 112 footprint heights (32 at 66,
-56 at 67, 24 at 68). **Three Ys:** schematic origin Y `67 - 1 = 66`, site ground Y
-`67`, entrance feet Y `66 + 2 = 68 = 67 + 1`. Structure boxes are
+`group.ground_y = 67`: `site_search.median` (lower median) of the 112 footprint
+heights (32 at 66, 56 at 67, 24 at 68). **Three Ys:** schematic origin Y
+`67 - 1 = 66`, site ground Y `67`, entrance feet Y `66 + 2 = 68` (this
+illustrative entry's `entrance.y` is 2; it is data, not derived). Structure boxes are
 `y 66..72`. Fill/cut: `g1p1` fills 1 node over 32 footprint columns, `g1p4` cuts
 1 node over 24 (cap 2).
 
@@ -909,8 +1035,9 @@ The cottage asset is **illustrative** (no cottage exists in any catalog until
 at `ground_y + 1 = 68` on the first cell and walks to the entrance node.
 
 **Terrain targets (Living Villages).** `targets({pad1, pad2}, natural, {margin 2,
-radius 6, cap 2, wall 4})`: box `x 979..1019, z -1913..-1891`, 807 owned columns,
-0 violations, 0 walls.
+radius 6, cap 2, wall 4})`: box `x 979..1019, z -1913..-1891`, 807 owned columns
+of which 276 are written (all footprint and yard columns plus the 12 skirt
+columns that change), 0 violations, 0 walls.
 
 | kind | columns | changed | cut | fill |
 | --- | --- | --- | --- | --- |
@@ -923,21 +1050,24 @@ radius 6, cap 2, wall 4})`: box `x 979..1019, z -1913..-1891`, 807 owned columns
 
 Every footprint and yard column ends at 67. Samples: footprint `(990, -1902)`
 was 66, at 67; footprint `(1008, -1899)` was 68, at 67; yard `(985, -1907)` was
-66, at 67; skirt `(980, -1902)` was 66, at 66; road `(999, -1901)` (k = 14) was
+66, at 67; skirt `(985, -1908)` was 65, at 66 (an unchanged skirt column such
+as `(980, -1902)`, 66 -> 66, is not written); road `(999, -1901)` (k = 14) was
 67, at 67; approach `(996, -1902)` was 66, at 66. The merge then lets road and
 approach columns override the skirt/yard columns they overlap (the skirt of
 `g1p1` reaches `x 1001`).
 
-**Region `r1`.** Owned X/Z = targets box union the lane: `x 979..1019, z
--1914..-1891`. Lowest finished surface 63 (road column 1), minus `SUPPORT_ROWS`
-= 60. Region top: `max(72, 69) + CLEAR_ABOVE = 84`. `bounds y 60..84`; `volume
-= x 971..1027, y 52..84, z -1922..-1883`. The region lies entirely outside
-`plan.bounds` (north edge `z = -1915`).
+**Region `r1`.** Written X/Z box = footprints, yards, the 12 changed skirt
+columns, lane and approaches: `x 985..1013, z -1914..-1897` (the read box is
+larger: targets box `x 979..1019, z -1913..-1891` plus the lane). Lowest
+finished surface 63 (road column 1), minus `SUPPORT_ROWS` = 60. Region top:
+`max(72, 69) + CLEAR_ABOVE = 84`. `bounds y 60..84`; `volume = x 977..1021,
+y 52..84, z -1922..-1889`. The region lies entirely outside `plan.bounds` (north
+edge `z = -1915`).
 
 **Rejections** (the rest of the story): `g1p2` `plot_water`; `e2` `road_water`
 (the east road reaches only 4 columns) and `e2:a1` `road_short`; `e3:a1`
 `pad_cut_fill`. After `e1` accepted a group and `e2`, `e3` produced nothing, `e4`
-is tried within `GROUP_EVALS`; the result may legitimately hold one group.
+is tried; the result may legitimately hold one group.
 
 ## 13. Dependency map
 
@@ -968,11 +1098,11 @@ is tried within `GROUP_EVALS`; the result may legitimately hold one group.
 | Ticket | Files and functions | Depends on |
 | --- | --- | --- |
 | #227, #228, #229 | `schematics/outskirts/catalog.lua`, `schematics/outskirts/pools.lua`; imports only | this contract |
-| #231 | `src/outskirts_terrain.lua`: `load`, `pad`, `adapt` | this contract; Living Villages installed |
-| #232 | `src/outskirts.lua`: `C`, `new_rng`, `assets`, `exits`, `order_exits`, `candidate`, `read_volume`, `road_volume` | contract; pools may start with cottages only |
+| #231 | `src/outskirts_terrain.lua`: `load` (`targets`, `structure_test`), `pad`, `adapt` | this contract; Living Villages installed |
+| #232 | `src/outskirts.lua`: `C`, `new_rng`, `assets`, `exits`, `order_exits`, `candidate`, `envelope`; recalibrates the provisional constants of section 2 | contract; #227's measured sizes; pools may start with cottages only |
 | #233 | `make_reader`, `plan_road`, `plan_approach` | #232 records |
-| #234 | `accept` (+ merge, slope check) | #231, #232, #233 |
-| #235 | pool content and policy: class frequencies, farm/inn/well/workshop, villa and chapel eligibility | #227-#229, #232 |
+| #234 | `accept` (+ merge, slope check, player and structure rejections) | #231, #232, #233 |
+| #235 | pool content and policy: class frequencies, farm/inn/well/workshop, villa and chapel eligibility; `entry.services` offsets and `outskirts.services` | #227-#229, #232 |
 | #236 | `src/outskirts_layout.lua`, `preflight.compose_outskirts`, builder changes | #234 record shapes |
 | #237 | `outskirts.assemble`, `validate`, `search`, `generate_command` wiring, preflight `params.outskirts` | #232-#236 |
 | #238 | report text, gameplay checks | #237 |
@@ -985,31 +1115,46 @@ and #235 refines the pools and selection policy without changing any signature.
 
 ## 14. Open questions
 
-1. **Programming errors stop the whole command (chosen).** Everything else about
-   the optional layer degrades gracefully, but a violated invariant in the
-   outskirts planner aborts before any write so the defect cannot hide behind a
-   "no outskirts" town. The alternative is to log and skip the outskirts; say so
-   if you prefer a town over a noisy failure.
-2. **Living Villages entry point.** v1 loads `village_smoothing.lua` by path
-   (section 7.2, mismatch 1). A one-line export in Living Villages would be a
-   cleaner, stable seam; it is a follow-up in that repository, not part of this
-   work.
-3. **Plants on changed ground are cleared, not moved** (writer is Towns' own,
+For the product owner:
+
+1. **Services in the countryside.** The contract ships only the coverage hook
+   (`outskirts.services`, 5.7: a well within 42 and a jukebox within 48 of every
+   residential structure, shared between a group and the landmark behind it).
+   The alternative is a fixed recipe: **every village group includes one well
+   and one inn**. Coverage is flexible and never places a service nobody needs
+   but can leave a group with no inn when the pools do not supply one; the fixed
+   recipe is predictable but uses plot slots (about a quarter of a four-plot
+   group) and ties groups to the available inn and well assets. #235 needs this
+   decision.
+2. **Dependency failures and programming errors stop the whole command**
+   (chosen, section 11): a missing Living Villages module, rural asset or node,
+   or a violated planner invariant aborts before any write rather than building a
+   town without its countryside. The alternative is to log and build the urban
+   town anyway for dependency failures.
+
+For the architect or later tickets:
+
+3. **Living Villages entry point.** v1 loads `village_smoothing.lua` and
+   `village_fragments.lua` by path (section 7.2, mismatch 1). An export in Living
+   Villages would be a cleaner seam; it is a follow-up in that repository.
+4. **Plants on changed ground are cleared, not moved** (the writer is Towns' own,
    not Living Villages' `apply`). Moving decor like Living Villages does is a
    possible later refinement of `outskirts_layout`.
-4. **Tree fragments** at the edge of owned columns are left (section 8). If
-   playtesting shows floating canopy or stumps, a small follow-up can enlarge
-   the owned ring or reuse `clear_trees` read-only logic; not planned for v1.
-5. **Villa and chapel window size.** The villa has no catalog entry yet (#229)
-   and the chapel is 9 x 17; their along-road extent may exceed
-   `GROUP_WINDOW`. The contract widens the window up to `ROAD_MAX_LENGTH`; #229
-   and #235 confirm that is enough.
-6. **One village group per exit, two groups in total.** Roman towns (four exits)
+5. **Tree fragments** at the edge of written columns are left (section 8), and
+   unchanged skirt columns keep their trees. If playtesting shows floating
+   canopy or stumps, a small follow-up can widen the cleared ring.
+6. **Urban edge.** No skirt or ramp joins the flat town to natural terrain
+   (5.4); an exit with more than about 3 nodes of difference at the edge yields
+   `road_steep` at `k = 1`. #238 measures how often; a ramp is out of scope.
+7. **Constants to recalibrate** (section 2): `GROUP_WINDOW`, slot, plot and
+   ordinary-building constants, from #227's measured sizes, in #232. A 46-long
+   villa (to be confirmed by #229) fits only after a slot-1 group.
+8. **One village group per exit, two groups in total.** Roman towns (four exits)
    and medieval towns (two) both fit. A second group on the same exit would
    need a different `SLOTS_PER_EXIT` policy.
-7. **Lane alignment.** On a six-wide street the three-wide lane sits one node
-   inside the lower edge (half a node off-centre). Cosmetic; changing it later
-   only alters `inset`.
-8. **Roman arch opening** is not modelled; the lane assumes the opening covers
-   the street's cross range (true for the current 12-wide arch). A narrower arch
-   would make the exit rule report the end as blocked, which is safe.
+9. **Lane alignment.** On a six-wide street the three-wide lane sits one node
+   inside the lower edge (half a node off the street's centre) so that its
+   centre falls inside the two-node arch corridor; cosmetic otherwise.
+10. **Structure protection is shallow.** Only the topmost solid node of footprint
+    and yard columns is tested (`structure_test`); skirt, road and approach
+    columns, and structures under a natural top node, are not.

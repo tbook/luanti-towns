@@ -9,7 +9,9 @@
 --   * the worked example (tests/outskirts_fixture.lua) is internally
 --     consistent and agrees with src/geometry.lua;
 --   * when the Living Villages mod is installed, village_smoothing.targets
---     really behaves as the document says (skipped otherwise).
+--     really behaves as the document says (skipped otherwise). It is found
+--     at TOWNS_LIVING_VILLAGES, else in a living_villages directory up to
+--     six levels above the current directory (works from a git worktree).
 local eq, fails, planner, catalog, geometry = ...
 local F = dofile("tests/outskirts_fixture.lua")
 local medieval = dofile("src/medieval_planner.lua")
@@ -47,6 +49,19 @@ eq(C.TARGET_GROUPS * C.GROUP_PLOTS_MAX, C.ORDINARY_MAX, "two full groups reach t
 eq(C.SLOT_FIRST + (C.SLOTS_PER_EXIT - 1) * C.SLOT_STEP + C.GROUP_WINDOW - 1 <= C.ROAD_MAX_LENGTH, true,
 	"the last slot window ends inside the maximum road length")
 eq(C.SLOT_STEP >= C.GROUP_WINDOW, true, "slot windows do not overlap")
+do
+	-- A landmark window starts LANDMARK_GAP columns after the group window that
+	-- precedes it. A 46-long villa fits after the first slot only.
+	local villa = 46
+	local after1 = C.SLOT_FIRST + C.GROUP_WINDOW - 1 + C.LANDMARK_GAP
+	local after2 = C.SLOT_FIRST + C.SLOT_STEP + C.GROUP_WINDOW - 1 + C.LANDMARK_GAP
+	eq(after1 + villa - 1 <= C.ROAD_MAX_LENGTH, true, "a 46-long villa fits after a slot-1 group")
+	eq(after2 + villa - 1 <= C.ROAD_MAX_LENGTH, false, "a 46-long villa does not fit after a slot-2 group")
+end
+eq(C.PLAYER_MARGIN, 4, "player margin equals preflight.PLAYER_MARGIN")
+eq(C.SERVICE_WELL_RADIUS < C.SERVICE_JUKEBOX_RADIUS, true, "well radius 42 < jukebox radius 48")
+eq(C.ENVELOPE_LATERAL >= 1 + C.SETBACK + 26 + C.TERRAIN_MARGIN + C.TERRAIN_RADIUS + C.CUT_FILL_MARGIN - 1 - 20, true,
+	"the exit envelope is wide enough for plots up to about 26 deep plus reach")
 eq(C.SLOT_FIRST - (C.TERRAIN_MARGIN + C.TERRAIN_RADIUS) >= 2, true,
 	"the first window's smoothing reach starts at least at the second road column")
 eq(C.CUT_FILL_CAP < C.SUPPORT_ROWS and C.ROAD_CAP < C.SUPPORT_ROWS, true,
@@ -86,6 +101,14 @@ local function classify(plan, own, x, z)
 	for _, s in ipairs(plan.streets) do
 		if s ~= own and in_rect(s.rect, x, z) then return "blocked", "street" end
 	end
+	-- Composed urban structures (result.structures): content, objects, reservations.
+	local lists = {(plan.content or {}).buildings or {}, plan.objects or {},
+		(plan.reservations or {}).services or {}}
+	for _, list in ipairs(lists) do
+		for _, b in ipairs(list) do
+			if in_rect(b.rect, x, z) then return "blocked", "structure" end
+		end
+	end
 	return "free"
 end
 
@@ -115,6 +138,21 @@ local function derive_exits(plan)
 					if n ~= 1 or seen.blocked then why = who or "mixed"; break end
 					if seen.pass then via = who end
 				end
+				local arch_site = via and plan.sites[via]
+					if found and arch_site then
+						-- The lane centre must lie inside the arch's clear corridor.
+						local cor = geometry.rotate_rect(catalog.entries.arch.size, F.arch_corridor, arch_site.rotation)
+						local r0 = arch_site.rect
+						local lo, hi
+						if axis == "z" then lo, hi = r0.x1 + cor.x1, r0.x1 + cor.x2
+						else lo, hi = r0.z1 + cor.z1, r0.z1 + cor.z2 end
+						local inset = math.floor((s.width - C.PATH_WIDTH) / 2)
+						local centre = c1 + inset + (C.PATH_WIDTH - 1) / 2
+						if centre < lo or centre > hi then
+							found = nil
+							why = "arch_corridor"
+						end
+					end
 				if found then
 					local inset = math.floor((s.width - C.PATH_WIDTH) / 2)
 					local dir = (axis == "x") and {x = sign, z = 0} or {x = 0, z = sign}
@@ -265,6 +303,8 @@ eq(road.join_y, g, "road joins the leveled urban ground")
 for k = 1, road.length do
 	local prev = (k == 1) and road.join_y or road.y[k - 1]
 	eq(math.abs(road.y[k] - prev) <= 1, true, "road step " .. k .. " is walkable")
+	local prev2 = (k <= 2) and road.join_y or road.y[k - 2]
+	if prev ~= prev2 then eq(road.y[k], prev, "road column " .. k .. " is a landing after a step") end
 	eq(math.abs(road.y[k] - road.natural[k]) <= C.ROAD_CAP, true, "road column " .. k .. " is within the cap")
 	eq(F.natural(e1.centre, e1.start.z + k - 1), road.natural[k], "road column " .. k .. " natural height")
 end
@@ -308,7 +348,6 @@ for i, plot in ipairs(group.plots) do
 	-- Three different Ys.
 	eq(st.min.y, group.ground_y - cottage.ground_offset, label .. " schematic origin y = ground - ground_offset")
 	eq(st.entrance.y, st.min.y + cottage.entrance.y, label .. " feet y = origin + entrance.y")
-	eq(st.entrance.y, group.ground_y + 1, label .. " feet stand one above the ground row")
 	eq(st.min.y < group.ground_y and group.ground_y < st.entrance.y, true, label .. " origin < ground < feet")
 
 	-- Lateral position, window and the urban boundary.
@@ -367,7 +406,8 @@ do
 		end
 	end
 	table.sort(vals)
-	eq(vals[math.floor(#vals / 2) + 1], group.ground_y, "group ground is the (upper) median of the footprints")
+	eq(vals[math.floor((#vals + 1) / 2)], group.ground_y,
+		"group ground is site_search.median (lower median) of the footprints")
 end
 
 -- Plots do not overlap each other or their yards' structures.
@@ -392,9 +432,18 @@ do
 	eq(t.by_kind.footprint1.n, 8 * 7, "footprint column count")
 	eq(t.by_kind.yard1.n, 12 * 11 - 8 * 7, "yard ring column count")
 
+	-- Written columns only: footprints, yards, changed skirt, lane, approaches.
 	local lane_z2 = e1.start.z + road.length - 1
-	local bx1, bx2 = math.min(x1, e1.lane.c1), math.max(x2, e1.lane.c2)
-	local bz1, bz2 = math.min(z1, e1.start.z), math.max(z2, lane_z2)
+	local wb = region.written_box
+	local function inside_box(r, b) return r.x1 >= b.x1 and r.z1 >= b.z1 and r.x2 <= b.x2 and r.z2 <= b.z2 end
+	for _, pad in ipairs(F.pads) do
+		eq(inside_box({x1 = pad.yx0, z1 = pad.yz0, x2 = pad.yx1, z2 = pad.yz1}, wb), true, "written box holds the yard of " .. pad.plot_id)
+	end
+	eq(inside_box({x1 = e1.lane.c1, z1 = e1.start.z, x2 = e1.lane.c2, z2 = lane_z2}, wb), true, "written box holds the lane")
+	eq(wb.z1, e1.start.z, "the lane start is the written box's south edge")
+	eq(inside_box(wb, {x1 = math.min(x1, e1.lane.c1), z1 = math.min(z1, e1.start.z),
+		x2 = math.max(x2, e1.lane.c2), z2 = math.max(z2, lane_z2)}), true, "written box lies inside targets box + lane")
+	local bx1, bx2, bz1, bz2 = wb.x1, wb.x2, wb.z1, wb.z2
 	eq(region.bounds.min.x, bx1, "region min x")
 	eq(region.bounds.max.x, bx2, "region max x")
 	eq(region.bounds.min.z, bz1, "region min z")
@@ -454,7 +503,8 @@ end
 ------------------------------------------------------------------------
 do
 	-- Beside the mod, or beside the main checkout when run from a worktree.
-	local candidates = {"../living_villages", "../../../../living_villages"}
+	local candidates = {}
+	for n = 1, 6 do candidates[#candidates + 1] = ("../"):rep(n) .. "living_villages" end
 	local from_env = os.getenv("TOWNS_LIVING_VILLAGES")
 	if from_env then table.insert(candidates, 1, from_env) end
 	local lv
@@ -508,6 +558,24 @@ do
 		end
 	end
 	eq(owned, want.owned, "owned column count")
+	do
+		-- Written columns: everything but unchanged skirt columns.
+		local written, wx1, wz1, wx2, wz2 = 0, math.huge, math.huge, -math.huge, -math.huge
+		for z = t.z0, t.z1 do
+			for x = t.x0, t.x1 do
+				local kind = t.pad(x, z) and t.kind(x, z)
+				if kind and (kind ~= "skirt" or t.at(x, z) ~= t.was(x, z)) then
+					written = written + 1
+					wx1, wz1 = math.min(wx1, x), math.min(wz1, z)
+					wx2, wz2 = math.max(wx2, x), math.max(wz2, z)
+				end
+			end
+		end
+		eq(written, want.written, "written (non-skirt or changed skirt) column count")
+		local wb = region.written_box
+		eq(wx1 == wb.x1 and wx2 == wb.x2 and wz2 == -1908 + 11 and wz1 == -1908, true,
+			"targets' written columns span the fixture's box (before adding the lane)")
+	end
 	for key, w in pairs(want.by_kind) do
 		local s = stats[key] or {}
 		eq(s.n == w.n and s.changed == w.changed and s.cut == w.cut and s.fill == w.fill, true,
