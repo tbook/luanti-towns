@@ -2,7 +2,7 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "tavern_2"
+    "cathedral"
   ],
   "buildings": [
     {
@@ -1182,10 +1182,11 @@
         "mcl_doors:trapdoor_open",
         "mcl_doors:wooden_door_b_1",
         "mcl_doors:wooden_door_b_2",
+        "mcl_doors:wooden_door_b_3",
         "mcl_doors:wooden_door_t_1",
         "mcl_doors:wooden_door_t_2",
+        "mcl_doors:wooden_door_t_3",
         "mcl_farming:beetroot",
-        "mcl_farming:beetroot_2",
         "mcl_farming:carrot",
         "mcl_farming:hay_block",
         "mcl_farming:melon",
@@ -1196,8 +1197,8 @@
         "mcl_farming:melontige_unconnect",
         "mcl_farming:potato",
         "mcl_farming:pumpkin",
+        "mcl_farming:pumpkintige_linked_l",
         "mcl_farming:pumpkintige_linked_r",
-        "mcl_farming:pumpkintige_unconnect",
         "mcl_farming:soil_wet",
         "mcl_farming:wheat",
         "mcl_fences:birch_fence",
@@ -1249,6 +1250,8 @@
         "mcl_stairs:stair_deepslate_cobbled_outer",
         "mcl_stairs:stair_diorite_smooth",
         "mcl_stairs:stair_diorite_smooth_inner",
+        "mcl_stairs:stair_granite",
+        "mcl_stairs:stair_granite_outer",
         "mcl_stairs:stair_granite_smooth",
         "mcl_stairs:stair_granite_smooth_outer",
         "mcl_stairs:stair_mossycobble",
@@ -1317,7 +1320,7 @@
         "z": 55
       },
       "verified_nodes": 116820,
-      "snapshot_sha256": "b0e750b2b8a9f0700367895c3c8330c71ddc483b2286a2be4afa7eb2cf21677b"
+      "snapshot_sha256": "939dd37a79b47160b1db4fbec1055ffd20379c3091a5a270b573e37ff6b165c0"
     },
     {
       "entrance": {
