@@ -386,6 +386,9 @@ run_group("tests/city_hall_tests.lua", eq, fails, dofile("src/planner.lua"), cat
 -- Medieval variation: market quadrant, castle side, turn (issue #184).
 run_group("tests/medieval_variation_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
 
+-- Outskirts v1 contract: exits rule, worked example, Living Villages API (issue #226).
+run_group("tests/outskirts_contract_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
+
 -- Jail reservation on street frontage (ticket #69).
 run_group("tests/jail_reservation_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
