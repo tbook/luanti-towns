@@ -83,6 +83,10 @@ return {
 		{name = "basilica", id = "basilica", arm = "east", side = "-z", at = 0, rotation = 270},
 		{name = "domus_3", id = "domus", arm = "east", side = "-z", at = 29, rotation = 90},
 		{name = "domus_4", id = "domus", arm = "west", side = "+z", at = 29, rotation = 270},
+		-- Public latrine (#218) at the far end of the east arm's north frontage,
+		-- beyond block east_forum_north (which keeps the forum-edge run). Rotation
+		-- 270 turns its -X opening toward -z, the decumanus; the approach is paved.
+		{name = "vespasianum_east", id = "vespasianum", arm = "east", side = "+z", at = 15, rotation = 270},
 		{name = "theatre", id = "theatre", arm = "west", side = "-z", at = 10, rotation = 180},
 		{name = "bath", id = "bath", arm = "south", side = "-x", at = 8, rotation = 180},
 	},
@@ -102,7 +106,7 @@ return {
 	-- "inner". from..to are compass coordinates along the band, relative to
 	-- the forum centre (x for north and south bands, z for east and west).
 	blocks = {
-		{name = "east_forum_north", arm = "east", side = "+z", from = 0, to = 22},
+		{name = "east_forum_north", arm = "east", side = "+z", from = 0, to = 14},
 		{name = "east_end_south", arm = "east", side = "-z", from = 51, to = 58},
 		{name = "south_east_inner", arm = "south", side = "+x", from = 0, to = 25},
 		{name = "west_forum_south", arm = "west", side = "-z", from = 0, to = 9},
