@@ -96,9 +96,8 @@ F.structures = {
 		entrance = {x = 1179, y = 66, z = -2008}, front = {x = 0, z = -1}},
 }
 
--- What Towns hands to terraform(plan, pr, env, opts) (luanti-villages#275/#276 and the
--- draft docs/terrain-api.md), one call per plot: a settlement-style plan entry
--- (pos = footprint minimum corner, pos.y = site ground Y) and opts.
+-- Example of the public terrain API call shape: terraform(plan, pr, options),
+-- one call per plot, with a settlement-style plan entry and protected rectangle.
 F.lv_calls = {
 	{plot_id = "f01",
 		plan = {{name = "farm", pos = {x = 1000, y = 61, z = -1875}, rotat = "90"}},
@@ -114,7 +113,7 @@ F.lv_calls = {
 -- are invented but consistent; `written` is the inclusive box of changed columns).
 F.lv_result = {
 	ok = true,
-	stats = {changed = 152, cut = 40, filled = 112, steepest = 2, violations = 0, unloaded = 0,
+	stats = {changed = 152, cut = 40, filled = 112, steepest = 2, violations = 0, unloaded_blocks = 0,
 		written = {minp = {x = 988, y = 41, z = -1885}, maxp = {x = 1018, y = 85, z = -1857}}},
 }
 

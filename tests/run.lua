@@ -388,6 +388,7 @@ run_group("tests/medieval_variation_tests.lua", eq, fails, dofile("src/planner.l
 
 -- Outskirts v1 contract: exits rule, worked example, Living Villages API (issue #226).
 run_group("tests/outskirts_contract_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
+run_group("tests/outskirts_terrain_tests.lua", eq)
 
 -- Jail reservation on street frontage (ticket #69).
 run_group("tests/jail_reservation_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)

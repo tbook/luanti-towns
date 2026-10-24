@@ -260,34 +260,16 @@ The farm composes as `kind = "object"` (no entrance); the others as
 
 ## 6. What Towns needs from Living Villages
 
-Designed against the three issues and the API draft in the Living Villages
-working tree (`docs/terrain-api.md`, uncommitted when this was written), whose
-spelling is adopted. Today (`village_smoothing.lua`, installed) `M.terraform(plan,
-pr, env, config)` is the right pipeline (load area, `clear_trees`, smooth,
-`apply`, holes) but it is reachable only by `dofile`, reads footprints from
-`env.settlements.schematic_table`, falls back to the VoxeLibre terraform on an
-empty plan or unreadable area, returns only a boolean, and nothing keeps it out of
-a protected area. Its defaults are `margin 2, radius 8, cap 5, wall 6`; Towns
-uses them unchanged.
+The completed public API is `living_villages.terrain`, documented in the
+installed Living Villages `docs/terrain-api.md`. Towns calls
+`volume(plan, schematic_table, options)` as a read-only query and
+`terraform(plan, pr, options)` to apply terrain. Terraform options include
+`schematic_table` and `protected` rectangles; optional dependency injection belongs in
+`options.env`.
 
-### 6.1 luanti-villages#274: the public table
+### 6.1 Public API calls
 
-`living_villages.terrain` as the draft describes it. Towns uses exactly:
-
-- `terraform(plan, pr, env, opts)` (6.2).
-- `volume(...)`: **the one addition Towns asks of Living Villages.** It returns
-  the box that `terraform` reads and writes for the same arguments (pads, the
-  radius, tree margin, hole area, below/above), `{minp, maxp}`, so Towns can
-  emerge it first; `terraform` never emerges. Exact parameters to be agreed in
-  #274; it should take the same `plan`, `schematic_table` and `opts`.
-
-There is no `version` field and Towns does not depend on one. Towns does not
-`dofile` Living Villages files and does not use `pads`, `targets`,
-`structure_test`, `heights` or the site planner.
-
-### 6.2 luanti-villages#275: caller-supplied plan, no fallback
-
-`terraform(plan, pr, env, opts) -> true, stats | false, reason`
+`terraform(plan, pr, options) -> true, stats | false, reason`
 
 - `plan`: settlement-style entries `{name, pos, rotat, surface_mat}`. Towns passes
   one entry per call: `pos` = the footprint's minimum X/Z corner and **`pos.y` =
@@ -295,26 +277,23 @@ There is no `version` field and Towns does not depend on one. Towns does not
   Villages' default). The rotated footprint Living Villages derives
   (`village_terrain.footprint`: `rotat` "90"/"270" swap width and depth) equals
   the plot rect (tested).
-- `opts.schematic_table`: `{ {name, hwidth, hdepth, hheight}, ... }` = the file
+- `options.schematic_table`: `{ {name, hwidth, hdepth, hheight}, ... }` = the file
   size x, z, y of the entry (no `settlements` global). `opts.config`: not passed.
-- `pr`, `env`: the draft has `env` supply `engine`, `settlements.surface_mat`,
-  `load_node`, `scan` and `clear_trees`. Towns passes `pr = nil` and an `env`
-  with `engine` (the `core` table) and `load_node`; it cannot supply
-  `clear_trees` or `scan` itself because those are Living Villages' own
-  `village_fragments` functions. **Open request:** when `env.clear_trees` /
-  `env.scan` are absent `terraform` should use its own (the same defaults
-  `village_smoothing.install` wires), or `living_villages.terrain` should
-  expose them. Section 10, question 5.
+- `pr`: Towns passes nil.
+- `options.env` is optional; Living Villages supplies its own engine and
+  tree/structure helpers by default. Towns can pass an environment there when
+  needed for tests or embedding.
 - Never calls the VoxeLibre fallback; returns `false, reason` when it cannot load
   or plan the work.
-- `stats`: changed, cut and filled columns, steep steps and walls, unloaded block
-  counts, and `written`, the inclusive `{minp, maxp}` XYZ box of changed columns
-  (nil if none changed). `stats.unloaded > 0` is Towns' `terraform_incomplete`;
+- `stats`: changed, cut and filled columns, steep steps and walls,
+  `unloaded_blocks`, and optional `written`, the inclusive `{minp, maxp}` XYZ
+  box of changed nodes (nil if none changed). `stats.unloaded_blocks > 0` is
+  Towns' `terraform_incomplete`;
   `false` is `terraform_declined`.
 
-### 6.3 luanti-villages#276: protected rectangles
+### 6.2 Protected rectangles
 
-`opts.protected = { {x0, z0, x1, z1, margin}, ... }` (inclusive, `margin` an
+`options.protected = {{x0, z0, x1, z1, margin}, ...}` (inclusive, `margin` an
 optional nonnegative expansion). No protected column is read as changeable or
 written, including tree removal and cleanup, hole filling and ramps; protected
 columns stay fixed slope constraints. Towns passes one rectangle: `plan.bounds`
@@ -368,8 +347,9 @@ is the `pos` that `generate_command.search` already receives and `terrain` is
    functions, `outskirts.assets` succeeds (rural catalog readable, shared ids
    present). Otherwise `done(nil, message, "outskirts_dependency")`.
 2. Plan as in 5.2. Each candidate emerges
-   `outskirts.volume(plot, ground_ref)`: X/Z from `terrain.volume`, Y from the
-   volume's range widened by `SCAN_DOWN`/`SCAN_UP` around the urban ground.
+   `terrain.volume(plan, schematic_table, options)` with `surface_y` spanning
+   `SCAN_DOWN`/`SCAN_UP` around the urban ground for an unknown candidate Y.
+   Living Villages returns the mapblock-aligned envelope; Towns adds no margins.
 3. After planning, re-emerge each accepted plot's volume once (at most 27
    emerges) so everything is loaded when the build runs in the same step
    (emerged blocks can unload after about half a minute without players).
@@ -400,8 +380,8 @@ close to one per building.
 Runs after `builder.build_town` returned a summary, so the urban town is
 complete. Then, in this order:
 
-1. **Terraform every plot**, one `terrain.terraform` call per plot, with
-   `opts.protected`. A `false` or `stats.unloaded > 0` marks that plot skipped
+1. **Terraform every plot**, one `terrain.terraform(plan, nil, options)` call per
+   plot with `options.protected`. A `false` or `stats.unloaded_blocks > 0` marks that plot skipped
    (`terraform_declined` / `terraform_incomplete`, reported); the others go on.
 2. **Place every non-skipped plot's schematic** with the same
    `env.place_structure` the urban build uses, then run `check_door` with the
