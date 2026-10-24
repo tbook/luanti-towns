@@ -2,7 +2,14 @@
 -- It deliberately knows only how to describe and apply one plot.
 local M = {}
 
-local DEFAULT_PROTECT_MARGIN = 4
+local function load_sibling(name)
+	local core = rawget(_G, "core")
+	if core and core.get_modpath and core.get_current_modname then
+		return dofile(core.get_modpath(core.get_current_modname()) .. "/src/" .. name)
+	end
+	return dofile("src/" .. name)
+end
+local DEFAULT_PROTECT_MARGIN = load_sibling("outskirts.lua").CONSTANTS.PROTECT_MARGIN
 
 function M.available(terrain)
 	if type(terrain) ~= "table" or type(terrain.volume) ~= "function"
