@@ -62,6 +62,8 @@ def main():
     ap.add_argument('--settings-from', type=Path, default=DEFAULT_SOURCE,
                     help='world whose world.mt / map_meta.txt (game, mods, flat mapgen) are copied; its map is NOT used')
     ap.add_argument('--timeout', type=int, default=900)
+    ap.add_argument('--town-type', default='medieval', choices=['medieval', 'roman'],
+                    help="'roman' builds the authored Roman plan instead of the medieval one")
     ap.add_argument('--scenario', default='', choices=['', 'water', 'buried'],
                     help="'water': buried pockets, a hill, ponds in and beside the footprint (ticket #104)")
     ap.add_argument('--keep', action='store_true', help='print the scratch world path and keep it')
@@ -87,7 +89,8 @@ def main():
     (work / 'check.conf').write_text(
         'enable_ipv6 = false\nbind_address = 127.0.0.1\nserver_announce = false\n'
         'towns_place_check_seed = %d\n'
-        'towns_place_check_scenario = %s\n' % (args.seed, args.scenario))
+        'towns_place_check_scenario = %s\n'
+        'towns_place_check_town_type = %s\n' % (args.seed, args.scenario, args.town_type))
     print('Scratch world:', work, flush=True)
     def run_engine(tag):
         with (work / ('stdout-%s.log' % tag)).open('w') as log:

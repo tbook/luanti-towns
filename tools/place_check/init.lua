@@ -6,8 +6,11 @@
 -- functional node initialization, idempotence and Living Villages
 -- recognition of the tavern jukebox and the well.
 local seed = tonumber(core.settings:get('towns_place_check_seed')) or 5
+-- nil = medieval; 'roman' selects the authored Roman plan (run.py --town-type).
+local town_type = core.settings:get('towns_place_check_town_type')
+if town_type == '' then town_type = nil end
 local entries = towns.preflight.entries(towns.catalog.entries)
-local report = {seed = seed, checks = {}, failures = {}}
+local report = {seed = seed, town_type = town_type or 'medieval', checks = {}, failures = {}}
 local function check(ok, label)
  report.checks[#report.checks + 1] = {ok = ok and true or false, label = label}
  if not ok then report.failures[#report.failures + 1] = label end
@@ -140,12 +143,12 @@ local function prepare_world(result)
  report.scenario = {name = scenario, rect = big, ground_y = g}
 end
 local function search_then(cb)
- towns.populated.search(PLAYER_POS, seed, nil, function(result, msg)
+ towns.populated.search(PLAYER_POS, seed, town_type, function(result, msg)
   if scenario == '' or not result then return cb(result, msg) end
   local ok, e = pcall(prepare_world, result)
   if not ok then return cb(nil, 'scenario setup: ' .. tostring(e)) end
   local first = result.center
-  towns.populated.search(PLAYER_POS, seed, nil, function(r2, m2)
+  towns.populated.search(PLAYER_POS, seed, town_type, function(r2, m2)
    if r2 then
     report.scenario.first_center, report.scenario.center = first, r2.center
     report.scenario.rejections, report.scenario.wet = r2.rejections, r2.wet and {count = r2.wet.count, max_depth = r2.wet.max_depth}
@@ -320,10 +323,13 @@ core.register_on_mods_loaded(function() core.after(0, function()
     report.compared_nodes, report.mismatched_nodes = compared, mismatches
     report.mismatch_samples = mismatch_samples
     check(mismatches == 0, 'every schematic node matches (' .. mismatches .. ' of ' .. compared .. ' differ)')
-    -- Real cathedral and castle schematics present.
-    local kinds = {}
-    for _, b in ipairs(town.structures) do kinds[b.kind] = (kinds[b.kind] or 0) + 1 end
-    check(kinds.cathedral == 1 and kinds.castle == 1, 'real cathedral and castle placed')
+    -- Real cathedral and castle schematics present (medieval only: the Roman
+    -- plan has neither).
+    if town_type == nil then
+     local kinds = {}
+     for _, b in ipairs(town.structures) do kinds[b.kind] = (kinds[b.kind] or 0) + 1 end
+     check(kinds.cathedral == 1 and kinds.castle == 1, 'real cathedral and castle placed')
+    end
     -- Outdoor objects use the same composition and placement path, but have
     -- no building door. Their reserved approach stays walkable after writing.
     local object_counts = {}
@@ -639,7 +645,9 @@ core.register_on_mods_loaded(function() core.after(0, function()
       end
       local ids = {}
       for _, b in ipairs(town.structures) do
-       ids[#ids + 1] = {id = b.id, kind = b.kind, min = b.min, max = b.max}
+       -- excluded_beds must travel with the box: the restart enumeration
+       -- skips them exactly as the build did (issue #222).
+       ids[#ids + 1] = {id = b.id, kind = b.kind, min = b.min, max = b.max, excluded_beds = b.excluded_beds}
       end
       report.resident_boxes = ids
       report.resident_bed_count = beds.count

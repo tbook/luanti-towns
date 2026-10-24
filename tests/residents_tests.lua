@@ -247,6 +247,26 @@ do
 end
 
 ------------------------------------------------------------------------
+-- Excluded beds (schematic excluded_resident_beds, issue #222): a box carries
+-- its exclusions; enumeration must be given them to skip the bed. A rebuilt
+-- box without them counts the same bed, so the list has to be kept with it.
+------------------------------------------------------------------------
+do
+	local W = new_world()
+	W.bed(4, 1, 4, "red", 0)
+	W.bed(4, 1, 8, "blue", 0)
+	local b = box("house", 0, 1, 0, 10, 5, 10)
+	b.excluded_beds = {{x = 4, y = 1, z = 4}}
+	local r = residents.enumerate({b}, W.env)
+	eq(r.count, 1, "excluded bed is not counted")
+	eq(r.beds[1].name, "mcl_beds:bed_blue_bottom", "the other bed still counts")
+	eq(reasons(r), "excluded_bed", "excluded bed is reported as skipped")
+	eq(r.by_structure[1].skipped, 1, "skip is charged to the box")
+	local copy = box("house", 0, 1, 0, 10, 5, 10)
+	eq(residents.enumerate({copy}, W.env).count, 2, "a box rebuilt without its exclusions over-counts")
+end
+
+------------------------------------------------------------------------
 -- Engine adapter against a fake core
 ------------------------------------------------------------------------
 do
