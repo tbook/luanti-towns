@@ -55,8 +55,9 @@ end
 
 -- Apply exactly one plot. The public API takes three arguments; its optional
 -- environment belongs in options.env. A declined or incomplete operation is
--- an omission. Any reported write into the town's protected X/Z rectangle is
--- a programming error because it can only be checked after the call returns.
+-- an omission. Living Villages enforces protected columns while applying
+-- writes; stats.written is only an envelope and may overlap protection even
+-- when every individual write is outside it.
 function M.terraform(terrain, plan, schematic_table, protected, options)
 	local ok, code, message = M.available(terrain)
 	if not ok then return nil, code, message end
@@ -67,13 +68,6 @@ function M.terraform(terrain, plan, schematic_table, protected, options)
 	local accepted, result = terrain.terraform(plan, nil, opts)
 	if not accepted then return nil, "terraform_declined", result end
 	local stats = result or {}
-	if stats.written then
-		local box = stats.written
-		local px0, pz0 = protected.x0 - (protected.margin or 0), protected.z0 - (protected.margin or 0)
-		local px1, pz1 = protected.x1 + (protected.margin or 0), protected.z1 + (protected.margin or 0)
-		assert(box.maxp.x < px0 or box.minp.x > px1 or box.maxp.z < pz0 or box.minp.z > pz1,
-			"Living Villages wrote inside the protected town rectangle")
-	end
 	if (stats.unloaded_blocks or 0) > 0 then return nil, "terraform_incomplete", stats end
 	return true, stats
 end

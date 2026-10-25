@@ -145,7 +145,7 @@ do
 	local r = {x1 = box.minp.x, z1 = box.minp.z, x2 = box.maxp.x, z2 = box.maxp.z}
 	local f = F.plots[1].rect
 	eq(r.x1 <= f.x1 and r.z1 <= f.z1 and r.x2 >= f.x2 and r.z2 >= f.z2, true, "written box contains the footprint")
-	eq(overlap(r, P), false, "written box stays outside the protected rectangle")
+	-- This envelope describes an extent; it cannot prove which columns changed.
 	eq(F.lv_result.stats.cut + F.lv_result.stats.filled, F.lv_result.stats.changed, "cut + filled = changed (illustrative)")
 end
 

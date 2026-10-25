@@ -57,8 +57,19 @@ returned by the installed Living Villages terrain implementation. Missing
 numeric fields are treated as zero; a stats table with no numeric fields is
 omitted.
 
+The issue #238 regression also uses `tools/outskirts_build_check/run.py` to run
+Living Villages tree removal near the urban rectangle's corner. In the
+disposable world it places two tree nodes just outside different sides of the
+protected rectangle, then snapshots every protected node after the whole area
+has emerged and immediately before terraform. The snapshot records node names
+and `param2`; it must match after the edit. The check also requires both tree
+nodes to be removed and the returned `written` envelope to overlap protection.
+This exercises real writes while showing that an overlapping envelope does not
+prove that an individual protected column changed.
+
 These engine checks establish placement, terrain API results, and geometric
-reach for two disposable seeds. A human playtest is still needed to judge
+reach for disposable seeds. A human playtest is still needed to judge
 visual density and to observe actual villager profession claims, jobsite use,
-and navigation over time. No placeholder counts or spacing bands were changed
-from this evidence.
+and navigation over time. Farm plots now start 10 nodes from the town bounds,
+up from 7, while the far edge remains 24; the extra distance is a spacing
+choice, not a terrain safety proof.
