@@ -331,6 +331,15 @@ function M.format_build_failure(message, code, result, extra)
 		if type(extra) == "table" then
 			local d = {}
 			if extra.reason then d[#d + 1] = "stage " .. tostring(extra.reason) end
+			if type(extra.urban_bounds) == "table" then
+				d[#d + 1] = "urban bounds " .. bounds_str(extra.urban_bounds)
+			end
+			if type(extra.terrain_attempts) == "table" and #extra.terrain_attempts > 0 then
+				d[#d + 1] = tostring(#extra.terrain_attempts) .. " outskirts terrain attempts"
+			end
+			if type(extra.placement_attempts) == "table" and #extra.placement_attempts > 0 then
+				d[#d + 1] = tostring(#extra.placement_attempts) .. " outskirts placement attempts"
+			end
 			if type(extra.building) == "table" then
 				d[#d + 1] = "building " .. tostring(extra.building.id)
 			end

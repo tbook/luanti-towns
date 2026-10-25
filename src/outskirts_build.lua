@@ -50,7 +50,8 @@ function M.apply(out, env, opts)
 			{attempted = attempted, placement_attempted = placement_attempted, boxes = boxes} end
 		local plan, schematic, protected = terrain_adapter.mapping(plot, entry, bounds,
 			contract.CONSTANTS.PROTECT_MARGIN)
-		local volume_ok, volume = pcall(terrain.volume, plan, schematic, {protected = {protected}})
+		local volume_ok, volume = pcall(terrain_adapter.volume, terrain, plan, schematic,
+			{protected = {protected}})
 		local attempted_box = volume_ok and valid_volume(volume)
 			and {min = volume.minp, max = volume.maxp} or box(st)
 		attempted[#attempted + 1] = attempted_box -- known even if terraform throws
