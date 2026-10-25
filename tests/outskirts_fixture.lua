@@ -23,10 +23,10 @@ F.constants = {
 	HUT_COUNT = 6,
 	VILLA_COUNT = 2,
 	CHAPEL_COUNT = 1,
-	FARM_BAND_NEAR = 14,
-	FARM_BAND_FAR = 48,
-	OUTER_BAND_NEAR = 48,
-	OUTER_BAND_FAR = 116,
+	FARM_BAND_NEAR = 7,
+	FARM_BAND_FAR = 24,
+	OUTER_BAND_NEAR = 24,
+	OUTER_BAND_FAR = 58,
 	MIN_SPACING = 20,
 	PROTECT_MARGIN = 4,
 	TERRAFORM_REACH = 10,
@@ -76,35 +76,35 @@ F.bounds = {x1 = 905, z1 = -2086, x2 = 1085, z2 = -1915}      -- Roman plan.boun
 -- heights = min/max natural height under the footprint; ground_y = lower median.
 F.plots = {
 	{id = "f01", class = "farm", asset = "farm", rotation = 90, band = "near",
-		rect = {x1 = 1000, z1 = -1875, x2 = 1006, z2 = -1867}, distance = 40,
+		rect = {x1 = 1000, z1 = -1895, x2 = 1006, z2 = -1887}, distance = 20,
 		heights = {min = 60, max = 62}, ground_y = 61},
 	{id = "h01", class = "hut", asset = "shepherd_hut", rotation = 0, band = "far",
-		rect = {x1 = 1175, z1 = -2010, x2 = 1183, z2 = -2003}, distance = 90,
+		rect = {x1 = 1135, z1 = -2010, x2 = 1143, z2 = -2003}, distance = 50,
 		heights = {min = 63, max = 65}, ground_y = 64},
 }
 
 -- Composed structures (preflight.compose shape; the farm has no entrance).
 F.structures = {
 	{id = "farm", kind = "object", role = "farm", plot = "f01", rotation = 90,
-		rect = {x1 = 1000, z1 = -1875, x2 = 1006, z2 = -1867},
-		min = {x = 1000, y = 61, z = -1875}, max = {x = 1006, y = 68, z = -1867},
+		rect = {x1 = 1000, z1 = -1895, x2 = 1006, z2 = -1887},
+		min = {x = 1000, y = 61, z = -1895}, max = {x = 1006, y = 68, z = -1887},
 		size = {x = 7, y = 8, z = 9}, ground_offset = 0, site_ground_y = 61},
 	{id = "shepherd_hut", kind = "outskirts", role = "hut", plot = "h01", rotation = 0,
-		rect = {x1 = 1175, z1 = -2010, x2 = 1183, z2 = -2003},
-		min = {x = 1175, y = 64, z = -2010}, max = {x = 1183, y = 72, z = -2003},
+		rect = {x1 = 1135, z1 = -2010, x2 = 1143, z2 = -2003},
+		min = {x = 1135, y = 64, z = -2010}, max = {x = 1143, y = 72, z = -2003},
 		size = {x = 9, y = 9, z = 8}, ground_offset = 0, site_ground_y = 64,
-		entrance = {x = 1179, y = 66, z = -2008}, front = {x = 0, z = -1}},
+		entrance = {x = 1139, y = 66, z = -2008}, front = {x = 0, z = -1}},
 }
 
 -- Example of the public terrain API call shape: terraform(plan, pr, options),
 -- one call per plot, with a settlement-style plan entry and protected rectangle.
 F.lv_calls = {
 	{plot_id = "f01",
-		plan = {{name = "farm", pos = {x = 1000, y = 61, z = -1875}, rotat = "90"}},
+		plan = {{name = "farm", pos = {x = 1000, y = 61, z = -1895}, rotat = "90"}},
 		opts = {schematic_table = {{name = "farm", hwidth = 9, hdepth = 7, hheight = 8}},
 			protected = {F.protected}}},
 	{plot_id = "h01",
-		plan = {{name = "shepherd_hut", pos = {x = 1175, y = 64, z = -2010}, rotat = "0"}},
+		plan = {{name = "shepherd_hut", pos = {x = 1135, y = 64, z = -2010}, rotat = "0"}},
 		opts = {schematic_table = {{name = "shepherd_hut", hwidth = 9, hdepth = 8, hheight = 9}},
 			protected = {F.protected}}},
 }
@@ -114,7 +114,7 @@ F.lv_calls = {
 F.lv_result = {
 	ok = true,
 	stats = {changed = 152, cut = 40, filled = 112, steepest = 2, violations = 0, unloaded_blocks = 0,
-		written = {minp = {x = 988, y = 41, z = -1885}, maxp = {x = 1018, y = 85, z = -1857}}},
+		written = {minp = {x = 988, y = 41, z = -1905}, maxp = {x = 1018, y = 85, z = -1877}}},
 }
 
 -- Result counts of the example town (shortfalls are normal).

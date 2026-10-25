@@ -44,10 +44,10 @@ FARM_COUNT = 18,              -- farms wanted
 HUT_COUNT = 6,                -- shepherd's huts wanted
 VILLA_COUNT = 2,              -- Roman towns only
 CHAPEL_COUNT = 1,             -- medieval towns only
-FARM_BAND_NEAR = 14,          -- farms: gap to plan.bounds, nodes (inclusive)
-FARM_BAND_FAR = 48,           -- ... (exclusive); farms stay within villager job reach of town houses
-OUTER_BAND_NEAR = 48,         -- huts, villas, chapel: gap to plan.bounds (inclusive)
-OUTER_BAND_FAR = 116,         -- ... (exclusive)
+FARM_BAND_NEAR = 7,           -- farms: gap to plan.bounds, nodes (inclusive)
+FARM_BAND_FAR = 24,           -- ... (exclusive); farms stay within villager job reach of town houses
+OUTER_BAND_NEAR = 24,         -- huts, villas, chapel: gap to plan.bounds (inclusive)
+OUTER_BAND_FAR = 58,          -- ... (exclusive)
 MIN_SPACING = 20,             -- minimum gap between two plot rects
 PROTECT_MARGIN = 4,           -- Living Villages protected margin around plan.bounds
 TERRAFORM_REACH = 10,         -- Living Villages margin 2 + radius 8 (defaults), for spacing checks only
@@ -67,9 +67,8 @@ outside. Derived checks (tested): the bands are ordered and farms are nearer;
 protected rectangle; keeping the terraform reach out of it is Living Villages'
 job, section 6.3); `MIN_SPACING >= 2 *
 TERRAFORM_REACH` (neighbouring pads' reaches do not overlap);
-`PLAYER_MARGIN >= TERRAFORM_REACH`; each band holds at least twice its
-buildings at the packing `MIN_SPACING` implies, for the Roman and the medieval
-bounds.
+`PLAYER_MARGIN >= TERRAFORM_REACH`. The tighter experimental bands may reduce
+the achieved plot counts when plots keep the unchanged `MIN_SPACING`.
 
 ## 3. Conventions
 
@@ -136,10 +135,10 @@ bounded crop visit (`farmer.lua`). Consequences:
 - A farm has no bed, so nobody lives there; its composter is a **workplace for
   townspeople**. An unemployed townsperson claims it only if the composter is
   within 48 nodes of them when they look for work, and they are sent home when
-  they stray more than about 50 nodes from their bed. The farm band (gap 14..48)
-  is chosen for this: a farm at gap 14 is reachable from houses up to about 34
-  nodes inside the town edge, one at gap 48 only from houses at the edge, so most
-  farms are within the search of some town houses. Huts and the rest lie farther
+  they stray more than about 50 nodes from their bed. The farm band (gap 7..23)
+  is chosen for this: a farm at gap 7 is reachable from houses up to about 41
+  nodes inside the town edge, one at gap 23 from houses up to about 25 inside,
+  so most farms are within the search of some town houses. Huts and the rest lie farther
   out and are not meant to supply workplaces.
 
 ## 5. The scatter planner
@@ -238,7 +237,7 @@ plot = {
   rotation = 90,
   band = "near",          -- "near" (farms) | "far"
   rect = {x1, z1, x2, z2},    -- EXACTLY the rotated footprint (preflight.resolve requires it)
-  distance = 40,          -- gap to plan.bounds
+  distance = 20,          -- gap to plan.bounds in the worked fixture
   heights = {min = 60, max = 62},
   ground_y = 61,          -- site ground Y (lower median of the footprint heights)
 }
@@ -331,16 +330,16 @@ columns stay fixed slope constraints. Towns passes one rectangle: `plan.bounds`
 (`x0 = b.x1`, ...) with `margin = PROTECT_MARGIN` (4). **Living Villages, not
 Towns, guarantees that the terraform reach (about 10 nodes, more for trees and
 holes) of a pad near the town never writes inside it**; that is why the farm band
-may start 14 nodes from the bounds. Towns itself only guarantees that the pads
+starts 7 nodes from the bounds. Towns itself only guarantees that the pads
 are outside the protected rectangle, and asserts after each call that
 `stats.written` does not intersect it (a violation is a programming error,
 reported after the fact).
 
 ### 6.4 The plot-to-call mapping (worked example, section 9)
 
-Farm `f01`: rect `x 1000..1006, z -1875..-1867` (rotation 90 of a 9 x 7
+Farm `f01`: rect `x 1000..1006, z -1895..-1887` (rotation 90 of a 9 x 7
 footprint), ground 61: `plan = {{name = "farm", pos = {x = 1000, y = 61, z =
--1875}, rotat = "90"}}`, `opts = {schematic_table = {{name = "farm", hwidth = 9,
+-1895}, rotat = "90"}}`, `opts = {schematic_table = {{name = "farm", hwidth = 9,
 hdepth = 7, hheight = 8}}, protected = {{x0 = 905, z0 = -2086, x1 = 1085, z1 =
 -1915, margin = 4}}}`.
 
@@ -482,20 +481,20 @@ rectangle `{x0 = 905, z0 = -2086, x1 = 1085, z1 = -1915, margin = 4}`, i.e.
 
 | | `f01` farm | `h01` hut |
 | --- | --- | --- |
-| band, gap to bounds | near, 40 (14..47) | far, 90 (48..115) |
+| band, gap to bounds | near, 20 (7..23) | far, 50 (24..57) |
 | rotation | 90 (first stream draw: 22928725 % 4 = 1) | 0 |
-| rect | x 1000..1006, z -1875..-1867 (7 x 9) | x 1175..1183, z -2010..-2003 (9 x 8) |
+| rect | x 1000..1006, z -1895..-1887 (7 x 9) | x 1135..1143, z -2010..-2003 (9 x 8) |
 | footprint heights | 60..62 (spread 2), ground 61 | 63..65 (spread 2), ground 64 |
 | schematic origin Y / box | 61 (`ground_offset` 0), y 61..68 | 64, y 64..72 |
-| entrance | none (object) | file (4,2,2): world `(1179, 66, -2008)`, front -Z, feet Y 66 |
-| gap to protected rectangle | 36 | 86 |
+| entrance | none (object) | file (4,2,2): world `(1139, 66, -2008)`, front -Z, feet Y 66 |
+| gap to protected rectangle | 16 | 46 |
 
 The hut's canonical entrance front (-Z) is an assumption until #227 measures the
 import; the door position, loom and bed are measured. The Living Villages call for
 the farm is the one in 6.4. An illustrative result is `true, {changed = 152, cut
 = 40, filled = 112, steepest = 2, violations = 0, unloaded = 0, written = {minp =
-(988, 41, -1885), maxp = (1018, 85, -1857)}}`; `written` stays outside the
-protected rectangle (its south edge z -1885 is above -1911). The example town ends
+(988, 41, -1905), maxp = (1018, 85, -1877)}}`; `written` stays outside the
+protected rectangle (its south edge z -1905 is above -1911). The example town ends
 with 16 of 18 farms, 6 huts and 1 of 2 villas; the 9 recorded rejections
 (`plot_water` 5, `plot_uneven` 3, `no_site` 1) account for the shortfall.
 
@@ -503,7 +502,7 @@ with 16 of 18 farms, 6 huts and 1 of 2 villas; the 9 recorded rejections
 
 For the product owner:
 
-1. **Farm reach versus job reach.** The farm band (gap 14..48) keeps most farms
+1. **Farm reach versus job reach.** The farm band (gap 7..24) keeps farms
    within the villagers' +/-48 job search of some town houses (section 4), but
    residents deep in the town still never see a composter. Tune in #238.
 2. **Foreign structures.** Ruined portals and outposts in the countryside can be
