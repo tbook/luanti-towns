@@ -252,7 +252,7 @@ outskirts_result = {
   protected = {x0, z0, x1, z1, margin},   -- plan.bounds, margin = PROTECT_MARGIN (Living Villages spelling)
   entries = {...},                    -- merged id -> catalog entry (not serialisable)
   plots = {plot, ...},                -- accepted, in planning order
-  structures = {structure, ...},      -- composed (below), same order
+  structures = {},                    -- reserved; preflight returns composition separately
   rejections = {rejection, ...},      -- every omission, in decision order
   counts = {requested = {farm = 18, hut = 6, villa = 2, chapel = 0},
             planned   = {farm = 16, hut = 6, villa = 1, chapel = 0},
@@ -355,10 +355,11 @@ hdepth = 7, hheight = 8}}, protected = {{x0 = 905, z0 = -2086, x1 = 1085, z1 =
         cb(nil, msg, "outskirts_dependency" | "outskirts_error") -> command stops, nothing written
   generate_command.build(result)
     preflight.check(...)                               -- urban, unchanged
-    preflight.check_outskirts(out, env, params)        -- NEW, zero writes
+    local rural = preflight.check_outskirts(out, env, params) -- NEW, zero writes
     builder.build_town(result, {entries = catalog.entries}, env)   -- unchanged: urban terrain,
                                                                    --   schematics, doors, node setup
-    outskirts_build.apply(out, env)                    -- NEW: the only outskirts writes
+    outskirts_build.apply(out, env, {bounds = result.plan.bounds,
+                                     structures = rural.structures}) -- NEW outskirts writes
     summary.town.structures = urban ++ placed outskirts structures
     residents.enumerate(summary.town.structures, ...)  -- unchanged call
     residents.initialize(...)                          -- unchanged
@@ -406,10 +407,14 @@ close to one per building.
   file, a size mismatch or an unregistered node is `outskirts_dependency`. Both
   stop the command (`inspection_failed`, zero writes).
 
-### 7.3 `outskirts_build.apply(out, env)`: ordering and risk
+### 7.3 `outskirts_build.apply(out, env, opts)`: ordering and risk
 
 Runs after `builder.build_town` returned a summary, so the urban town is
-complete. Then, in this order:
+complete. `opts` supplies `bounds = result.plan.bounds` and the composed
+`structures` returned by `preflight.check_outskirts`; these must be passed
+explicitly. The required environment callbacks are `place_structure`,
+`get_node`, `check_door`, and `setup_nodes`, along with `terrain`. Then, in this
+order:
 
 1. **Terraform every plot**, one `terrain.terraform(plan, nil, options)` call per
    plot with `options.protected`. A `false` or `stats.unloaded_blocks > 0` marks that plot skipped
@@ -441,8 +446,9 @@ Risks, stated plainly:
 - A plot can be terraformed and then fail to place, or its hut door can be
   unreachable. These are warnings, not failures (the terrain stays modified);
   only an engine error that is raised (not returned) is a `write_failed`, with
-  every attempted box (urban box and each plot's `stats.written`); no retry, no
-  rollback.
+  every attempted terrain volume, schematic placement box, and reported
+  `stats.written` box. The caller combines these with the completed urban
+  builder's write box; no retry or rollback is attempted.
 - Towns no longer writes outskirts terrain through its own region, so the
   fresh-region-per-commit rule of the earlier design does not apply. If Towns
   ever writes a region again it must open it just before its own commit.

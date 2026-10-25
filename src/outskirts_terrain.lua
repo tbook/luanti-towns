@@ -1,13 +1,11 @@
 -- Small adapter for Living Villages' public living_villages.terrain API.
 -- It deliberately knows only how to describe and apply one plot.
 local M = {}
+local SOURCE = debug.getinfo(1, "S").source:sub(2)
+local MODPATH = SOURCE:match("^(.*)/src/outskirts_terrain.lua$") or "."
 
 local function load_sibling(name)
-	local core = rawget(_G, "core")
-	if core and core.get_modpath and core.get_current_modname then
-		return dofile(core.get_modpath(core.get_current_modname()) .. "/src/" .. name)
-	end
-	return dofile("src/" .. name)
+	return dofile(MODPATH .. "/src/" .. name)
 end
 local DEFAULT_PROTECT_MARGIN = load_sibling("outskirts.lua").CONSTANTS.PROTECT_MARGIN
 

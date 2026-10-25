@@ -2,6 +2,8 @@
 -- Terrain inspection is owned by the caller: next() yields one candidate,
 -- then accept() or reject() resolves it before the next attempt is requested.
 local M = {}
+local SOURCE = debug.getinfo(1, "S").source:sub(2)
+local MODPATH = SOURCE:match("^(.*)/src/outskirts.lua$") or "."
 
 M.CONSTANTS = {
 	VERSION = 1, FARM_COUNT = 18, HUT_COUNT = 6, VILLA_COUNT = 2, CHAPEL_COUNT = 1,
@@ -12,15 +14,10 @@ M.CONSTANTS = {
 }
 
 local function load_geometry()
-	local core = rawget(_G, "core")
-	if core and core.get_modpath and core.get_current_modname then
-		return dofile(core.get_modpath(core.get_current_modname()) .. "/src/geometry.lua")
-	end
-	return dofile("src/geometry.lua")
+	return dofile(MODPATH .. "/src/geometry.lua")
 end
 local geometry = load_geometry()
-local placement = dofile((rawget(_G, "core") and core.get_modpath and core.get_current_modname)
-	and core.get_modpath(core.get_current_modname()) .. "/src/placement.lua" or "src/placement.lua")
+local placement = dofile(MODPATH .. "/src/placement.lua")
 
 function M.new_rng(seed)
 	local state = (seed * 31 + M.CONSTANTS.SALT) % 2147483646 + 1
@@ -219,10 +216,7 @@ function M.assets(urban_entries)
 	if type(urban_entries) ~= "table" then
 		return nil, "outskirts_error", "urban catalog entries are required"
 	end
-	local core = rawget(_G, "core")
-	local modpath = core and core.get_modpath and core.get_current_modname
-		and core.get_modpath(core.get_current_modname()) or "."
-	local rural_ok, rural = pcall(dofile, modpath .. "/schematics/outskirts/catalog.lua")
+	local rural_ok, rural = pcall(dofile, MODPATH .. "/schematics/outskirts/catalog.lua")
 	if not rural_ok then
 		return nil, "outskirts_dependency", "outskirts catalog unavailable: " .. tostring(rural)
 	end
@@ -292,9 +286,7 @@ function M.search(result, opts, done, env)
 		and type(env.get_node_name) == "function" and type(env.node_info) == "function"
 		and type(env.after) == "function", "outskirts search environment is incomplete")
 
-	local core = rawget(_G, "core")
-	local modpath = core and core.get_modpath and core.get_current_modname
-		and core.get_modpath(core.get_current_modname()) or "."
+	local modpath = MODPATH
 	local terrain_adapter = dofile(modpath .. "/src/outskirts_terrain.lua")
 	local valid, dep_code, dep_message = terrain_adapter.available(opts.terrain)
 	if not valid then
@@ -303,9 +295,7 @@ function M.search(result, opts, done, env)
 	end
 	local urban_entries = opts.assets
 	if urban_entries == nil then
-		local core = rawget(_G, "core")
-		local modpath = core and core.get_modpath and core.get_current_modname
-			and core.get_modpath(core.get_current_modname()) or "."
+		local modpath = MODPATH
 		local catalog_ok, catalog = pcall(dofile, modpath .. "/src/catalog.lua")
 		if not catalog_ok then
 			pcall(done, nil, "urban catalog unavailable: " .. tostring(catalog), "outskirts_dependency")
