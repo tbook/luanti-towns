@@ -19,6 +19,8 @@ local function load_geometry()
 	return dofile("src/geometry.lua")
 end
 local geometry = load_geometry()
+local placement = dofile((rawget(_G, "core") and core.get_modpath and core.get_current_modname)
+	and core.get_modpath(core.get_current_modname()) .. "/src/placement.lua" or "src/placement.lua")
 
 function M.new_rng(seed)
 	local state = (seed * 31 + M.CONSTANTS.SALT) % 2147483646 + 1
@@ -205,6 +207,334 @@ function M.new(plan, seed, entries, player_pos)
 		return self
 	end
 	return state
+end
+
+-- M.assets(urban_entries) -> merged_entries | nil, error_kind, message.
+-- Return a private id -> entry lookup for the rural planner. `urban_entries`
+-- is the normal catalog lookup (it supplies shared entries such as chapel);
+-- rural entries are read from their separate catalog and never added to it.
+-- Catalog load/missing-class failures are dependency errors; id collisions or
+-- malformed urban records are programming errors.
+function M.assets(urban_entries)
+	if type(urban_entries) ~= "table" then
+		return nil, "outskirts_error", "urban catalog entries are required"
+	end
+	local core = rawget(_G, "core")
+	local modpath = core and core.get_modpath and core.get_current_modname
+		and core.get_modpath(core.get_current_modname()) or "."
+	local rural_ok, rural = pcall(dofile, modpath .. "/schematics/outskirts/catalog.lua")
+	if not rural_ok then
+		return nil, "outskirts_dependency", "outskirts catalog unavailable: " .. tostring(rural)
+	end
+	if type(rural) ~= "table" then
+		return nil, "outskirts_dependency", "outskirts catalog did not return an entry table"
+	end
+	local merged = {}
+	for id, entry in pairs(urban_entries) do
+		if type(id) ~= "string" or type(entry) ~= "table" then
+			return nil, "outskirts_error", "urban catalog contains a malformed entry"
+		end
+		merged[id] = entry
+	end
+	for id, entry in pairs(rural) do
+		if merged[id] ~= nil then
+			return nil, "outskirts_error", "outskirts asset id conflicts with urban catalog: " .. id
+		end
+		merged[id] = entry
+	end
+	return merged
+end
+
+M.CONSTANTS.EMERGE_TIMEOUT = 30
+M.CONSTANTS.MAX_CONSECUTIVE_TIMEOUTS = 3
+M.CONSTANTS.PUMP_BUDGET = 8
+
+local function median(values)
+	table.sort(values)
+	return values[math.floor((#values + 1) / 2)]
+end
+
+local function volume_box(volume)
+	local function position(p)
+		return type(p) == "table" and type(p.x) == "number" and type(p.y) == "number"
+			and type(p.z) == "number" and p.x == math.floor(p.x) and p.y == math.floor(p.y)
+			and p.z == math.floor(p.z)
+	end
+	assert(type(volume) == "table" and position(volume.minp) and position(volume.maxp),
+		"Living Villages terrain.volume returned an invalid volume")
+	assert(volume.minp.x <= volume.maxp.x and volume.minp.y <= volume.maxp.y
+		and volume.minp.z <= volume.maxp.z, "Living Villages terrain.volume returned inverted bounds")
+	return volume.minp, volume.maxp
+end
+
+-- M.search(urban_result, opts, done, env)
+--
+-- Read-only async outskirts search after site_search has accepted an urban
+-- result. opts.assets is the urban id -> entry catalog; opts.terrain is
+-- living_villages.terrain; opts.player_pos is the original player position.
+-- env follows site_search: emerge(minp,maxp,cb), get_node_name(x,y,z),
+-- node_info(name), after(seconds,fn), and optional log(level,message).
+-- done(out, message, kind) runs once: success returns the outskirts result;
+-- failures use kind "outskirts_dependency" or "outskirts_error". Candidate
+-- volumes are emerged and checked first; after planning, every accepted plot
+-- gets a second known-ground volume emerge before success.
+function M.search(result, opts, done, env)
+	assert(type(result) == "table" and type(result.plan) == "table"
+		and type(result.plan.bounds) == "table", "accepted urban result with plan.bounds is required")
+	assert(type(result.ground_y) == "number" and type(result.plan.seed) == "number",
+		"accepted urban result must contain ground_y and plan.seed")
+	assert(type(result.center) == "table" and type(result.plan.center) == "table"
+		and result.center.x == result.plan.center.x and result.center.z == result.plan.center.z,
+		"accepted urban result centre must match plan.center")
+	assert(type(opts) == "table", "outskirts search options are required")
+	assert(type(done) == "function", "outskirts search done callback is required")
+	assert(type(env) == "table" and type(env.emerge) == "function"
+		and type(env.get_node_name) == "function" and type(env.node_info) == "function"
+		and type(env.after) == "function", "outskirts search environment is incomplete")
+
+	local core = rawget(_G, "core")
+	local modpath = core and core.get_modpath and core.get_current_modname
+		and core.get_modpath(core.get_current_modname()) or "."
+	local terrain_adapter = dofile(modpath .. "/src/outskirts_terrain.lua")
+	local valid, dep_code, dep_message = terrain_adapter.available(opts.terrain)
+	if not valid then
+		pcall(done, nil, dep_message, dep_code)
+		return
+	end
+	local urban_entries = opts.assets
+	if urban_entries == nil then
+		local core = rawget(_G, "core")
+		local modpath = core and core.get_modpath and core.get_current_modname
+			and core.get_modpath(core.get_current_modname()) or "."
+		local catalog_ok, catalog = pcall(dofile, modpath .. "/src/catalog.lua")
+		if not catalog_ok then
+			pcall(done, nil, "urban catalog unavailable: " .. tostring(catalog), "outskirts_dependency")
+			return
+		end
+		urban_entries = catalog.entries
+	end
+	local merged, asset_code, asset_message = M.assets(urban_entries)
+	if not merged then
+		pcall(done, nil, asset_message, asset_code)
+		return
+	end
+	local entries = merged
+	local required = {farm = true, hut = true}
+	local town_type = result.plan.town_type or result.plan.type
+	if town_type == "roman" then required.villa = true elseif town_type == "medieval" then required.chapel = true end
+	for class in pairs(required) do
+		local found = false
+		for id, entry in pairs(entries) do
+			if entry.class == class or (class == "chapel" and (entry.role == "chapel" or id == "chapel")) then
+				found = true; break
+			end
+		end
+		if not found then
+			pcall(done, nil, "required outskirts asset class is missing: " .. class, "outskirts_dependency")
+			return
+		end
+	end
+
+	local finished, running, waiting, continuation = false, false, false, nil
+	local timeouts, transitions = 0, 0
+	local out_result, final_index
+	local logf = env.log or function() end
+	local function finish(out, message, kind)
+		if finished then return end
+		finished = true
+		local called, err = pcall(done, out, message, kind)
+		if not called then pcall(logf, "error", "towns outskirts: done callback raised: " .. tostring(err)) end
+	end
+	local function fatal(message, kind)
+		finish(nil, "internal error in outskirts: " .. tostring(message), kind or "outskirts_error")
+	end
+	local state_ok, state = pcall(M.new, result.plan, result.plan.seed, entries, opts.player_pos)
+	if not state_ok then
+		fatal(state)
+		return
+	end
+	local function reject(candidate, code, detail)
+		state:reject(candidate, code, detail)
+	end
+	local pump
+	local function emerge(minp, maxp, callback)
+		waiting = true
+		local settled = false
+		local function settle(status)
+			if settled or finished then return end
+			settled, waiting = true, false
+			continuation = function() callback(status) end
+			pump()
+		end
+		env.emerge(minp, maxp, function(success) settle(success and "ok" or "failed") end)
+		if not settled then
+			env.after(M.CONSTANTS.EMERGE_TIMEOUT, function() settle("timeout") end)
+		end
+	end
+	local function emerge_failure(status, candidate)
+		if status == "ok" then timeouts = 0; return false end
+		local label = candidate.id .. ":a" .. candidate.attempt
+		if status == "timeout" then
+			timeouts = timeouts + 1
+			if timeouts >= M.CONSTANTS.MAX_CONSECUTIVE_TIMEOUTS then
+				fatal("three consecutive terrain emerge requests timed out", "outskirts_dependency")
+				return true
+			end
+		else
+			timeouts = 0
+		end
+		reject(candidate, "emerge_failed", status == "timeout"
+			and ("terrain emerge timed out for " .. label) or ("terrain emerge failed for " .. label))
+		return true
+	end
+	local function terrain_volume(candidate, ground_y)
+		local entry = entries[candidate.asset]
+		local plan, schematic = terrain_adapter.mapping(candidate, entry, result.plan.bounds)
+		local options = {}
+		if ground_y then
+			plan[1].pos.y = ground_y
+		else
+			options.surface_y = {min = result.ground_y - M.CONSTANTS.SCAN_DOWN,
+				max = result.ground_y + M.CONSTANTS.SCAN_UP}
+		end
+		local volume, why = terrain_adapter.volume(opts.terrain, plan, schematic, options)
+		if volume == nil then
+			finish(nil, "Living Villages terrain.volume failed: " .. tostring(why), "outskirts_dependency")
+			return nil
+		end
+		local minp, maxp = volume_box(volume)
+		return minp, maxp
+	end
+	local function inspect(candidate)
+		local heights = {}
+		local min_y, max_y
+		for x = candidate.rect.x1, candidate.rect.x2 do
+			for z = candidate.rect.z1, candidate.rect.z2 do
+				local height, issue, issue_y = placement.scan_column(function(y)
+					return placement.classify(env.get_node_name(x, y, z), env.node_info)
+				end, result.ground_y + M.CONSTANTS.SCAN_UP,
+					result.ground_y - M.CONSTANTS.SCAN_DOWN)
+				if not height then
+					if issue == "unknown" then return nil, "plot_unloaded", ("unloaded node at (%d,%d,%d)"):format(x, issue_y, z) end
+					if issue == "water" then return nil, "plot_water", ("water or ice at (%d,%d,%d)"):format(x, issue_y, z) end
+					return nil, "plot_unloaded", ("no ground in scan window at (%d,%d)"):format(x, z)
+				end
+				heights[#heights + 1] = height
+				min_y = min_y and math.min(min_y, height) or height
+				max_y = max_y and math.max(max_y, height) or height
+			end
+		end
+		if max_y - min_y > M.CONSTANTS.MAX_SPREAD then
+			return nil, "plot_uneven", ("footprint spread %d exceeds %d"):format(max_y - min_y, M.CONSTANTS.MAX_SPREAD)
+		end
+		return {min = min_y, max = max_y}, median(heights)
+	end
+	local function process(candidate)
+		local minp, maxp = terrain_volume(candidate)
+		if finished then return end
+		emerge(minp, maxp, function(status)
+			if emerge_failure(status, candidate) then return end
+			local heights, ground_or_code, detail = inspect(candidate)
+			if not heights then return reject(candidate, ground_or_code, detail) end
+			state:accept(candidate, heights, ground_or_code)
+		end)
+	end
+	local function validate(out)
+		assert(out.seed == result.plan.seed and out.ground_y == result.ground_y,
+			"outskirts result does not match the accepted urban result")
+		assert(type(result.center) == "table" and type(result.plan.center) == "table"
+			and out.center and out.center.x == result.center.x and out.center.z == result.center.z
+			and out.center.x == result.plan.center.x and out.center.z == result.plan.center.z,
+			"outskirts result centre does not match the accepted urban result")
+		assert(out.status == (#out.plots == 0 and "empty" or "planned"), "outskirts status is invalid")
+		local prior = {}
+		for _, plot in ipairs(out.plots) do
+			local entry = assert(entries[plot.asset], "outskirts plot asset is missing")
+			assert(type(plot.ground_y) == "number" and plot.ground_y >= plot.heights.min
+				and plot.ground_y <= plot.heights.max, "outskirts plot ground is outside its measured heights")
+			local placed = geometry.place({size = entry.size,
+				entrance = entry.entrance or {x = 0, y = 1, z = 0}},
+				{x = plot.rect.x1, y = plot.ground_y, z = plot.rect.z1}, plot.rotation)
+			assert(placed.max.x == plot.rect.x2 and placed.max.z == plot.rect.z2,
+				"outskirts plot rectangle differs from its rotated footprint")
+			local fits, code = M.fits(plot.rect, prior, out.protected, opts.player_pos, C)
+			assert(fits, "outskirts plot violates " .. tostring(code))
+			prior[#prior + 1] = plot
+		end
+		for class, count in pairs(out.counts.planned) do
+			local actual = 0
+			for _, plot in ipairs(out.plots) do if plot.class == class then actual = actual + 1 end end
+			assert(count == actual, "outskirts planned count differs for " .. class)
+		end
+	end
+	local function omit_final(plot, status)
+		table.remove(out_result.plots, final_index)
+		out_result.status = #out_result.plots == 0 and "empty" or "planned"
+		out_result.counts.planned[plot.class] = out_result.counts.planned[plot.class] - 1
+		out_result.counts.rejected.emerge_failed = (out_result.counts.rejected.emerge_failed or 0) + 1
+		out_result.rejections[#out_result.rejections + 1] = {
+			stage = "emerge", code = "emerge_failed", subject = plot.id .. ":final",
+			detail = status == "timeout" and "final terrain emerge timed out" or "final terrain emerge failed",
+		}
+	end
+	local finalize_plot
+	finalize_plot = function()
+		local plot = out_result.plots[final_index]
+		if not plot then
+			validate(out_result)
+			finish(out_result)
+			return
+		end
+		local minp, maxp = terrain_volume(plot, plot.ground_y)
+		if finished then return end
+		emerge(minp, maxp, function(status)
+			if status == "ok" then
+				timeouts = 0
+				final_index = final_index + 1
+			else
+				if status == "timeout" then
+					timeouts = timeouts + 1
+					if timeouts >= M.CONSTANTS.MAX_CONSECUTIVE_TIMEOUTS then
+						fatal("three consecutive terrain emerge requests timed out", "outskirts_dependency")
+						return
+					end
+				else
+					timeouts = 0
+				end
+				omit_final(plot, status)
+			end
+			finalize_plot()
+		end)
+	end
+	pump = function()
+		if running or finished or waiting then return end
+		running = true
+		local ok_pump, err = pcall(function()
+			while not finished and not waiting and transitions < M.CONSTANTS.PUMP_BUDGET do
+				transitions = transitions + 1
+				if continuation then
+					local next_step = continuation; continuation = nil; next_step()
+				else
+					local candidate = state:next()
+					if not candidate then
+						out_result = state:result(result.ground_y)
+						final_index = 1
+						finalize_plot()
+					else
+						process(candidate)
+					end
+				end
+			end
+		end)
+		running = false
+		if not ok_pump then fatal(err); return end
+		if not finished and not waiting and (continuation or transitions >= M.CONSTANTS.PUMP_BUDGET) then
+			transitions = 0
+			local scheduled, schedule_error = pcall(env.after, 0, pump)
+			if not scheduled then fatal(schedule_error) end
+		end
+	end
+	pump()
 end
 
 return M

@@ -390,6 +390,7 @@ run_group("tests/medieval_variation_tests.lua", eq, fails, dofile("src/planner.l
 run_group("tests/outskirts_contract_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
 run_group("tests/outskirts_terrain_tests.lua", eq)
 run_group("tests/outskirts_planner_tests.lua", eq)
+run_group("tests/outskirts_search_tests.lua", eq)
 
 -- Jail reservation on street frontage (ticket #69).
 run_group("tests/jail_reservation_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
