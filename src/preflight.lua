@@ -78,6 +78,7 @@ local plan_sites = load_sibling("plan_sites.lua")
 local source = debug.getinfo(1, "S").source:sub(2)
 local modpath = source:match("^(.*)/src/preflight.lua$") or "."
 local objects = dofile(modpath .. "/schematics/objects/catalog.lua")
+local outskirts_contract = dofile(modpath .. "/src/outskirts.lua")
 
 -- Outdoor assets have their own catalog; resolve them alongside buildings
 -- for preflight, vertical bounds, placement and node initialization.
@@ -215,6 +216,106 @@ function M.compose(plan, entries, ground_y)
 	end
 	return {structures = list, min_y = min_y, max_y = max_y}
 end
+
+-- Compose the independently grounded plots from an outskirts result. Each
+-- plot's rect is its own footprint bounds; urban bounds intentionally do not
+-- constrain rural structures.
+function M.compose_outskirts(out, entries)
+	if type(out) ~= "table" or type(out.plots) ~= "table" or type(entries) ~= "table" then
+		return nil, "outskirts result and entries are required", "geometry"
+	end
+	local list = {}
+	for _, plot in ipairs(out.plots) do
+		if type(plot) ~= "table" or type(plot.rect) ~= "table" or not is_int(plot.ground_y) then
+			return nil, "outskirts plot is malformed", "geometry"
+		end
+		local kind = plot.class == "farm" and "object" or "outskirts"
+		local st, why, code = resolve(entries, plot.ground_y, plot.rect, plot.asset, kind,
+			plot.class, plot.rotation, plot.rect)
+		if not st then return nil, why, code == "missing_entry" and "missing_entry" or "geometry" end
+		st.plot, st.site_ground_y = plot.id, plot.ground_y
+		list[#list + 1] = st
+	end
+	for i = 1, #list do
+		for j = i + 1, #list do
+			if overlap(list[i].rect, list[j].rect) then
+				return nil, "outskirts plots overlap", "geometry"
+			end
+		end
+	end
+	local min_y, max_y
+	for _, st in ipairs(list) do
+		min_y = not min_y and st.min.y or math.min(min_y, st.min.y)
+		max_y = not max_y and st.max.y or math.max(max_y, st.max.y)
+	end
+	return {structures = list, min_y = min_y, max_y = max_y}
+end
+
+-- Outskirts preflight intentionally reads only catalog files and node
+-- registrations. It is read-only and validates each rural asset once.
+function M.check_outskirts(out, env, params)
+	params = params or {}
+	local comp, why, code = M.compose_outskirts(out, params.entries)
+	if not comp then
+		local dep = code == "missing_entry"
+		return nil, "Invalid outskirts: " .. tostring(why), dep and "outskirts_dependency" or "outskirts_error"
+	end
+	local bounds = params.plan and params.plan.bounds
+	if type(bounds) ~= "table" then return nil, "Outskirts preflight needs urban plan bounds", "outskirts_error" end
+	local margin = outskirts_contract.CONSTANTS.PROTECT_MARGIN
+	local protected = {x0 = bounds.x1, z0 = bounds.z1, x1 = bounds.x2, z1 = bounds.z2, margin = margin}
+	local player = params.player
+	local function gap(a, b)
+		return math.max(a.x1 - b.x2, b.x1 - a.x2, a.z1 - b.z2, b.z1 - a.z2)
+	end
+	for _, st in ipairs(comp.structures) do
+		for _, axis in ipairs({"x", "y", "z"}) do
+			if math.abs(st.min[axis]) > (params.limit or M.LIMIT)
+					or math.abs(st.max[axis]) > (params.limit or M.LIMIT) then
+				return nil, "Outskirts structure exceeds coordinate limit", "outskirts_error"
+			end
+		end
+		if overlap(st.rect, bounds) or protected and overlap(st.rect, {
+			x1 = protected.x0 - (protected.margin or 0), z1 = protected.z0 - (protected.margin or 0),
+			x2 = protected.x1 + (protected.margin or 0), z2 = protected.z1 + (protected.margin or 0)}) then
+			return nil, "Outskirts plot touches protected town bounds", "outskirts_error"
+		end
+		if player and gap(st.rect, {x1 = player.x, z1 = player.z, x2 = player.x, z2 = player.z})
+				< M.OUTSKIRTS_PLAYER_MARGIN then
+			return nil, "Outskirts plot is too close to the player", "outskirts_error"
+		end
+	end
+	local ids, files, nodes = {}, 0, {}
+	local prefix = (params.modpath or "") .. (params.modpath and "/" or "")
+	for _, st in ipairs(comp.structures) do ids[st.id] = true end
+	local ordered = {}; for id in pairs(ids) do ordered[#ordered + 1] = id end; table.sort(ordered)
+	for _, id in ipairs(ordered) do
+		local e = params.entries[id]
+		local ok, s = pcall(env.read_schematic, prefix .. tostring(e.path or ""))
+		if not ok or type(s) ~= "table" or type(s.size) ~= "table" then
+			return nil, "Outskirts schematic is missing or unreadable: " .. id, "outskirts_dependency"
+		end
+		if s.size.x ~= e.size.x or s.size.y ~= e.size.y or s.size.z ~= e.size.z then
+			return nil, "Outskirts schematic size mismatch: " .. id, "outskirts_dependency"
+		end
+		files = files + 1
+		for _, n in ipairs(s.data or {}) do if n.name and n.name ~= "air" and n.name ~= "ignore" then nodes[n.name] = true end end
+		if e.data_path then
+			local dok, d = pcall(env.read_data, prefix .. e.data_path)
+			if not dok or type(d) ~= "table" or type(d.required_nodes) ~= "table" then
+				return nil, "Outskirts data file is missing or unreadable: " .. id, "outskirts_dependency"
+			end
+			for _, n in ipairs(d.required_nodes) do nodes[n] = true end
+		end
+	end
+	for n in pairs(nodes) do
+		local ok, known = pcall(env.node_registered, n)
+		if not ok or not known then return nil, "Required outskirts node is not registered: " .. n, "outskirts_dependency" end
+	end
+	return {structures = comp.structures, files = files, nodes = nodes}
+end
+
+M.OUTSKIRTS_PLAYER_MARGIN = 16
 
 local function box_ok(b)
 	if type(b) ~= "table" or type(b.min) ~= "table" or type(b.max) ~= "table" then return false end
