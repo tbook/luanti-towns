@@ -9,7 +9,7 @@ local seed = tonumber(core.settings:get('towns_place_check_seed')) or 5
 -- nil = medieval; 'roman' selects the authored Roman plan (run.py --town-type).
 local town_type = core.settings:get('towns_place_check_town_type')
 if town_type == '' then town_type = nil end
-local entries = towns.preflight.entries(towns.catalog.entries)
+local entries = assert(towns.outskirts.assets(towns.preflight.entries(towns.catalog.entries)))
 local report = {seed = seed, town_type = town_type or 'medieval', checks = {}, failures = {}}
 local function check(ok, label)
  report.checks[#report.checks + 1] = {ok = ok and true or false, label = label}

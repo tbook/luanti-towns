@@ -17,6 +17,10 @@ towns.preflight = dofile(modpath .. "/src/preflight.lua")
 -- Read-only nearby site search and terrain inspection (no world writes).
 towns.site_search = dofile(modpath .. "/src/site_search.lua")(towns.placement, towns.planner)
 
+-- Scattered rural plots around an accepted urban site (#237).
+towns.outskirts = dofile(modpath .. "/src/outskirts.lua")
+towns.outskirts_build = dofile(modpath .. "/src/outskirts_build.lua")
+
 -- Post-placement initialization of functional nodes (#46); used by the
 -- /towns_generate only.
 towns.node_setup = dofile(modpath .. "/src/node_setup.lua")
