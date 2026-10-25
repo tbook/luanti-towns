@@ -546,6 +546,59 @@ do -- complete report
 	eq(has(t, "Unmet target: well wanted 3, placed 1 (no_candidates)."), true, "populated: unmet")
 end
 
+do -- outskirts counts, partial skips, warnings and terraform stats
+	local s = populated()
+	s.town.urban_placed = s.town.placed
+	s.town.urban_structure_count = #s.town.structures
+	s.town.structures[#s.town.structures + 1] = box("farm", "object", "farm", 60)
+	s.town.structures[#s.town.structures + 1] = box("farm", "object", "farm", 65)
+	s.town.structures[#s.town.structures + 1] = box("shepherd_hut", "outskirts", "hut", 70)
+	s.town.placed = 9 -- combined count includes the three countryside structures
+	s.outskirts = {
+		counts = {requested = {farm = 4, hut = 2, villa = 1},
+			planned = {farm = 3, hut = 2, villa = 1}, rejected = {plot_water = 2, no_site = 1}},
+		structures = {{role = "farm"}, {role = "farm"}, {role = "hut"}},
+		skipped = {{plot = "v02", code = "terraform_incomplete", reason = "unloaded blocks: 2"},
+			{plot = "f03", code = "terraform_declined", reason = "terrain API declined"}},
+		warnings = {{plot = "h02", code = "door_unreachable", reason = "no route"}},
+		terraform = {{stats = {changed = 12, cut = 4, filled = 8, steepest = 2,
+			steps_over_one = 3, walls = 1, wall_max = 2, unloaded_blocks = 0}},
+			{stats = {changed = 5, cut = 1, filled = 4, steepest = 4,
+				steps_over_one = 1, walls = 2, wall_max = 5, unloaded_blocks = 0}},
+			{code = "terraform_declined"}},
+	}
+	local t = table.concat(generate.format_report(s), "\n")
+	eq(has(t, "Placed 6 buildings; all 6 door approach routes are walkable."), true,
+		"outskirts do not inflate urban building count")
+	eq(has(t, "Outdoor objects: 0 trees and gardens."), false, "rural farm does not appear as an urban object")
+	eq(has(t, "Catalog ids: castle x1"), true, "urban catalog ids remain present")
+	eq(has(t, "farm x1"), false, "rural catalog id stays out of urban catalog ids")
+	eq(has(t, "Outskirts placed: farms 2/4, huts 1/2, villas 0/1."), true, "outskirts per-kind counts")
+	eq(has(t, "Outskirts candidate rejections: no_site x1, plot_water x2."), true, "outskirts candidate rejection counts")
+	eq(has(t, "Outskirts skipped v02: terraform_incomplete (unloaded blocks: 2)."), true, "outskirts skip reason")
+	eq(has(t, "Outskirts skipped f03: terraform_declined (terrain API declined)."), true, "outskirts decline reason")
+	eq(has(t, "Outskirts warning h02: door_unreachable (no route)."), true, "outskirts warning")
+	eq(has(t, "Town built but INCOMPLETE"), false, "outskirts omissions do not fail the urban build")
+	eq(has(t, "Outskirts terraform: 17 changed columns (5 cut, 12 filled), steepest 4, 4 steps over one, walls 3 (max 5), 0 unloaded blocks."), true,
+		"outskirts counters sum and peak stats use Living Villages fields")
+	local empty = populated()
+	empty.outskirts = {counts = {requested = {farm = 18, hut = 6, villa = 0, chapel = 1},
+		planned = {}, rejected = {}}, structures = {}, terraform = {}}
+	t = table.concat(generate.format_report(empty), "\n")
+	eq(has(t, "Outskirts terraform:"), false, "empty outskirts stats are omitted")
+	eq(has(t, "Outskirts placed: farms 0/18, huts 0/6, villas 0/0, chapels 0/1."), true,
+		"empty outskirts reports requested counts")
+	empty.outskirts.terraform = {{stats = {changed = 0, cut = 0, filled = 0,
+		steepest = 0, steps_over_one = 0, walls = 0, wall_max = 0, unloaded_blocks = 0}}}
+	t = table.concat(generate.format_report(empty), "\n")
+	eq(has(t, "Outskirts terraform: 0 changed columns"), true, "numeric zero stats are reported")
+	local full = populated()
+	full.outskirts = {counts = {requested = {farm = 1, hut = 1}, planned = {farm = 1, hut = 1}, rejected = {}},
+		structures = {{role = "farm"}, {role = "hut"}}, terraform = {}}
+	t = table.concat(generate.format_report(full), "\n")
+	eq(has(t, "Outskirts placed: farms 1/1, huts 1/1."), true, "full outskirts counts are reported")
+end
+
 do -- success through the controller releases the lock
 	local f = fakes({build_result = function() return populated() end})
 	f.c.run("alice", "5")

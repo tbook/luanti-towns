@@ -249,9 +249,73 @@ function M.format_report(summary, command)
 				(site.candidates_tried - 1) or 0, table.concat(codes, ", "))
 		end
 	end
+	local outskirts = s.outskirts
+	if type(outskirts) == "table" then
+		local labels = {farm = "farms", hut = "huts", villa = "villas", chapel = "chapels"}
+		local counts = outskirts.counts or {}
+		local requested = counts.requested or {}
+		local actual = {}
+		for _, b in ipairs(outskirts.structures or {}) do
+			local class = b.role
+			if labels[class] then actual[class] = (actual[class] or 0) + 1 end
+		end
+		local parts = {}
+		for _, class in ipairs({"farm", "hut", "villa", "chapel"}) do
+			local want = tonumber(requested[class])
+			if want then
+				parts[#parts + 1] = ("%s %d/%d"):format(labels[class], actual[class] or 0, want)
+			end
+		end
+		if #parts > 0 then add("Outskirts placed: %s.", table.concat(parts, ", ")) end
+		local rejected = counts.rejected
+		if type(rejected) == "table" and next(rejected) then
+			local codes = {}
+			for code, n in pairs(rejected) do codes[#codes + 1] = code .. " x" .. n end
+			table.sort(codes)
+			add("Outskirts candidate rejections: %s.", table.concat(codes, ", "))
+		end
+		local skipped = outskirts.skipped or {}
+		for _, item in ipairs(skipped) do
+			if item.code and item.reason then
+				add("Outskirts skipped %s: %s (%s).", tostring(item.plot), tostring(item.code), tostring(item.reason))
+			else
+				add("Outskirts skipped %s: %s.", tostring(item.plot), tostring(item.code or item.reason))
+			end
+		end
+		for _, item in ipairs(outskirts.warnings or {}) do
+			add("Outskirts warning %s: %s (%s).", tostring(item.plot), tostring(item.code), tostring(item.reason))
+		end
+		local totals, has_stats = {}, false
+		for _, item in ipairs(outskirts.terraform or {}) do
+			local stats = item.stats
+			if type(stats) == "table" then
+				for _, key in ipairs({"changed", "cut", "filled", "steepest", "steps_over_one",
+						"walls", "wall_max", "unloaded_blocks"}) do
+					local value = tonumber(stats[key])
+					if value then
+						has_stats = true
+						if key == "steepest" or key == "wall_max" then
+							totals[key] = math.max(totals[key] or value, value)
+						else
+							totals[key] = (totals[key] or 0) + value
+						end
+					end
+				end
+			end
+		end
+		if has_stats then
+			add("Outskirts terraform: %d changed columns (%d cut, %d filled), steepest %d, %d steps over one, walls %d (max %d), %d unloaded blocks.",
+				totals.changed or 0, totals.cut or 0, totals.filled or 0,
+				totals.steepest or 0, totals.steps_over_one or 0, totals.walls or 0,
+				totals.wall_max or 0, totals.unloaded_blocks or 0)
+		end
+	end
 	if s.town then
 		local kinds, ids, idorder = {}, {}, {}
-		for _, b in ipairs(s.town.structures or {}) do
+		local structures = s.town.structures or {}
+		local urban_structure_count = s.town.urban_structure_count or #structures
+		for index, b in ipairs(structures) do
+			if index > urban_structure_count then break end
 			kinds[b.kind] = (kinds[b.kind] or 0) + 1
 			if not ids[b.id] then ids[b.id] = 0; idorder[#idorder + 1] = b.id end
 			ids[b.id] = ids[b.id] + 1
@@ -260,14 +324,15 @@ function M.format_report(summary, command)
 					b.entrance.x, b.entrance.y, b.entrance.z)
 			end
 		end
+		local urban_placed = s.town.urban_placed or s.town.placed
 		add("Placed %d buildings; all %d door approach routes are walkable.",
-			s.town.placed - (kinds.object or 0), #s.town.doors)
+			urban_placed - (kinds.object or 0), #s.town.doors)
 		if kinds.object then add("Outdoor objects: %d trees and gardens.", kinds.object) end
 		if s.town.structures then
 			-- Separate outdoor objects from all building categories; named
 			-- landmarks include the Roman monuments.
 			add("Buildings: %d landmarks/city hall/jail, %d services, %d houses/shops/workshops.",
-				#s.town.structures - (kinds.service or 0) - (kinds.content or 0) - (kinds.object or 0),
+				urban_structure_count - (kinds.service or 0) - (kinds.content or 0) - (kinds.object or 0),
 				kinds.service or 0, kinds.content or 0)
 			table.sort(idorder)
 			local parts = {}

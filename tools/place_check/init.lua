@@ -1,6 +1,6 @@
 -- Headless disposable-world check for ticket #45; only ever installed in a
 -- scratch world by tools/place_check/run.py. It searches for a site in the
--- flat scratch world, builds a town with real schematics through the
+-- disposable scratch world, builds a town with real schematics through the
 -- production code (towns.populated, driven through the /towns_generate controller) and re-reads the world to verify the
 -- result independently of the builder's own checks. Ticket #46 additions:
 -- functional node initialization, idempotence and Living Villages
@@ -11,11 +11,13 @@ local town_type = core.settings:get('towns_place_check_town_type')
 if town_type == '' then town_type = nil end
 local entries = assert(towns.outskirts.assets(towns.preflight.entries(towns.catalog.entries)))
 local report = {seed = seed, town_type = town_type or 'medieval', checks = {}, failures = {}}
+local original_emerge_area, emerge_wrapped = core.emerge_area, false
 local function check(ok, label)
  report.checks[#report.checks + 1] = {ok = ok and true or false, label = label}
  if not ok then report.failures[#report.failures + 1] = label end
 end
 local function finish()
+ if emerge_wrapped then core.emerge_area = original_emerge_area; emerge_wrapped = false end
  report.ok = #report.failures == 0
  local f = assert(io.open(core.get_worldpath() .. '/place-check.json', 'w'))
  f:write(core.write_json(report, true))
@@ -115,6 +117,8 @@ end
 -- edge and deep pockets under the ground, and searches again. The checks
 -- below confirm the site is accepted and the finished town is dry.
 local scenario = core.settings:get('towns_place_check_scenario') or ''
+local timing = {search_ms = 0}
+local terrain = rawget(_G, 'living_villages') and living_villages.terrain
 local PLAYER_POS = {x = 0, y = 9, z = 0}
 local WATER, STONE = 'mcl_core:water_source', 'mcl_core:stone'
 local function prepare_world(result)
@@ -143,7 +147,17 @@ local function prepare_world(result)
  report.scenario = {name = scenario, rect = big, ground_y = g}
 end
 local function search_then(cb)
+ if not emerge_wrapped then
+  timing.emerge_calls = 0
+  core.emerge_area = function(...)
+   timing.emerge_calls = timing.emerge_calls + 1
+   return original_emerge_area(...)
+  end
+  emerge_wrapped = true
+ end
+ local started = core.get_us_time()
  towns.populated.search(PLAYER_POS, seed, town_type, function(result, msg)
+  timing.search_ms = timing.search_ms + (core.get_us_time() - started) / 1000
   if scenario == '' or not result then return cb(result, msg) end
   local ok, e = pcall(prepare_world, result)
   if not ok then return cb(nil, 'scenario setup: ' .. tostring(e)) end
@@ -215,9 +229,17 @@ core.register_on_mods_loaded(function() core.after(0, function()
  local ok, err = pcall(function()
   local root = towns.modpath
   -- The scratch world has no map yet: generate the start area first.
-  core.emerge_area({x = -48, y = -8, z = -48}, {x = 48, y = 40, z = 48}, function(_, action, remaining)
+  core.emerge_area({x = -48, y = -64, z = -48}, {x = 48, y = 128, z = 48}, function(_, action, remaining)
    if remaining > 0 then return end
    assert(action ~= core.EMERGE_CANCELLED and action ~= core.EMERGE_ERRORED, 'start area emerge failed')
+   -- Flat runs keep the historic origin. On a non-flat mapgen, use the
+   -- actual surface at the origin so the production search has a valid player.
+   for y = 128, -64, -1 do
+    local node = core.get_node({x = 0, y = y, z = 0})
+    local def = core.registered_nodes[node.name]
+    if def and def.walkable then PLAYER_POS.y = y + 1; break end
+   end
+   report.player_pos = PLAYER_POS
   -- Drive the production controller (lock, report, failure wording) with
   -- the real search/build halves and a fake player standing at the origin.
   local built, chat = nil, {}
@@ -243,7 +265,21 @@ core.register_on_mods_loaded(function() core.after(0, function()
     end)
    end,
    build = function(r)
+    local started = core.get_us_time()
+    local original_terraform = terrain and terrain.terraform
+    if original_terraform then
+     timing.terraform_calls, timing.terraform_ms = 0, 0
+     terrain.terraform = function(...)
+      local call_started = core.get_us_time()
+      timing.terraform_calls = timing.terraform_calls + 1
+      local result = {original_terraform(...) }
+      timing.terraform_ms = timing.terraform_ms + (core.get_us_time() - call_started) / 1000
+      return unpack(result)
+     end
+    end
     built = {towns.populated.build(r)}
+    if original_terraform then terrain.terraform = original_terraform end
+    timing.build_ms = (core.get_us_time() - started) / 1000
     return unpack(built)
    end,
    send = function(_, m) chat[#chat + 1] = m end,
@@ -255,6 +291,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
     if not result then report.search_failure = msg; check(false, 'site search: ' .. tostring(msg)); return finish() end
     report.center, report.ground_y = result.center, result.ground_y
     local summary, bmsg, code, extra = unpack(built or {})
+    report.timings = timing
     report.build_message, report.build_code = bmsg, code
     check(summary ~= nil, 'build_town succeeded' .. (bmsg and (': ' .. bmsg) or ''))
     if not summary then
@@ -292,6 +329,63 @@ core.register_on_mods_loaded(function() core.after(0, function()
     local town = summary.town
     check(town and town.complete, 'summary marked complete')
     report.counts = {structures = #town.structures, nodes_changed = summary.nodes.changed}
+    if summary.outskirts then
+     local rural = summary.outskirts
+     local placed = {}
+     for _, st in ipairs(rural.structures or {}) do
+      local class = st.role
+      if class then placed[class] = (placed[class] or 0) + 1 end
+     end
+     local terrain = {}
+     for _, row in ipairs(rural.terraform or {}) do
+      local stat = row.stats
+      terrain[#terrain + 1] = {plot = row.plot, code = row.code,
+       changed = stat and stat.changed, cut = stat and stat.cut, filled = stat and stat.filled,
+       steepest = stat and stat.steepest, steps_over_one = stat and stat.steps_over_one,
+       walls = stat and stat.walls, wall_max = stat and stat.wall_max,
+       unloaded_blocks = stat and stat.unloaded_blocks}
+     end
+     report.outskirts = {requested = rural.counts and rural.counts.requested,
+      planned = rural.counts and rural.counts.planned,
+      rejected = rural.counts and rural.counts.rejected, placed = placed,
+      skipped = rural.skipped, warnings = rural.warnings, terraform = terrain}
+    end
+    if summary.outskirts and town.beds then
+     local composters, urban_bed_positions, beds_in_range, urban_beds = {}, {}, 0, 0
+     for _, structure in ipairs(summary.outskirts.structures or {}) do
+      if structure.role == 'farm' then
+       for _, pos in ipairs(core.find_nodes_in_area(structure.min, structure.max,
+         {'mcl_composters:composter'})) do composters[#composters + 1] = pos end
+      end
+     end
+     for _, bed in ipairs(town.beds.beds or {}) do
+      if bed.kind ~= 'outskirts' then
+       urban_beds = urban_beds + 1
+       urban_bed_positions[#urban_bed_positions + 1] = bed.spawn
+       for _, pos in ipairs(composters) do
+        if math.abs(pos.x - bed.spawn.x) <= 48 and math.abs(pos.y - bed.spawn.y) <= 48
+          and math.abs(pos.z - bed.spawn.z) <= 48 then
+         beds_in_range = beds_in_range + 1
+         break
+        end
+       end
+      end
+     end
+     local reachable_composters = 0
+     for _, pos in ipairs(composters) do
+      for _, bed in ipairs(urban_bed_positions) do
+       if math.abs(pos.x - bed.x) <= 48 and math.abs(pos.y - bed.y) <= 48
+         and math.abs(pos.z - bed.z) <= 48 then
+        reachable_composters = reachable_composters + 1
+        break
+       end
+      end
+     end
+     report.farm_job_reach = {urban_beds = urban_beds,
+      beds_with_composter_within_48 = beds_in_range, composters = #composters,
+      composters_with_urban_bed_within_48 = reachable_composters,
+      note = 'geometric bed-spawn reach only; does not observe profession claims or navigation'}
+    end
     -- Re-read every structure against its schematic, rotation by rotation.
     local mismatches, compared, mismatch_samples = 0, 0, {}
     for _, b in ipairs(town.structures) do
