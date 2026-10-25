@@ -59,12 +59,24 @@ result, code = terrain.terraform(api, plan, schematics, protected)
 eq(result, nil, "unloaded blocks are an omission")
 eq(code, "terraform_incomplete", "unloaded omission code")
 
+local safe_corner_writes = {
+	{x = F.bounds.x1 - protected.margin - 1, z = F.bounds.z1 - protected.margin - 1},
+	{x = F.bounds.x2 + protected.margin + 1, z = F.bounds.z2 + protected.margin + 1},
+}
+for _, pos in ipairs(safe_corner_writes) do
+	local inside = pos.x >= protected.x0 - protected.margin and pos.x <= protected.x1 + protected.margin
+		and pos.z >= protected.z0 - protected.margin and pos.z <= protected.z1 + protected.margin
+	eq(inside, false, "each corner write is outside protected rectangle")
+end
 api.terraform = function() return true, {written = {
-	minp = {x = F.bounds.x1 - protected.margin, z = F.bounds.z1},
-	maxp = {x = F.bounds.x1 - protected.margin, z = F.bounds.z1},
+	-- The axis-aligned envelope of the two disjoint safe writes crosses protection.
+	minp = {x = safe_corner_writes[1].x, z = safe_corner_writes[1].z},
+	maxp = {x = safe_corner_writes[2].x, z = safe_corner_writes[2].z},
 }} end
-local raised = pcall(terrain.terraform, api, plan, schematics, protected)
-eq(raised, false, "write on protected margin boundary is a programming error")
+local corner_ok, corner_stats = terrain.terraform(api, plan, schematics, protected)
+eq(corner_ok, true, "overlapping written envelope does not imply a protected write")
+eq(corner_stats.written.minp.x, F.bounds.x1 - protected.margin - 1, "corner envelope stats are preserved")
+eq(call[3].protected[1], protected, "corner call passes protected rectangle unchanged")
 
 local no_volume = {terraform = function() return true, {} end}
 local no_box, no_box_code = terrain.volume(no_volume, candidate, schematics, opts)

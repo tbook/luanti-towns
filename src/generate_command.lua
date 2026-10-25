@@ -137,6 +137,10 @@ local function build(result)
 		return nil, outskirts_error, "write_failed", outskirts_extra
 	end
 	summary.outskirts = outskirts_summary
+	-- Keep the planner's requested/planned counts beside the build results so
+	-- the player report can distinguish omissions from placement/terraform skips.
+	summary.outskirts.counts = result.outskirts and result.outskirts.counts or nil
+	summary.town.urban_structure_count = #summary.town.structures
 	for _, structure in ipairs(outskirts_summary.structures) do
 		summary.town.structures[#summary.town.structures + 1] = structure
 	end

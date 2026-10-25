@@ -32,7 +32,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
 					local rural_w, rural_d = rural_asset == "villa" and 46 or 9, rural_asset == "villa" and 26 or 8
 					local plots = {
 						{id="f01",class="farm",asset="farm",rotation=0,ground_y=result.ground_y,
-							rect={x1=b.x2+22,z1=b.z1+10,x2=b.x2+30,z2=b.z1+16}},
+							rect={x1=b.x2+5,z1=b.z1+5,x2=b.x2+13,z2=b.z1+11}},
 						{id="r01",class=rural_class,asset=rural_asset,rotation=0,ground_y=result.ground_y,
 							rect={x1=b.x2+85,z1=b.z1+10,x2=b.x2+84+rural_w,z2=b.z1+9+rural_d}},
 					}
@@ -49,8 +49,9 @@ core.register_on_mods_loaded(function() core.after(0, function()
 						local ylo=math.min(result.build_bounds.min.y,lo.y)
 						local yhi=math.max(result.build_bounds.max.y,hi.y)
 						for x=b.x1-4,b.x2+4 do for y=ylo,yhi do for z=b.z1-4,b.z2+4 do
-							local name=core.get_node({x=x,y=y,z=z}).name
-							for i=1,#name do digest=(digest*33+name:byte(i))%2147483647 end
+							local node=core.get_node({x=x,y=y,z=z})
+							for i=1,#node.name do digest=(digest*33+node.name:byte(i))%2147483647 end
+							digest=(digest*33+(node.param2 or 0))%2147483647
 							count=count+1
 						end end end
 						return {digest=digest,count=count}
@@ -61,9 +62,14 @@ core.register_on_mods_loaded(function() core.after(0, function()
 						lo=lo and {x=math.min(lo.x,vol.minp.x),y=math.min(lo.y,vol.minp.y),z=math.min(lo.z,vol.minp.z)} or vol.minp
 						hi=hi and {x=math.max(hi.x,vol.maxp.x),y=math.max(hi.y,vol.maxp.y),z=math.max(hi.z,vol.maxp.z)} or vol.maxp
 					end
-					local urban_snapshot=protected_snapshot()
 					core.emerge_area(lo,hi,function(_, act, rem)
 						if rem>0 then return end
+						-- Put two single-node tree seeds just outside different protected
+						-- edges. Both writes are safe individually, while their bbox spans
+						-- the protected corner. LV clears these from the farm terraform zone.
+						core.set_node({x=b.x2+5,y=result.ground_y+1,z=b.z1},{name="mcl_core:tree"})
+						core.set_node({x=b.x2,y=result.ground_y+1,z=b.z1-5},{name="mcl_core:tree"})
+						local urban_snapshot=protected_snapshot()
 						local e=towns.builder.core_env(core,{schematic=towns.schematic,modpath=towns.modpath,
 							node_setup=towns.node_setup,globals={itemframes=rawget(_G,"mcl_itemframes"),chests=rawget(_G,"mcl_chests")}})
 						e.terrain=terrain
@@ -77,6 +83,18 @@ core.register_on_mods_loaded(function() core.after(0, function()
 							local same=after.digest==urban_snapshot.digest and after.count==urban_snapshot.count
 							report.urban_snapshot=urban_snapshot
 							check(same,"urban structure nodes unchanged after outskirts")
+							local farm_stats=applied.terraform[1] and applied.terraform[1].stats or {}
+							local farm_box=farm_stats.written
+							local protected_box={x1=b.x1-4,z1=b.z1-4,x2=b.x2+4,z2=b.z2+4}
+							local envelope_overlap=farm_box and farm_box.minp.x<=protected_box.x2
+								and farm_box.maxp.x>=protected_box.x1 and farm_box.minp.z<=protected_box.z2
+								and farm_box.maxp.z>=protected_box.z1
+							check((farm_stats.tree_removed or 0)>0,"corner farm terrain cleared nonzero tree nodes")
+							check(core.get_node({x=b.x2+5,y=result.ground_y+1,z=b.z1}).name=="air"
+								and core.get_node({x=b.x2,y=result.ground_y+1,z=b.z1-5}).name=="air",
+								"both safe corner tree writes were applied")
+							check(envelope_overlap,"corner farm written envelope overlaps protection")
+							report.protection_regression={bounds=b,protected_box=protected_box,farm_box=farm_box}
 							check(applied.placed==2,"both real rural schematics placed")
 							check(applied.setup and #applied.setup.failed==0 and #applied.setup.unregistered==0,"rural node setup succeeded")
 							local farm=core.get_node({x=plots[1].rect.x1+4,y=plots[1].ground_y+2,z=plots[1].rect.z1}).name

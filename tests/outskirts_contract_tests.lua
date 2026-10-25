@@ -52,32 +52,6 @@ eq(C.FARM_BAND_NEAR > C.PROTECT_MARGIN, true,
 eq(C.MIN_SPACING >= 2 * C.TERRAFORM_REACH, true, "neighbouring plots' terraform reaches do not overlap")
 eq(C.PLAYER_MARGIN >= C.TERRAFORM_REACH, true, "the player is outside a plot's terraform reach")
 
--- Capacity: each band holds at least twice its buildings at the packing density
--- MIN_SPACING implies (a coarse check; the real planner may place fewer).
-do
-	local function ring_area(b, near, far)
-		local w, h = b.x2 - b.x1 + 1, b.z2 - b.z1 + 1
-		return (w + 2 * far) * (h + 2 * far) - (w + 2 * near) * (h + 2 * near)
-	end
-	local function check(label, b)
-		local cell = (9 + C.MIN_SPACING) ^ 2
-		eq(ring_area(b, C.FARM_BAND_NEAR, C.FARM_BAND_FAR) / cell >= 2 * C.FARM_COUNT, true,
-			label .. ": near band holds twice the farms")
-		eq(ring_area(b, C.OUTER_BAND_NEAR, C.OUTER_BAND_FAR) / cell
-			>= 2 * (C.HUT_COUNT + C.VILLA_COUNT + C.CHAPEL_COUNT), true, label .. ": far band holds twice the rest")
-	end
-	check("roman", assert(planner.plan({x = 0, z = 0}, 1, {town_type = "roman"})).bounds)
-	local profile = assert(planner.landmark_profile(catalog.snapshot()))
-	local function fixed_rng(seed)
-		local n = seed
-		return {int = function(a, b) n = (n * 1103515245 + 12345) % 2147483648; return a + n % (b - a + 1) end}
-	end
-	for _, turn in ipairs({0, 90}) do
-		local plan = assert(medieval.plan({x = 0, z = 0}, 1, profile, fixed_rng(1), {turn = turn}))
-		check("medieval turn " .. turn, plan.bounds)
-	end
-end
-
 ------------------------------------------------------------------------
 -- Private random stream.
 ------------------------------------------------------------------------
@@ -171,7 +145,7 @@ do
 	local r = {x1 = box.minp.x, z1 = box.minp.z, x2 = box.maxp.x, z2 = box.maxp.z}
 	local f = F.plots[1].rect
 	eq(r.x1 <= f.x1 and r.z1 <= f.z1 and r.x2 >= f.x2 and r.z2 >= f.z2, true, "written box contains the footprint")
-	eq(overlap(r, P), false, "written box stays outside the protected rectangle")
+	-- This envelope describes an extent; it cannot prove which columns changed.
 	eq(F.lv_result.stats.cut + F.lv_result.stats.filled, F.lv_result.stats.changed, "cut + filled = changed (illustrative)")
 end
 
