@@ -20,9 +20,17 @@ core.register_on_mods_loaded(function() core.after(0, function()
 			if remaining > 0 then return end
 			assert(action ~= core.EMERGE_CANCELLED and action ~= core.EMERGE_ERRORED, "spawn emerge failed")
 			towns.populated.search({x=0,y=9,z=0}, seed, town_type, function(result, msg)
+				if not result then
+					report.failures[#report.failures+1] = tostring(msg or "urban search failed")
+					report.ok = false
+					return finish(report)
+				end
+				local build_callback_called = false
+				local build_ok, build_error = pcall(towns.populated.build, result,
+				function(summary, bmsg, bcode)
+				if build_callback_called then return end
+				build_callback_called = true
 				local bok, berr = pcall(function()
-					assert(result, msg or "urban search failed")
-					local summary, bmsg, bcode = towns.populated.build(result)
 					assert(summary, tostring(bcode) .. ": " .. tostring(bmsg))
 					local outmod = dofile(towns.modpath .. "/src/outskirts.lua")
 					local entries = assert(outmod.assets(towns.catalog.entries))
@@ -113,6 +121,12 @@ core.register_on_mods_loaded(function() core.after(0, function()
 					end)
 				end)
 				if not bok then report.failures[#report.failures+1]=tostring(berr); report.ok=false; finish(report) end
+				end)
+				if not build_ok and not build_callback_called then
+					report.failures[#report.failures+1] = tostring(build_error)
+					report.ok = false
+					finish(report)
+				end
 			end)
 		end)
 	end)

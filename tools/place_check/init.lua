@@ -250,21 +250,25 @@ core.register_on_mods_loaded(function() core.after(0, function()
    get_player_pos = function() return {x = 0, y = 9, z = 0} end,
    search = function(pos, s, o, done)
     return search_then(function(result, msg)
-     done(result, msg) -- controller builds synchronously and reports
-     report.chat = chat
-     report.controller_busy_after = (controller.busy())
-     local text = table.concat(chat, '\n')
-     if result then
-      check(not controller.busy(), 'controller lock released after the build')
-      check(text:find('Town built', 1, true) ~= nil, 'controller reported success')
-      check(text:find('Catalog ids:', 1, true) ~= nil, 'report lists catalog ids')
-      check(text:find('Beds:', 1, true) ~= nil and text:find('Residents:', 1, true) ~= nil, 'report has beds and residents')
-      check(text:find('Nothing was changed', 1, true) == nil, 'success report does not claim nothing changed')
+     done(result, msg)
+     local function complete_when_idle()
+      if controller.busy() then return core.after(0.1, complete_when_idle) end
+      report.chat = chat
+      report.controller_busy_after = (controller.busy())
+      local text = table.concat(chat, '\n')
+      if result then
+       check(not controller.busy(), 'controller lock released after the build')
+       check(text:find('Town built', 1, true) ~= nil, 'controller reported success')
+       check(text:find('Catalog ids:', 1, true) ~= nil, 'report lists catalog ids')
+       check(text:find('Beds:', 1, true) ~= nil and text:find('Residents:', 1, true) ~= nil, 'report has beds and residents')
+       check(text:find('Nothing was changed', 1, true) == nil, 'success report does not claim nothing changed')
+      end
+      return verify(result, msg)
      end
-     return verify(result, msg)
+     return complete_when_idle()
     end)
    end,
-   build = function(r)
+   build = function(r, done)
     local started = core.get_us_time()
     local original_terraform = terrain and terrain.terraform
     if original_terraform then
@@ -277,10 +281,12 @@ core.register_on_mods_loaded(function() core.after(0, function()
       return unpack(result)
      end
     end
-    built = {towns.populated.build(r)}
-    if original_terraform then terrain.terraform = original_terraform end
-    timing.build_ms = (core.get_us_time() - started) / 1000
-    return unpack(built)
+    towns.populated.build(r, function(summary, bmsg, code, extra)
+     built = {summary, bmsg, code, extra}
+     if original_terraform then terrain.terraform = original_terraform end
+     timing.build_ms = (core.get_us_time() - started) / 1000
+     done(summary, bmsg, code, extra)
+    end)
    end,
    send = function(_, m) chat[#chat + 1] = m end,
    log = function() end,
