@@ -133,8 +133,14 @@ local function rect_str(r)
 end
 
 local function bounds_str(b)
-	return ("(%d,%d,%d) to (%d,%d,%d)"):format(b.min.x, b.min.y, b.min.z,
-		b.max.x, b.max.y, b.max.z)
+	local minp, maxp = b.min or b.minp, b.max or b.maxp
+	return ("(%d,%d,%d) to (%d,%d,%d)"):format(minp.x, minp.y, minp.z,
+		maxp.x, maxp.y, maxp.z)
+end
+
+local function same_bounds(a, b)
+	return a.min.x == b.min.x and a.min.y == b.min.y and a.min.z == b.min.z
+		and a.max.x == b.max.x and a.max.y == b.max.y and a.max.z == b.max.z
 end
 
 local SIDE_NAME = {["-x"] = "-x (west)", ["+x"] = "+x (east)",
@@ -186,10 +192,34 @@ function M.format_report(summary, command)
 	end
 	add("Centre (%d,%d), ground level y=%d.", s.center.x, s.center.z, g)
 	add("Site bounds %s.", bounds_str(s.bounds))
-	if type(s.write_bounds) == "table" then
-		add("Modified area %s.", bounds_str(s.write_bounds))
-	else
-		add("Modified area %s.", bounds_str(s.bounds))
+	local urban_write_bounds = s.urban_write_bounds or s.write_bounds or s.bounds
+	add("Urban builder write envelope %s.", bounds_str(urban_write_bounds))
+	if type(s.write_bounds) == "table" and not same_bounds(s.write_bounds, urban_write_bounds) then
+		add("Possible overall write envelope %s; bounds include attempted volumes and do not mean every node changed.",
+			bounds_str(s.write_bounds))
+	end
+	local margins = s.margins
+	if type(margins) == "table" then
+		local status = tostring(margins.status or "incomplete")
+		local stats = type(margins.stats) == "table" and margins.stats or {}
+		if type(stats.written) == "table" then
+			add("Margin recorded write envelope %s.", bounds_str(stats.written))
+		end
+		local parts = {}
+		for _, key in ipairs({"changed", "cut", "filled", "max_movement", "steps_over_one", "tree_removed"}) do
+			local value = tonumber(stats[key])
+			if value then parts[#parts + 1] = key .. " " .. tostring(value) end
+		end
+		local detail = #parts > 0 and (" (" .. table.concat(parts, ", ") .. ")") or ""
+		local reason = margins.reason and (": " .. tostring(margins.reason)) or ""
+		add("City margins %s%s%s.", status, detail, reason)
+	end
+	for _, warning in ipairs(s.warnings or {}) do
+		local margin_warning = type(margins) == "table" and margins.reason
+			and ("city margins " .. tostring(margins.status or "incomplete") .. ": "
+				.. tostring(margins.reason))
+		local is_margin_warning = margin_warning and warning == margin_warning
+		if not is_margin_warning then add("Build warning: %s.", tostring(warning)) end
 	end
 	local function landmark(label, key, door, facing)
 		local site = s.sites[key]
@@ -399,6 +429,12 @@ function M.format_build_failure(message, code, result, extra)
 			if type(extra.urban_bounds) == "table" then
 				d[#d + 1] = "urban bounds " .. bounds_str(extra.urban_bounds)
 			end
+			if type(extra.margin_bounds) == "table" then
+				d[#d + 1] = "margin possible bounds " .. bounds_str(extra.margin_bounds)
+			end
+			if type(extra.rural_bounds) == "table" then
+				d[#d + 1] = "rural possible bounds " .. bounds_str(extra.rural_bounds)
+			end
 			if type(extra.terrain_attempts) == "table" and #extra.terrain_attempts > 0 then
 				d[#d + 1] = tostring(#extra.terrain_attempts) .. " outskirts terrain attempts"
 			end
@@ -417,13 +453,14 @@ function M.format_build_failure(message, code, result, extra)
 		local where = ""
 		if type(extra) == "table" and type(extra.bounds) == "table" then
 			return "Town construction FAILED while writing (write_failed): " .. m
-				.. ". The site may be PARTIALLY written within "
-				.. bounds_str(extra.bounds) .. "; nothing outside it was touched."
+				.. ". The site may be PARTIALLY written within possible envelope "
+				.. bounds_str(extra.bounds) .. "; the envelope includes attempted volumes."
 		end
 		if type(result) == "table" and type(result.write_bounds) == "table" then
 			where = bounds_str(result.write_bounds)
 			return "Town construction FAILED while writing (write_failed): " .. m
-				.. ". The site may be PARTIALLY written within " .. where .. "."
+				.. ". The site may be PARTIALLY written within possible envelope "
+				.. where .. "; the envelope includes attempted volumes."
 		end
 		if type(result) == "table" and type(result.build_bounds) == "table" then
 			where = " Site bounds " .. bounds_str(result.build_bounds)

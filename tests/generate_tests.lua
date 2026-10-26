@@ -184,8 +184,8 @@ local lines = generate.format_report(summary)
 do -- without write_bounds the modified area falls back to the site bounds
 	local s2 = make_summary()
 	s2.write_bounds = nil
-	eq(has(table.concat(generate.format_report(s2), "\n"), "Modified area (" .. plan.bounds.x1 .. ",100,"),
-		true, "report: modified area falls back to bounds")
+	eq(has(table.concat(generate.format_report(s2), "\n"), "Urban builder write envelope (" .. plan.bounds.x1 .. ",100,"),
+		true, "report: urban write envelope falls back to bounds")
 end
 do -- ticket #104: liquids, landfill and rejection counts are reported
 	local s4 = make_summary()
@@ -252,7 +252,8 @@ eq(has(bf, "Nothing was changed"), false, "write_failed: does not claim unchange
 eq(has(bf, "(" .. plan.bounds.x1 .. ",100,"), true, "write_failed: bounds")
 bf = generate.format_build_failure("boom", "write_failed", {build_bounds = summary.bounds},
 	{bounds = {min = {x = 1, y = 2, z = 3}, max = {x = 4, y = 5, z = 6}}})
-eq(has(bf, "within (1,2,3) to (4,5,6)"), true, "write_failed: uses the builder's write bounds")
+eq(has(bf, "within possible envelope (1,2,3) to (4,5,6)"), true,
+	"write_failed: labels the builder's conservative bounds")
 
 ------------------------------------------------------------------------
 -- Controller with fakes
@@ -561,7 +562,8 @@ end
 do
 	local wb = {min = {x = 1, y = 2, z = 3}, max = {x = 4, y = 5, z = 6}}
 	local m = generate.format_build_failure("x", "write_failed", {build_bounds = summary.bounds, write_bounds = wb})
-	eq(has(m, "within (1,2,3) to (4,5,6)"), true, "result.write_bounds preferred")
+	eq(has(m, "within possible envelope (1,2,3) to (4,5,6)"), true,
+		"result.write_bounds preferred and labeled possible")
 	m = generate.format_build_failure("x", "write_failed", {build_bounds = summary.bounds})
 	eq(has(m, "may extend a few nodes below"), true, "site bounds only: extends below")
 end
