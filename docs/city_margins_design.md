@@ -277,9 +277,19 @@ it was touched” using urban-only bounds after margin work.
 
 Each ticket should include the agreed behavior and the relevant contract from
 this document, exact files, dependencies, and its own acceptance checks. These
-are proposed tickets, not filed issues. Do not assign “implement issue 256” as a
-single Luna task. Keep tests with each behavior change; do not create a separate
-late testing ticket for correctness.
+are filed below. Do not assign “implement issue 256” as a single Luna task. Keep
+tests with each behavior change; do not create a separate late testing ticket
+for correctness.
+
+| Design task | Filed issue | Depends on |
+| --- | --- | --- |
+| LV-1 | [Terrain API: add pure boundary planning and volume query](https://github.com/tbook/luanti-villages/issues/296) | None |
+| LV-2 | [Terrain API: apply best-effort exterior boundary smoothing](https://github.com/tbook/luanti-villages/issues/297) | LV-1 |
+| T-1 | [City margins: migrate populated builds to callbacks and retain the build lock](https://github.com/tbook/luanti-towns/issues/258) | None |
+| T-2 | [City margins: add optional asynchronous Living Villages adapter](https://github.com/tbook/luanti-towns/issues/259) | LV-1, LV-2 |
+| T-3 | [City margins: smooth before suburban planning and continue after optional failures](https://github.com/tbook/luanti-towns/issues/260) | T-1, T-2 |
+| T-4 | [City margins: report optional-stage results and complete modified bounds](https://github.com/tbook/luanti-towns/issues/261) | T-3 |
+| V-1 | [City margins: validate terrain transitions and suburban continuation in disposable worlds](https://github.com/tbook/luanti-towns/issues/262) | LV-2, T-4 |
 
 ### LV-1: Pure boundary planning and volume contract
 
