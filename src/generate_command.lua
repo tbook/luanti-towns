@@ -34,16 +34,10 @@ local function search(pos, seed, town_type, done)
 	for k, v in pairs(towns.site_search.WET_DEFAULTS) do opts[k] = v end
 	return towns.site_search.search(pos, seed, opts, function(result, message, details)
 		if not result then return done(nil, message, details) end
-		local lv = rawget(_G, "living_villages")
-		local terrain = type(lv) == "table" and lv.terrain or nil
-		return towns.outskirts.search(result, {
-			assets = towns.catalog.entries, terrain = terrain, player_pos = pos,
-		}, function(out, outskirts_message, kind)
-			if not out then return done(nil, outskirts_message, kind) end
-			result.outskirts = out
-			result.player_pos = pos
-			return done(result, nil, details)
-		end, towns.site_search.core_env(core))
+		-- Rural placement must inspect the post-margin terrain, so retain only
+		-- the accepted player's original position here.
+		result.player_pos = pos
+		return done(result, nil, details)
 	end)
 end
 
@@ -70,7 +64,49 @@ local function bounds_union(boxes)
 	return out
 end
 
-local function build_now(result)
+local function finalize(summary, result)
+	if not summary or not summary.town then return summary end
+	if summary.site == nil then
+		summary.site = {wet = result.wet and {count = result.wet.count,
+			max_depth = result.wet.max_depth}, rejections = result.rejections,
+			candidates_tried = result.candidates_tried}
+	end
+	summary.town.shortages = result.plan.shortages
+	local ok, rep = pcall(towns.residents.enumerate, summary.town.structures,
+		towns.residents.core_env(core))
+	if ok then
+		summary.town.beds = rep
+		local ok2, res = pcall(towns.residents.initialize, rep.beds,
+			towns.residents.core_env(core), store)
+		if ok2 then
+			summary.town.residents = res
+			for _, f in ipairs(res.failures) do
+				core.log("warning", ("towns: resident not spawned at %s (%s in %s): %s")
+					:format(core.pos_to_string(f.pos), tostring(f.kind), tostring(f.id), f.reason))
+			end
+			for _, i in ipairs(res.interrupted_beds) do
+				core.log("warning", ("towns: interrupted resident initialization at bed %s (%s); "
+					.. "not retried, see mod storage key %s"):format(core.pos_to_string(i.pos),
+					tostring(i.id), towns.residents.record_key(i.pos)))
+			end
+		else
+			core.log("warning", "towns: resident initialization failed: " .. tostring(res))
+			summary.town.residents_error = tostring(res)
+		end
+	else
+		core.log("warning", "towns: bed enumeration failed: " .. tostring(rep))
+		summary.town.beds_error = tostring(rep)
+	end
+	return summary
+end
+
+local function warning(summary, message)
+	summary.warnings = summary.warnings or {}
+	summary.warnings[#summary.warnings + 1] = message
+	core.log("warning", "towns: " .. message)
+end
+
+local function build_urban(result)
 	local env_preflight = towns.preflight.core_env(core)
 	local lv = rawget(_G, "living_villages")
 	local terrain = type(lv) == "table" and lv.terrain or nil
@@ -78,6 +114,11 @@ local function build_now(result)
 			or type(terrain.terraform) ~= "function" then
 		return nil, "Living Villages terrain API requires volume and terraform",
 			"outskirts_dependency", {reason = "outskirts_dependency"}
+	end
+	local rural_assets, assets_message, assets_code = towns.outskirts.assets(towns.catalog.entries)
+	if not rural_assets then
+		return nil, assets_message, assets_code == "outskirts_dependency"
+			and "outskirts_dependency" or "inspection_failed", {reason = assets_code}
 	end
 	local pre, msg, reason = towns.preflight.check({
 		plan = result.plan,
@@ -90,12 +131,6 @@ local function build_now(result)
 	if not pre then
 		return nil, msg, "inspection_failed", {reason = reason}
 	end
-	local outskirts_pre, outskirts_msg, outskirts_code = towns.preflight.check_outskirts(
-		result.outskirts, env_preflight, {
-			entries = result.outskirts and result.outskirts.entries,
-			plan = result.plan, player = result.player_pos, modpath = towns.modpath,
-		})
-	if not outskirts_pre then return nil, outskirts_msg, outskirts_code, {reason = outskirts_code} end
 	local env = towns.builder.core_env(core, {
 		schematic = towns.schematic, modpath = towns.modpath,
 		node_setup = towns.node_setup,
@@ -112,85 +147,165 @@ local function build_now(result)
 		end
 		return nil, bmsg, bcode, extra
 	end
-	local outskirts_summary, outskirts_error, outskirts_code, outskirts_extra =
-		towns.outskirts_build.apply(result.outskirts, {
-			terrain = terrain,
-			place_structure = env.place_structure, get_node = env.get_node,
-			node_info = env.node_info, check_door = towns.builder.check_door,
-			setup_nodes = env.setup_nodes,
-		}, {bounds = result.plan.bounds, structures = outskirts_pre.structures})
-	if not outskirts_summary then
-		outskirts_extra = outskirts_extra or {}
-		outskirts_extra.reason = outskirts_extra.reason or "outskirts_write"
-		outskirts_extra.urban_bounds = summary.write_bounds or summary.town.bounds
-		outskirts_extra.bounds = outskirts_extra.bounds or outskirts_extra.urban_bounds
-		outskirts_extra.terrain_attempts = outskirts_extra.attempted or {}
-		outskirts_extra.placement_attempts = outskirts_extra.placement_attempted or {}
-		local possible = {outskirts_extra.urban_bounds}
-		for _, b in ipairs(outskirts_extra.terrain_attempts) do possible[#possible + 1] = b end
-		for _, b in ipairs(outskirts_extra.placement_attempts) do possible[#possible + 1] = b end
-		for _, b in ipairs(outskirts_extra.boxes or {}) do possible[#possible + 1] = b end
-		outskirts_extra.bounds = bounds_union(possible) or outskirts_extra.bounds
-		-- The urban town is already complete, so any later failure can leave a
-		-- partially written combined site, even if the rural failure is a runtime
-		-- dependency error.
-		return nil, outskirts_error, "write_failed", outskirts_extra
-	end
-	summary.outskirts = outskirts_summary
-	-- Keep the planner's requested/planned counts beside the build results so
-	-- the player report can distinguish omissions from placement/terraform skips.
-	summary.outskirts.counts = result.outskirts and result.outskirts.counts or nil
-	summary.town.urban_structure_count = #summary.town.structures
-	for _, structure in ipairs(outskirts_summary.structures) do
-		summary.town.structures[#summary.town.structures + 1] = structure
-	end
-	summary.town.urban_placed = summary.town.placed
-	summary.town.placed = summary.town.placed + outskirts_summary.placed
-	if summary then
-		summary.site = {wet = result.wet and {count = result.wet.count,
-			max_depth = result.wet.max_depth}, rejections = result.rejections,
-			candidates_tried = result.candidates_tried}
-	end
-	if summary and summary.town then
-		-- Unmet jail/service targets from the plan, for the report.
-		summary.town.shortages = result.plan.shortages
-		-- Ticket #47: read-only bed enumeration inside the placed boxes. It
-		-- never fails the build; a problem is reported instead of the count.
-		local ok, rep = pcall(towns.residents.enumerate, summary.town.structures,
-			towns.residents.core_env(core))
-		if ok then
-			summary.town.beds = rep
-			-- Ticket #48: spawn and claim, once per bed. Never fails the build.
-			local ok2, res = pcall(towns.residents.initialize, rep.beds,
-				towns.residents.core_env(core), store)
-			if ok2 then
-				summary.town.residents = res
-				for _, f in ipairs(res.failures) do
-					core.log("warning", ("towns: resident not spawned at %s (%s in %s): %s")
-						:format(core.pos_to_string(f.pos), tostring(f.kind), tostring(f.id), f.reason))
-				end
-				for _, i in ipairs(res.interrupted_beds) do
-					core.log("warning", ("towns: interrupted resident initialization at bed %s (%s); "
-						.. "not retried, see mod storage key %s"):format(core.pos_to_string(i.pos),
-						tostring(i.id), towns.residents.record_key(i.pos)))
-				end
-			else
-				core.log("warning", "towns: resident initialization failed: " .. tostring(res))
-				summary.town.residents_error = tostring(res)
-			end
-		else
-			core.log("warning", "towns: bed enumeration failed: " .. tostring(rep))
-			summary.town.beds_error = tostring(rep)
-		end
-	end
-	return summary, bmsg, bcode, extra
+	return {summary = summary, message = bmsg, terrain = terrain, env = env,
+		preflight_env = env_preflight}
 end
 
--- The public populated builder is callback-based. Its work is synchronous for
--- now; later stages may defer completion without changing the controller API.
 local function build(result, done)
-	done(build_now(result))
+	local completed = false
+	local function finish(summary, message, code, extra)
+		if completed then return end
+		completed = true
+		done(summary, message, code, extra)
+	end
+	local built, message, code, extra = build_urban(result)
+	if not built then finish(nil, message, code, extra); return end
+	local summary, terrain, env = built.summary, built.terrain, built.env
+	local margin_api
+	local margin_ok, margin_err = pcall(function()
+		margin_api = towns.city_margins and towns.city_margins(terrain)
+	end)
+	if not margin_ok then margin_api = nil end
+	local urban_bounds = summary.write_bounds or summary.town.bounds
+	summary.urban_write_bounds = urban_bounds
+	local function update_write_bounds(rural)
+		local boxes = {urban_bounds}
+		local margins = summary.margins
+		if margins and margins.attempted_bounds then boxes[#boxes + 1] = margins.attempted_bounds end
+		if rural then
+			for _, b in ipairs(rural.attempted or {}) do boxes[#boxes + 1] = b end
+			for _, b in ipairs(rural.placement_attempted or {}) do boxes[#boxes + 1] = b end
+			for _, b in ipairs(rural.boxes or {}) do boxes[#boxes + 1] = b end
+		end
+		summary.write_bounds = bounds_union(boxes) or urban_bounds
+	end
+	local rural_called = false
+	local writer_started = false
+	local rural_structures, rural_write_summary
+	local function fail_writer(reason, structures, writer_extra)
+		local rural_boxes = {}
+		for _, b in ipairs(writer_extra and writer_extra.attempted or {}) do rural_boxes[#rural_boxes + 1] = b end
+		for _, b in ipairs(writer_extra and writer_extra.placement_attempted or {}) do rural_boxes[#rural_boxes + 1] = b end
+		for _, b in ipairs(writer_extra and writer_extra.boxes or {}) do rural_boxes[#rural_boxes + 1] = b end
+		for _, b in ipairs(rural_write_summary and rural_write_summary.attempted or {}) do rural_boxes[#rural_boxes + 1] = b end
+		for _, b in ipairs(rural_write_summary and rural_write_summary.placement_attempted or {}) do rural_boxes[#rural_boxes + 1] = b end
+		for _, b in ipairs(rural_write_summary and rural_write_summary.boxes or {}) do rural_boxes[#rural_boxes + 1] = b end
+		for _, st in ipairs(structures or rural_structures or {}) do
+			if st.min and st.max then rural_boxes[#rural_boxes + 1] = {min = st.min, max = st.max} end
+		end
+		local rural_bounds = bounds_union(rural_boxes)
+		local margin = summary.margins
+		local extra = writer_extra or {}
+		extra.reason = extra.reason or "outskirts_write"
+		extra.urban_bounds = urban_bounds
+		extra.margin_bounds = margin and margin.attempted_bounds or nil
+		extra.rural_bounds = rural_bounds
+		extra.terrain_attempts = extra.attempted or {}
+		extra.placement_attempts = extra.placement_attempted or {}
+		local combined = {}
+		if urban_bounds then combined[#combined + 1] = urban_bounds end
+		if extra.margin_bounds then combined[#combined + 1] = extra.margin_bounds end
+		if rural_bounds then combined[#combined + 1] = rural_bounds end
+		extra.bounds = bounds_union(combined) or urban_bounds
+		finish(nil, reason, "write_failed", extra)
+	end
+	local function searched(out, search_message)
+		if rural_called or completed then return end
+		rural_called = true
+		local ok, err = pcall(function()
+		if not out then
+			warning(summary, "outskirts search failed after urban build: " .. tostring(search_message))
+			update_write_bounds()
+			return finish(finalize(summary, result), "", nil)
+		end
+		result.outskirts = out
+		local ok, outskirts_pre, outskirts_msg = pcall(
+			towns.preflight.check_outskirts, out, built.preflight_env, {
+				entries = out.entries, plan = result.plan, player = result.player_pos,
+				modpath = towns.modpath,
+			})
+		if not ok or not outskirts_pre then
+			warning(summary, "outskirts preflight failed after urban build: "
+				.. tostring(ok and outskirts_msg or outskirts_pre))
+			update_write_bounds()
+			return finish(finalize(summary, result), "", nil)
+		end
+		rural_structures = outskirts_pre.structures
+		local apply_ok, outskirts_summary, outskirts_error, _, outskirts_extra = pcall(
+			function()
+				writer_started = true
+				return towns.outskirts_build.apply(out, {
+					terrain = terrain, place_structure = env.place_structure, get_node = env.get_node,
+					node_info = env.node_info, check_door = towns.builder.check_door,
+					setup_nodes = env.setup_nodes,
+				}, {bounds = result.plan.bounds, structures = outskirts_pre.structures})
+			end)
+		if not apply_ok or not outskirts_summary then
+			return fail_writer(apply_ok and outskirts_error or outskirts_summary,
+				outskirts_pre.structures, apply_ok and outskirts_extra or nil)
+		end
+		rural_write_summary = outskirts_summary
+		summary.outskirts = outskirts_summary
+		summary.outskirts.counts = out.counts
+		summary.town.urban_structure_count = #summary.town.structures
+		for _, structure in ipairs(outskirts_summary.structures) do
+			summary.town.structures[#summary.town.structures + 1] = structure
+		end
+		summary.town.urban_placed = summary.town.placed
+		summary.town.placed = summary.town.placed + outskirts_summary.placed
+		update_write_bounds(outskirts_summary)
+		finish(finalize(summary, result), built.message, nil)
+		end)
+		if not ok and not completed then
+			if writer_started then
+				fail_writer("outskirts callback failed after writes began: " .. tostring(err),
+					rural_structures, rural_write_summary)
+			else
+				warning(summary, "outskirts callback failed after urban build: " .. tostring(err))
+				update_write_bounds()
+				finish(finalize(summary, result), "", nil)
+			end
+		end
+	end
+	local margin_called = false
+	local function after_margin(margin)
+		if margin_called or completed then return end
+		margin_called = true
+		local ok, err = pcall(function()
+		summary.margins = margin
+		if not margin or margin.status ~= "smoothed" then
+			warning(summary, "city margins " .. tostring(margin and margin.status or "failed")
+				.. ": " .. tostring(margin and margin.reason or "margin attempt failed"))
+		end
+		local search_ok, search_err = pcall(towns.outskirts.search, result, {
+			assets = towns.catalog.entries, terrain = terrain, player_pos = result.player_pos,
+		}, searched, towns.site_search.core_env(core))
+		if not search_ok then searched(nil, "outskirts search failed: " .. tostring(search_err)) end
+		end)
+		if not ok and not completed then
+			if writer_started then
+				fail_writer("city-margin callback failed after rural writes began: " .. tostring(err), nil)
+			else
+				warning(summary, "city-margin callback failed: " .. tostring(err))
+				update_write_bounds()
+				finish(finalize(summary, result), "", nil)
+			end
+		end
+	end
+	if not margin_api or type(margin_api.attempt) ~= "function" then
+		after_margin({status = "skipped", reason = margin_err and ("city-margin adapter failed: " .. tostring(margin_err))
+			or "Living Villages city-margin API is unavailable"})
+	else
+		local env_ok, api_env = pcall(towns.site_search.core_env, core)
+		if not env_ok then
+			after_margin({status = "incomplete", reason = "city-margin environment failed: " .. tostring(api_env)})
+		else
+			local ok, err = pcall(margin_api.attempt, result, after_margin, api_env)
+			if not ok then after_margin({status = "incomplete", reason = "city-margin attempt failed: " .. tostring(err)}) end
+		end
+	end
 end
+
 towns.populated = {search = search, build = build, store = store}
 
 local controller = towns.generate.new({

@@ -4,11 +4,16 @@ local residents = dofile("src/residents.lua")
 local node_setup = dofile("src/node_setup.lua")
 local outskirts = dofile("src/outskirts.lua")
 local preflight = dofile("src/preflight.lua")
+local real_outskirts_preflight = preflight.check_outskirts
 local outskirts_build = dofile("src/outskirts_build.lua")
 local rural = assert(outskirts.assets(catalog.entries))
 local assets = dofile("schematics/outskirts/catalog.lua")
 
 local nodes, metadata, storage_values, constructed = {}, {}, {}, 0
+local stage_order = {}
+local margin_mode = "success"
+local rural_search_mode = "success"
+local rural_search_calls = 0
 local function key(p) return p.x .. "," .. p.y .. "," .. p.z end
 local function put(p, name, param2)
 	nodes[key(p)] = {name = name, param2 = param2 or 0}
@@ -95,7 +100,7 @@ local out = {entries = rural, protected = {margin = 4}, plots = plots}
 local result = {plan = {seed = 8, town_type = "medieval", bounds = urban_bounds},
 	ground_y = 10, build_bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
 	build_volume = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
-	player_pos = {x = -100, y = 10, z = -100}, outskirts = out}
+	player_pos = {x = 4, y = 11, z = 5}, outskirts = out}
 
 local town_calls, node_state = {}, {}
 local towns = {
@@ -103,6 +108,26 @@ local towns = {
 	planner = dofile("src/planner.lua"),
 	preflight = preflight, residents = residents, outskirts = outskirts,
 	outskirts_build = outskirts_build,
+	city_margins = function()
+		return {attempt = function(_, done)
+			stage_order[#stage_order + 1] = "margin"
+			if margin_mode == "throw" then error("margin adapter failure") end
+			if margin_mode == "timeout" then
+				done({status = "skipped", reason = "emerge timed out"})
+				return
+			end
+			if margin_mode == "incomplete" then
+				done({status = "incomplete", reason = "partial smoothing",
+					attempted_bounds = {min = {x = 190, y = 0, z = 190},
+						max = {x = 210, y = 20, z = 210}}})
+				return
+			end
+			put({x = 200, y = 10, z = 200}, "mcl_core:stone")
+			done({status = "smoothed", attempted_bounds = {min = {x = 190, y = 0, z = 190},
+				max = {x = 210, y = 20, z = 210}}})
+			if margin_mode == "duplicate" then done({status = "smoothed"}) end
+		end}
+	end,
 	site_search = {WET_DEFAULTS = {}, core_env = function() return {} end},
 	generate = dofile("src/generate.lua")(dofile("src/planner.lua")),
 	builder = {
@@ -131,7 +156,8 @@ local towns = {
 				end,
 			}
 		end,
-		build_town = function()
+	build_town = function()
+		stage_order[#stage_order + 1] = "urban"
 			town_calls[#town_calls + 1] = "urban_build"
 			return {write_bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
 				town = {bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
@@ -156,22 +182,31 @@ towns.site_search.search = function(pos, seed, opts, done)
 	done({plan = {seed = seed}, ground_y = 10, center = {x = 0, z = 0}}, nil, {urban = true})
 end
 towns.outskirts.search = function(urban, opts, done)
+	rural_search_calls = rural_search_calls + 1
+	stage_order[#stage_order + 1] = "rural_search"
 	eq(opts.player_pos.x, 4, "outskirts search receives the command player position")
 	eq(opts.terrain, living_villages.terrain, "outskirts search receives the Living Villages API")
+	eq(get({x = 200, y = 10, z = 200}).name, "mcl_core:stone",
+		"rural search reads terrain after city margins complete")
+	if rural_search_mode == "failure" then return done(nil, "search timeout", "outskirts_dependency") end
 	done(out)
+	if margin_mode == "duplicate" then done(out) end
 end
 _G.towns = towns
 loadfile("src/generate_command.lua")(towns)
 
 local searched
 towns.populated.search({x = 4, y = 11, z = 5}, 8, "medieval", function(r) searched = r end)
-eq(searched.outskirts, out, "accepted urban result receives its outskirts plan")
+eq(searched.outskirts, nil, "urban search defers outskirts planning until after margins")
 eq(searched.player_pos.x, 4, "accepted player position is retained for preflight")
 
 local summary, msg, code
 towns.populated.build(result, function(s, m, c) summary, msg, code = s, m, c end)
 eq(summary ~= nil, true, "integrated urban and outskirts build succeeds: " .. tostring(msg or code))
-eq(town_calls[1], "urban_build", "urban builder runs first")
+eq(stage_order[1], "urban", "urban builder runs first")
+eq(stage_order[2], "margin", "city margins run after urban build")
+eq(stage_order[3], "rural_search", "rural search runs after margins")
+eq(town_calls[1], "urban_build", "urban builder runs before rural writes")
 eq(town_calls[2], "place:farm", "farm is placed after urban build")
 eq(town_calls[3], "place:shepherd_hut", "hut is placed after urban build")
 eq(#summary.town.structures, 2, "only placed rural structures join the urban structures")
@@ -183,6 +218,43 @@ eq(summary.town.beds.count, 1, "real resident enumeration counts the hut bed and
 eq(summary.town.beds.by_structure[1].valid, 0, "farm has no resident bed")
 eq(summary.town.beds.by_structure[2].valid, 1, "hut contributes one resident bed")
 eq(summary.town.residents.spawned, 1, "unchanged resident initialization spawns for the hut bed")
+eq(summary.margins.status, "smoothed", "margin outcome is retained for reporting")
+
+margin_mode = "throw"
+local search_before = rural_search_calls
+local recovered
+towns.populated.build(result, function(s) recovered = s end)
+eq(recovered ~= nil, true, "thrown optional margin stage still builds rural outskirts")
+eq(recovered.margins.status, "incomplete", "thrown margin stage is reported as incomplete")
+eq(rural_search_calls, search_before + 1, "rural search continues after margin throw")
+
+margin_mode = "timeout"
+search_before = rural_search_calls
+towns.populated.build(result, function(s) recovered = s end)
+eq(recovered.margins.status, "skipped", "timed-out margin attempt is reported as skipped")
+eq(rural_search_calls, search_before + 1, "rural search continues after margin timeout")
+
+margin_mode, rural_search_mode = "success", "failure"
+local rural_recovery
+towns.populated.build(result, function(s) rural_recovery = s end)
+eq(rural_recovery ~= nil, true, "rural search failure returns the completed urban town")
+eq(rural_recovery.town.beds ~= nil, true, "rural search recovery runs resident enumeration")
+
+margin_mode = "duplicate"
+towns.preflight.check_outskirts = function() error("rural preflight failed") end
+local real_initialize, initialize_calls = towns.residents.initialize, 0
+towns.residents.initialize = function(...)
+	initialize_calls = initialize_calls + 1
+	return real_initialize(...)
+end
+local preflight_recovery, preflight_done = nil, 0
+towns.populated.build(result, function(s) preflight_recovery, preflight_done = s, preflight_done + 1 end)
+eq(preflight_recovery ~= nil, true, "rural preflight throw returns the completed urban town")
+eq(preflight_done, 1, "duplicate callbacks and rural preflight throw complete once")
+eq(initialize_calls, 1, "duplicate callbacks still initialize residents once")
+towns.residents.initialize = real_initialize
+towns.preflight.check_outskirts = real_outskirts_preflight
+margin_mode, rural_search_mode = "success", "success"
 
 local urban_calls = 0
 towns.builder.build_town = function() urban_calls = urban_calls + 1; return nil, "unused" end
@@ -193,6 +265,7 @@ eq(missing, nil, "missing runtime terrain API stops build")
 eq(missing_code, "outskirts_dependency", "missing runtime API is a dependency error")
 eq(urban_calls, 0, "terrain API dependency fails before urban writes")
 
+margin_mode = "incomplete"
 _G.living_villages = {terrain = {volume = function(plan)
 	local p = plan[1].pos
 	return {minp = {x = p.x - 10, y = p.y - 10, z = p.z - 10},
@@ -210,5 +283,21 @@ eq(partial_code, "write_failed", "rural failure after urban success is a write f
 eq(extra.urban_bounds.min.x, 0, "partial failure retains urban bounds")
 eq(#extra.terrain_attempts, 1, "partial failure retains rural terrain attempts")
 eq(extra.bounds.max.x > extra.urban_bounds.max.x, true, "partial failure bounds include outskirts attempts")
+eq(extra.margin_bounds.min.x, 190, "partial failure retains attempted margin bounds")
+eq(extra.rural_bounds ~= nil, true, "partial failure retains rural bounds")
+
+local real_apply = towns.outskirts_build.apply
+towns.outskirts_build.apply = function()
+	return {status = "built", structures = nil, placed = 1,
+		attempted = {{min = {x = 300, y = 1, z = 300}, max = {x = 320, y = 30, z = 320}}},
+		placement_attempted = {}, boxes = {}}
+end
+local late_failure, late_code, late_extra
+towns.populated.build(result, function(s, _, c, e) late_failure, late_code, late_extra = s, c, e end)
+eq(late_failure, nil, "post-writer bookkeeping failure remains fatal")
+eq(late_code, "write_failed", "post-writer bookkeeping failure is a write failure")
+eq(late_extra.rural_bounds.min.x <= 300, true, "post-writer failure includes composed rural structures")
+eq(late_extra.bounds.max.x >= 320, true, "post-writer failure includes returned rural bounds")
+towns.outskirts_build.apply = real_apply
 
 _G.core, _G.towns, _G.living_villages = nil, nil, nil
