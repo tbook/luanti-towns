@@ -103,6 +103,13 @@ local result = {plan = {seed = 8, town_type = "medieval", bounds = urban_bounds}
 	player_pos = {x = 4, y = 11, z = 5}, outskirts = out}
 
 local town_calls, node_state = {}, {}
+local function report_text(summary, generate)
+	summary.seed, summary.center, summary.ground_y = 8, {x = 0, z = 0}, 10
+	summary.bounds = summary.town.bounds
+	summary.sites = summary.sites or {}
+	summary.counts = {streets = 0, principal = 0, secondary = 0, blocks = 0, frontage = 0}
+	return table.concat(generate.format_report(summary), "\n")
+end
 local towns = {
 	modpath = ".", catalog = catalog, schematic = {}, node_setup = node_setup,
 	planner = dofile("src/planner.lua"),
@@ -118,13 +125,18 @@ local towns = {
 			end
 			if margin_mode == "incomplete" then
 				done({status = "incomplete", reason = "partial smoothing",
-					attempted_bounds = {min = {x = 190, y = 0, z = 190},
-						max = {x = 210, y = 20, z = 210}}})
+					stats = {changed = 7, cut = 2, filled = 3, max_movement = 4, steps_over_one = 1, tree_removed = 2,
+						written = {minp = {x = 220, y = 0, z = 220}, maxp = {x = 225, y = 20, z = 225}}},
+					attempted_bounds = {minp = {x = 190, y = 0, z = 190},
+						maxp = {x = 210, y = 20, z = 210}}})
 				return
 			end
 			put({x = 200, y = 10, z = 200}, "mcl_core:stone")
-			done({status = "smoothed", attempted_bounds = {min = {x = 190, y = 0, z = 190},
-				max = {x = 210, y = 20, z = 210}}})
+			done({status = "smoothed", stats = {changed = 7, cut = 2, filled = 3, max_movement = 4,
+				steps_over_one = 1, tree_removed = 2,
+				written = {minp = {x = 220, y = 0, z = 220}, maxp = {x = 225, y = 20, z = 225}}},
+				attempted_bounds = {minp = {x = 190, y = 0, z = 190},
+				maxp = {x = 210, y = 20, z = 210}}})
 			if margin_mode == "duplicate" then done({status = "smoothed"}) end
 		end}
 	end,
@@ -219,6 +231,19 @@ eq(summary.town.beds.by_structure[1].valid, 0, "farm has no resident bed")
 eq(summary.town.beds.by_structure[2].valid, 1, "hut contributes one resident bed")
 eq(summary.town.residents.spawned, 1, "unchanged resident initialization spawns for the hut bed")
 eq(summary.margins.status, "smoothed", "margin outcome is retained for reporting")
+local report = report_text(summary, towns.generate)
+eq(report:find("City margins smoothed (changed 7, cut 2, filled 3, max_movement 4, steps_over_one 1, tree_removed 2).", 1, true) ~= nil,
+	true, "successful margin stats are reported")
+eq(report:find("Urban builder write envelope (0,0,0) to (20,20,20).", 1, true) ~= nil,
+	true, "urban write envelope remains separately reported")
+eq(report:find("Possible overall write envelope", 1, true) ~= nil, true,
+	"conservative envelope reports attempted volumes")
+eq(report:find("Margin recorded write envelope (220,0,220) to (225,20,225).", 1, true) ~= nil,
+	true, "recorded margin envelope is reported separately")
+eq(report:find("to (225,20,225)", 1, true) ~= nil, true,
+	"union includes recorded writes outside the attempted margin box")
+eq(report:find("every node changed", 1, true) ~= nil, true,
+	"overall envelope does not claim every node changed")
 
 margin_mode = "throw"
 local search_before = rural_search_calls
@@ -226,12 +251,21 @@ local recovered
 towns.populated.build(result, function(s) recovered = s end)
 eq(recovered ~= nil, true, "thrown optional margin stage still builds rural outskirts")
 eq(recovered.margins.status, "incomplete", "thrown margin stage is reported as incomplete")
+report = report_text(recovered, towns.generate)
+eq(report:find("City margins incomplete:", 1, true) ~= nil
+	and report:find("margin adapter failure", 1, true) ~= nil, true,
+	"incomplete margin reason is reported once")
+eq(select(2, report:gsub("margin adapter failure", "")), 1,
+	"margin warning does not duplicate the reason")
 eq(rural_search_calls, search_before + 1, "rural search continues after margin throw")
 
 margin_mode = "timeout"
 search_before = rural_search_calls
 towns.populated.build(result, function(s) recovered = s end)
 eq(recovered.margins.status, "skipped", "timed-out margin attempt is reported as skipped")
+report = report_text(recovered, towns.generate)
+eq(report:find("City margins skipped: emerge timed out.", 1, true) ~= nil, true,
+	"skipped margin reason is reported")
 eq(rural_search_calls, search_before + 1, "rural search continues after margin timeout")
 
 margin_mode, rural_search_mode = "success", "failure"
@@ -239,6 +273,13 @@ local rural_recovery
 towns.populated.build(result, function(s) rural_recovery = s end)
 eq(rural_recovery ~= nil, true, "rural search failure returns the completed urban town")
 eq(rural_recovery.town.beds ~= nil, true, "rural search recovery runs resident enumeration")
+report = report_text(rural_recovery, towns.generate)
+eq(report:find("Residents:", 1, true) ~= nil, true,
+	"rural search fallback preserves the urban residents report")
+eq(report:find("Build warning: outskirts search failed after urban build", 1, true) ~= nil,
+	true, "rural search fallback is reported as a warning")
+eq(report:find("Nothing was changed", 1, true) ~= nil, false,
+	"rural search fallback does not claim no writes")
 
 margin_mode = "duplicate"
 towns.preflight.check_outskirts = function() error("rural preflight failed") end
@@ -283,8 +324,17 @@ eq(partial_code, "write_failed", "rural failure after urban success is a write f
 eq(extra.urban_bounds.min.x, 0, "partial failure retains urban bounds")
 eq(#extra.terrain_attempts, 1, "partial failure retains rural terrain attempts")
 eq(extra.bounds.max.x > extra.urban_bounds.max.x, true, "partial failure bounds include outskirts attempts")
+eq(extra.bounds.max.x >= 225, true, "partial failure union includes margin recorded writes")
 eq(extra.margin_bounds.min.x, 190, "partial failure retains attempted margin bounds")
 eq(extra.rural_bounds ~= nil, true, "partial failure retains rural bounds")
+local failure_report = towns.generate.format_build_failure("terraform runtime failure",
+	partial_code, result, extra)
+eq(failure_report:find("PARTIALLY written within possible envelope", 1, true) ~= nil,
+	true, "later fatal report labels combined possible bounds")
+eq(failure_report:find("margin possible bounds (190,0,190) to (225,20,225)", 1, true) ~= nil,
+	true, "later fatal report includes attempted and recorded margin bounds")
+eq(failure_report:find("Nothing was changed", 1, true) ~= nil, false,
+	"partial failure does not claim no writes")
 
 local real_apply = towns.outskirts_build.apply
 towns.outskirts_build.apply = function()

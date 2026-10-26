@@ -171,7 +171,10 @@ local function build(result, done)
 	local function update_write_bounds(rural)
 		local boxes = {urban_bounds}
 		local margins = summary.margins
-		if margins and margins.attempted_bounds then boxes[#boxes + 1] = margins.attempted_bounds end
+		if margins then
+			if margins.attempted_bounds then boxes[#boxes + 1] = margins.attempted_bounds end
+			if margins.stats and margins.stats.written then boxes[#boxes + 1] = margins.stats.written end
+		end
 		if rural then
 			for _, b in ipairs(rural.attempted or {}) do boxes[#boxes + 1] = b end
 			for _, b in ipairs(rural.placement_attempted or {}) do boxes[#boxes + 1] = b end
@@ -198,7 +201,12 @@ local function build(result, done)
 		local extra = writer_extra or {}
 		extra.reason = extra.reason or "outskirts_write"
 		extra.urban_bounds = urban_bounds
-		extra.margin_bounds = margin and margin.attempted_bounds or nil
+		local margin_boxes = {}
+		if margin and margin.attempted_bounds then margin_boxes[#margin_boxes + 1] = margin.attempted_bounds end
+		if margin and margin.stats and margin.stats.written then
+			margin_boxes[#margin_boxes + 1] = margin.stats.written
+		end
+		extra.margin_bounds = bounds_union(margin_boxes)
 		extra.rural_bounds = rural_bounds
 		extra.terrain_attempts = extra.attempted or {}
 		extra.placement_attempts = extra.placement_attempted or {}
