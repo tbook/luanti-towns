@@ -351,24 +351,29 @@ hdepth = 7, hheight = 8}}, protected = {{x0 = 905, z0 = -2086, x1 = 1085, z1 =
 /towns_generate
   generate_command.search(pos, seed, town_type, done)
     site_search.search(...) -> result                  -- unchanged
-    outskirts.search(result, {player_pos = pos, ...}, cb, env)   -- NEW: async, reads + emerges only
-        cb(out) -> result.outskirts = out; done(result, nil, details)
-        cb(nil, msg, "outskirts_dependency" | "outskirts_error") -> command stops, nothing written
+        result.player_pos = pos                         -- retained for later rural checks
+        done(result, nil, details)
   generate_command.build(result)
+    check terrain and rural catalog dependencies      -- before first write
     preflight.check(...)                               -- urban, unchanged
-    local rural = preflight.check_outskirts(out, env, params) -- NEW, zero writes
-    builder.build_town(result, {entries = catalog.entries}, env)   -- unchanged: urban terrain,
-                                                                   --   schematics, doors, node setup
-    outskirts_build.apply(out, env, {bounds = result.plan.bounds,
-                                     structures = rural.structures}) -- NEW outskirts writes
+    builder.build_town(result, {entries = catalog.entries}, env)   -- urban writes
+    city_margins(result, done)                         -- optional; failure warns and continues
+      outskirts.search(result, {player_pos = pos, ...}, cb, env) -- NEW: reads post-margin world
+        cb(out) -> preflight.check_outskirts(out, ...) -- NEW, zero writes
+          outskirts_build.apply(out, ...)              -- rural writes
     summary.town.structures = urban ++ placed outskirts structures
-    residents.enumerate(summary.town.structures, ...)  -- unchanged call
-    residents.initialize(...)                          -- unchanged
+    residents.enumerate(summary.town.structures, ...)  -- once after rural success or recovery
+    residents.initialize(...)                          -- once after rural success or recovery
 ```
 
 `site_search`, `planner.plan`, `generate.lua`'s controller and `builder` are not
-changed. `result.outskirts` is an additional field; `outskirts.search` plans from
-`result.plan` (the accepted-centre plan `same_footprint` verified).
+changed. The accepted player position is retained through urban search. Rural
+planning starts only after the urban town and optional city-margin smoothing
+complete, so its terrain reads observe the final city edge. A missing or failed
+margin API is recorded in `summary.margins` and warns; rural search continues
+against the terrain that exists. Rural search or preflight failure after the
+urban write also warns, then reports the completed urban town and runs residents
+once. A rural writer failure remains fatal because it can leave partial writes.
 
 ### 7.1 `outskirts.search(result, opts, done, env)`
 
@@ -378,7 +383,8 @@ is the `pos` that `generate_command.search` already receives and `terrain` is
 
 1. Dependencies: `living_villages.terrain` exists with `terraform` and `volume`
    functions, `outskirts.assets` succeeds (rural catalog readable, shared ids
-   present). Otherwise `done(nil, message, "outskirts_dependency")`.
+   present). Terrain and catalog dependencies are checked before urban writes.
+   A later search failure is reported as a warning after the urban write.
 2. Plan as in 5.2. Each candidate emerges
    `terrain.volume(plan, schematic_table, options)` with `surface_y` spanning
    `SCAN_DOWN`/`SCAN_UP` around the urban ground for an unknown candidate Y.
@@ -405,8 +411,10 @@ close to one per building.
   protected rectangle, none is within `PLAYER_MARGIN` of the player.
 - Files, sizes and node registrations of the rural ids are checked once per id.
   Geometry, overlap or protection errors are `outskirts_error`; a missing rural
-  file, a size mismatch or an unregistered node is `outskirts_dependency`. Both
-  stop the command (`inspection_failed`, zero writes).
+  file, a size mismatch or an unregistered node is `outskirts_dependency`. Since
+  this full preflight follows urban and margin writes, failure warns and returns
+  the completed urban town; only the cheap terrain and rural-catalog checks run
+  before the first urban write.
 
 ### 7.3 `outskirts_build.apply(out, env, opts)`: ordering and risk
 
@@ -417,9 +425,10 @@ explicitly. The required environment callbacks are `place_structure`,
 `get_node`, `check_door`, and `setup_nodes`, along with `terrain`. Then, in this
 order:
 
-1. The urban build completes first. If a future town-edge smoothing step is
-   added, it belongs after the urban build and before farm terraforming and
-   placement, so farms use the final edge terrain.
+1. The urban build completes first. Optional city-margin smoothing runs next.
+   Rural search starts after its callback, so farms use the final edge terrain
+   when smoothing succeeds; a skipped or failed attempt continues on existing
+   terrain.
 2. **Terraform every plot**, one `terrain.terraform(plan, nil, options)` call per
    plot with `options.protected`. A `false` or `stats.unloaded_blocks > 0` marks that plot skipped
    (`terraform_declined` / `terraform_incomplete`, reported); the others go on.
@@ -471,8 +480,8 @@ boxes}` for the report (#238).
 | Class | Examples | Signal | Result |
 | --- | --- | --- | --- |
 | **Omission** | every code in 5.5: no site, water, uneven, spacing, protected, player nearby, emerge failure, Living Villages declining or skipping a pad; and the apply-stage warnings `placement_failed` and `door_unreachable` | `nil, rejection` / `skipped` / `warnings` entry | Never an error. Fewer or flawed buildings, possibly none; reported with counts and warnings. The command completes. |
-| **Dependency failure** | `living_villages.terrain` missing or lacking `terraform`/`volume`; rural catalog or schematic missing, wrong size or unregistered node | `outskirts_dependency` | Whole command stops before any write. |
-| **Programming error** | malformed plan or record, `validate` failure, a structure that is not its rotated footprint, a plot overlapping another or the protected rectangle, rural/urban id collision | `error(...)`, `pcall` in `search`; code `outskirts_error` (after the fact: `write_failed`) | Whole command stops before any write; reported as an error. |
+| **Dependency failure** | required `terraform`/`volume` API or rural catalog unavailable before writing; rural schematic missing, wrong size or unregistered node after urban build | `outskirts_dependency` | Early dependency stops before writes; later rural failure warns and reports the completed urban town. |
+| **Programming error** | malformed plan or record, `validate` failure, a structure that is not its rotated footprint, a plot overlapping another or the protected rectangle, rural/urban id collision | `error(...)`, `pcall` in `search`; code `outskirts_error` (after the fact: `write_failed`) | Rural planning/preflight errors warn after the urban build; unexpected writer errors remain fatal. |
 | **Post-write failure** | an engine error raised while terraforming, placing or setting up nodes; node setup failure | `outskirts_build.apply` | `write_failed` listing attempted boxes; partial world; no retry; no residents. |
 
 Not finding places, unsuitable terrain and Living Villages declining a pad are
