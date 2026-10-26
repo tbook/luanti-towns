@@ -168,7 +168,8 @@ towns.populated.search({x = 4, y = 11, z = 5}, 8, "medieval", function(r) search
 eq(searched.outskirts, out, "accepted urban result receives its outskirts plan")
 eq(searched.player_pos.x, 4, "accepted player position is retained for preflight")
 
-local summary, msg, code = towns.populated.build(result)
+local summary, msg, code
+towns.populated.build(result, function(s, m, c) summary, msg, code = s, m, c end)
 eq(summary ~= nil, true, "integrated urban and outskirts build succeeds: " .. tostring(msg or code))
 eq(town_calls[1], "urban_build", "urban builder runs first")
 eq(town_calls[2], "place:farm", "farm is placed after urban build")
@@ -186,7 +187,8 @@ eq(summary.town.residents.spawned, 1, "unchanged resident initialization spawns 
 local urban_calls = 0
 towns.builder.build_town = function() urban_calls = urban_calls + 1; return nil, "unused" end
 _G.living_villages = nil
-local missing, _, missing_code = towns.populated.build(result)
+local missing, _, missing_code
+towns.populated.build(result, function(s, _, c) missing, missing_code = s, c end)
 eq(missing, nil, "missing runtime terrain API stops build")
 eq(missing_code, "outskirts_dependency", "missing runtime API is a dependency error")
 eq(urban_calls, 0, "terrain API dependency fails before urban writes")
@@ -201,7 +203,8 @@ towns.builder.build_town = function()
 		town = {bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
 			structures = {}, placed = 0, doors = {}}}
 end
-local partial, _, partial_code, extra = towns.populated.build(result)
+local partial, _, partial_code, extra
+towns.populated.build(result, function(s, _, c, e) partial, partial_code, extra = s, c, e end)
 eq(partial, nil, "rural runtime failure stops residents")
 eq(partial_code, "write_failed", "rural failure after urban success is a write failure")
 eq(extra.urban_bounds.min.x, 0, "partial failure retains urban bounds")

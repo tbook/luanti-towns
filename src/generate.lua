@@ -17,16 +17,16 @@
 --   generate.HELP                      -> help/description text
 --   local c = generate.new(deps)       -> controller, c.run(name, param)
 --
--- Concurrency: ONE search/build at a time per server (searches emerge a lot
--- of map and the builder is synchronous). A second command while one is in
--- progress is refused with a message naming the player who started it. A
--- start older than STALE_SECONDS is considered abandoned and replaced.
+-- Concurrency: ONE search/build at a time per server. A second command while
+-- one is in progress is refused with a message naming its owner. Only an old
+-- search can be replaced as abandoned; an active build keeps the lock until
+-- its callback completes.
 --
 -- deps (all required unless noted):
 --   get_player_pos(name) -> {x,y,z} | nil   nil when the player is not online
 --   search(pos, seed, town_type, done)      "medieval" | "roman"; done(result,
 --                                           nil, details) / done(nil, msg, details)
---   build(result) -> summary | nil, message, code[, {bounds, planned}]   builder.build_town
+--   build(result, done)                    done(summary, message, code, extra)
 --   send(name, msg)    chat to the player; must tolerate an offline player
 --   log(level, msg)
 --   entropy() -> number                     clock/world derived (random_seed)
@@ -455,7 +455,7 @@ function M.new(deps)
 		local args, err = M.parse_args(param)
 		if not args then return false, err end
 		if active then
-			if now() - active.started > M.STALE_SECONDS then
+			if active.phase == "search" and now() - active.started > M.STALE_SECONDS then
 				deps.log("warning", "towns_generate: dropping stale search started by "
 					.. active.name)
 				active = nil
@@ -475,7 +475,7 @@ function M.new(deps)
 		end
 
 		local town = args.town_type
-		local mine = {name = name, seed = seed, started = now()}
+		local mine = {name = name, seed = seed, started = now(), phase = "search"}
 		local returning, sync_ok, sync_msg = true
 		local function finish(ok, lines)
 			deps.log(ok and "action" or "warning", "towns_generate (" .. name .. "): "
@@ -499,37 +499,48 @@ function M.new(deps)
 			if active == mine then active = nil end
 		end
 
+		local search_done = false
 		local function on_done(result, message)
+			if search_done then return end
+			search_done = true
 			local replaced = active ~= mine
-			release()
 			if replaced then
 				-- A stale takeover started a newer search; never build for this one.
 				return finish(false, {"A newer /towns_generate replaced this search; "
 					.. "nothing was changed."})
 			end
 			if not result then
+				release()
 				return finish(false, {M.format_search_failure(message)})
 			end
-			local ok, summary, bmsg, code, extra = pcall(deps.build, result)
-			if not ok then
-				return finish(false, {M.format_build_failure(summary, "write_failed", result)})
+			mine.phase = "build"
+			local build_done = false
+			local function on_build(summary, bmsg, code, extra)
+				if build_done then return end
+				build_done = true
+				release()
+				if not summary then
+					return finish(false, {M.format_build_failure(bmsg, code, result, extra)})
+				end
+				summary.town_type = town
+				if type(summary.write_bounds) == "table" then
+					deps.log("action", "towns_generate (" .. name .. "): write bounds "
+						.. bounds_str(summary.write_bounds))
+				end
+				return finish(#M.report_problems(summary) == 0,
+					M.format_report(summary, deps.command_name))
 			end
-			if not summary then
-				return finish(false, {M.format_build_failure(bmsg, code, result, extra)})
+			local called, build_err = pcall(deps.build, result, on_build)
+			if not called and not build_done then
+				on_build(nil, build_err, "write_failed")
 			end
-			summary.town_type = town
-			if type(summary.write_bounds) == "table" then
-				deps.log("action", "towns_generate (" .. name .. "): write bounds "
-					.. bounds_str(summary.write_bounds))
-			end
-			return finish(#M.report_problems(summary) == 0,
-				M.format_report(summary, deps.command_name))
 		end
 
 		deps.log("action", ("towns_generate (%s): %s seed %d%s, searching near (%.1f,%.1f,%.1f)"):format(
 			name, town, seed, generated and " (generated)" or "", pos.x, pos.y, pos.z))
 		local searched, serr = pcall(deps.search, pos, seed, town, on_done)
-		if not searched then
+		if not searched and not search_done then
+			search_done = true
 			release()
 			returning = false
 			return false, "Town not built: " .. tostring(serr) .. ". Nothing was changed."

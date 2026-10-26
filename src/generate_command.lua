@@ -70,7 +70,7 @@ local function bounds_union(boxes)
 	return out
 end
 
-local function build(result)
+local function build_now(result)
 	local env_preflight = towns.preflight.core_env(core)
 	local lv = rawget(_G, "living_villages")
 	local terrain = type(lv) == "table" and lv.terrain or nil
@@ -184,6 +184,12 @@ local function build(result)
 		end
 	end
 	return summary, bmsg, bcode, extra
+end
+
+-- The public populated builder is callback-based. Its work is synchronous for
+-- now; later stages may defer completion without changing the controller API.
+local function build(result, done)
+	done(build_now(result))
 end
 towns.populated = {search = search, build = build, store = store}
 

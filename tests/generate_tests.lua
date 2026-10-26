@@ -40,6 +40,7 @@ for _, bad in ipairs({"abc", "1.5", "1e3", "0x10", "--1", "1,2", "NaN", "inf", "
 	eq(has(msg, "integer"), true, "message for '" .. bad .. "' says integer")
 	eq(has(msg, "Usage"), true, "message for '" .. bad .. "' has usage")
 end
+
 local r, msg = generate.parse_args("1 2")
 eq(r, nil, "rejects extra arguments")
 eq(has(msg, "Too many"), true, "extra args message")
@@ -271,11 +272,13 @@ local function fakes(opts)
 			if opts.search_raises then error(opts.search_raises) end
 			if opts.sync_search then opts.sync_search(done) end
 		end,
-		build = function(result)
+		build = function(result, done)
 			f.builds[#f.builds + 1] = result
 			if opts.build_raises then error(opts.build_raises) end
-			if opts.build_result then return opts.build_result(result) end
-			return summary
+			if opts.build_delay then f.build_done = done; return end
+			if opts.build_result then return done(opts.build_result(result)) end
+			done(summary)
+			if opts.build_raises_after_done then error(opts.build_raises_after_done) end
 		end,
 		send = function(name, msg) f.sent[#f.sent + 1] = {name, msg} end,
 		log = function(level, msg) f.logs[#f.logs + 1] = {level, msg} end,
@@ -286,6 +289,7 @@ local function fakes(opts)
 	f.c = generate.new(f.deps)
 	return f
 end
+
 local function sent_text(f)
 	local t = {}
 	for _, m in ipairs(f.sent) do t[#t + 1] = m[2] end
@@ -295,6 +299,42 @@ local function logs_text(f)
 	local t = {}
 	for _, m in ipairs(f.logs) do t[#t + 1] = m[2] end
 	return table.concat(t, "\n")
+end
+
+-- A late success from a search replaced as stale must never enter build.
+do
+	local f = fakes()
+	f.c.run("alice", "1")
+	f.t = generate.STALE_SECONDS + 1
+	f.c.run("bob", "2")
+	local built = #f.builds
+	f.searches[1].done({build_bounds = summary.bounds}, nil, {})
+	eq(#f.builds, built, "stale search success never starts a build")
+	eq(f.c.busy(), true, "stale search success keeps the newer search active")
+end
+
+-- Search callbacks are also once-only: a late duplicate cannot start another
+-- build after the first callback entered the build phase.
+do
+	local f = fakes({build_delay = true})
+	f.c.run("alice", "5")
+	local result = {}
+	f.searches[1].done(result, nil, {})
+	f.searches[1].done(result, nil, {})
+	eq(#f.builds, 1, "duplicate search completion starts one build")
+	eq(f.c.busy(), true, "duplicate search completion leaves build lock held")
+	f.build_done(summary)
+end
+
+-- If a builder completes and then raises, the successful callback remains the
+-- only reported outcome.
+do
+	local f = fakes({build_raises_after_done = "late builder error"})
+	f.c.run("alice", "5")
+	f.searches[1].done({}, nil, {})
+	eq(f.c.busy(), false, "raise after callback releases lock")
+	eq(has(sent_text(f), "Town built"), true, "raise after callback keeps completion")
+	eq(has(sent_text(f), "late builder error"), false, "raise after callback is not reported twice")
 end
 
 -- Invalid arguments: no search, no build, no world access of any kind.
@@ -314,6 +354,26 @@ do
 	local f = fakes()
 	f.c.run("alice", "31337")
 	eq(f.searches[1].town_type, "medieval", "controller passes the default town type")
+end
+
+-- The build callback owns the lock until its final completion, even after the
+-- stale-search timeout. Duplicate completion is ignored.
+do
+	local f = fakes({build_delay = true})
+	f.c.run("alice", "5")
+	f.searches[1].done({}, nil, {})
+	eq(f.c.busy(), true, "delayed build retains the lock")
+	f.t = generate.STALE_SECONDS + 1
+	local ok, msg = f.c.run("bob", "6")
+	eq(ok, false, "active delayed build cannot be replaced as stale")
+	eq(has(msg, "already in progress") and has(msg, "alice"), true,
+		"delayed build refusal names its owner")
+	eq(#f.searches, 1, "delayed build refusal starts no search")
+	f.build_done(summary)
+	eq(f.c.busy(), false, "delayed build releases after callback")
+	local sent = #f.sent
+	f.build_done(nil, "late duplicate", "write_failed")
+	eq(#f.sent, sent, "duplicate build completion ignored")
 end
 
 -- Offline player.
@@ -395,12 +455,11 @@ do
 	eq(f.c.busy(), true, "late done does not release the newer search")
 	eq(has(sent_text(f), "newer /towns_generate replaced this search"), true,
 		"late failure reported as replaced")
-	-- A late SUCCESS from a taken-over search must not build.
+	-- A duplicate SUCCESS from a completed search is ignored.
 	local nb, ns = #f.builds, #f.sent
 	f.searches[1].done({build_bounds = summary.bounds}, nil, {})
-	eq(#f.builds, nb, "late success from a replaced search: builder not called")
-	eq(#f.sent > ns and has(f.sent[#f.sent][2], "nothing was changed"), true,
-		"late success reported as nothing changed")
+	eq(#f.builds, nb, "duplicate success from a completed search: builder not called")
+	eq(#f.sent, ns, "duplicate success from a completed search is ignored")
 	eq(f.c.busy(), true, "late success does not release the newer search")
 	f.searches[3].done({build_bounds = summary.bounds}, nil, {})
 	eq(#f.builds, nb + 1, "newer search still builds")
@@ -434,6 +493,17 @@ do
 	eq(#f.sent, 0, "sync failure: no chat duplicate")
 	eq(#f.builds, 0, "sync failure: no build")
 	eq(f.c.busy(), false, "sync failure releases the guard")
+end
+
+-- A fully synchronous search and build callback returns its final report from
+-- the command call, preserving the existing command behavior.
+do
+	local f = fakes({sync_search = function(done) done({}, nil, {}) end})
+	local ok, message = f.c.run("alice", "5")
+	eq(ok, true, "synchronous search and build succeed")
+	eq(has(message, "Town built"), true, "synchronous completion is returned")
+	eq(#f.sent, 0, "synchronous completion is not also sent in chat")
+	eq(f.c.busy(), false, "synchronous completion releases lock")
 end
 
 -- search raising (programmer error) is reported, guard released.
