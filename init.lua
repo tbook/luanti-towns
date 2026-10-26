@@ -17,6 +17,10 @@ towns.preflight = dofile(modpath .. "/src/preflight.lua")
 -- Read-only nearby site search and terrain inspection (no world writes).
 towns.site_search = dofile(modpath .. "/src/site_search.lua")(towns.placement, towns.planner)
 
+-- Optional Living Villages terrain adapter (#259); inject its terrain API when
+-- an attempt is made so startup does not depend on that mod being available.
+towns.city_margins = dofile(modpath .. "/src/city_margins.lua")
+
 -- Scattered rural plots around an accepted urban site (#237).
 towns.outskirts = dofile(modpath .. "/src/outskirts.lua")
 towns.outskirts_build = dofile(modpath .. "/src/outskirts_build.lua")
