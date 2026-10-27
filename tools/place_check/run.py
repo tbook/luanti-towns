@@ -61,11 +61,13 @@ def main():
     ap.add_argument('--seed', type=int, default=5)
     ap.add_argument('--settings-from', type=Path, default=DEFAULT_SOURCE,
                     help='world whose world.mt / map_meta.txt (game, mods, flat mapgen) are copied; its map is NOT used')
+    ap.add_argument('--living-villages', type=Path,
+                    help='Living Villages source to load in the scratch world (defaults to the game mod path)')
     ap.add_argument('--timeout', type=int, default=900)
     ap.add_argument('--town-type', default='medieval', choices=['medieval', 'roman'],
                     help="'roman' builds the authored Roman plan instead of the medieval one")
-    ap.add_argument('--scenario', default='', choices=['', 'water', 'buried'],
-                    help="'water': buried pockets, a hill, ponds in and beside the footprint (ticket #104)")
+    ap.add_argument('--scenario', default='', choices=['', 'water', 'buried', 'margins', 'margin-fail'],
+                    help="'water'/'buried': liquid fixtures; 'margins': city-edge terrain fixtures; 'margin-fail': force the optional margin API to decline")
     ap.add_argument('--keep', action='store_true', help='print the scratch world path and keep it')
     args = ap.parse_args()
 
@@ -80,14 +82,42 @@ def main():
         shutil.copy2(ROOT / name, towns / name)
     for name in ('src', 'schematics'):
         shutil.copytree(ROOT / name, towns / name)
+    if args.living_villages:
+        lv = args.living_villages.resolve()
+        if not (lv / 'mod.conf').is_file():
+            raise SystemExit('--living-villages must name a Living Villages mod directory')
+        shutil.copytree(lv, mods / 'living_villages')
+        if args.scenario != 'margin-fail' and (mods / 'living_villages' / 'village_boundary.lua').is_file():
+            # Observe phases in the scratch copy only; fail if the dependency's
+            # source shape changes so the timings cannot be misattributed.
+            source = mods / 'living_villages' / 'village_boundary.lua'
+            body = source.read_text()
+            anchors = [
+                ('\tlocal tree_stats, clear_reason = operation(clear, zones, rectangles)',
+                 '\tlocal profile = {}\n\tlocal phase_started = core.get_us_time()\n\tlocal tree_stats, clear_reason = operation(clear, zones, rectangles)\n\tprofile.tree_ms = (core.get_us_time() - phase_started) / 1000\n\tphase_started = core.get_us_time()'),
+                ('\tlocal plan, plan_reason = M.plan(rectangles, ground_y, {radius = radius, cap = cap, height_at = function(x, z)',
+                 '\tprofile.scan_ms = (core.get_us_time() - phase_started) / 1000\n\tphase_started = core.get_us_time()\n\tlocal plan, plan_reason = M.plan(rectangles, ground_y, {radius = radius, cap = cap, height_at = function(x, z)'),
+                ('\tlocal targets = plan.targets',
+                 '\tprofile.solver_ms = (core.get_us_time() - phase_started) / 1000\n\tprofile.scan_plan_ms = profile.scan_ms + profile.solver_ms\n\tphase_started = core.get_us_time()\n\tlocal targets = plan.targets'),
+                ('\tstats.written = written',
+                 '\tstats.written = written\n\tprofile.write_ms = (core.get_us_time() - phase_started) / 1000\n\tstats.profile = profile'),
+            ]
+            for old, new in anchors:
+                if body.count(old) != 1:
+                    raise SystemExit('Living Villages timing anchor missing or ambiguous: ' + old)
+                body = body.replace(old, new, 1)
+            source.write_text(body)
     helper = mods / 'towns_place_check'
     helper.mkdir()
     shutil.copy2(HELPER / 'init.lua', helper / 'init.lua')
     (helper / 'mod.conf').write_text('name = towns_place_check\ndepends = towns\n')
     with (work / 'world.mt').open('a') as f:
         f.write('\nload_mod_towns = worldmods/towns\nload_mod_towns_place_check = worldmods/towns_place_check\n')
+        if args.living_villages:
+            f.write('load_mod_living_villages = worldmods/living_villages\n')
     (work / 'check.conf').write_text(
         'enable_ipv6 = false\nbind_address = 127.0.0.1\nserver_announce = false\n'
+        'max_forceloaded_blocks = 4096\n'
         'towns_place_check_seed = %d\n'
         'towns_place_check_scenario = %s\n'
         'towns_place_check_town_type = %s\n' % (args.seed, args.scenario, args.town_type))

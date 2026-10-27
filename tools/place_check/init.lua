@@ -118,6 +118,7 @@ end
 -- below confirm the site is accepted and the finished town is dry.
 local scenario = core.settings:get('towns_place_check_scenario') or ''
 local timing = {search_ms = 0}
+local pending_margin_volume
 local terrain = rawget(_G, 'living_villages') and living_villages.terrain
 local PLAYER_POS = {x = 0, y = 9, z = 0}
 local WATER, STONE = 'mcl_core:water_source', 'mcl_core:stone'
@@ -147,18 +148,59 @@ local function prepare_world(result)
  report.scenario = {name = scenario, rect = big, ground_y = g}
 end
 local function search_then(cb)
+ local function loaded_result(result, message)
+  if not result then return cb(result, message) end
+  -- There is no connected player in this probe. Keep the completed city
+  -- resident while asynchronous margin/rural emerges generate distant blocks;
+  -- otherwise get_node can report ignore for an unloaded, unchanged building.
+  local b, g = result.plan.bounds, result.ground_y
+  local lo = {x=b.x1,y=math.min(g-48,result.build_bounds.min.y),z=b.z1}
+  local hi = {x=b.x2,y=math.max(g+40,result.build_bounds.max.y),z=b.z2}
+  local started, failed = core.get_us_time(), false
+  original_emerge_area(lo, hi, function(_, action, remaining)
+   failed = failed or action == core.EMERGE_CANCELLED or action == core.EMERGE_ERRORED
+   if remaining > 0 then return end
+   if failed then return cb(nil, 'validation city volume emerge failed') end
+   local pinned, wanted = 0, 0
+   for x=math.floor(lo.x/16),math.floor(hi.x/16) do
+    for y=math.floor(lo.y/16),math.floor(hi.y/16) do
+     for z=math.floor(lo.z/16),math.floor(hi.z/16) do
+      wanted = wanted + 1
+      if core.forceload_block({x=x*16,y=y*16,z=z*16},true) then pinned=pinned+1 end
+     end
+    end
+   end
+   report.validation_load = {ms=(core.get_us_time()-started)/1000,blocks=pinned,wanted=wanted}
+   if pinned ~= wanted then return cb(nil, 'validation could not keep all city blocks active') end
+   cb(result, message)
+  end)
+ end
  if not emerge_wrapped then
   timing.emerge_calls = 0
-  core.emerge_area = function(...)
+  core.emerge_area = function(minp, maxp, callback, ...)
    timing.emerge_calls = timing.emerge_calls + 1
-   return original_emerge_area(...)
+   local started, settled = core.get_us_time(), false
+   local margin = pending_margin_volume
+   local is_margin = margin and minp.x == margin.minp.x and minp.y == margin.minp.y
+    and minp.z == margin.minp.z and maxp.x == margin.maxp.x
+    and maxp.y == margin.maxp.y and maxp.z == margin.maxp.z
+   if is_margin then pending_margin_volume = nil end
+   return original_emerge_area(minp, maxp, function(...)
+    if select(3, ...) == 0 and not settled then
+     settled = true
+     local ms = (core.get_us_time() - started) / 1000
+     timing.emerge_ms = (timing.emerge_ms or 0) + ms
+     if is_margin then timing.margin_api.emerge_ms = ms end
+    end
+    return callback(...)
+   end, ...)
   end
   emerge_wrapped = true
  end
  local started = core.get_us_time()
  towns.populated.search(PLAYER_POS, seed, town_type, function(result, msg)
   timing.search_ms = timing.search_ms + (core.get_us_time() - started) / 1000
-  if scenario == '' or not result then return cb(result, msg) end
+  if scenario == '' or not result then return loaded_result(result, msg) end
   local ok, e = pcall(prepare_world, result)
   if not ok then return cb(nil, 'scenario setup: ' .. tostring(e)) end
   local first = result.center
@@ -167,7 +209,7 @@ local function search_then(cb)
     report.scenario.first_center, report.scenario.center = first, r2.center
     report.scenario.rejections, report.scenario.wet = r2.rejections, r2.wet and {count = r2.wet.count, max_depth = r2.wet.max_depth}
    end
-   cb(r2, m2)
+   loaded_result(r2, m2)
   end)
  end)
 end
@@ -268,8 +310,32 @@ core.register_on_mods_loaded(function() core.after(0, function()
      return complete_when_idle()
     end)
    end,
-   build = function(r, done)
+  build = function(r, done)
     local started = core.get_us_time()
+    local original_urban_build = towns.builder.build_town
+    local snapshot_margin_stage, snapshot_boundary, snapshot_ground
+    local urban_snapshot, margin_snapshot
+    local function snapshot_changes(before, after)
+     local changed, examples = 0, {}
+     for key, value in pairs(before or {}) do
+      if after[key] ~= value then
+       changed = changed + 1
+       if #examples < 8 then
+        local old_rows, new_rows = {}, {}
+        for row in value:gmatch('([^\n]*)\n') do old_rows[#old_rows + 1] = row end
+        for row in after[key]:gmatch('([^\n]*)\n') do new_rows[#new_rows + 1] = row end
+        for i, row in ipairs(old_rows) do
+         if row ~= new_rows[i] then
+          examples[#examples + 1] = {column=key,y=snapshot_ground-49+i,
+           before=row:gsub('%z', ' param2='),after=(new_rows[i] or ''):gsub('%z', ' param2=')}
+          break
+         end
+        end
+       end
+      end
+     end
+     return {changed_columns = changed, examples = examples}
+    end
     local original_terraform = terrain and terrain.terraform
     if original_terraform then
      timing.terraform_calls, timing.terraform_ms = 0, 0
@@ -278,12 +344,256 @@ core.register_on_mods_loaded(function() core.after(0, function()
       timing.terraform_calls = timing.terraform_calls + 1
       local result = {original_terraform(...) }
       timing.terraform_ms = timing.terraform_ms + (core.get_us_time() - call_started) / 1000
+     return unpack(result)
+     end
+    end
+    local original_boundary_volume = terrain and terrain.boundary_volume
+    local original_smooth_boundary = terrain and terrain.smooth_boundary
+    if original_boundary_volume and original_smooth_boundary then
+     timing.margin_api = {}
+     terrain.boundary_volume = function(...)
+      local t = core.get_us_time()
+      local result = {original_boundary_volume(...) }
+      timing.margin_api.volume_ms = (core.get_us_time() - t) / 1000
+      pending_margin_volume = result[1]
       return unpack(result)
+     end
+     local function interior_snapshot(boundary, ground_y)
+      local columns, signatures, samples, digest_a, digest_b = {}, {}, {}, 1, 0
+      for _, r in ipairs(boundary) do
+       for x = r.x0, r.x1 do
+        columns[x] = columns[x] or {}
+        for z = r.z0, r.z1 do columns[x][z] = true end
+       end
+      end
+      local column_count, node_count, unloaded_count = 0, 0, 0
+      for x, zs in pairs(columns) do
+       for z in pairs(zs) do
+        column_count = column_count + 1
+        local words = {}
+        for y = ground_y - 48, ground_y + 40 do
+         local node = core.get_node({x = x, y = y, z = z})
+         if node.name == 'ignore' then unloaded_count = unloaded_count + 1 end
+         local word = node.name .. '\0' .. tostring(node.param2 or 0) .. '\n'
+         words[#words + 1] = word
+         for i = 1, #word do
+          digest_a = (digest_a + word:byte(i)) % 65521
+          digest_b = (digest_b + digest_a) % 65521
+         end
+         node_count = node_count + 1
+         if #samples < 12 then samples[#samples + 1] = {pos = {x=x,y=y,z=z}, name = node.name, param2 = node.param2 or 0} end
+        end
+        signatures[x .. ',' .. z] = table.concat(words)
+       end
+      end
+      return signatures, {columns = column_count, nodes = node_count, unloaded=unloaded_count,
+       digest = string.format('%04x%04x', digest_b, digest_a), samples = samples}
+     end
+     snapshot_margin_stage = interior_snapshot
+     towns.builder.build_town = function(result, ...)
+      local values = {original_urban_build(result, ...)}
+      if values[1] then
+       snapshot_boundary = {}
+       for i, rect in ipairs(result.plan.boundary.rects) do
+        snapshot_boundary[i] = {x0=rect.x1,z0=rect.z1,x1=rect.x2,z1=rect.z2}
+       end
+       snapshot_ground = result.ground_y
+       urban_snapshot = interior_snapshot(snapshot_boundary, snapshot_ground)
+      end
+      return unpack(values)
+     end
+     local function section_start(boundary)
+      local function inside(x, z)
+       for _, r in ipairs(boundary) do
+        if x >= r.x0 and x <= r.x1 and z >= r.z0 and z <= r.z1 then return true end
+       end
+       return false
+      end
+      local start
+      for _, r in ipairs(boundary) do
+       for _, side in ipairs({{1,0,r.x1,r.z0 + math.floor((r.z1-r.z0)/2)}, {-1,0,r.x0,r.z0 + math.floor((r.z1-r.z0)/2)},
+         {0,1,r.x0 + math.floor((r.x1-r.x0)/2),r.z1}, {0,-1,r.x0 + math.floor((r.x1-r.x0)/2),r.z0}}) do
+        local ok = true
+        for d = 1, 24 do if inside(side[3] + side[1] * d, side[4] + side[2] * d) then ok = false; break end end
+        if ok then start = side; break end
+       end
+       if start then break end
+      end
+      return start
+     end
+     local function section(boundary, ground_y)
+      local start = section_start(boundary)
+      if not start then return {} end
+      local out = {}
+      for d = 1, 24 do
+       local x, z = start[3] + start[1] * d, start[4] + start[2] * d
+       local distance = math.huge
+       for _, r in ipairs(boundary) do
+        local dx, dz = math.max(r.x0 - x, 0, x - r.x1), math.max(r.z0 - z, 0, z - r.z1)
+        distance = math.min(distance, math.floor(math.sqrt(dx * dx + dz * dz) + 0.5))
+       end
+       local surface
+       for y = ground_y + 40, ground_y - 48, -1 do
+        local name = core.get_node({x=x,y=y,z=z}).name
+        local def = core.registered_nodes[name]
+        if def and def.walkable and (core.get_item_group(name, 'soil') > 0
+            or def.is_ground_content == true) then surface = y; break end
+       end
+       out[#out + 1] = {distance = distance, x = x, z = z, surface_y = surface}
+      end
+      return out
+     end
+     local function fixture(boundary, ground_y)
+      local start = section_start(boundary)
+      if not start then return nil end
+      local dx, dz = start[1], start[2]
+      local px, pz = -dz, dx
+      -- The flat test world's void is classified as a foreign structure.
+      -- Replace it only under this sampled boundary corridor so it can grade.
+      if scenario == 'margins' then
+       local replaced = 0
+       for across = -5, 5 do for distance = 1, 21 do
+        local x = start[3] + dx * distance + px * across
+        local z = start[4] + dz * distance + pz * across
+        for y = ground_y - 48, ground_y + 48 do
+         local p = {x=x,y=y,z=z}
+         if core.get_node(p).name == 'mcl_core:void' then
+          core.swap_node(p, {name='mcl_core:stone'})
+          replaced = replaced + 1
+         end
+        end
+       end end
+       report.margin_substrate_replaced = replaced
+      end
+      local function inside(x, z)
+       for _, r in ipairs(boundary) do
+        if x >= r.x0 and x <= r.x1 and z >= r.z0 and z <= r.z1 then return true end
+       end
+       return false
+      end
+      local function pos(distance, across, y)
+       return {x = start[3] + dx * distance + px * across, y = y,
+        z = start[4] + dz * distance + pz * across}
+      end
+      local points = {wall = pos(3, 0, ground_y + 1), trench = pos(8, 0, ground_y),
+       pond = pos(11, 0, ground_y), ice = pos(14, 0, ground_y), tree = pos(17, 0, ground_y + 1),
+       structure = pos(19, 0, ground_y + 1)}
+      local protected_nodes = {}
+      local function set_fixture(name, p)
+       if inside(p.x, p.z) then return end
+       core.set_node(p, {name = name})
+       if name == WATER or name == 'mcl_core:ice' or name == 'mcl_core:cobble' then
+        protected_nodes[#protected_nodes + 1] = {x=p.x,y=p.y,z=p.z,name=name,param2=core.get_node(p).param2 or 0}
+       end
+      end
+      for across = -2, 2 do for distance = 2, 5 do for y = ground_y + 1, ground_y + 35 do
+       local p = pos(distance, across, y)
+       set_fixture('mcl_core:dirt_with_grass', p)
+      end end end
+      for across = -2, 2 do for distance = 7, 9 do for y = ground_y - 2, ground_y + 1 do
+       local p = pos(distance, across, y)
+       if not inside(p.x, p.z) then core.set_node(p, {name = 'air'}) end
+      end end end
+      for across = -1, 1 do for distance = 11, 12 do for y = ground_y - 1, ground_y do
+       local p = pos(distance, across, y)
+       set_fixture(WATER, p)
+      end end end
+      local ice = points.ice
+      set_fixture('mcl_core:ice', ice)
+      for y = ground_y + 1, ground_y + 5 do
+       local p = points.tree; p.y = y; set_fixture('mcl_core:tree', p)
+      end
+      for across = -1, 1 do for y = ground_y + 4, ground_y + 5 do
+       local p = pos(17, across, y)
+       set_fixture('mcl_core:leaves', p)
+      end end
+      for across = -1, 1 do for y = ground_y + 1, ground_y + 3 do
+       local p = pos(19, across, y)
+       set_fixture('mcl_core:cobble', p)
+      end end
+      local cells = {}
+      for name, p in pairs(points) do
+       local node = core.get_node(p)
+       cells[name] = {pos = p, name = node.name, param2 = node.param2}
+      end
+      report.margin_fixtures_before = cells
+      report.margin_protected_nodes = protected_nodes
+      return points
+     end
+     terrain.smooth_boundary = function(boundary, ground_y, options)
+      local fixtures
+      if scenario == 'margins' or scenario == 'margin-fail' then fixtures = fixture(boundary, ground_y) end
+      local before, evidence = interior_snapshot(boundary, ground_y)
+      report.margin_stage_changes = {before_smoothing = snapshot_changes(urban_snapshot, before)}
+      report.margin_interior_before = evidence
+      report.margin_section_before = section(boundary, ground_y)
+      if scenario == 'margin-fail' then
+       timing.margin_api.forced_failure = true
+       local start = section_start(boundary)
+       local partial = {x=start[3]+start[1],y=ground_y+1,z=start[4]+start[2]}
+       core.set_node(partial,{name='mcl_core:dirt'})
+       report.margin_partial_write = {pos=partial,name=core.get_node(partial).name}
+       local after, after_evidence = interior_snapshot(boundary, ground_y)
+       local changed = 0
+       for key, sig in pairs(before) do if after[key] ~= sig then changed = changed + 1 end end
+       report.margin_interior_after, report.margin_interior_changed = after_evidence, changed
+       margin_snapshot = after
+       report.margin_stage_changes.after_smoothing = snapshot_changes(before, after)
+       report.margin_section_after = section(boundary, ground_y)
+       return false, 'place_check forced margin failure'
+      end
+      local t = core.get_us_time()
+      local ok, stats = original_smooth_boundary(boundary, ground_y, options)
+      timing.margin_api.smooth_total_ms = (core.get_us_time() - t) / 1000
+      local after, after_evidence = interior_snapshot(boundary, ground_y)
+      margin_snapshot = after
+      report.margin_stage_changes.after_smoothing = snapshot_changes(before, after)
+      local changed = 0
+      for key, sig in pairs(before) do if after[key] ~= sig then changed = changed + 1 end end
+      report.margin_interior_after, report.margin_interior_changed = after_evidence, changed
+      report.margin_section_after = section(boundary, ground_y)
+      report.margin_surface_checks = {cap = options and options.cap,
+       within_cap = not stats or stats.max_movement == nil or stats.max_movement <= (options and options.cap or 20),
+       changed_columns = stats and stats.changed, max_movement = stats and stats.max_movement,
+       steps_over_one = stats and stats.steps_over_one, steepest = stats and stats.steepest,
+       cut = stats and stats.cut, filled = stats and stats.filled, tree_removed = stats and stats.tree_removed}
+      report.margin_phase_ms = stats and stats.profile
+      local section_changes = {}
+      for i, row in ipairs(report.margin_section_before) do
+       local after_row = report.margin_section_after[i]
+       if after_row and row.surface_y and after_row.surface_y then
+        section_changes[#section_changes + 1] = {distance = row.distance, before = row.surface_y,
+         after = after_row.surface_y, movement = after_row.surface_y - row.surface_y}
+       end
+      end
+      report.margin_section_changes = section_changes
+      if fixtures then
+       report.margin_fixtures_after = {}
+       for name, p in pairs(fixtures) do
+        local node = core.get_node(p)
+        report.margin_fixtures_after[name] = {pos = p, name = node.name, param2 = node.param2}
+       end
+       local intact, changed = 0, {}
+       for _, p in ipairs(report.margin_protected_nodes or {}) do
+        local node = core.get_node(p)
+        if node.name == p.name and (node.param2 or 0) == p.param2 then intact = intact + 1
+        else changed[#changed + 1] = {pos={x=p.x,y=p.y,z=p.z},before=p.name,after=node.name} end
+       end
+       report.margin_protected_checks = {total=#(report.margin_protected_nodes or {}),intact=intact,changed=changed}
+      end
+      return ok, stats
      end
     end
     towns.populated.build(r, function(summary, bmsg, code, extra)
      built = {summary, bmsg, code, extra}
+     towns.builder.build_town = original_urban_build
+     if snapshot_margin_stage and snapshot_boundary and margin_snapshot then
+      local final_snapshot = snapshot_margin_stage(snapshot_boundary, snapshot_ground)
+      report.margin_stage_changes.after_rural = snapshot_changes(margin_snapshot, final_snapshot)
+     end
      if original_terraform then terrain.terraform = original_terraform end
+     if original_boundary_volume then terrain.boundary_volume = original_boundary_volume end
+     if original_smooth_boundary then terrain.smooth_boundary = original_smooth_boundary end
      timing.build_ms = (core.get_us_time() - started) / 1000
      done(summary, bmsg, code, extra)
     end)
@@ -335,13 +645,78 @@ core.register_on_mods_loaded(function() core.after(0, function()
     local town = summary.town
     check(town and town.complete, 'summary marked complete')
     report.counts = {structures = #town.structures, nodes_changed = summary.nodes.changed}
+    if summary.margins then
+     report.margins = {status = summary.margins.status, reason = summary.margins.reason,
+      stats = summary.margins.stats, attempted_bounds = summary.margins.attempted_bounds}
+     local expected = scenario == 'margin-fail' and summary.margins.status == 'incomplete'
+       or scenario == 'margins' and summary.margins.status == 'smoothed'
+       or scenario ~= 'margin-fail' and scenario ~= 'margins'
+        and (summary.margins.status == 'smoothed' or summary.margins.status == 'skipped'
+         or summary.margins.status == 'incomplete')
+     check(expected,
+      'city margin stage status: ' .. tostring(summary.margins.status))
+    end
+    -- Only the synchronous writer interval is a no-change invariant. Between
+    -- asynchronous stages, normal ABMs may grow crops or normalize node state.
+    local immediate = report.margin_stage_changes and report.margin_stage_changes.after_smoothing
+    if immediate then
+     check(immediate.changed_columns == 0,
+      'urban interior preserved during smoothing (' .. immediate.changed_columns .. ' changed columns)')
+     check(report.margin_interior_before.unloaded == 0 and report.margin_interior_after.unloaded == 0,
+      'interior snapshot contains no unloaded nodes')
+    end
+    local margin_stats = summary.margins and summary.margins.stats
+    if margin_stats and type(margin_stats.max_movement) == 'number' then
+     check(margin_stats.max_movement <= 20, 'margin API reports movement within cap')
+    end
+    if scenario == 'margins' and report.margin_surface_checks then
+     local m = report.margin_surface_checks
+     check(report.margin_interior_changed == 0, 'full interior name/param2 snapshot unchanged (' .. tostring(report.margin_interior_changed) .. ' changed columns)')
+     check(m.changed_columns ~= nil and m.changed_columns > 0, 'margin changed eligible exterior soil columns (' .. tostring(m.changed_columns) .. ')')
+     check(m.within_cap and (m.max_movement or 0) <= 20, 'observed surface movement stays within the 20-node cap (' .. tostring(m.max_movement) .. ')')
+     local over_radius, over_cap = 0, 0
+     for _, row in ipairs(report.margin_section_changes or {}) do
+      if row.movement ~= 0 and row.distance >= 20 then over_radius = over_radius + 1 end
+      if math.abs(row.movement) > 20 then over_cap = over_cap + 1 end
+     end
+     check(over_radius == 0, 'sampled soil changes obey strict radius < 20 (' .. over_radius .. ' outside)')
+     check(over_cap == 0, 'sampled soil changes stay within cap (' .. over_cap .. ' over)')
+     local before, after = report.margin_fixtures_before or {}, report.margin_fixtures_after or {}
+     local preserved = 0
+     for _, name in ipairs({'pond', 'ice', 'structure'}) do
+      local a, b = before[name], after[name]
+      if a and b and a.name == b.name and a.param2 == b.param2 then preserved = preserved + 1 end
+     end
+     check(preserved == 3, 'pond, ice and foreign structure fixtures remain intact (' .. preserved .. ' of 3)')
+     local protected = report.margin_protected_checks or {}
+     check((protected.total or 0) > 0 and protected.intact == protected.total,
+      'every protected pond, ice and cobble node keeps name and param2 (' .. tostring(protected.intact) .. ' of ' .. tostring(protected.total) .. ')')
+    end
+    if scenario == 'margin-fail' then
+     check(report.margin_partial_write and report.margin_partial_write.name == 'mcl_core:dirt',
+      'forced margin failure follows a real exterior write')
+     check(summary.outskirts ~= nil, 'rural generation continues after forced margin failure')
+     check(town.residents ~= nil and town.residents.spawned > 0,
+      'urban residents are initialized after forced margin failure')
+    end
     if summary.outskirts then
      local rural = summary.outskirts
      local placed = {}
+     local margin_farms = {}
      for _, st in ipairs(rural.structures or {}) do
       local class = st.role
       if class then placed[class] = (placed[class] or 0) + 1 end
+      if class == 'farm' then
+       local distance = math.huge
+       for _, b in ipairs(result.plan.boundary.rects) do
+        local dx = math.max(b.x1-st.max.x,st.min.x-b.x2,0)
+        local dz = math.max(b.z1-st.max.z,st.min.z-b.z2,0)
+        distance = math.min(distance,math.floor(math.sqrt(dx*dx+dz*dz)+0.5))
+       end
+       if distance < 20 then margin_farms[#margin_farms+1] = {plot=st.plot,distance=distance} end
+      end
      end
+     report.farms_in_margin_band = margin_farms
      local terrain = {}
      for _, row in ipairs(rural.terraform or {}) do
       local stat = row.stats
