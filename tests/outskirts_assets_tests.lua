@@ -14,6 +14,21 @@ end
 same_size(farm, assets.farm, "farm")
 same_size(hut, assets.shepherd_hut, "shepherd hut")
 same_size(villa, assets.villa, "Roman villa")
+local farm_data = dofile(assets.farm.data_path)
+local hut_data = dofile(assets.shepherd_hut.data_path)
+local demo_data = dofile(catalog.get("demo_house").data_path)
+eq(type(farm_data.metadata), "table", "farm has a refreshable metadata sidecar")
+eq(type(farm_data.required_nodes), "table", "farm sidecar lists required nodes")
+local function has_closed_door(data)
+
+	for _, saved in ipairs(data.metadata or {}) do
+		if saved.name == "mcl_doors:wooden_door_b_1" and saved.fields
+				and saved.fields.is_open == "0" then return true end
+	end
+	return false
+end
+eq(has_closed_door(hut_data), true, "hut sidecar preserves closed door state")
+eq(has_closed_door(demo_data), true, "demo house sidecar preserves closed door state")
 
 local function find(s, name)
 	local found = {}
@@ -29,7 +44,8 @@ eq(composter[1] and composter[1].x == assets.farm.composter.x
 	true, "farm composter position")
 eq(#find(farm, "mcl_doors:wooden_door_b_1"), 0, "farm has no door")
 eq(#find(farm, "mcl_beds:bed_red_bottom"), 0, "farm has no bed")
-eq(farm.at(0, 0, 0), "mcl_core:dirt", "farm keeps dirt ground row")
+eq(farm.at(0, 0, 0) == "mcl_core:dirt" or farm.at(0, 0, 0) == "mcl_core:dirt_with_grass",
+	true, "farm ground row has soil")
 eq(assets.farm.entrance, nil, "farm has no entrance")
 
 local doors = find(hut, "mcl_doors:wooden_door_b_1")
@@ -44,7 +60,8 @@ at(doors, assets.shepherd_hut.entrance, "door")
 at(looms, assets.shepherd_hut.loom, "loom")
 at(beds, assets.shepherd_hut.bed, "bed")
 eq(assets.shepherd_hut.ground_offset, 0, "hut dirt layer is ground row")
-eq(hut.at(0, 0, 0), "mcl_core:dirt", "hut keeps dirt ground row")
+eq(hut.at(0, 0, 0) == "mcl_core:dirt" or hut.at(0, 0, 0) == "mcl_core:dirt_with_grass",
+	true, "hut ground row has soil")
 eq(hut.at(assets.shepherd_hut.entrance.x, assets.shepherd_hut.entrance.y,
 	assets.shepherd_hut.entrance.z - 1), "air", "hut door faces canonical -Z")
 

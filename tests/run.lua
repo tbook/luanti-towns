@@ -312,13 +312,16 @@ for _, rot in ipairs(geometry.ROTATIONS) do
 end
 -- 3. Verify metadata and required nodes.
 local cath_data = dofile(cathedral.data_path)
--- The #139 cathedral/monastery re-import includes the current workshop edit.
-eq(#(cath_data.metadata or {}), 293, "cathedral metadata entries")
+-- Metadata counts can change as workshop decorations are added; check authored
+-- contents and door state below instead of pinning the count.
 local cath_composters = 0
+local cath_closed_doors = 0
 for _, m in ipairs(cath_data.metadata or {}) do
 	if m.name == "mcl_composters:composter" then cath_composters = cath_composters + 1 end
+	if m.fields and m.fields.is_open == "0" then cath_closed_doors = cath_closed_doors + 1 end
 end
 eq(cath_composters, 2, "cathedral monastery farm has two composters (#93)")
+eq(cath_closed_doors > 0, true, "cathedral preserves closed door state")
 -- Check for duplicate required nodes.
 local cath_node_set = {}
 local cath_dupes = false

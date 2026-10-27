@@ -2,7 +2,7 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "cathedral"
+    "tower"
   ],
   "buildings": [
     {
@@ -88,7 +88,7 @@
         "z": 18
       },
       "verified_nodes": 18900,
-      "snapshot_sha256": "782c0417a5438cb27cb7964ccf808aec4911a0f553d5bc751a04afb50502eaa9"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -107,7 +107,7 @@
         "mcl_cauldrons:cauldron_3",
         "mcl_colorblocks:hardened_clay_white",
         "mcl_core:cobble",
-        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
         "mcl_core:mossycobble",
         "mcl_core:tree",
         "mcl_core:wood",
@@ -146,7 +146,7 @@
         "z": 9
       },
       "verified_nodes": 720,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -211,7 +211,7 @@
         "z": 8
       },
       "verified_nodes": 720,
-      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -268,7 +268,7 @@
         "z": 7
       },
       "verified_nodes": 462,
-      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -333,7 +333,7 @@
         "z": 11
       },
       "verified_nodes": 1980,
-      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -392,7 +392,7 @@
         "z": 7
       },
       "verified_nodes": 504,
-      "snapshot_sha256": "701f48def2ff405e9507619222187b25d6a0e8adad2d5f06d600ebe004b8fc1c"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -434,6 +434,7 @@
         "mcl_fences:birch_fence",
         "mcl_flowerpots:flower_pot_blue_orchid",
         "mcl_flowerpots:flower_pot_fern",
+        "mcl_furnaces:furnace",
         "mcl_itemframes:frame",
         "mcl_lanterns:lantern_ceiling",
         "mcl_smoker:smoker",
@@ -476,7 +477,7 @@
         "z": 11
       },
       "verified_nodes": 1716,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -571,7 +572,7 @@
         "z": 13
       },
       "verified_nodes": 1430,
-      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -630,7 +631,7 @@
         "z": 11
       },
       "verified_nodes": 2178,
-      "snapshot_sha256": "a9e9db85a1be4355cb8af542f7d902957b66577853399af1c17490f7ac993da6"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -699,7 +700,7 @@
         "z": 11
       },
       "verified_nodes": 1452,
-      "snapshot_sha256": "b0e750b2b8a9f0700367895c3c8330c71ddc483b2286a2be4afa7eb2cf21677b"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -755,7 +756,7 @@
         "z": 9
       },
       "verified_nodes": 567,
-      "snapshot_sha256": "f93c309e214dfdab1baa8dddd1d29e4b3e1faca7455cda4e0bcef85efdd8b501"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -803,7 +804,7 @@
         "z": 9
       },
       "verified_nodes": 378,
-      "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -868,7 +869,7 @@
         "z": 17
       },
       "verified_nodes": 2142,
-      "snapshot_sha256": "701f48def2ff405e9507619222187b25d6a0e8adad2d5f06d600ebe004b8fc1c"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -992,7 +993,6 @@
         "mcl_fences:fence",
         "mcl_fences:fence_gate",
         "mcl_fletching_table:fletching_table",
-        "mcl_flowers:azure_bluet",
         "mcl_flowers:clover",
         "mcl_flowers:cornflower",
         "mcl_flowers:lilac",
@@ -1106,7 +1106,7 @@
         "z": 50
       },
       "verified_nodes": 105300,
-      "snapshot_sha256": "b0e750b2b8a9f0700367895c3c8330c71ddc483b2286a2be4afa7eb2cf21677b"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -1168,6 +1168,7 @@
         "mcl_decor:chair_spruce",
         "mcl_decor:chair_wooden",
         "mcl_decor:table_acacia",
+        "mcl_decor:table_spruce",
         "mcl_decor:table_wooden",
         "mcl_decor:white_fence",
         "mcl_deepslate:deepslate_cobbled",
@@ -1208,6 +1209,7 @@
         "mcl_flowerpots:flower_pot",
         "mcl_flowerpots:flower_pot_azure_bluet",
         "mcl_flowerpots:flower_pot_blue_orchid",
+        "mcl_flowerpots:flower_pot_sprucesapling",
         "mcl_flowers:cornflower",
         "mcl_flowers:dandelion",
         "mcl_flowers:double_grass",
@@ -1320,7 +1322,7 @@
         "z": 55
       },
       "verified_nodes": 116820,
-      "snapshot_sha256": "939dd37a79b47160b1db4fbec1055ffd20379c3091a5a270b573e37ff6b165c0"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -1513,7 +1515,7 @@
         "z": 7
       },
       "verified_nodes": 1232,
-      "snapshot_sha256": "f666b257497cc432886be134f7923adc85f00baa929bedccbf3e13f6251af178"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -1524,7 +1526,7 @@
       "entrance_kind": "opening",
       "ground_offset": 3,
       "id": "soup_shop",
-      "label": "Soup shop (Home)",
+      "label": "Soup shop",
       "required_nodes": [
         "mcl_barrels:barrel_closed",
         "mcl_beds:bed_yellow_bottom",
@@ -1534,7 +1536,6 @@
         "mcl_core:dirt_with_grass",
         "mcl_core:granite",
         "mcl_core:granite_smooth",
-        "mcl_core:grass_path",
         "mcl_core:ladder",
         "mcl_core:mycelium",
         "mcl_core:stone",
@@ -1566,14 +1567,14 @@
         "z": 9
       },
       "source_max": {
-        "x": 246,
-        "y": 16,
-        "z": 241
+        "x": 211,
+        "y": 17,
+        "z": 478
       },
       "source_min": {
-        "x": 240,
-        "y": 7,
-        "z": 233
+        "x": 205,
+        "y": 8,
+        "z": 470
       },
       "source_size": {
         "x": 7,
@@ -1581,7 +1582,7 @@
         "z": 9
       },
       "verified_nodes": 630,
-      "snapshot_sha256": "cc6637271133019eb6ec7e74fa6bd49dbed9dff33157edf6bbc02a4c9a877eac"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     },
     {
       "entrance": {
@@ -1758,7 +1759,13 @@
         "z": 10
       },
       "verified_nodes": 630,
-      "snapshot_sha256": "7e0e85f8e2decaa52b09ae11a68293d790e0f5d1cc6dcb4cabbbf921202e7c0c"
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
     }
-  ]
+  ],
+  "runtime_validation": {
+    "inventory_lists": 2424,
+    "metadata_nodes": 4620,
+    "non_air_nodes": 426912,
+    "placements": 128
+  }
 }

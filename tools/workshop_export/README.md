@@ -61,9 +61,13 @@ Outputs in `schematics/templates/`:
 
 The exporter verifies every schematic by placing it with the inverse rotation
 and comparing node names and param2 to the source. `--validate` additionally
-places the complete catalog (including the castle) at all four rotations through the runtime helper,
-checking nodes, orientations, entrance locations, fields, and inventories.
-Snapshot paths and logs are printed for inspection if a check fails.
+runs a smoke check through the runtime helper: it places the complete catalog
+(including the castle) at all four rotations and checks that each placement
+succeeds, leaves no unloaded cells, places non-air nodes, has a working
+entrance, and restores saved metadata fields and inventory contents. Runtime
+placement may normalize node names and param2 values, so this check focuses on
+placement behavior rather than raw voxel equality. Snapshot paths and logs are
+printed for inspection if a check fails.
 
 Reload the game after replacing schematics because Luanti caches them. To
 look at a template on its own, copy it to a world's `schems` directory and use
