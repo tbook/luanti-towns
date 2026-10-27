@@ -391,6 +391,15 @@ function M.plan(center, seed, opts)
 			local plan, why, detail = roman_planner.plan(center, seed, nil,
 				M.row_depth(profile))
 			if plan then M.populate(plan, profile, seed) end
+			if plan then
+				-- A 30-node forum has a four-node centre; use the lower
+				-- coordinate of that centre for this odd-sized fountain.
+				local r = plan.sites.forum.rect
+				local x, z = math.floor((r.x1 + r.x2) / 2), math.floor((r.z1 + r.z2) / 2)
+				plan.objects = plan.objects or {}
+				plan.objects[#plan.objects + 1] = {id = "roman_fountain", rotation = 0,
+					rect = {x1 = x - 2, z1 = z - 2, x2 = x + 2, z2 = z + 2}}
+			end
 			return plan, why, detail
 		end
 		error("towns planner: unknown town type " .. tostring(opts.town_type), 2)

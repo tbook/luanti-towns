@@ -18,6 +18,34 @@ local function plan_at(x, z, seed)
 	assert(plan, why)
 	return plan
 end
+
+-- The authored fountain is centered on the forum and keeps the enclosed
+-- bell at the same height as the surrounding walking space.
+local fountain_asset = dofile("schematics/objects/catalog.lua").roman_fountain
+local fountain = dofile("tests/mts_reader.lua")(fountain_asset.path)
+eq(fountain.at(2, 1, 2), "mcl_bells:bell", "fountain contains its hidden bell")
+eq(fountain.at(2, 0, 2), "mcl_ocean:sea_lantern", "bell has its authored support")
+eq(fountain.at(2, 2, 2), "mcl_core:diorite_smooth", "bell is enclosed above")
+eq(fountain.at(2, 3, 2), "mcl_core:water_source", "fountain has a water source")
+for _, center in ipairs({{x = 0, z = 0}, {x = -130, z = 77}}) do
+	local p = plan_at(center.x, center.z, 1)
+	local found
+	for _, o in ipairs(p.objects) do if o.id == "roman_fountain" then
+		eq(found, nil, "only one Roman fountain")
+		found = o
+	end end
+	eq(found ~= nil, true, "Roman town contains fountain")
+	local r = p.sites.forum.rect
+	eq(found.rect.x1 + 2, math.floor((r.x1 + r.x2) / 2), "fountain center x")
+	eq(found.rect.z1 + 2, math.floor((r.z1 + r.z2) / 2), "fountain center z")
+	local comp = assert(dofile("src/preflight.lua").compose(p, catalog.snapshot(), 42))
+	local placed
+	for _, structure in ipairs(comp.structures) do
+		if structure.id == "roman_fountain" then placed = structure end
+	end
+	eq(placed and placed.kind, "object", "fountain is placed without a building entrance")
+	eq(placed and placed.min.y, 42, "fountain ground is level with forum pavement")
+end
 local function overlap(a, b)
 	return a.x1 <= b.x2 and b.x1 <= a.x2 and a.z1 <= b.z2 and b.z1 <= a.z2
 end

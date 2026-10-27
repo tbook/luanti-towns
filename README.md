@@ -33,7 +33,7 @@ per valid bed.
 
 `/towns_generate roman [seed]` builds the first-version Roman town through
 the same search, build, node setup and resident stages. Its civic layout is
-authored in `src/roman_civic_plan.lua`: a forum square, four arches at the
+authored in `src/roman_civic_plan.lua`: a forum square with a central bell fountain, four arches at the
 ends of the cardo and decumanus streets, a temple on each side of the north
 street, an amphitheatre, a theatre, a bath, three domus monuments and a
 basilica, with paved blocks and street frontage. Ordinary houses, shops, workshops,

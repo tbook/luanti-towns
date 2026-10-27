@@ -43,6 +43,7 @@ local CLASSES = {
 	{"workshop", "w", "#d8c19f", "ordinary workshop"},
 	{"oak_tree", "t", "#246b35", "oak tree (decoration)", overlay = true, outline = true},
 	{"garden", "g", "#237b9a", "garden (decoration)", overlay = true, outline = true},
+	{"roman_fountain", "f", "#387cba", "Roman bell fountain", overlay = true, outline = true, roman = true},
 	{"core", "o", "#ff8c00", "town core (HOOK: plan.core, not yet planned)", overlay = true},
 	{"footprint", "f", "#000000", "construction footprint (HOOK: plan.footprint)", overlay = true, outline = true},
 	{"exit", "x", "#00a000", "designated exit (HOOK: plan.exits)", overlay = true},
