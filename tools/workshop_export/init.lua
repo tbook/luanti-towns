@@ -17,6 +17,87 @@ local function offset(p,lo,size,r)
  elseif r==270 then x,z=size.z-1-z,x end
  return {x=x,y=y,z=z}
 end
+-- Match src/schematic.lua:M.wall_name. VoxeLibre stores wall connections in
+-- the node name, so rotating a schematic moves the nodes without rotating
+-- those connections. Normalize after rotation, using neighbours in the
+-- exported box only (the same rule used by runtime placement).
+local wall_dirs={{1,0,1},{0,1,2},{-1,0,4},{0,-1,8}}
+local function is_wall(name) return core.get_item_group(name,'wall')>0 end
+local function wall_name(name,at)
+ local base=name:match('^(.*_)%d+$')
+ if not base then return name end
+ local function connects(n)
+  return n~=nil and (core.get_item_group(n,'wall')==1 or core.get_item_group(n,'solid')==1)
+ end
+ local sum=0
+ for _,d in ipairs(wall_dirs) do if connects(at(d[1],0,d[2])) then sum=sum+d[3] end end
+ if sum==5 or sum==10 then
+  local above=at(0,1,0)
+  if connects(above) or (above~=nil and core.get_item_group(above,'torch')==1) then sum=sum+11 end
+ end
+ return base..sum
+end
+local function recompute_walls(origin,size)
+ local count=0
+ for z=0,size.z-1 do for y=0,size.y-1 do for x=0,size.x-1 do
+  local p={x=origin.x+x,y=origin.y+y,z=origin.z+z};local node=core.get_node(p)
+  if is_wall(node.name) then
+   local name=wall_name(node.name,function(dx,dy,dz)
+    local nx,ny,nz=x+dx,y+dy,z+dz
+    if nx<0 or nx>=size.x or ny<0 or ny>=size.y or nz<0 or nz>=size.z then return nil end
+    local n=core.get_node({x=origin.x+nx,y=origin.y+ny,z=origin.z+nz}).name
+    return n~='air' and n or nil
+   end)
+   if name~=node.name then core.swap_node(p,{name=name,param2=node.param2}) end
+   count=count+1
+  end
+ end end end
+ return count
+end
+local function assert_walls_match(origin,size,label)
+ local walls,bad=0,0
+ for z=0,size.z-1 do for y=0,size.y-1 do for x=0,size.x-1 do
+  local p={x=origin.x+x,y=origin.y+y,z=origin.z+z};local node=core.get_node(p)
+  if is_wall(node.name) then
+   walls=walls+1
+   local expected=wall_name(node.name,function(dx,dy,dz)
+    local nx,ny,nz=x+dx,y+dy,z+dz
+    if nx<0 or nx>=size.x or ny<0 or ny>=size.y or nz<0 or nz>=size.z then return nil end
+    local n=core.get_node({x=origin.x+nx,y=origin.y+ny,z=origin.z+nz}).name
+    return n~='air' and n or nil
+   end)
+   if expected~=node.name then bad=bad+1 end
+  end
+ end end end
+ assert(bad==0,label..' has '..bad..' wall connection mismatches among '..walls..' walls')
+ return walls
+end
+-- Read the actual MTS back from disk and inspect its names without placing it
+-- or recomputing anything. This catches serialization errors or stale names
+-- that an in-memory map check would miss.
+local function assert_exported_walls_match(path,size,label)
+ local schem=assert(core.read_schematic(path,{}),label..' could not be read back')
+ assert(schem.size.x==size.x and schem.size.y==size.y and schem.size.z==size.z,label..' size changed on disk')
+ local function node(x,y,z)
+  return schem.data[z*size.y*size.x+y*size.x+x+1]
+ end
+ local walls,bad=0,0
+ for z=0,size.z-1 do for y=0,size.y-1 do for x=0,size.x-1 do
+  local n=node(x,y,z)
+  if is_wall(n.name) then
+   walls=walls+1
+   local expected=wall_name(n.name,function(dx,dy,dz)
+    local nx,ny,nz=x+dx,y+dy,z+dz
+    if nx<0 or nx>=size.x or ny<0 or ny>=size.y or nz<0 or nz>=size.z then return nil end
+    local q=node(nx,ny,nz).name
+    return q~='air' and q or nil
+   end)
+   if expected~=n.name then bad=bad+1 end
+  end
+ end end end
+ assert(bad==0,label..' has '..bad..' saved wall connection mismatches among '..walls..' walls')
+ return walls
+end
 core.register_on_mods_loaded(function() core.after(0,function()
  local wp=core.get_worldpath();local config=read_json(wp..'/buildings.json')
  local min={x=31000,y=31000,z=31000};local max={x=-31000,y=-31000,z=-31000}
@@ -71,10 +152,15 @@ core.register_on_mods_loaded(function() core.after(0,function()
     if j.rotation==90 or j.rotation==270 then rotated_size.x,rotated_size.z=size.z,size.x end
     local v=VoxelManip();v:read_from_map(target,vector.add(target,vector.subtract(rotated_size,1)))
     assert(core.place_schematic(target,raw,tostring(j.rotation),nil,true))
+    local wall_count=recompute_walls(target,rotated_size)
+    assert_walls_match(target,rotated_size,j.id..' rotated export')
     local output=wp..'/export/'..j.id..'.mts';assert(core.create_schematic(target,vector.add(target,vector.subtract(rotated_size,1)),nil,output))
+    local exported_wall_count=assert_exported_walls_match(output,rotated_size,j.id..' saved export')
+    assert(exported_wall_count==wall_count,j.id..' saved wall count changed')
     local metadata={};local nodes={};local dependencies={};local count=0
     for z=lo.z,hi.z do for y=lo.y,hi.y do for x=lo.x,hi.x do
-     local p={x=x,y=y,z=z};local source=core.get_node(p);local o=offset(p,lo,size,j.rotation);local n=core.get_node(vector.add(target,o));assert(n.name==source.name,'Rotation changed node name')
+     local p={x=x,y=y,z=z};local source=core.get_node(p);local o=offset(p,lo,size,j.rotation);local n=core.get_node(vector.add(target,o))
+     if not is_wall(source.name) then assert(n.name==source.name,'Rotation changed non-wall node name') end
      count=count+1
      if n.name~='air' then
       dependencies[n.name]=true
@@ -89,11 +175,23 @@ core.register_on_mods_loaded(function() core.after(0,function()
     -- Verify exported file by rotating it back into source orientation.
     local inverse={x=index*160,y=150,z=120};local v2=VoxelManip();v2:read_from_map(inverse,vector.add(inverse,vector.subtract(size,1)))
     assert(core.place_schematic(inverse,output,tostring((360-j.rotation)%360),nil,true))
+    recompute_walls(inverse,size)
+    assert_walls_match(inverse,size,j.id..' inverse export')
     for z=0,size.z-1 do for y=0,size.y-1 do for x=0,size.x-1 do
-     local a=core.get_node(vector.add(lo,{x=x,y=y,z=z}));local b=core.get_node(vector.add(inverse,{x=x,y=y,z=z}));assert(a.name==b.name and a.param2==b.param2,j.id..' inverse rotation mismatch')
+     local p=vector.add(lo,{x=x,y=y,z=z});local q=vector.add(inverse,{x=x,y=y,z=z});local a=core.get_node(p);local b=core.get_node(q)
+     local expected=a.name
+     if is_wall(a.name) then
+      expected=wall_name(a.name,function(dx,dy,dz)
+       local nx,ny,nz=x+dx,y+dy,z+dz
+       if nx<0 or nx>=size.x or ny<0 or ny>=size.y or nz<0 or nz>=size.z then return nil end
+       local n=core.get_node(vector.add(lo,{x=nx,y=ny,z=nz})).name
+       return n~='air' and n or nil
+      end)
+     end
+     assert(expected==b.name and a.param2==b.param2,j.id..' inverse rotation mismatch')
     end end end
     local names={} for name in pairs(dependencies) do names[#names+1]=name end table.sort(names)
-    local r={id=j.id,label=j.label,source_min=lo,source_max=hi,source_size=size,size=rotated_size,rotation=j.rotation,entrance=entrance,entrance_kind=kind,ground_offset=ground_offset,role=j.role,excluded_resident_beds=j.excluded_resident_beds,metadata=metadata,nodes=nodes,required_nodes=names,verified_nodes=count}
+    local r={id=j.id,label=j.label,source_min=lo,source_max=hi,source_size=size,size=rotated_size,rotation=j.rotation,entrance=entrance,entrance_kind=kind,ground_offset=ground_offset,role=j.role,excluded_resident_beds=j.excluded_resident_beds,metadata=metadata,nodes=nodes,required_nodes=names,verified_nodes=count,wall_count=exported_wall_count,wall_mismatches=0}
     write_json(wp..'/export/'..j.id..'.json',r);results[#results+1]=r
    end
    write_json(wp..'/export/results.json',results)
