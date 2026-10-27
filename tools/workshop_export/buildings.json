@@ -590,35 +590,35 @@
     },
     {
       "id": "soup_shop",
-      "label": "Soup shop (Home)",
+      "label": "Soup shop",
       "scan_min": {
-        "x": 236,
+        "x": 201,
         "y": 6,
-        "z": 229
+        "z": 466
       },
       "scan_max": {
-        "x": 250,
+        "x": 215,
         "y": 20,
-        "z": 245
+        "z": 482
       },
-      "floor_y": 10,
+      "floor_y": 12,
       "capture_min": {
-        "x": 240,
-        "y": 7,
-        "z": 233
+        "x": 205,
+        "y": 8,
+        "z": 470
       },
       "capture_max": {
-        "x": 246,
-        "y": 16,
-        "z": 241
+        "x": 211,
+        "y": 17,
+        "z": 478
       },
-      "ground_y": 10,
+      "ground_y": 11,
       "clip_to_capture": true,
       "rotation": 0,
       "entrance": {
-        "x": 244,
-        "y": 12,
-        "z": 234
+        "x": 209,
+        "y": 13,
+        "z": 471
       },
       "entrance_kind": "opening",
       "role": "shop"

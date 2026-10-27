@@ -4,12 +4,14 @@ return {
 	farm = {
 		id = "farm", label = "Farm", class = "farm", role = "farm",
 		path = "schematics/outskirts/farm.mts",
+		data_path = "schematics/outskirts/farm.lua",
 		size = {x = 9, y = 8, z = 7}, ground_offset = 0,
 		composter = {x = 4, y = 2, z = 0},
 	},
 	shepherd_hut = {
 		id = "shepherd_hut", label = "Shepherd's hut", class = "hut", role = "hut",
 		path = "schematics/outskirts/small_house.mts",
+		data_path = "schematics/outskirts/small_house.lua",
 		size = {x = 9, y = 9, z = 8}, ground_offset = 0,
 		entrance = {x = 4, y = 2, z = 2, facing = "-Z"},
 		entrance_kind = "door",

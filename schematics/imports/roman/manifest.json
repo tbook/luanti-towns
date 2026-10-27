@@ -1,6 +1,6 @@
 {
   "source_world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
-  "snapshot_sha256": "b0e750b2b8a9f0700367895c3c8330c71ddc483b2286a2be4afa7eb2cf21677b",
+  "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
   "buildings": [
     {
       "id": "domus",
@@ -29,8 +29,8 @@
         "y": 11,
         "z": 22
       },
-      "snapshot_sha256": "e0dbaabe591aa441465173a8029c94b0efc58659587a16a808857395d072a1fc",
-      "source_map_sha256": "852b14cdc6c04aa8c93271514c54bc0c104a3aeaf6c6914c7387c4d9dc45e59e",
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
+      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
       "non_air_node_types": 64,
       "metadata_nodes": 56,
       "required_nodes": [
@@ -127,6 +127,8 @@
         "y": 11,
         "z": 8
       },
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
+      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
       "non_air_node_types": 18,
       "metadata_nodes": 2,
       "required_nodes": [
@@ -177,6 +179,8 @@
         "y": 11,
         "z": 14
       },
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
+      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
       "non_air_node_types": 24,
       "metadata_nodes": 4,
       "required_nodes": [
@@ -233,8 +237,8 @@
         "y": 20,
         "z": 26
       },
-      "snapshot_sha256": "9205f7797c2ae8a69d42c1187f0ca8ed98b1eae701549a2c18f71ccf1b5c17cc",
-      "source_map_sha256": "6eab09ffbcb4847a24979099bfe2b0dade786a7b4c1e12f0098eb590c1c6fef3",
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
+      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
       "non_air_node_types": 64,
       "metadata_nodes": 63,
       "required_nodes": [
@@ -331,8 +335,8 @@
         "y": 21,
         "z": 11
       },
-      "snapshot_sha256": "9205f7797c2ae8a69d42c1187f0ca8ed98b1eae701549a2c18f71ccf1b5c17cc",
-      "source_map_sha256": "6eab09ffbcb4847a24979099bfe2b0dade786a7b4c1e12f0098eb590c1c6fef3",
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
+      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
       "non_air_node_types": 6,
       "metadata_nodes": 0,
       "required_nodes": [
@@ -371,8 +375,8 @@
         "y": 9,
         "z": 29
       },
-      "snapshot_sha256": "9205f7797c2ae8a69d42c1187f0ca8ed98b1eae701549a2c18f71ccf1b5c17cc",
-      "source_map_sha256": "6eab09ffbcb4847a24979099bfe2b0dade786a7b4c1e12f0098eb590c1c6fef3",
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
+      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
       "non_air_node_types": 49,
       "metadata_nodes": 14,
       "required_nodes": [
@@ -454,6 +458,8 @@
         "y": 11,
         "z": 12
       },
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
+      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
       "non_air_node_types": 22,
       "metadata_nodes": 4,
       "required_nodes": [
@@ -508,10 +514,10 @@
         "y": 18,
         "z": 43
       },
-      "snapshot_sha256": "e0dbaabe591aa441465173a8029c94b0efc58659587a16a808857395d072a1fc",
-      "source_map_sha256": "852b14cdc6c04aa8c93271514c54bc0c104a3aeaf6c6914c7387c4d9dc45e59e",
-      "non_air_node_types": 128,
-      "metadata_nodes": 288,
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
+      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
+      "non_air_node_types": 130,
+      "metadata_nodes": 287,
       "required_nodes": [
         "living_villages:pulpit",
         "mcl_armor_stand:armor_stand",
@@ -555,6 +561,7 @@
         "mcl_core:stone_smooth",
         "mcl_core:stone_with_coal",
         "mcl_core:stone_with_iron",
+        "mcl_core:stonebrick",
         "mcl_core:vine",
         "mcl_core:water_flowing",
         "mcl_core:water_source",
@@ -564,6 +571,7 @@
         "mcl_decor:table_dark_oak",
         "mcl_decor:table_lamp",
         "mcl_deepslate:deepslate_cobbled",
+        "mcl_deepslate:tuff",
         "mcl_dispensers:dispenser_up",
         "mcl_doors:dark_oak_door_b_1",
         "mcl_doors:dark_oak_door_b_3",
@@ -584,6 +592,7 @@
         "mcl_flowers:tulip_red",
         "mcl_flowers:tulip_white",
         "mcl_lectern:lectern",
+        "mcl_mud:packed_mud",
         "mcl_nether:glowstone",
         "mcl_nether:quartz_block",
         "mcl_nether:quartz_chiseled",
@@ -596,13 +605,11 @@
         "mcl_stairs:slab_concrete_silver_top",
         "mcl_stairs:slab_copper_cut",
         "mcl_stairs:slab_copper_cut_top",
-        "mcl_stairs:slab_copper_exposed_cut",
         "mcl_stairs:slab_copper_exposed_cut_top",
         "mcl_stairs:slab_copper_oxidized_cut",
         "mcl_stairs:slab_copper_oxidized_cut_double",
         "mcl_stairs:slab_copper_oxidized_cut_top",
         "mcl_stairs:slab_copper_weathered_cut",
-        "mcl_stairs:slab_copper_weathered_cut_double",
         "mcl_stairs:slab_copper_weathered_cut_top",
         "mcl_stairs:slab_darkwood_top",
         "mcl_stairs:slab_diorite_smooth",
@@ -629,6 +636,7 @@
         "mcl_stairs:stair_waxed_copper_cut",
         "mcl_stairs:stair_waxed_copper_cut_outer",
         "mcl_stairs:stair_waxed_copper_oxidized_cut",
+        "mcl_torches:torch",
         "mcl_torches:torch_wall",
         "mesecons:wire_00110000_off",
         "mesecons:wire_01110000_off",
@@ -670,8 +678,8 @@
         "y": 20,
         "z": 27
       },
-      "snapshot_sha256": "9205f7797c2ae8a69d42c1187f0ca8ed98b1eae701549a2c18f71ccf1b5c17cc",
-      "source_map_sha256": "6eab09ffbcb4847a24979099bfe2b0dade786a7b4c1e12f0098eb590c1c6fef3",
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
+      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
       "non_air_node_types": 76,
       "metadata_nodes": 177,
       "required_nodes": [
@@ -780,8 +788,8 @@
         "y": 8,
         "z": 8
       },
-      "snapshot_sha256": "c43687e886185f7eafb427fd63d936ca84241ef2381230fbb52074dc17d1042d",
-      "source_map_sha256": "d073c3fbf3ec6754f4dd2740bc2b8311158bc10a59ca9a23805b6e05758a00cb",
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
+      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
       "non_air_node_types": 18,
       "metadata_nodes": 1,
       "required_nodes": [
@@ -832,9 +840,9 @@
         "y": 14,
         "z": 16
       },
-      "snapshot_sha256": "c43687e886185f7eafb427fd63d936ca84241ef2381230fbb52074dc17d1042d",
-      "source_map_sha256": "d073c3fbf3ec6754f4dd2740bc2b8311158bc10a59ca9a23805b6e05758a00cb",
-      "non_air_node_types": 29,
+      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
+      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
+      "non_air_node_types": 30,
       "metadata_nodes": 8,
       "required_nodes": [
         "mcl_colorblocks:hardened_clay",
@@ -851,6 +859,7 @@
         "mcl_doors:spruce_door_t_1",
         "mcl_doors:spruce_door_t_3",
         "mcl_doors:spruce_trapdoor_open",
+        "mcl_lectern:lectern",
         "mcl_stairs:slab_granite_smooth",
         "mcl_stairs:slab_granite_smooth_double",
         "mcl_stairs:slab_granite_smooth_top",

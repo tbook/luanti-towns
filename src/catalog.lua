@@ -24,6 +24,7 @@ M.VALID_ROLES = {
 local entries = {
 	demo_house = {
 		path = "schematics/demo_house.mts",
+		data_path = "schematics/demo_house.lua",
 		-- Dimensions and entrance match schematics/demo_house.mts (ticket #2).
 		size = {x = 9, y = 8, z = 7},
 		entrance = {x = 4, y = 1, z = 0},
