@@ -5,8 +5,8 @@ return {
 		id = "farm", label = "Farm", class = "farm", role = "farm",
 		path = "schematics/outskirts/farm.mts",
 		data_path = "schematics/outskirts/farm.lua",
-		size = {x = 9, y = 8, z = 7}, ground_offset = 0,
-		composter = {x = 4, y = 2, z = 0},
+		size = {x = 17, y = 2, z = 13}, ground_offset = 0,
+		composter = {x = 8, y = 1, z = 6},
 	},
 	shepherd_hut = {
 		id = "shepherd_hut", label = "Shepherd's hut", class = "hut", role = "hut",

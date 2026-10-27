@@ -16,7 +16,7 @@ eq(p.name, "farm", "mapped plan names catalog entry")
 eq(p.pos.x == plot.rect.x1 and p.pos.y == plot.ground_y and p.pos.z == plot.rect.z1, true,
 	"mapped plan uses plot minimum and ground")
 eq(p.rotat, "90", "mapped rotation uses Living Villages spelling")
-eq(schematics[1].hwidth == 9 and schematics[1].hdepth == 7 and schematics[1].hheight == 8, true,
+eq(schematics[1].hwidth == 17 and schematics[1].hdepth == 13 and schematics[1].hheight == 2, true,
 	"mapped schematic dimensions use catalog size")
 eq(protected.margin, 4, "protected rectangle carries the margin once")
 
@@ -34,11 +34,11 @@ local queried = terrain.volume(api, candidate, schematics, opts)
 eq(queried, volume_result, "volume result is passed through")
 eq(volume_calls, 1, "volume is queried once")
 
-local call
-api.terraform = function(...) call = {...}; return true, {unloaded_blocks = 0} end
+local call, call_count
+api.terraform = function(...) call, call_count = {...}, select("#", ...); return true, {unloaded_blocks = 0} end
 local ok = terrain.terraform(api, plan, schematics, protected)
 eq(ok, true, "successful terraform stats are accepted")
-eq(#call, 3, "terraform uses the public three-argument API")
+eq(call_count, 3, "terraform uses the public three-argument API")
 eq(call[1], plan, "terraform receives the single plot plan")
 eq(call[3].schematic_table, schematics, "schematic table is passed in options")
 eq(call[3].protected[1], protected, "protected rectangle is passed as the API list")

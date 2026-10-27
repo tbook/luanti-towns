@@ -92,7 +92,7 @@ _G.living_villages = {terrain = {volume = function(plan)
 local urban_bounds = {x1 = 0, z1 = 0, x2 = 20, z2 = 20}
 local plots = {
 	{id = "f01", class = "farm", asset = "farm", rotation = 0, ground_y = 10,
-		heights = {min = 10, max = 10}, rect = {x1 = 40, z1 = 40, x2 = 48, z2 = 46}},
+		heights = {min = 10, max = 10}, rect = {x1 = 40, z1 = 40, x2 = 56, z2 = 52}},
 	{id = "h01", class = "hut", asset = "shepherd_hut", rotation = 0, ground_y = 10,
 		heights = {min = 10, max = 10}, rect = {x1 = 80, z1 = 40, x2 = 88, z2 = 47}},
 }

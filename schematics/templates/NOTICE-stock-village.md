@@ -7,7 +7,9 @@
 - Author: MysticTempest ("Completely new schematics for VoxeLibre")
 - Licence: Creative Commons Attribution-ShareAlike 4.0 (CC-BY-SA 4.0),
   https://creativecommons.org/licenses/by-sa/4.0/
-- Changes: farm and small_house are unmodified copies. The tavern's two
+- Changes: small_house is an unmodified copy. The farm is rebuilt as a 17 x 2
+  x 13 open field with four irrigated beds, crossing paths and one accessible
+  composter. The tavern's two
   fence-and-plate tables are replaced with tables, chairs and plates as Living
   Villages does at village generation; the
   library's wooden stair in the middle of the back bookshelf wall is replaced

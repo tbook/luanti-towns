@@ -52,14 +52,13 @@ F.town = {type = "roman", seed = 8, center = {x = 1000, z = -2000}, ground_y = 6
 -- next: state = state * 48271 % 2147483647; int(a, b) = a + next() % (b - a + 1).
 F.rng = {seed = 8, first = {22928725, 838406270, 1379731455, 1106719894}}
 
--- Rural catalog entries (illustrative ids; measured geometry). Stock templates
--- keep the dirt layer (file y 0) as the ground row, so ground_offset is 0 and
--- the floor stands on file y 1 (as the tavern and well do).
+-- Rural catalog entries (illustrative ids; measured geometry). The farm's
+-- farmland is at the finished ground row; the hut keeps its dirt ground layer.
 F.assets = {
 	farm = {
-		id = "farm", class = "farm", size = {x = 9, y = 8, z = 7}, ground_offset = 0,
+		id = "farm", class = "farm", size = {x = 17, y = 2, z = 13}, ground_offset = 0,
 		entrance = nil,                              -- no door: composed as an object
-		composter = {x = 4, y = 2, z = 0},           -- the farmer's jobsite
+		composter = {x = 8, y = 1, z = 6},           -- the farmer's jobsite
 	},
 	shepherd_hut = {
 		id = "shepherd_hut", class = "hut", size = {x = 9, y = 9, z = 8}, ground_offset = 0,
@@ -76,7 +75,7 @@ F.bounds = {x1 = 905, z1 = -2086, x2 = 1085, z2 = -1915}      -- Roman plan.boun
 -- heights = min/max natural height under the footprint; ground_y = lower median.
 F.plots = {
 	{id = "f01", class = "farm", asset = "farm", rotation = 90, band = "near",
-		rect = {x1 = 1000, z1 = -1895, x2 = 1006, z2 = -1887}, distance = 20,
+		rect = {x1 = 1000, z1 = -1895, x2 = 1012, z2 = -1879}, distance = 20,
 		heights = {min = 60, max = 62}, ground_y = 61},
 	{id = "h01", class = "hut", asset = "shepherd_hut", rotation = 0, band = "far",
 		rect = {x1 = 1135, z1 = -2010, x2 = 1143, z2 = -2003}, distance = 50,
@@ -86,9 +85,9 @@ F.plots = {
 -- Composed structures (preflight.compose shape; the farm has no entrance).
 F.structures = {
 	{id = "farm", kind = "object", role = "farm", plot = "f01", rotation = 90,
-		rect = {x1 = 1000, z1 = -1895, x2 = 1006, z2 = -1887},
-		min = {x = 1000, y = 61, z = -1895}, max = {x = 1006, y = 68, z = -1887},
-		size = {x = 7, y = 8, z = 9}, ground_offset = 0, site_ground_y = 61},
+		rect = {x1 = 1000, z1 = -1895, x2 = 1012, z2 = -1879},
+		min = {x = 1000, y = 61, z = -1895}, max = {x = 1012, y = 62, z = -1879},
+		size = {x = 13, y = 2, z = 17}, ground_offset = 0, site_ground_y = 61},
 	{id = "shepherd_hut", kind = "outskirts", role = "hut", plot = "h01", rotation = 0,
 		rect = {x1 = 1135, z1 = -2010, x2 = 1143, z2 = -2003},
 		min = {x = 1135, y = 64, z = -2010}, max = {x = 1143, y = 72, z = -2003},
@@ -101,7 +100,7 @@ F.structures = {
 F.lv_calls = {
 	{plot_id = "f01",
 		plan = {{name = "farm", pos = {x = 1000, y = 61, z = -1895}, rotat = "90"}},
-		opts = {schematic_table = {{name = "farm", hwidth = 9, hdepth = 7, hheight = 8}},
+		opts = {schematic_table = {{name = "farm", hwidth = 17, hdepth = 13, hheight = 2}},
 			protected = {F.protected}}},
 	{plot_id = "h01",
 		plan = {{name = "shepherd_hut", pos = {x = 1135, y = 64, z = -2010}, rotat = "0"}},
