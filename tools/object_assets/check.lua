@@ -7,6 +7,18 @@ local function check(ok, message)
 end
 
 local function run()
+	local fountain = objects.roman_fountain
+	local ok, why = towns.schematic.validate(fountain, towns.modpath)
+	check(ok, "fountain uses registered game nodes: " .. tostring(why or "ok"))
+	local pos = {x = 112, y = 20, z = 20}
+	for z = 15, 29 do for x = 107, 121 do
+		core.set_node({x=x,y=20,z=z}, {name="mcl_core:cobble"})
+		for y = 21, 24 do core.set_node({x=x,y=y,z=z}, {name="air"}) end
+	end end
+	local placed, reason = towns.schematic.place(fountain, pos, 0, towns.modpath, {initialize = false})
+	assert(placed, reason)
+	check(core.get_node({x = 114, y = 21, z = 22}).name == "mcl_bells:bell", "fountain places the hidden bell at ground +1")
+	check(core.get_node({x = 114, y = 23, z = 22}).name == "mcl_core:water_source", "fountain places its water source")
 	for _, id in ipairs({"oak_tree", "garden"}) do
 		local e = objects[id]
 		local source = assert(core.read_schematic(towns.modpath .. "/" .. e.path, {}))
@@ -70,9 +82,33 @@ local function run()
 		end
 	end
 	check(core.registered_chatcommands.towns_place_object ~= nil, "object preview command registered")
-	local f = assert(io.open(core.get_worldpath() .. "/object-check.txt", "w"))
-	f:write(table.concat(checks, "\n"), "\n"); f:close()
-	core.request_shutdown("Object checks complete", false, 0)
+	core.after(4, function()
+		local bell = {x=114,y=21,z=22}
+		check(core.get_node(bell).name == "mcl_bells:bell", "fountain retains its hidden bell after liquid settling")
+		check(core.get_node({x=114,y=23,z=22}).name == "mcl_core:water_source", "fountain retains its water source after liquid settling")
+		for z=15,29 do for x=107,121 do
+			if x < 112 or x > 116 or z < 20 or z > 24 then
+				for y=21,23 do
+					local name = core.get_node({x=x,y=y,z=z}).name
+					assert(name ~= "mcl_core:water_source" and name ~= "mcl_core:water_flowing", "water escaped the fountain")
+				end
+			end
+		end end
+		check(true, "fountain water remains contained after settling")
+		local lv = core.get_modpath("living_villages")
+		if lv then
+			local gathering = dofile(lv .. "/bell.lua")
+			local center = gathering.center_of(bell)
+			check(center.x == bell.x and center.y == 21 and center.z == bell.z, "Living Villages finds the forum standing height")
+			local spot = gathering.pick_spot(center, "fountain-check")
+			check(spot ~= nil and spot.y == 21, "Living Villages finds a standing spot around the fountain")
+		else
+			checks[#checks + 1] = "SKIP Living Villages bell checks: mod not loaded"
+		end
+		local f = assert(io.open(core.get_worldpath() .. "/object-check.txt", "w"))
+		f:write(table.concat(checks, "\n"), "\n"); f:close()
+		core.request_shutdown("Object checks complete", false, 0)
+	end)
 end
 
 core.register_on_mods_loaded(function() core.after(0, function()

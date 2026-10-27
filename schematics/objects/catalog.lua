@@ -8,4 +8,7 @@ return {
 		path = "schematics/objects/garden.mts", data_path = "schematics/objects/garden.lua",
 		size = {x = 7, y = 3, z = 7}, ground_offset = 1,
 		clearing = {x = 9, z = 9}},
+	roman_fountain = {id = "roman_fountain", label = "Roman fountain",
+		path = "schematics/objects/roman_fountain.mts", data_path = "schematics/objects/roman_fountain.lua",
+		size = {x = 5, y = 4, z = 5}, ground_offset = 0},
 }

@@ -357,7 +357,7 @@ function M.format_report(summary, command)
 		local urban_placed = s.town.urban_placed or s.town.placed
 		add("Placed %d buildings; all %d door approach routes are walkable.",
 			urban_placed - (kinds.object or 0), #s.town.doors)
-		if kinds.object then add("Outdoor objects: %d trees and gardens.", kinds.object) end
+		if kinds.object then add("Outdoor objects: %d.", kinds.object) end
 		if s.town.structures then
 			-- Separate outdoor objects from all building categories; named
 			-- landmarks include the Roman monuments.
