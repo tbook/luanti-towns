@@ -94,9 +94,10 @@ function A.problems(plan)
 	check("cathedral door on the principal's centre line", off == 2 or off == 3)
 	check("parvis in the core's edge row", far(parvis.rect, neg(f)) == far(core, neg(f))
 		and far(parvis.rect, f) - near(parvis.rect, f) + 1 == 8
-		and far(parvis.rect, lateral) - near(parvis.rect, lateral) + 1 == 12)
-	check("parvis centred on the door",
-		dot(door, lateral) - near(parvis.rect, lateral) >= 5 and far(parvis.rect, lateral) - dot(door, lateral) >= 5)
+		and far(parvis.rect, lateral) - near(parvis.rect, lateral) + 1 == 16)
+	check("parvis widened left and right of the door",
+		dot(door, lateral) - near(parvis.rect, lateral) == 7
+		and far(parvis.rect, lateral) - dot(door, lateral) == 8)
 	check("principal ends in the parvis", far(ns, neg(f)) + 1 == near(parvis.rect, neg(f))
 		and far(ns, neg(f)) < far(core, neg(f)) and near(ns, neg(f)) == near(core, neg(f)))
 	check("cathedral approach on the parvis", inside(cath.approach.pos, parvis.rect)

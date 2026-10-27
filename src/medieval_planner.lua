@@ -59,7 +59,7 @@ M.MIN_BLOCK = 24       -- shortest block cut from an inner row
 M.MARKET_LENGTH = {20, 28}
 M.DEFAULT_ROW = 13     -- row depth for a profile without ordinary content (the stock
                        -- catalog's deepest building)
-M.PARVIS = {x = 12, z = 8}
+M.PARVIS = {x = 16, z = 8}
 
 -- Turns a plan (before its frontage is derived) by `turn` degrees about its
 -- centre: (dx, dz) -> (dz, -dx) per 90, the same map geometry.place applies to
@@ -196,7 +196,10 @@ local function build(center, seed, profile, rng, variant)
 	local ew = streets_z[2] -- E-W principal
 
 	street("principal", R(X1, ew.z1, X2, ew.z2))
-	local parvis = R(Xp - 3, Z2 - parvis_depth + 1, Xp + 8, Z2)
+	-- The door is Xp + 3. Viewed from the town facing north toward the
+	-- south-facing cathedral, extend the parvis one block to the left (west)
+	-- and three to the right (east).
+	local parvis = R(Xp - 4, Z2 - parvis_depth + 1, Xp + 11, Z2)
 	street("principal", R(Xp, Z0, Xp + P - 1, parvis.z1 - 1))
 	for _, s in ipairs(streets_z) do
 		if s.kind == "secondary" then street("secondary", R(X1, s.z1, X2, s.z2)) end
