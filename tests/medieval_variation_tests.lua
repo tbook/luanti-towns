@@ -136,7 +136,7 @@ do
 	caught("cathedral detached from the core", function(p) shift_site(p.sites.cathedral, -f.x * 2, -f.z * 2) end,
 		"cathedral outside the core")
 	caught("parvis off the door", function(p) shift_rect(p.sites.parvis.rect, lat.x * 4, lat.z * 4) end,
-		"parvis centred on the door")
+		"parvis widened left and right of the door")
 	local g = base.sites.castle.facing
 	local glat = {x = -g.z, z = g.x}
 	caught("gate off the principal", function(p) shift_rect(p.sites.castle.gate_span, glat.x, glat.z) end,
