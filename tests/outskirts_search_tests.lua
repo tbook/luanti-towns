@@ -9,7 +9,8 @@ local saved = {farm = C.FARM_COUNT, hut = C.HUT_COUNT, villa = C.VILLA_COUNT,
 C.FARM_COUNT, C.HUT_COUNT, C.VILLA_COUNT, C.CHAPEL_COUNT = 1, 0, 0, 0
 C.ATTEMPTS_PER_BUILDING = 2
 
-local plan = {town_type = "roman", seed = 8, center = {x = 500, z = 500},
+-- This seed supplies two non-overlapping larger farms in the near band.
+local plan = {town_type = "roman", seed = 1, center = {x = 500, z = 500},
 	bounds = {x1 = 400, z1 = 400, x2 = 600, z2 = 600}}
 local result = {plan = plan, center = plan.center, ground_y = 64, marker = "urban result"}
 local before = {plan = result.plan, marker = result.marker, outskirts = result.outskirts}

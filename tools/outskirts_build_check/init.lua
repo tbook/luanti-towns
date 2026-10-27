@@ -39,8 +39,8 @@ core.register_on_mods_loaded(function() core.after(0, function()
 					local rural_class = town_type == "roman" and "villa" or "hut"
 					local rural_w, rural_d = rural_asset == "villa" and 46 or 9, rural_asset == "villa" and 26 or 8
 					local plots = {
-						{id="f01",class="farm",asset="farm",rotation=0,ground_y=result.ground_y,
-							rect={x1=b.x2+5,z1=b.z1+5,x2=b.x2+13,z2=b.z1+11}},
+						{id="f01",class="farm",asset="farm",rotation=90,ground_y=result.ground_y,
+							rect={x1=b.x2+5,z1=b.z1+5,x2=b.x2+17,z2=b.z1+21}},
 						{id="r01",class=rural_class,asset=rural_asset,rotation=0,ground_y=result.ground_y,
 							rect={x1=b.x2+85,z1=b.z1+10,x2=b.x2+84+rural_w,z2=b.z1+9+rural_d}},
 					}
@@ -105,11 +105,41 @@ core.register_on_mods_loaded(function() core.after(0, function()
 							report.protection_regression={bounds=b,protected_box=protected_box,farm_box=farm_box}
 							check(applied.placed==2,"both real rural schematics placed")
 							check(applied.setup and #applied.setup.failed==0 and #applied.setup.unregistered==0,"rural node setup succeeded")
-							local farm=core.get_node({x=plots[1].rect.x1+4,y=plots[1].ground_y+2,z=plots[1].rect.z1}).name
+							local fx,fz=plots[1].rect.x1,plots[1].rect.z1
+							local farm=core.get_node({x=fx+6,y=plots[1].ground_y+1,z=fz+8}).name
+							local water=core.find_nodes_in_area({x=fx,y=plots[1].ground_y,z=fz},
+								{x=fx+12,y=plots[1].ground_y,z=fz+16},{"mcl_core:water_source"})
+							local wet=core.find_nodes_in_area({x=fx,y=plots[1].ground_y,z=fz},
+								{x=fx+12,y=plots[1].ground_y,z=fz+16},{"mcl_farming:soil_wet"})
+							local crops=core.find_nodes_in_area({x=fx,y=plots[1].ground_y+1,z=fz},
+								{x=fx+12,y=plots[1].ground_y+1,z=fz+16},
+								{"mcl_farming:wheat","mcl_farming:carrot","mcl_farming:potato"})
+							local composters=core.find_nodes_in_area({x=fx,y=plots[1].ground_y+1,z=fz},
+								{x=fx+12,y=plots[1].ground_y+1,z=fz+16},{"mcl_composters:composter"})
+							local watered=true
+							for _,p in ipairs(wet) do
+								local near=false
+								for _,w in ipairs(water) do
+									if math.abs(p.x-w.x)<=4 and math.abs(p.z-w.z)<=4 then near=true end
+								end
+								if not near then watered=false end
+							end
 							local loom= rural_asset=="shepherd_hut" and core.get_node({x=plots[2].rect.x1+3,y=plots[2].ground_y+2,z=plots[2].rect.z1+5}).name or ""
 							local door_offset=rural_asset=="villa" and {x=26,z=22} or {x=4,z=2}
 							local door=core.get_node({x=plots[2].rect.x1+door_offset.x,y=plots[2].ground_y+2,z=plots[2].rect.z1+door_offset.z}).name
 							check(farm=="mcl_composters:composter","real farm composter placed")
+							check(#composters==1,"exactly one real composter is placed")
+							check(#water==4,"four real farm water sources remain placed")
+							check(#wet==188,"188 real farm blocks remain wet farmland")
+							check(#crops==188,"188 real farm crops remain planted")
+							check(watered,"real farm farmland is within water's four-node axis range")
+							local clear={{5,8},{6,9},{6,7},{7,8}}
+							for i,p in ipairs(clear) do
+								check(core.get_node({x=fx+p[1],y=plots[1].ground_y+1,z=fz+p[2]}).name=="air",
+									"rotated composter standing space "..i)
+							end
+							check(applied.setup and (applied.setup.by_name or {})["mcl_composters:composter"]==1,
+								"real composter is initialized once")
 							if rural_asset=="shepherd_hut" then check(loom=="mcl_loom:loom","real hut loom placed") end
 							check(door:find("door")~=nil,"real rural door placed")
 							report.outskirts={placed=applied.placed,warnings=applied.warnings,skipped=applied.skipped,

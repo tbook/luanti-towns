@@ -7,14 +7,14 @@ for id, e in pairs(catalog) do entries[id] = e end
 local bounds = {x1 = 0, z1 = 0, x2 = 20, z2 = 20}
 local out = {entries = entries, protected = {margin = 4}, plots = {
 	{id = "f1", asset = "farm", class = "farm", rotation = 90, ground_y = 11,
-		rect = {x1 = 30, z1 = 30, x2 = 36, z2 = 38}},
+		rect = {x1 = 30, z1 = 30, x2 = 42, z2 = 46}},
 	{id = "h1", asset = "shepherd_hut", class = "hut", rotation = 0, ground_y = 17,
 		rect = {x1 = 60, z1 = 30, x2 = 68, z2 = 37}},
 }}
 local composed = assert(preflight.compose_outskirts(out, entries))
 eq(composed.structures[1].min.y, 11, "farm uses its own ground")
 eq(composed.structures[2].min.y, 17, "hut uses its own ground")
-eq(composed.structures[1].max.x, 36, "rotated farm footprint")
+eq(composed.structures[1].max.x, 42, "rotated farm footprint")
 
 local offset_entries = {farm = {id = "farm", size = {x = 9, y = 8, z = 7}, ground_offset = 2}}
 local offset = assert(preflight.compose_outskirts({plots = {{id = "f", asset = "farm", class = "farm",
@@ -37,7 +37,7 @@ eq(report.files, 2, "assets checked once per id")
 eq(node_checks, 1, "shared node checked once")
 local dup = {entries = entries, protected = out.protected, plots = {
 	out.plots[1], {id = "f2", asset = "farm", class = "farm", rotation = 0, ground_y = 12,
-		rect = {x1 = 110, z1 = 30, x2 = 118, z2 = 36}},
+		rect = {x1 = 110, z1 = 30, x2 = 126, z2 = 42}},
 }}
 reads, node_checks = {}, 0
 assert(preflight.check_outskirts(dup, check_env, {entries = entries, plan = {bounds = bounds},

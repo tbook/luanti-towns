@@ -199,10 +199,14 @@ do
 			end
 			return out
 		end
-		local farm = read(dir .. "/farm.mts")
+		local stock_farm = read(dir .. "/farm.mts")
+		local farm = read("schematics/outskirts/farm.mts")
 		local hut = read(dir .. "/small_house.mts")
 		local fa, ha = F.assets.farm, F.assets.shepherd_hut
 		eq(farm.size.x == fa.size.x and farm.size.y == fa.size.y and farm.size.z == fa.size.z, true, "farm.mts size")
+		eq(stock_farm.size.x, 9, "stock farm source width")
+		eq(stock_farm.size.y, 8, "stock farm source height")
+		eq(stock_farm.size.z, 7, "stock farm source depth")
 		eq(hut.size.x == ha.size.x and hut.size.y == ha.size.y and hut.size.z == ha.size.z, true, "small_house.mts size")
 		local comp = find(farm, "mcl_composters:composter")
 		eq(#comp, 1, "the farm holds one composter")
@@ -218,7 +222,7 @@ do
 		eq(door[1] and door[1].x == ha.entrance.x and door[1].y == ha.entrance.y and door[1].z == ha.entrance.z, true,
 			"door position = the entrance")
 		eq(hut.at(0, 0, 0), "mcl_core:dirt", "the hut's layer 0 is the dirt ground row")
-		eq(farm.at(0, 0, 0), "mcl_core:dirt", "the farm's layer 0 is the dirt ground row")
+		eq(farm.at(0, 0, 0), "mcl_farming:soil_wet", "the farm's layer 0 is the finished ground row")
 	end
 end
 

@@ -97,7 +97,9 @@ retry:accept(two, {min=61,max=63}, 62)
 eq(retry.plots[1], two, "accept records the candidate")
 eq(retry.rejections[1].subject, id .. ":a" .. attempt, "rejection identifies attempt")
 
-local bounded = outskirts.new(plan, 8, entries)
+-- This seed supplies six candidate sites for the larger farm footprint, so
+-- this specifically exercises terrain retries rather than sampling omissions.
+local bounded = outskirts.new(plan, 3, entries)
 local first_rotation
 for i = 1, C.ATTEMPTS_PER_BUILDING do
 	local candidate = assert(bounded:next())
