@@ -396,6 +396,14 @@ do
 	eq(table.concat(stage_order, ","), "margin,wall_emerge,wall_read,wall_write,rural_search",
 		"wall inspection follows an incomplete margin pass")
 	margin_mode = "success"
+	local real_inspect = walls.inspect
+	walls.inspect = function() return {}, {{reason = "decoration: water or obstruction"}} end
+	local decoration_summary
+	towns.populated.build(test_result, function(s) decoration_summary = s end)
+	local warning_text = table.concat(decoration_summary.warnings or {}, " ")
+	eq(warning_text:find("wall decorations omitted: 1", 1, true) ~= nil, true, "decoration omission is reported")
+	eq(warning_text:find("wall omitted 1 columns", 1, true) == nil, true, "decoration omission is not a missing wall column")
+	walls.inspect = real_inspect
 	local pending, failure_code, failure_extra
 	towns.site_search.core_env = function() return {
 		emerge = function(_, _, done) pending = done end, after = function() end,

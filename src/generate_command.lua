@@ -376,7 +376,14 @@ local function build(result, done)
 			if not wrote then
 				return fail_writer("wall write failed: " .. tostring(err), nil, {bounds = bounds, reason = "wall_write"})
 			end
-			if #omissions > 0 then warning(summary, ("wall omitted %d columns on difficult terrain or protection"):format(#omissions)) end
+			local counts = {wall = 0, decoration = 0, approach = 0}
+			for _, omission in ipairs(omissions) do
+				local kind = omission.reason:match("^(decoration): ") or omission.reason:match("^(approach): ") or "wall"
+				counts[kind] = counts[kind] + 1
+			end
+			if counts.wall > 0 then warning(summary, ("wall omitted %d columns due to terrain, obstructions or protection"):format(counts.wall)) end
+			if counts.decoration > 0 then warning(summary, ("wall decorations omitted: %d due to obstructions or protection"):format(counts.decoration)) end
+			if counts.approach > 0 then warning(summary, ("wall approach omitted %d columns due to terrain, obstructions or protection"):format(counts.approach)) end
 			start_outskirts()
 		end
 		local function after_emerge(success)
