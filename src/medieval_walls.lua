@@ -204,7 +204,10 @@ function M.inspect(wall, ground, region, node_info, protected)
 			if not c.corner and not occupied[key(px, pz)] then
 				local axis = d.x ~= 0 and c.z or c.x
 				if axis % 2 == 0 then
-					local p2 = d.x == 1 and 21 or d.x == -1 and 23 or d.z == 1 and 20 or 22
+					-- VoxeLibre's upside-down stair placement swaps facedir 1 and 3.
+					-- Values 20/22 therefore put the high side toward the wall on
+					-- the +Z/-Z faces respectively; X already follows the same rule.
+					local p2 = d.x == 1 and 21 or d.x == -1 and 23 or d.z == 1 and 22 or 20
 					add(px, ground + 4, pz, M.STAIR, p2)
 				end
 				add(px, ground + 5, pz, M.BRICK)
