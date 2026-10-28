@@ -3,6 +3,7 @@ local eq, factory = ...
 	local function fixture(terrain, behavior)
 		local calls = {volume = 0, smooth = 0, emerge = 0, after = 0, done = 0}
 		local env = {
+			is_protected = function() return false end,
 			emerge = function(minp, maxp, cb)
 				calls.emerge = calls.emerge + 1
 				calls.minp, calls.maxp, calls.cb = minp, maxp, cb
@@ -16,6 +17,7 @@ local eq, factory = ...
 			end,
 		}
 		local api = terrain or {
+			boundary_structure_protection = 1,
 			boundary_volume = function(rects, ground, options)
 				calls.volume = calls.volume + 1
 				calls.rects, calls.ground, calls.options = rects, ground, options
@@ -39,7 +41,8 @@ local eq, factory = ...
 		local originals = {}
 		for i, rect in ipairs(result.plan.boundary.rects) do originals[i] = {x1=rect.x1,z1=rect.z1,x2=rect.x2,z2=rect.z2} end
 		local summary
-		factory(api).attempt(result, function(value) calls.done = calls.done + 1; summary = value end, env)
+		factory(api).attempt(result, function(value) calls.done = calls.done + 1; summary = value end, env,
+			{town = {structures = {{min={x=8,y=0,z=5}, max={x=10,y=20,z=7}}}}})
 		return calls, result, originals, function() return summary end
 	end
 
@@ -54,6 +57,7 @@ local eq, factory = ...
 	eq(calls.ground, 12, "volume uses fixed inspected ground")
 	eq(calls.options.radius, 20, "radius fixed at twenty")
 	eq(calls.options.cap, 20, "cap fixed at twenty")
+	eq(calls.options.structure_boxes[1].max.x, 10, "composed building bounds forwarded")
 	eq(calls.write_options.env, nil, "no engine environment forwarded unless supplied")
 	eq(#calls.rects, 2, "rectangles mapped as union")
 	eq(calls.rects[1].x0, 3, "rect x1 maps to x0")
@@ -88,15 +92,16 @@ local eq, factory = ...
 	for _, case in ipairs(malformed_inputs) do
 		local api_calls = {volume = 0, smooth = 0, done = 0}
 		local api = {
+			boundary_structure_protection = 1,
 			boundary_volume = function() api_calls.volume = api_calls.volume + 1; return nil, "should not run" end,
 			smooth_boundary = function() api_calls.smooth = api_calls.smooth + 1 end,
 		}
-		local env = {emerge = function() end, after = function() end}
+		local env = {emerge = function() end, after = function() end, is_protected = function() return false end}
 		if case.env == false then env = false end
-		factory(api).attempt(case.value, function(s) api_calls.done=api_calls.done+1; api_calls.summary=s end, env)
+		factory(api).attempt(case.value, function(s) api_calls.done=api_calls.done+1; api_calls.summary=s end, env, {town={structures={}}})
 		eq(api_calls.summary.status, "skipped", case.label .. " status")
 		eq(api_calls.done, 1, case.label .. " completes once")
-		eq(api_calls.volume, case.label == "malformed environment" and 1 or 0,
+		eq(api_calls.volume, 0,
 			case.label .. " volume API calls")
 		eq(api_calls.smooth, 0, case.label .. " does not call writer")
 	end
@@ -106,6 +111,14 @@ local eq, factory = ...
 		function(s) missing_calls.done=missing_calls.done+1; missing_calls.summary=s end, {})
 	eq(missing_calls.summary.status, "skipped", "missing API optional")
 	eq(missing_calls.done, 1, "missing API completes once")
+	local old_calls = 0
+	local old_api = {boundary_volume = function() old_calls = old_calls + 1 end,
+		smooth_boundary = function() old_calls = old_calls + 1 end}
+	local old_summary
+	factory(old_api).attempt({plan = {boundary = {rects = {{x1=0,z1=0,x2=1,z2=1}}}}, ground_y=0},
+		function(s) old_summary = s end, {is_protected = function() return false end}, {town = {structures = {}}})
+	eq(old_summary.status, "skipped", "old API fails closed")
+	eq(old_calls, 0, "old API performs no terrain calls")
 
 	for _, behavior in ipairs({{smooth_false = true}, {smooth_throw = true}}) do
 		local c, _, _, get = fixture(nil, behavior)
@@ -122,20 +135,21 @@ local eq, factory = ...
 	eq(c.smooth, 0, "late emerge never writes")
 	eq(c.done, 1, "timeout and late callback complete once")
 
-	local sync_cb_throws = {boundary_volume = function() return {minp={x=0,y=0,z=0},maxp={x=0,y=0,z=0}} end,
+	local sync_cb_throws = {boundary_structure_protection = 1, boundary_volume = function() return {minp={x=0,y=0,z=0},maxp={x=0,y=0,z=0}} end,
 		smooth_boundary = function() return true, {} end}
 	local done_count = 0
 	factory(sync_cb_throws).attempt({plan={boundary={rects={{x1=0,z1=0,x2=0,z2=0}}}},ground_y=0},
 		function() done_count=done_count+1; error("callback error") end,
-		{emerge=function(_,_,cb) cb(true); cb(false) end, after=function() end})
+		{emerge=function(_,_,cb) cb(true); cb(false) end, after=function() end, is_protected=function() return false end}, {town={structures={}}})
 		eq(done_count, 1, "sync duplicate callback and throwing done complete once")
 
 	local forwarded
 	local api_env = {}
 	local api_env_api = {
+		boundary_structure_protection = 1,
 		boundary_volume = function(_, _, options) forwarded = options.env; return nil, "declined" end,
 		smooth_boundary = function() error("declined volume must not write") end,
 	}
 	factory(api_env_api).attempt({plan={boundary={rects={{x1=0,z1=0,x2=0,z2=0}}}},ground_y=0},
-		function() end, {api_env=api_env})
+		function() end, {api_env=api_env, is_protected=function() return false end}, {town={structures={}}})
 	eq(forwarded, api_env, "API environment forwarded when supplied")

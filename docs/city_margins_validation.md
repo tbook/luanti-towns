@@ -1,5 +1,18 @@
 # City margins: disposable-world validation
 
+## Protected boundary grading rollout
+
+Install the Living Villages version advertising `boundary_structure_protection`
+version 1 before updating Towns. Until that capability is available, Towns
+skips city-margin grading and reports the reason. In this mode, Living Villages
+keeps trees and ambiguous logs intact and leaves their surrounding columns
+ungraded; it also preserves known building columns and protected positions.
+
+For the cross-repository regression, set `TOWNS_LIVING_VILLAGES` to a Living
+Villages source checkout when running `lua5.1 tests/run.lua`. The fixture uses
+the real boundary writer and structure scan with a fake map and a thin API
+wrapper; a Luanti playtest is still needed to validate the installed mods.
+
 These checks exercise the real `/towns_generate` pipeline in disposable
 headless worlds. They used Towns commit `44801f1` and a scratch-world copy of
 Living Villages commit `e46889c`, which provides `terrain.boundary_volume` and

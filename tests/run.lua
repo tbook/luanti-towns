@@ -414,6 +414,7 @@ run_group("tests/site_search_tests.lua", eq, fails, placement, dofile("src/plann
 
 -- Optional Living Villages city-margin adapter (#259); contract tested with a fake API.
 run_group("tests/city_margins_tests.lua", eq, dofile("src/city_margins.lua"))
+run_group("tests/city_margins_lv_integration.lua", eq)
 
 -- Preflight and build-volume emergence (ticket #44).
 run_group("tests/preflight_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry,
