@@ -413,7 +413,10 @@ local function build(result, done)
 		if not env_ok then
 			after_margin({status = "incomplete", reason = "city-margin environment failed: " .. tostring(api_env)})
 		else
-			local ok, err = pcall(margin_api.attempt, result, after_margin, api_env)
+			api_env.is_protected = type(core.is_protected) == "function" and function(pos)
+				return core.is_protected(pos, "")
+			end or nil
+			local ok, err = pcall(margin_api.attempt, result, after_margin, api_env, summary)
 			if not ok then after_margin({status = "incomplete", reason = "city-margin attempt failed: " .. tostring(err)}) end
 		end
 	end

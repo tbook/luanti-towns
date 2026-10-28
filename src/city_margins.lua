@@ -32,7 +32,7 @@ return function(terrain)
 		end
 	end
 
-	function M.attempt(result, done, env)
+	function M.attempt(result, done, env, build_summary)
 		assert(type(done) == "function", "city_margins.attempt requires done")
 		if env == nil then env = {} end
 		if type(env) ~= "table" then env = {} end
@@ -53,6 +53,29 @@ return function(terrain)
 			skip("Living Villages city-margin API is unavailable")
 			return
 		end
+		if terrain.boundary_structure_protection ~= 1 then
+			skip("Living Villages does not support protected boundary grading")
+			return
+		end
+		local town = type(build_summary) == "table" and build_summary.town
+		local structures = type(town) == "table" and town.structures
+		if type(structures) ~= "table" or type(env.is_protected) ~= "function" then
+			skip("building bounds or protection service is unavailable")
+			return
+		end
+		local boxes, count = {}, 0
+		for key, structure in pairs(structures) do
+			if not integer(key) or key < 1 or type(structure) ~= "table" then
+				skip("building bounds are invalid"); return
+			end
+			local minp, maxp = copy_pos(structure.min), copy_pos(structure.max)
+			if not minp or not maxp or minp.x > maxp.x or minp.y > maxp.y or minp.z > maxp.z then
+				skip("building bounds are invalid"); return
+			end
+			boxes[key] = {min = minp, max = maxp}
+			count = count + 1
+		end
+		if count ~= #structures then skip("building bounds are sparse"); return end
 		if type(result) ~= "table" then
 			skip("town boundary or ground level is unavailable")
 			return
@@ -87,7 +110,8 @@ return function(terrain)
 			boundary[i] = {x0 = rect.x1, z0 = rect.z1, x1 = rect.x2, z1 = rect.z2}
 		end
 
-		local options = {radius = OPTIONS.radius, cap = OPTIONS.cap}
+		local options = {radius = OPTIONS.radius, cap = OPTIONS.cap, structure_boxes = boxes,
+			is_protected = env.is_protected}
 		if env.api_env ~= nil then options.env = env.api_env end
 		local ok, box, reason = pcall(terrain.boundary_volume, boundary, result.ground_y, options)
 		if not ok then skip("boundary volume failed: " .. tostring(box)); return end
