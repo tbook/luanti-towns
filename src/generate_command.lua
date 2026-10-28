@@ -332,10 +332,9 @@ local function build(result, done)
 		end
 		local walls = towns.medieval_walls
 		local wall = result.wall
-		if wall and (not margin or margin.status ~= "smoothed") then
-			warning(summary, "wall skipped because city margins were not smoothed")
-			start_outskirts(); return
-		end
+		-- Wall columns inspect the actual post-margin terrain and independently
+		-- reject protected, obstructed, or unsupported stretches. A partial
+		-- boundary-smoothing result must not suppress the whole wall.
 		local bounds = wall and walls.bounds(wall, result.ground_y)
 		if not bounds then start_outskirts(); return end
 		local settled = false

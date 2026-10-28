@@ -165,6 +165,49 @@ do
 	eq(built_at[0], true, "snowy grass supports the wall")
 	eq(built_at[3], true, "sand supported by natural stone supports the wall")
 	eq(built_at[9], true, "gravel supported by natural stone supports the wall")
+	-- Wall columns can sit on an outside edge above or below the town's
+	-- planned ground. Masonry rises from the found surface to a fixed top.
+	for _, surface in ipairs({-2, -1, 0, 1, 3}) do
+		local terrain_wall = {cells = {{x = 0, z = surface, direction = {x = 1, z = 0}}}, openings = {}}
+		local placed, skipped = walls.inspect(terrain_wall, 0, {get = function(_, y, z)
+			if z == surface and y <= surface then return y == surface
+				and "mcl_core:dirt_with_grass" or "mcl_core:stone" end
+			return "air"
+		end}, function(name)
+			return {walkable = name ~= "air"}
+		end, function() return false end)
+		eq(#skipped, 0, "wall supported at outside height " .. surface)
+		local tops = {}
+		for _, change in ipairs(placed) do
+			if change.x == 0 and change.z == surface and change.name == walls.BRICK then
+				tops[change.y] = true
+			end
+		end
+		eq(tops[4], true, "wall keeps its level top at outside height " .. surface)
+	end
+	for _, surface in ipairs({4, 5}) do
+		local cap_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+		local placed, skipped = walls.inspect(cap_wall, 0, {get = function(_, y, z)
+			if z == 0 and y <= surface then return y == surface
+				and "mcl_core:dirt_with_grass" or "mcl_core:stone" end
+			return "air"
+		end}, function(name) return {walkable = name ~= "air"} end, function() return false end)
+		eq(#placed, 0, "terrain at wall cap " .. surface .. " is not overwritten")
+		eq(#skipped, 1, "terrain at wall cap " .. surface .. " is reported")
+		eq(skipped[1].reason, "water or obstruction", "wall cap obstruction reason " .. surface)
+	end
+	local raised_opening = {cells = {}, openings = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}, material = "road"}}}
+	local approach_changes, approach_omissions = walls.inspect(raised_opening, 0,
+		{get = function(x, y)
+			local surface = x < 2 and 1 or 2
+			if y <= surface then return y == surface
+				and "mcl_core:dirt_with_grass" or "mcl_core:stone" end
+			return "air"
+		end}, function(name) return {walkable = name ~= "air"} end, function() return false end)
+	eq(#approach_changes, 0, "raised road approaches are left intact")
+	eq(#approach_omissions, 4, "raised road approaches are reported locally")
+	eq(approach_omissions[1].reason, "approach: raised terrain", "raised approach reason")
 	local medieval = dofile("src/medieval_planner.lua")
 	local profile = assert(planner.landmark_profile(catalog.snapshot()))
 	for turn = 0, 270, 90 do
