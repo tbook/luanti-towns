@@ -234,6 +234,52 @@ do
 	eq(built_at[0], true, "snowy grass supports the wall")
 	eq(built_at[3], true, "sand supported by natural stone supports the wall")
 	eq(built_at[9], true, "gravel supported by natural stone supports the wall")
+	-- VoxeLibre badlands use these real hardened-clay node names. A wall may
+	-- stand on natural terracotta while crafted masonry remains an obstruction.
+	for _, substrate in ipairs({"mcl_colorblocks:hardened_clay",
+			"mcl_colorblocks:hardened_clay_orange", "mcl_colorblocks:hardened_clay_yellow"}) do
+		local clay_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+		local clay_changes, clay_omissions = walls.inspect(clay_wall, 0, {get = function(_, y)
+			if y == 0 then return substrate end
+			return y < 0 and "mcl_core:stone" or "air"
+		end}, function(name)
+			return {walkable = name ~= "air", falling = name == "mcl_core:sand"}
+		end, function() return false end)
+		eq(#clay_omissions, 0, substrate .. " supports a wall")
+		local above_substrate = false
+		for _, change in ipairs(clay_changes) do
+			if change.x == 0 and change.y == 1 and change.name == walls.BRICK then above_substrate = true end
+		end
+		eq(above_substrate, true, substrate .. " remains beneath the wall")
+	end
+	-- Natural badlands place red sand over hardened-clay strata. This used to
+	-- fail even though sand itself was in NATURAL: support stopped at the
+	-- unrecognized hardened-clay block beneath it.
+	for _, surface in ipairs({"mcl_core:sand", "mcl_core:redsand"}) do
+		local mesa_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+		local mesa_changes, mesa_omissions = walls.inspect(mesa_wall, 0, {get = function(_, y)
+			if y == 0 then return surface end
+			if y == -1 then return "mcl_colorblocks:hardened_clay_orange" end
+			return y < -1 and "mcl_core:stone" or "air"
+		end}, function(name)
+			return {walkable = name ~= "air", falling = name == "mcl_core:sand" or name == "mcl_core:redsand"}
+		end, function() return false end)
+		eq(#mesa_omissions, 0, surface .. " over natural hardened clay supports a wall")
+		local wall_above_sand = false
+		for _, change in ipairs(mesa_changes) do
+			if change.x == 0 and change.y == 1 and change.name == walls.BRICK then wall_above_sand = true end
+		end
+		eq(wall_above_sand, true, surface .. " remains beneath the wall")
+	end
+	local loose_sand, loose_sand_omissions = walls.inspect({cells = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}}}, openings = {}}, 0, {get = function(_, y)
+		if y == 0 then return "mcl_core:sand" end
+		return "air"
+	end}, function(name)
+		return {walkable = name ~= "air", falling = name == "mcl_core:sand"}
+	end, function() return false end)
+	eq(#loose_sand, 0, "unsupported natural sand is never replaced by a floating wall")
+	eq(#loose_sand_omissions, 1, "unsupported natural sand is reported")
 	-- Wall columns can sit on an outside edge above or below the town's
 	-- planned ground. Masonry rises from the found surface to a fixed top.
 	for _, surface in ipairs({-2, -1, 0, 1, 3}) do

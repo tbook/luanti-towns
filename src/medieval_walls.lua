@@ -120,6 +120,13 @@ local NATURAL = {
 	["mcl_deepslate:deepslate"] = true,
 }
 
+local function natural(name)
+	-- Badlands terrain uses the hardened_clay family as natural substrate.
+	-- Its uncolored and colored nodes share this prefix in VoxeLibre.
+	return NATURAL[name] or name:match("^mcl_colorblocks:hardened_clay_[a-z_]+$") ~= nil
+		or name == "mcl_colorblocks:hardened_clay"
+end
+
 -- Remember protection separately for the wall and its optional overhang,
 -- including protection that might change before inspection.
 function M.reserve(wall, ground, protected)
@@ -183,7 +190,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 		for below = y, ground - M.DEPTH, -1 do
 			local name = region.get(x, below, z)
 			local info = node_info(name)
-			if not NATURAL[name] or not info or not info.walkable or info.liquid
+			if not natural(name) or not info or not info.walkable or info.liquid
 					or info.ice or info.clearable then return false end
 			if not info.falling then return true end
 		end
