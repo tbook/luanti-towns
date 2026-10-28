@@ -30,6 +30,23 @@ do
 	eq(#omissions, 1, "unsupported column is omitted locally")
 	eq(omissions[1].reason, "unsupported drop", "unsupported reason is reported")
 	eq(#changes > 0, true, "supported neighbour is still built")
+	local cardinal_corbel = {cells = {
+		{x = 0, z = 0, direction = {x = 1, z = 0}},
+		{x = 0, z = 4, direction = {x = -1, z = 0}},
+		{x = 10, z = 0, direction = {x = 0, z = 1}},
+		{x = 14, z = 0, direction = {x = 0, z = -1}},
+	}, openings = {}}
+	local corbels = walls.inspect(cardinal_corbel, 0, {get = function(_, y)
+		return y == 0 and "mcl_core:stone" or "air"
+	end}, function(name) return {walkable = name == "mcl_core:stone"} end, function() return false end)
+	local corbel_param2 = {}
+	for _, change in ipairs(corbels) do
+		if change.name == walls.STAIR then corbel_param2[change.x .. ":" .. change.z] = change.param2 end
+	end
+	eq(corbel_param2["1:0"], 21, "+X corbel rises toward the wall")
+	eq(corbel_param2["-1:4"], 23, "-X corbel rises toward the wall")
+	eq(corbel_param2["10:1"], 22, "+Z corbel rises toward the wall")
+	eq(corbel_param2["14:-1"], 20, "-Z corbel rises toward the wall")
 	local selected = 0
 	plan.town_type = "medieval"
 	for seed = 1, 1000 do plan.seed = seed; if walls.selected(plan) then selected = selected + 1 end end
