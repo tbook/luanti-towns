@@ -6,12 +6,19 @@
 local M = {}
 
 -- Node info for classify, from a registered_nodes table (core.registered_nodes).
--- Returns {walkable, liquid, clearable} or nil for unregistered names.
+-- Returns {walkable, liquid, clearable, vegetation} or nil for unregistered names.
 function M.node_info(registered_nodes, name)
 	local def = registered_nodes[name]
 	if not def then return nil end
 	local g = def.groups or {}
 	local liquid = def.liquidtype ~= nil and def.liquidtype ~= "none"
+	local function has_group(group)
+		return tonumber(g[group]) ~= nil and tonumber(g[group]) > 0
+	end
+	-- The broad tree group also covers logs, which can belong to buildings.
+	local vegetation = has_group("leaves") or has_group("plant") or has_group("vines")
+		or has_group("flower") or has_group("dead_bush") or has_group("mushroom") or has_group("sapling")
+		or name:find("^mcl_core:snow_?%d*$") ~= nil
 	local clearable = def.buildable_to
 		or g.tree or g.leaves or g.plant or g.vines or g.flower or g.deco_block
 		or g.dead_bush or g.mushroom or g.sapling
@@ -22,6 +29,9 @@ function M.node_info(registered_nodes, name)
 		walkable = def.walkable ~= false,
 		liquid = liquid,
 		clearable = clearable and true or false,
+		-- Wall generation may remove known vegetation, but must not infer this
+		-- from buildable_to or deco_block: both can include useful structures.
+		vegetation = vegetation and true or false,
 		ice = ice,
 		falling = g.falling_node and true or false,
 		-- Doors and gates can be walked through (opened), even when closed.
