@@ -385,6 +385,16 @@ do
 		"walls are written between margins and outskirts")
 	eq(wall_summary.wall.placed > 0, true, "wall nodes were written")
 	eq(wall_summary.wall.attempted_bounds.min.y, 2, "wall bounds include foundation depth")
+	-- A partial city-margin pass still lets the wall inspector build supported
+	-- columns and report any local terrain obstructions.
+	margin_mode, stage_order = "incomplete", {}
+	local rough_wall
+	towns.populated.build(test_result, function(s) rough_wall = s end)
+	eq(rough_wall ~= nil, true, "partial margins do not suppress wall generation")
+	eq(rough_wall.wall.placed > 0, true, "supported wall sections are built after partial margins")
+	eq(table.concat(stage_order, ","), "margin,wall_emerge,wall_read,wall_write,rural_search",
+		"wall inspection follows an incomplete margin pass")
+	margin_mode = "success"
 	local pending, failure_code, failure_extra
 	towns.site_search.core_env = function() return {
 		emerge = function(_, _, done) pending = done end, after = function() end,

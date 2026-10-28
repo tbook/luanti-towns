@@ -187,7 +187,10 @@ function M.inspect(wall, ground, region, node_info, protected)
 		local why = c.protected and "protected" or nil
 		local base
 		if not why then
-			for y = ground, ground - M.DEPTH, -1 do
+			-- Search up to one node below the intended wall cap. This lets a
+			-- raised edge support a shorter wall while ensuring at least one
+			-- masonry node remains above its foundation; the cap stays level.
+			for y = ground + 3, ground - M.DEPTH, -1 do
 				local name = region.get(c.x, y, c.z)
 				if supported(c.x, y, c.z) then base = y; break end
 				if not clear(name) and not vegetation(name) then why = "water or obstruction"; break end
@@ -229,12 +232,17 @@ function M.inspect(wall, ground, region, node_info, protected)
 			local why = c.protected and "protected" or nil
 			local base
 			if not why then
-				for y = ground, ground - M.DEPTH, -1 do
+				-- Probe only up to the road's fixed target surface. Raised
+				-- approaches are reported below without clearing or filling them.
+				for y = ground + 2, ground - M.DEPTH, -1 do
 					local name = region.get(x, y, z)
 					if supported(x, y, z) then base = y; break end
 					if not clear(name) and not vegetation(name) then why = "water or obstruction"; break end
 				end
 				if not base and not why then why = "unsupported drop" end
+				-- A road approach must meet the town at its planned ground level.
+				-- Leave a raised natural step untouched and report this crossing.
+				if base and base > ground then why = "raised terrain" end
 			end
 			local proposed = {}
 			if base and not why then
