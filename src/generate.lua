@@ -43,7 +43,7 @@ local LIMIT = planner.SEED_LIMIT
 M.SEED_LIMIT = LIMIT
 M.STALE_SECONDS = 600
 
-M.USAGE = "Usage: /towns_generate [medieval|roman] [seed], where seed is an integer from -"
+M.USAGE = "Usage: /towns_generate [medieval|roman] [seed] [walls=on|walls=off], where seed is an integer from -"
 	.. LIMIT .. " to " .. LIMIT .. "."
 
 -- Town types selectable with the leading argument; medieval is the default.
@@ -69,7 +69,8 @@ M.HELP = "WARNING: builds a town on the chosen site immediately, OVERWRITING it 
 	.. "town at once. The seed is an integer from -" .. LIMIT .. " to " .. LIMIT
 	.. "; when omitted one is generated and printed. The same seed at the "
 	.. "same centre reproduces the layout. Requires the 'server' privilege. "
-	.. "Usage: /towns_generate [medieval|roman] [seed]"
+	.. "Use walls=on or walls=off to override medieval wall selection. "
+	.. "Usage: /towns_generate [medieval|roman] [seed] [walls=on|walls=off]"
 
 -- Parses the command parameter: an optional leading town type (medieval or
 -- roman, case-insensitive; medieval when omitted), then an optional seed.
@@ -86,10 +87,18 @@ function M.parse_args(param)
 		town_type = tokens[1]:lower()
 		table.remove(tokens, 1)
 	end
+	local force_walls
+	if #tokens > 0 then
+		local last = tokens[#tokens]:lower()
+		if last == "walls=on" or last == "walls=off" then
+			force_walls = last == "walls=on"
+			table.remove(tokens)
+		end
+	end
 	if #tokens > 1 then
 		return nil, "Too many arguments (" .. count .. "). " .. M.USAGE
 	end
-	if #tokens == 0 then return {town_type = town_type} end
+	if #tokens == 0 then return {town_type = town_type, force_walls = force_walls} end
 	local tok = tokens[1]
 	if not tok:match("^[+-]?%d+$") then
 		return nil, "Invalid seed '" .. tok .. "': it must be an integer. " .. M.USAGE
@@ -103,7 +112,7 @@ function M.parse_args(param)
 	if not ok then
 		return nil, "Invalid seed '" .. tok .. "': " .. msg .. ". " .. M.USAGE
 	end
-	return {town_type = town_type, seed = n}
+	return {town_type = town_type, seed = n, force_walls = force_walls}
 end
 
 -- A generated seed in 1..SEED_LIMIT. `entropy` is any number (clock/world
@@ -194,6 +203,10 @@ function M.format_report(summary, command)
 	add("Site bounds %s.", bounds_str(s.bounds))
 	local urban_write_bounds = s.urban_write_bounds or s.write_bounds or s.bounds
 	add("Urban builder write envelope %s.", bounds_str(urban_write_bounds))
+	if s.wall then
+		add("Medieval wall: %d nodes placed, %d columns omitted; possible write envelope %s.",
+			s.wall.placed or 0, #(s.wall.omissions or {}), bounds_str(s.wall.attempted_bounds))
+	end
 	if type(s.write_bounds) == "table" and not same_bounds(s.write_bounds, urban_write_bounds) then
 		add("Possible overall write envelope %s; bounds include attempted volumes and do not mean every node changed.",
 			bounds_str(s.write_bounds))
@@ -550,6 +563,7 @@ function M.new(deps)
 				release()
 				return finish(false, {M.format_search_failure(message)})
 			end
+			result.force_walls = args.force_walls
 			mine.phase = "build"
 			local build_done = false
 			local function on_build(summary, bmsg, code, extra)

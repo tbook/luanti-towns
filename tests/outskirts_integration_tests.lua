@@ -350,4 +350,54 @@ eq(late_extra.rural_bounds.min.x <= 300, true, "post-writer failure includes com
 eq(late_extra.bounds.max.x >= 320, true, "post-writer failure includes returned rural bounds")
 towns.outskirts_build.apply = real_apply
 
+-- The wall stage must inspect the smoothed terrain and finish before rural
+-- search. Use a tiny footprint so this exercises the real wall writer.
+do
+	local walls = dofile("src/medieval_walls.lua")
+	towns.medieval_walls = walls
+	defs[walls.BRICK], defs[walls.STAIR] = {walkable = true}, {walkable = true}
+	core.is_protected = function() return false end
+	margin_mode, rural_search_mode = "success", "success"
+	_G.living_villages.terrain.terraform = function() return true, {unloaded_blocks = 0} end
+	stage_order = {}
+	towns.site_search.core_env = function() return {
+		emerge = function(_, _, done) stage_order[#stage_order + 1] = "wall_emerge"; done(true) end,
+		after = function() end,
+	} end
+	local previous_env = towns.builder.core_env
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function()
+			stage_order[#stage_order + 1] = "wall_read"
+			return {get = function(_, y) return y == 10 and "mcl_core:stone" or "air" end,
+				set = function() end, commit = function() stage_order[#stage_order + 1] = "wall_write" end}
+		end
+		return env
+	end
+	local test_result = {plan = {seed = 8, town_type = "medieval", bounds = urban_bounds,
+		boundary = {rects = {{x1 = 0, z1 = 0, x2 = 3, z2 = 3}}}, streets = {}},
+		ground_y = 10, build_bounds = result.build_bounds, build_volume = result.build_volume,
+		player_pos = result.player_pos, force_walls = true}
+	local wall_summary, wall_error
+	towns.populated.build(test_result, function(s, m) wall_summary, wall_error = s, m end)
+	eq(wall_summary ~= nil, true, "wall stage builds: " .. tostring(wall_error))
+	eq(table.concat(stage_order, ","), "margin,wall_emerge,wall_read,wall_write,rural_search",
+		"walls are written between margins and outskirts")
+	eq(wall_summary.wall.placed > 0, true, "wall nodes were written")
+	eq(wall_summary.wall.attempted_bounds.min.y, 2, "wall bounds include foundation depth")
+	local pending, failure_code, failure_extra
+	towns.site_search.core_env = function() return {
+		emerge = function(_, _, done) pending = done end, after = function() end,
+	} end
+	local original_inspect = walls.inspect
+	walls.inspect = function() return nil, {} end
+	towns.populated.build(test_result, function(_, _, code, extra) failure_code, failure_extra = code, extra end)
+	eq(type(pending), "function", "wall emerge may complete asynchronously")
+	pending(true)
+	eq(failure_code, "write_failed", "asynchronous wall callback exceptions finish the build")
+	eq(failure_extra.wall_bounds.min.y, 2, "asynchronous failure reports the wall envelope")
+	walls.inspect = original_inspect
+	towns.builder.core_env = previous_env
+end
+
 _G.core, _G.towns, _G.living_villages = nil, nil, nil

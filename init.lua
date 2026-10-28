@@ -13,6 +13,7 @@ towns.planner = dofile(modpath .. "/src/planner.lua")
 
 -- Pure composition + preflight of a complete town build (no writes).
 towns.preflight = dofile(modpath .. "/src/preflight.lua")
+towns.medieval_walls = dofile(modpath .. "/src/medieval_walls.lua")
 
 -- Read-only nearby site search and terrain inspection (no world writes).
 towns.site_search = dofile(modpath .. "/src/site_search.lua")(towns.placement, towns.planner)
