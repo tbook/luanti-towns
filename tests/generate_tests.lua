@@ -33,6 +33,8 @@ eq(generate.parse_args("-0").seed, 0, "negative zero")
 eq(1 / generate.parse_args("-0").seed, math.huge, "negative zero normalised")
 eq(generate.parse_args(tostring(LIMIT)).seed, LIMIT, "upper limit accepted")
 eq(generate.parse_args(tostring(-LIMIT)).seed, -LIMIT, "lower limit accepted")
+eq(generate.parse_args("medieval 42 walls=on").force_walls, true, "command forces walls on")
+eq(generate.parse_args("walls=off").force_walls, false, "command forces walls off without a seed")
 
 for _, bad in ipairs({"abc", "1.5", "1e3", "0x10", "--1", "1,2", "NaN", "inf", "5x", "."}) do
 	local r, msg = generate.parse_args(bad)
@@ -49,7 +51,7 @@ eq(r, nil, "rejects seed plus word")
 
 -- Legacy error strings (pre-#151) pinned exactly. USAGE itself gained the
 -- type syntax; the legacy prefix/wording must not change.
-eq(generate.USAGE, "Usage: /towns_generate [medieval|roman] [seed], where seed is an integer from -"
+eq(generate.USAGE, "Usage: /towns_generate [medieval|roman] [seed] [walls=on|walls=off], where seed is an integer from -"
 	.. LIMIT .. " to " .. LIMIT .. ".", "usage text")
 local _, legacy = generate.parse_args("abc")
 eq(legacy, "Invalid seed 'abc': it must be an integer. " .. generate.USAGE, "legacy: word seed")
@@ -300,6 +302,13 @@ local function logs_text(f)
 	local t = {}
 	for _, m in ipairs(f.logs) do t[#t + 1] = m[2] end
 	return table.concat(t, "\n")
+end
+
+do
+	local f = fakes()
+	f.c.run("alice", "1 walls=off")
+	f.searches[1].done({})
+	eq(f.builds[1].force_walls, false, "wall override reaches the build result")
 end
 
 -- A late success from a search replaced as stale must never enter build.

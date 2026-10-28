@@ -107,6 +107,40 @@ local function warning(summary, message)
 end
 
 local function build_urban(result)
+	local walls = towns.medieval_walls
+	if walls and result.plan.town_type == "medieval" then
+		result.wall = walls.plan(result.plan, result.force_walls)
+		if result.wall then
+			local wall_bounds = walls.bounds(result.wall, result.ground_y)
+			if wall_bounds then
+				-- Wall overhangs and three-node approaches reach at most four
+				-- nodes past the urban footprint. Outskirts candidate and
+				-- terraform protection both use this same margin.
+				local b, margin = result.plan.bounds, towns.outskirts.CONSTANTS.PROTECT_MARGIN
+				if wall_bounds.min.x < b.x1 - margin or wall_bounds.max.x > b.x2 + margin
+						or wall_bounds.min.z < b.z1 - margin or wall_bounds.max.z > b.z2 + margin then
+					return nil, "Wall footprint exceeds outskirts protection", "inspection_failed"
+				end
+				for _, axis in ipairs({"x", "y", "z"}) do
+					if math.abs(wall_bounds.min[axis]) > towns.preflight.LIMIT
+							or math.abs(wall_bounds.max[axis]) > towns.preflight.LIMIT then
+						return nil, "Wall envelope exceeds map limits", "inspection_failed"
+					end
+				end
+			end
+			if type(core.is_protected) ~= "function" then
+				return nil, "Wall protection API is unavailable", "inspection_failed"
+			end
+			for _, node in ipairs({walls.BRICK, walls.STAIR}) do
+				if not core.registered_nodes[node] then
+					return nil, "Wall node is not registered: " .. node, "inspection_failed"
+				end
+			end
+			local ok, err = pcall(walls.reserve, result.wall, result.ground_y,
+				function(pos) return core.is_protected(pos, "") end)
+			if not ok then return nil, "Wall protection check failed: " .. tostring(err), "inspection_failed" end
+		end
+	end
 	local env_preflight = towns.preflight.core_env(core)
 	local lv = rawget(_G, "living_villages")
 	local terrain = type(lv) == "table" and lv.terrain or nil
@@ -170,6 +204,7 @@ local function build(result, done)
 	summary.urban_write_bounds = urban_bounds
 	local function update_write_bounds(rural)
 		local boxes = {urban_bounds}
+		if summary.wall and summary.wall.attempted_bounds then boxes[#boxes + 1] = summary.wall.attempted_bounds end
 		local margins = summary.margins
 		if margins then
 			if margins.attempted_bounds then boxes[#boxes + 1] = margins.attempted_bounds end
@@ -214,6 +249,10 @@ local function build(result, done)
 		if urban_bounds then combined[#combined + 1] = urban_bounds end
 		if extra.margin_bounds then combined[#combined + 1] = extra.margin_bounds end
 		if rural_bounds then combined[#combined + 1] = rural_bounds end
+		if summary.wall and summary.wall.attempted_bounds then
+			extra.wall_bounds = summary.wall.attempted_bounds
+			combined[#combined + 1] = extra.wall_bounds
+		end
 		extra.bounds = bounds_union(combined) or urban_bounds
 		finish(nil, reason, "write_failed", extra)
 	end
@@ -285,10 +324,77 @@ local function build(result, done)
 			warning(summary, "city margins " .. tostring(margin and margin.status or "failed")
 				.. ": " .. tostring(margin and margin.reason or "margin attempt failed"))
 		end
-		local search_ok, search_err = pcall(towns.outskirts.search, result, {
-			assets = towns.catalog.entries, terrain = terrain, player_pos = result.player_pos,
-		}, searched, towns.site_search.core_env(core))
-		if not search_ok then searched(nil, "outskirts search failed: " .. tostring(search_err)) end
+		local function start_outskirts()
+			local search_ok, search_err = pcall(towns.outskirts.search, result, {
+				assets = towns.catalog.entries, terrain = terrain, player_pos = result.player_pos,
+			}, searched, towns.site_search.core_env(core))
+			if not search_ok then searched(nil, "outskirts search failed: " .. tostring(search_err)) end
+		end
+		local walls = towns.medieval_walls
+		local wall = result.wall
+		if wall and (not margin or margin.status ~= "smoothed") then
+			warning(summary, "wall skipped because city margins were not smoothed")
+			start_outskirts(); return
+		end
+		local bounds = wall and walls.bounds(wall, result.ground_y)
+		if not bounds then start_outskirts(); return end
+		local settled = false
+		local function after_emerge_inner(success)
+			if settled or completed then return end
+			settled = true
+			if not success then
+				warning(summary, "wall emerge failed or timed out")
+				start_outskirts(); return
+			end
+			local report = {attempted_bounds = bounds}
+			summary.wall = report
+			local read_ok, changes, omissions, region = pcall(function()
+				local r = assert(env.open_region(bounds.min, bounds.max))
+				local c, o = walls.inspect(wall, result.ground_y, r, env.node_info,
+					function(pos) return core.is_protected(pos, "") end)
+				return c, o, r
+			end)
+			if not read_ok then
+				warning(summary, "wall inspection failed: " .. tostring(changes))
+				start_outskirts(); return
+			end
+			report.omissions, report.placed = omissions, #changes
+			if #changes > 0 then
+				local first = changes[1]
+				report.write_bounds = {min = {x = first.x, y = first.y, z = first.z},
+					max = {x = first.x, y = first.y, z = first.z}}
+				for _, c in ipairs(changes) do
+					for _, axis in ipairs({"x", "y", "z"}) do
+						report.write_bounds.min[axis] = math.min(report.write_bounds.min[axis], c[axis])
+						report.write_bounds.max[axis] = math.max(report.write_bounds.max[axis], c[axis])
+					end
+				end
+			end
+			local wrote, err = pcall(function()
+				for _, c in ipairs(changes) do region.set(c.x, c.y, c.z, c.name, c.param2) end
+				if #changes > 0 then region.commit() end
+			end)
+			if not wrote then
+				return fail_writer("wall write failed: " .. tostring(err), nil, {bounds = bounds, reason = "wall_write"})
+			end
+			if #omissions > 0 then warning(summary, ("wall omitted %d columns on difficult terrain or protection"):format(#omissions)) end
+			start_outskirts()
+		end
+		local function after_emerge(success)
+			local ok, err = pcall(after_emerge_inner, success)
+			if not ok and not completed then
+				if not summary.wall then summary.wall = {attempted_bounds = bounds} end
+				fail_writer("wall callback failed: " .. tostring(err), nil,
+					{bounds = bounds, reason = "wall_callback"})
+			end
+		end
+		local wall_env = towns.site_search.core_env(core)
+		local started, emerge_err = pcall(wall_env.emerge, bounds.min, bounds.max, after_emerge)
+		if not started then warning(summary, "wall emerge failed: " .. tostring(emerge_err)); after_emerge(false)
+		elseif not settled then
+			local timer_ok = pcall(wall_env.after, 30, function() after_emerge(false) end)
+			if not timer_ok then after_emerge(false) end
+		end
 		end)
 		if not ok and not completed then
 			if writer_started then
