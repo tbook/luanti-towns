@@ -136,7 +136,15 @@ function M.reserve(wall, ground, protected)
 		for _, distance in ipairs(positions) do
 			local p = {x = c.x + d.x * distance, z = c.z + d.z * distance}
 			for y = ground - M.DEPTH, ground + 5 do
-				if protected({x = p.x, y = y, z = p.z}) then c[field] = true; break end
+				if protected({x = p.x, y = y, z = p.z}) then
+					-- Preserve legacy boolean reservations; their original position
+					-- cannot be recovered, and indexing true would raise an error.
+					if c[field] ~= true then
+						c[field] = c[field] or {}
+						c[field][distance] = {x = p.x, y = y, z = p.z}
+					end
+					break
+				end
 			end
 		end
 	end
@@ -198,26 +206,68 @@ function M.inspect(wall, ground, region, node_info, protected)
 			local name = region.get(x, below, z)
 			local info = node_info(name)
 			if not natural(name) or not info or not info.walkable or info.liquid
-					or info.ice or info.clearable then return false end
+					or info.ice or info.clearable then return false, {x = x, y = below, z = z, node = name} end
 			if not info.falling then return true end
 		end
-		return false
+		local name = region.get(x, ground - M.DEPTH, z)
+		return false, {x = x, y = ground - M.DEPTH, z = z, node = name}
+	end
+	local function omission(x, z, reason, blocker)
+		local item = {x = x, z = z, reason = reason}
+		if blocker then item.blocker = blocker end
+		omissions[#omissions + 1] = item
+	end
+	local function reserved(c, field, distance)
+		local value = c[field]
+		if type(value) == "table" and value.x then return value end -- older stored reservation shape
+		if type(value) == "table" then return value[distance] end
+		if value == true then return {unknown = true} end
+	end
+	local function reserved_any(c, field)
+		local value = c[field]
+		if type(value) == "table" and value.x then return value end
+		if type(value) == "table" then
+			for distance = 0, 3 do
+				if value[distance] then return value[distance] end
+			end
+		elseif value == true then
+			return {unknown = true}
+		end
 	end
 	for _, c in ipairs(wall.cells) do
-		local why = c.protected and "protected" or nil
-		local base, floating, water_seen
+		local protected_pos = reserved(c, "protected", 0)
+		local why = protected_pos and "protected" or nil
+		local base, floating, water_seen, blocker
+		if why then
+			if protected_pos.unknown then blocker = {node = "unknown"}
+			else blocker = {x = protected_pos.x, y = protected_pos.y, z = protected_pos.z,
+				node = region.get(protected_pos.x, protected_pos.y, protected_pos.z)} end
+		end
 		if not why then
 			-- Search up to one node below the intended wall cap. This lets a
 			-- raised edge support a shorter wall while ensuring at least one
 			-- masonry node remains above its foundation; the cap stays level.
 			for y = ground + 3, ground - M.DEPTH, -1 do
 				local name = region.get(c.x, y, c.z)
-				if supported(c.x, y, c.z) then base = y; break end
+				local stable, failure = supported(c.x, y, c.z)
+				if stable then base = y; break end
+				if failure then blocker = failure end
 				if water(name) then water_seen = true end
-				if not replaceable(name) and not vegetation(name) then why = "water or obstruction"; break end
+				if not replaceable(name) and not vegetation(name) then
+					why = "water or obstruction"; blocker = failure or {x = c.x, y = y, z = c.z, node = name}; break
+				end
 			end
 			if not base and not why then
-				if water_seen then why = "water bottom beyond reach"
+				if water_seen then
+					why = "water bottom beyond reach"
+					for y = ground - M.DEPTH, ground + 3 do
+						local name = region.get(c.x, y, c.z)
+						if water(name) then
+							blocker = {x = c.x, y = y, z = c.z, node = name,
+								search_limit_y = ground - M.DEPTH}
+							break
+						end
+					end
 				else floating = true end
 			end
 		end
@@ -225,8 +275,8 @@ function M.inspect(wall, ground, region, node_info, protected)
 		local function add(x, y, z, name, param2)
 			if why then return end
 			local have = region.get(x, y, z)
-			if protected({x = x, y = y, z = z}) then why = "protected"
-			elseif not replaceable(have) and not vegetation(have) then why = "water or obstruction"
+			if protected({x = x, y = y, z = z}) then why = "protected"; blocker = {x = x, y = y, z = z, node = have}
+			elseif not replaceable(have) and not vegetation(have) then why = "water or obstruction"; blocker = {x = x, y = y, z = z, node = have}
 			else candidate[#candidate + 1] = {x = x, y = y, z = z, name = name, param2 = param2 or 0} end
 		end
 		if base or floating then
@@ -239,7 +289,13 @@ function M.inspect(wall, ground, region, node_info, protected)
 				-- prevent the supported wall itself from being built.
 				local core = candidate
 				candidate = {}
-				if c.decoration_protected then why = "protected" end
+				local decoration_pos = reserved(c, "decoration_protected", 1)
+				if decoration_pos then
+					why = "protected"
+					if decoration_pos.unknown then blocker = {node = "unknown"}
+					else blocker = {x = decoration_pos.x, y = decoration_pos.y, z = decoration_pos.z,
+						node = region.get(decoration_pos.x, decoration_pos.y, decoration_pos.z)} end
+				end
 				local axis = d.x ~= 0 and c.z or c.x
 				if axis % 2 == 0 then
 					-- VoxeLibre's upside-down stair placement swaps facedir 1 and 3.
@@ -250,7 +306,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 				end
 				add(px, ground + 5, pz, M.BRICK)
 				if why then
-					omissions[#omissions + 1] = {x = px, z = pz, reason = "decoration: " .. why}
+					omission(px, pz, "decoration: " .. why, blocker)
 					why = nil
 				else
 					for _, change in ipairs(candidate) do core[#core + 1] = change end
@@ -258,7 +314,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 				candidate = core
 			end
 		end
-		if why then omissions[#omissions + 1] = {x = c.x, z = c.z, reason = why}
+		if why then omission(c.x, c.z, why, blocker)
 		else for _, change in ipairs(candidate) do changes[#changes + 1] = change end end
 	end
 	-- Extend every crossing by three nodes. Only fill gaps above stable support;
@@ -266,37 +322,62 @@ function M.inspect(wall, ground, region, node_info, protected)
 	for _, c in ipairs(wall.openings) do
 		for distance = 0, 3 do
 			local x, z = c.x + c.direction.x * distance, c.z + c.direction.z * distance
-			local why = c.protected and "protected" or nil
-			local base
+			-- Any protected node reserved anywhere along the opening preserves
+			-- the original behavior: the complete road approach stays untouched.
+			local protected_pos = reserved_any(c, "protected")
+			local why = protected_pos and "protected" or nil
+			local base, blocker, water_seen, water_blocker
+			if why then
+				if protected_pos.unknown then blocker = {node = "unknown"}
+				else blocker = {x = protected_pos.x, y = protected_pos.y, z = protected_pos.z,
+					node = region.get(protected_pos.x, protected_pos.y, protected_pos.z)} end
+			end
 			if not why then
 				-- Probe only up to the road's fixed target surface. Raised
 				-- approaches are reported below without clearing or filling them.
 				for y = ground + 2, ground - M.DEPTH, -1 do
 					local name = region.get(x, y, z)
-					if supported(x, y, z) then base = y; break end
-					if not replaceable(name) and not vegetation(name) then why = "water or obstruction"; break end
+					local stable, failure = supported(x, y, z)
+					if stable then base = y; break end
+					if failure then blocker = failure end
+					if water(name) then
+						water_seen = true
+						water_blocker = {x = x, y = y, z = z, node = name}
+					end
+					if not replaceable(name) and not vegetation(name) then
+						why = "water or obstruction"; blocker = failure or {x = x, y = y, z = z, node = name}; break
+					end
 				end
-				if not base and not why then why = "unsupported drop" end
+				if not base and not why then
+					why = water_seen and "water bottom beyond reach" or "unsupported drop"
+					if water_seen then
+						blocker = water_blocker
+						blocker.search_limit_y = ground - M.DEPTH
+					elseif not blocker then
+						local y = ground - M.DEPTH
+						blocker = {x = x, y = y, z = z, node = region.get(x, y, z)}
+					end
+				end
 				-- A road approach must meet the town at its planned ground level.
 				-- Leave a raised natural step untouched and report this crossing.
-				if base and base > ground then why = "raised terrain" end
+				if base and base > ground then why = "raised terrain"; blocker = {x = x, y = base, z = z, node = region.get(x, base, z)} end
 			end
 			local proposed = {}
 			if base and not why then
 				for y = base + 1, ground + 2 do
 					local name = region.get(x, y, z)
-					if protected({x = x, y = y, z = z}) then why = "protected"; break end
-					if not replaceable(name) and not vegetation(name) then why = "water or obstruction"; break end
+					if protected({x = x, y = y, z = z}) then why = "protected"; blocker = {x = x, y = y, z = z, node = name}; break end
+					if not replaceable(name) and not vegetation(name) then why = "water or obstruction"; blocker = {x = x, y = y, z = z, node = name}; break end
 					if y <= ground then
 						proposed[#proposed + 1] = {x = x, y = y, z = z, name = c.material or M.BRICK, param2 = 0}
 					elseif water(name) then
-						why = "water in approach headroom"; break
+						why = "water in approach headroom"; blocker = {x = x, y = y, z = z, node = name}; break
 					elseif vegetation(name) then
 						proposed[#proposed + 1] = {x = x, y = y, z = z, name = "air", param2 = 0}
 					end
 				end
 			end
-			if why then omissions[#omissions + 1] = {x = x, z = z, reason = "approach: " .. why}
+			if why then omission(x, z, "approach: " .. why, blocker)
 			else for _, change in ipairs(proposed) do changes[#changes + 1] = change end end
 		end
 	end
