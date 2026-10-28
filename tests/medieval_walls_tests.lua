@@ -79,6 +79,40 @@ do
 		return placement.node_info(wall_nodes, name)
 	end
 	local vegetated_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+	for _, blocked_y in ipairs({4, 5}) do
+		local placed, skipped = walls.inspect(vegetated_wall, 0, {get = function(x, y)
+			if y == 0 then return "mcl_core:stone" end
+			if x == 1 and y == blocked_y then return "mcl_core:tree" end
+			return "air"
+		end}, wall_node_info, function() return false end)
+		local core_count, decoration_count = 0, 0
+		for _, change in ipairs(placed) do
+			if change.x == 0 then core_count = core_count + 1 else decoration_count = decoration_count + 1 end
+		end
+		eq(core_count, 4, "roof at overhang height " .. blocked_y .. " leaves wall core intact")
+		eq(decoration_count, 0, "blocked overhang is omitted as a unit")
+		eq(skipped[1].reason, "decoration: water or obstruction", "blocked overhang is reported")
+	end
+	local reserved_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+	walls.reserve(reserved_wall, 0, function(p) return p.x == 1 and p.y == 4 end)
+	local reserved_changes, reserved_omissions = walls.inspect(reserved_wall, 0, {get = function(_, y)
+		return y == 0 and "mcl_core:stone" or "air"
+	end}, wall_node_info, function() return false end)
+	eq(#reserved_changes, 4, "reserved protected overhang does not omit the core")
+	eq(reserved_omissions[1].reason, "decoration: protected", "reserved overhang protection is reported")
+	local runtime_changes, runtime_omissions = walls.inspect(vegetated_wall, 0, {get = function(_, y)
+		return y == 0 and "mcl_core:stone" or "air"
+	end}, wall_node_info, function(p) return p.x == 1 and p.y == 5 end)
+	eq(#runtime_changes, 4, "new protection on overhang leaves the core intact")
+	eq(runtime_omissions[1].reason, "decoration: protected", "new overhang protection is reported")
+	local core_changes, core_omissions = walls.inspect(vegetated_wall, 0, {get = function(x, y)
+		if y == 0 then return "mcl_core:stone" end
+		if x == 0 and y == 3 then return "mcl_core:tree" end
+		return "air"
+	end}, wall_node_info, function() return false end)
+	eq(#core_changes, 0, "roof overlapping core is preserved without partial wall placement")
+	eq(#core_omissions, 1, "core overlap is reported as a wall gap")
+	eq(core_omissions[1].reason, "water or obstruction", "core obstruction has a wall omission reason")
 	local vegetation_changes, vegetation_omissions = walls.inspect(vegetated_wall, 0,
 		{get = function(x, y)
 			if y == -1 then return "mcl_core:stone" end

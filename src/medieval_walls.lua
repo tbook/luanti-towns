@@ -117,21 +117,24 @@ local NATURAL = {
 	["mcl_deepslate:deepslate"] = true,
 }
 
--- Conservatively reserve both the wall and its overhanging parapet. A
--- protected column is omitted, including if protection later changes.
+-- Remember protection separately for the wall and its optional overhang,
+-- including protection that might change before inspection.
 function M.reserve(wall, ground, protected)
 	assert(type(protected) == "function", "protection API unavailable")
-	local function reserve(c, positions)
+	local function reserve(c, positions, field)
 		local d = c.direction
 		for _, distance in ipairs(positions) do
 			local p = {x = c.x + d.x * distance, z = c.z + d.z * distance}
 			for y = ground - M.DEPTH, ground + 5 do
-				if protected({x = p.x, y = y, z = p.z}) then c.protected = true; break end
+				if protected({x = p.x, y = y, z = p.z}) then c[field] = true; break end
 			end
 		end
 	end
-	for _, c in ipairs(wall.cells) do reserve(c, {0, 1}) end
-	for _, c in ipairs(wall.openings) do reserve(c, {0, 1, 2, 3}) end
+	for _, c in ipairs(wall.cells) do
+		reserve(c, {0}, "protected")
+		reserve(c, {1}, "decoration_protected")
+	end
+	for _, c in ipairs(wall.openings) do reserve(c, {0, 1, 2, 3}, "protected") end
 end
 
 function M.bounds(wall, ground)
@@ -152,8 +155,8 @@ function M.bounds(wall, ground)
 	return b
 end
 
--- Inspect after smoothing. An entire column is omitted if any of its nodes
--- cannot be safely placed; other columns remain independent.
+-- Inspect after smoothing. An unsafe core column is omitted; an unsafe
+-- overhang is omitted independently so it does not interrupt the wall.
 function M.inspect(wall, ground, region, node_info, protected)
 	local changes, omissions = {}, {}
 	local occupied = {}
@@ -209,7 +212,12 @@ function M.inspect(wall, ground, region, node_info, protected)
 			for y = base + 1, ground + 4 do add(c.x, y, c.z, M.BRICK) end
 			local d = c.direction
 			local px, pz = c.x + d.x, c.z + d.z
-			if not c.corner and not occupied[key(px, pz)] then
+			if not why and not c.corner and not occupied[key(px, pz)] then
+				-- A roof or protected node in the optional overhang must not
+				-- prevent the supported wall itself from being built.
+				local core = candidate
+				candidate = {}
+				if c.decoration_protected then why = "protected" end
 				local axis = d.x ~= 0 and c.z or c.x
 				if axis % 2 == 0 then
 					-- VoxeLibre's upside-down stair placement swaps facedir 1 and 3.
@@ -219,6 +227,13 @@ function M.inspect(wall, ground, region, node_info, protected)
 					add(px, ground + 4, pz, M.STAIR, p2)
 				end
 				add(px, ground + 5, pz, M.BRICK)
+				if why then
+					omissions[#omissions + 1] = {x = px, z = pz, reason = "decoration: " .. why}
+					why = nil
+				else
+					for _, change in ipairs(candidate) do core[#core + 1] = change end
+				end
+				candidate = core
 			end
 		end
 		if why then omissions[#omissions + 1] = {x = c.x, z = c.z, reason = why}
