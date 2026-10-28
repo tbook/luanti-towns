@@ -27,9 +27,44 @@ do
 		if name == "mcl_core:stone" then return {walkable = true} end
 		return {walkable = false}
 	end, function() return false end)
-	eq(#omissions, 1, "unsupported column is omitted locally")
-	eq(omissions[1].reason, "unsupported drop", "unsupported reason is reported")
-	eq(#changes > 0, true, "supported neighbour is still built")
+	eq(#omissions, 0, "a deep unobstructed drop gets a floating wall section")
+	eq(#changes > 0, true, "supported and floating columns are built independently")
+	local floating_low, floating_high
+	for _, change in ipairs(changes) do
+		if change.x == 0 and change.z == 3 then
+			floating_low = math.min(floating_low or change.y, change.y)
+			floating_high = math.max(floating_high or change.y, change.y)
+		end
+	end
+	eq(floating_low, -walls.DEPTH + 1, "floating wall hangs to the documented depth limit")
+	eq(floating_high, 4, "floating wall keeps the level cap")
+	local deep_supported, deep_omissions = walls.inspect({cells = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}}}, openings = {}}, 0, {get = function(_, y)
+		if y == -30 then return "mcl_core:stone" end
+		return "air"
+	end}, function(name) return {walkable = name == "mcl_core:stone"} end, function() return false end)
+	eq(#deep_omissions, 0, "natural support within the tall-wall bound is accepted")
+	local deep_low
+	for _, change in ipairs(deep_supported) do
+		if change.x == 0 then deep_low = math.min(deep_low or change.y, change.y) end
+	end
+	eq(deep_low, -29, "tall supported foundation reaches the deep terrain")
+	local water_column, water_omissions = walls.inspect({cells = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}}}, openings = {}}, 0, {get = function(_, y)
+		if y == -12 then return "test:water" end
+		return "air"
+	end}, function(name) return {liquid = name == "test:water"} end, function() return false end)
+	eq(#water_column, 0, "floating fallback never overwrites water")
+	eq(#water_omissions, 1, "water in a deep drop omits the affected column")
+	local deep_reservation = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+	local reserved_deep = false
+	walls.reserve(deep_reservation, 0, function(p)
+		if p.x == 0 and p.y == -walls.DEPTH then reserved_deep = true end
+		return false
+	end)
+	eq(reserved_deep, true, "protection reservation covers the full tall-wall depth")
+	eq(walls.bounds(deep_reservation, 0).min.y, -walls.DEPTH,
+		"reported wall envelope covers the full tall-wall depth")
 	local cardinal_corbel = {cells = {
 		{x = 0, z = 0, direction = {x = 1, z = 0}},
 		{x = 0, z = 4, direction = {x = -1, z = 0}},

@@ -101,7 +101,10 @@ function M.plan(plan, force)
 	return {cells = list, runs = runs, corners = corners, openings = gaps}
 end
 
-M.DEPTH = 8
+-- Search for support up to 32 nodes below the town surface. Beyond that,
+-- an unobstructed wall column hangs from its normal level top for this same
+-- maximum depth instead of disappearing entirely.
+M.DEPTH = 32
 M.BRICK = "mcl_core:stonebrick"
 M.STAIR = "mcl_stairs:stair_stonebrick"
 -- Only known natural terrain can support new masonry. Group membership such
@@ -185,7 +188,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 	end
 	for _, c in ipairs(wall.cells) do
 		local why = c.protected and "protected" or nil
-		local base
+		local base, floating
 		if not why then
 			-- Search up to one node below the intended wall cap. This lets a
 			-- raised edge support a shorter wall while ensuring at least one
@@ -195,7 +198,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 				if supported(c.x, y, c.z) then base = y; break end
 				if not clear(name) and not vegetation(name) then why = "water or obstruction"; break end
 			end
-			if not base and not why then why = "unsupported drop" end
+			if not base and not why then floating = true end
 		end
 		local candidate = {}
 		local function add(x, y, z, name, param2)
@@ -205,8 +208,9 @@ function M.inspect(wall, ground, region, node_info, protected)
 			elseif not clear(have) and not vegetation(have) then why = "water or obstruction"
 			else candidate[#candidate + 1] = {x = x, y = y, z = z, name = name, param2 = param2 or 0} end
 		end
-		if base then
-			for y = base + 1, ground + 4 do add(c.x, y, c.z, M.BRICK) end
+		if base or floating then
+			local bottom = base and (base + 1) or (ground - M.DEPTH + 1)
+			for y = bottom, ground + 4 do add(c.x, y, c.z, M.BRICK) end
 			local d = c.direction
 			local px, pz = c.x + d.x, c.z + d.z
 			if not c.corner and not occupied[key(px, pz)] then

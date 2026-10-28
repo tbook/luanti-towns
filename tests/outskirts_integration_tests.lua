@@ -384,7 +384,8 @@ do
 	eq(table.concat(stage_order, ","), "margin,wall_emerge,wall_read,wall_write,rural_search",
 		"walls are written between margins and outskirts")
 	eq(wall_summary.wall.placed > 0, true, "wall nodes were written")
-	eq(wall_summary.wall.attempted_bounds.min.y, 2, "wall bounds include foundation depth")
+	eq(wall_summary.wall.attempted_bounds.min.y, 10 - walls.DEPTH,
+		"wall emerge and reported bounds include the full tall-foundation depth")
 	-- A partial city-margin pass still lets the wall inspector build supported
 	-- columns and report any local terrain obstructions.
 	margin_mode, stage_order = "incomplete", {}
@@ -405,7 +406,8 @@ do
 	eq(type(pending), "function", "wall emerge may complete asynchronously")
 	pending(true)
 	eq(failure_code, "write_failed", "asynchronous wall callback exceptions finish the build")
-	eq(failure_extra.wall_bounds.min.y, 2, "asynchronous failure reports the wall envelope")
+	eq(failure_extra.wall_bounds.min.y, 10 - walls.DEPTH,
+		"asynchronous failure reports the full wall envelope")
 	walls.inspect = original_inspect
 	towns.builder.core_env = previous_env
 end
