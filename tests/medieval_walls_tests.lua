@@ -63,6 +63,83 @@ do
 	end}, function(name) return {walkable = name == "mcl_core:stone"} end, function() return false end)
 	eq(#missing, 0, "supported road approach is accepted")
 	eq(#built, 8, "road approach fills all four columns down to support")
+	local placement = dofile("src/placement.lua")
+	local wall_nodes = {
+		["mcl_mushrooms:mushroom_brown"] = {walkable = true, groups = {mushroom = 1}},
+		["mcl_flowers:grass"] = {walkable = false, groups = {plant = 1}},
+		["mcl_chests:chest"] = {walkable = true, groups = {deco_block = 1}},
+		["mcl_core:crafting_table"] = {walkable = true, groups = {deco_block = 1}},
+		["test:buildable_structure"] = {walkable = true, buildable_to = true},
+		["mcl_core:tree"] = {walkable = true, groups = {tree = 1, building_block = 1}},
+		["test:liquid_plant"] = {walkable = false, liquidtype = "source", groups = {plant = 1}},
+		["test:icy_plant"] = {walkable = true, groups = {plant = 1, ice = 1}},
+	}
+	local function wall_node_info(name)
+		if name == "mcl_core:stone" then return {walkable = true} end
+		return placement.node_info(wall_nodes, name)
+	end
+	local vegetated_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+	local vegetation_changes, vegetation_omissions = walls.inspect(vegetated_wall, 0,
+		{get = function(x, y)
+			if y == -1 then return "mcl_core:stone" end
+			if y == 0 then return x == 0 and "mcl_mushrooms:mushroom_brown" or "mcl_core:stone" end
+			if x == 0 and y == 2 then return "mcl_flowers:grass" end
+			return "air"
+		end}, wall_node_info, function() return false end)
+	eq(#vegetation_omissions, 0, "mushrooms and plants do not omit wall columns")
+	local replaced_mushroom, replaced_plant = false, false
+	for _, change in ipairs(vegetation_changes) do
+		if change.x == 0 and change.y == 0 and change.name == walls.BRICK then replaced_mushroom = true end
+		if change.x == 0 and change.y == 2 and change.name == walls.BRICK then replaced_plant = true end
+	end
+	eq(replaced_mushroom, true, "wall replaces a mushroom in its foundation footprint")
+	eq(replaced_plant, true, "wall replaces a plant above its foundation")
+	local vegetated_approach = {cells = {}, openings = {{x = 0, z = 0, direction = {x = 1, z = 0}, material = "road"}}}
+	local approach_changes, approach_omissions = walls.inspect(vegetated_approach, 0,
+		{get = function(x, y)
+			if y == -1 and x == 0 then return "mcl_core:stone" end
+			if y == 0 and x == 0 then return "mcl_mushrooms:mushroom_brown" end
+			if y == 0 and x ~= 0 then return "mcl_core:stone" end
+			if x == 1 and y == 1 then return "mcl_flowers:grass" end
+			return "air"
+		end}, wall_node_info, function() return false end)
+	eq(#approach_omissions, 0, "vegetation does not block an approach")
+	local paved_mushroom, cleared_plant = false, false
+	for _, change in ipairs(approach_changes) do
+		if change.x == 0 and change.y == 0 and change.name == "road" then paved_mushroom = true end
+		if change.x == 1 and change.y == 1 and change.name == "air" then cleared_plant = true end
+	end
+	eq(paved_mushroom, true, "approach paving replaces a mushroom")
+	eq(cleared_plant, true, "approach clears overhead plants")
+	for _, structure in ipairs({"mcl_chests:chest", "mcl_core:crafting_table", "test:buildable_structure",
+			"mcl_core:tree"}) do
+		local structure_changes, structure_omissions = walls.inspect(vegetated_wall, 0,
+			{get = function(_, y)
+				if y == -1 then return "mcl_core:stone" end
+				if y == 2 then return structure end
+				return "air"
+			end}, wall_node_info, function() return false end)
+		eq(#structure_changes, 0, structure .. " is preserved in wall columns")
+		eq(#structure_omissions, 1, structure .. " blocks its wall column")
+	end
+	for _, obstruction in ipairs({"test:liquid_plant", "test:icy_plant", "test:unknown"}) do
+		local unsafe_changes, unsafe_omissions = walls.inspect(vegetated_wall, 0,
+			{get = function(_, y)
+				if y == 0 then return "mcl_core:stone" end
+				return y == 2 and obstruction or "air"
+			end}, wall_node_info,
+			function() return false end)
+		eq(#unsafe_changes, 0, obstruction .. " is never replaced")
+		eq(#unsafe_omissions, 1, obstruction .. " remains an obstruction")
+	end
+	local protected_changes, protected_omissions = walls.inspect(vegetated_wall, 0,
+		{get = function(_, y)
+			if y == -1 then return "mcl_core:stone" end
+			if y == 0 then return "mcl_mushrooms:mushroom_brown" end
+			return "air"
+		end}, wall_node_info, function(p) return p.x == 0 and p.y == 0 and p.z == 0 end)
+	eq(#protected_changes, 0, "protected vegetation is not replaced")
+	eq(#protected_omissions, 1, "protected vegetation omits its wall column")
 	local obstructed, blocked = walls.inspect(sample, 0, {get = function(_, y)
 		return y == 0 and "mcl_core:stonebrick" or "air"
 	end}, function() return {walkable = true} end, function() return false end)

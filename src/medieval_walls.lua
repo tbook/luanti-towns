@@ -166,6 +166,11 @@ function M.inspect(wall, ground, region, node_info, protected)
 	local function clear(name)
 		return name == "air"
 	end
+	local function vegetation(name)
+		if name == "air" then return false end
+		local info = node_info(name)
+		return info ~= nil and info.vegetation and not info.liquid and not info.ice
+	end
 	local function supported(x, y, z)
 		-- A falling surface is stable only when its contiguous falling stack
 		-- rests on non-falling natural ground within the inspected envelope.
@@ -185,7 +190,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 			for y = ground, ground - M.DEPTH, -1 do
 				local name = region.get(c.x, y, c.z)
 				if supported(c.x, y, c.z) then base = y; break end
-				if not clear(name) then why = "water or obstruction"; break end
+				if not clear(name) and not vegetation(name) then why = "water or obstruction"; break end
 			end
 			if not base and not why then why = "unsupported drop" end
 		end
@@ -194,7 +199,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 			if why then return end
 			local have = region.get(x, y, z)
 			if protected({x = x, y = y, z = z}) then why = "protected"
-			elseif not clear(have) then why = "water or obstruction"
+			elseif not clear(have) and not vegetation(have) then why = "water or obstruction"
 			else candidate[#candidate + 1] = {x = x, y = y, z = z, name = name, param2 = param2 or 0} end
 		end
 		if base then
@@ -227,7 +232,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 				for y = ground, ground - M.DEPTH, -1 do
 					local name = region.get(x, y, z)
 					if supported(x, y, z) then base = y; break end
-					if not clear(name) then why = "water or obstruction"; break end
+					if not clear(name) and not vegetation(name) then why = "water or obstruction"; break end
 				end
 				if not base and not why then why = "unsupported drop" end
 			end
@@ -236,10 +241,10 @@ function M.inspect(wall, ground, region, node_info, protected)
 				for y = base + 1, ground + 2 do
 					local name = region.get(x, y, z)
 					if protected({x = x, y = y, z = z}) then why = "protected"; break end
-					if not clear(name) then why = "water or obstruction"; break end
+					if not clear(name) and not vegetation(name) then why = "water or obstruction"; break end
 					if y <= ground then
 						proposed[#proposed + 1] = {x = x, y = y, z = z, name = c.material or M.BRICK, param2 = 0}
-					elseif name ~= "air" then
+					elseif vegetation(name) then
 						proposed[#proposed + 1] = {x = x, y = y, z = z, name = "air", param2 = 0}
 					end
 				end
