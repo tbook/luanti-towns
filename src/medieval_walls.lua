@@ -172,6 +172,13 @@ function M.inspect(wall, ground, region, node_info, protected)
 	local function clear(name)
 		return name == "air"
 	end
+	local function water(name)
+		local info = node_info(name)
+		return info ~= nil and info.liquid and name:find("water", 1, true) ~= nil
+	end
+	local function replaceable(name)
+		return clear(name) or water(name)
+	end
 	local function vegetation(name)
 		if name == "air" then return false end
 		local info = node_info(name)
@@ -191,7 +198,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 	end
 	for _, c in ipairs(wall.cells) do
 		local why = c.protected and "protected" or nil
-		local base, floating
+		local base, floating, water_seen
 		if not why then
 			-- Search up to one node below the intended wall cap. This lets a
 			-- raised edge support a shorter wall while ensuring at least one
@@ -199,16 +206,20 @@ function M.inspect(wall, ground, region, node_info, protected)
 			for y = ground + 3, ground - M.DEPTH, -1 do
 				local name = region.get(c.x, y, c.z)
 				if supported(c.x, y, c.z) then base = y; break end
-				if not clear(name) and not vegetation(name) then why = "water or obstruction"; break end
+				if water(name) then water_seen = true end
+				if not replaceable(name) and not vegetation(name) then why = "water or obstruction"; break end
 			end
-			if not base and not why then floating = true end
+			if not base and not why then
+				if water_seen then why = "water bottom beyond reach"
+				else floating = true end
+			end
 		end
 		local candidate = {}
 		local function add(x, y, z, name, param2)
 			if why then return end
 			local have = region.get(x, y, z)
 			if protected({x = x, y = y, z = z}) then why = "protected"
-			elseif not clear(have) and not vegetation(have) then why = "water or obstruction"
+			elseif not replaceable(have) and not vegetation(have) then why = "water or obstruction"
 			else candidate[#candidate + 1] = {x = x, y = y, z = z, name = name, param2 = param2 or 0} end
 		end
 		if base or floating then
@@ -256,7 +267,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 				for y = ground + 2, ground - M.DEPTH, -1 do
 					local name = region.get(x, y, z)
 					if supported(x, y, z) then base = y; break end
-					if not clear(name) and not vegetation(name) then why = "water or obstruction"; break end
+					if not replaceable(name) and not vegetation(name) then why = "water or obstruction"; break end
 				end
 				if not base and not why then why = "unsupported drop" end
 				-- A road approach must meet the town at its planned ground level.
@@ -268,9 +279,11 @@ function M.inspect(wall, ground, region, node_info, protected)
 				for y = base + 1, ground + 2 do
 					local name = region.get(x, y, z)
 					if protected({x = x, y = y, z = z}) then why = "protected"; break end
-					if not clear(name) and not vegetation(name) then why = "water or obstruction"; break end
+					if not replaceable(name) and not vegetation(name) then why = "water or obstruction"; break end
 					if y <= ground then
 						proposed[#proposed + 1] = {x = x, y = y, z = z, name = c.material or M.BRICK, param2 = 0}
+					elseif water(name) then
+						why = "water in approach headroom"; break
 					elseif vegetation(name) then
 						proposed[#proposed + 1] = {x = x, y = y, z = z, name = "air", param2 = 0}
 					end

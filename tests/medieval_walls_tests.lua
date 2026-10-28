@@ -51,11 +51,74 @@ do
 	eq(deep_low, -29, "tall supported foundation reaches the deep terrain")
 	local water_column, water_omissions = walls.inspect({cells = {{x = 0, z = 0,
 		direction = {x = 1, z = 0}}}, openings = {}}, 0, {get = function(_, y)
-		if y == -12 then return "test:water" end
+		if y == -12 or y == -11 or y == -10 then return "test:water_source" end
+		if y == -13 then return "mcl_core:stone" end
 		return "air"
-	end}, function(name) return {liquid = name == "test:water"} end, function() return false end)
-	eq(#water_column, 0, "floating fallback never overwrites water")
-	eq(#water_omissions, 1, "water in a deep drop omits the affected column")
+	end}, function(name) return {liquid = name == "test:water_source", walkable = name == "mcl_core:stone"} end,
+	function() return false end)
+	eq(#water_omissions, 0, "water above a natural bottom supports the wall")
+	local water_bottom
+	for _, change in ipairs(water_column) do
+		if change.x == 0 then water_bottom = math.min(water_bottom or change.y, change.y) end
+	end
+	eq(water_bottom, -12, "wall fills water down to the bottom")
+	local deep_water, deep_water_omissions = walls.inspect({cells = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}}}, openings = {}}, 0, {get = function(_, y)
+		if y < 0 then return "test:water_source" end
+		return "air"
+	end}, function(name) return {liquid = name == "test:water_source"} end, function() return false end)
+	eq(#deep_water, 0, "water deeper than the foundation search is left untouched")
+	eq(deep_water_omissions[1].reason, "water bottom beyond reach", "deep water fallback is reported")
+	local protected_water, protected_water_omissions = walls.inspect({cells = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}, protected = true}}, openings = {}}, 0, {get = function(_, y)
+		if y < 0 then return "test:water_source" end
+		return "air"
+	end}, function(name) return {liquid = name == "test:water_source"} end, function() return false end)
+	eq(#protected_water, 0, "protected water column is untouched")
+	eq(protected_water_omissions[1].reason, "protected", "protected water column is reported")
+	local falling_bottom, falling_omissions = walls.inspect({cells = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}}}, openings = {}}, 0, {get = function(_, y)
+		if y == -10 or y == -11 then return "test:water_source" end
+		if y == -12 then return "mcl_core:sand" end
+		if y == -13 then return "mcl_core:stone" end
+		return "air"
+	end}, function(name)
+		return {liquid = name == "test:water_source", walkable = name ~= "test:water_source" and name ~= "air",
+			falling = name == "mcl_core:sand"}
+	end, function() return false end)
+	eq(#falling_omissions, 0, "falling natural bottom is supported by stable ground")
+	local falling_min
+	for _, change in ipairs(falling_bottom) do
+		if change.x == 0 then falling_min = math.min(falling_min or change.y, change.y) end
+	end
+	eq(falling_min, -11, "wall replaces water above a supported falling bottom")
+	local lava_column, lava_omissions = walls.inspect({cells = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}}}, openings = {}}, 0, {get = function(_, y)
+		if y == -12 then return "test:lava_source" end
+		if y == -13 then return "mcl_core:stone" end
+		return "air"
+	end}, function(name) return {liquid = name == "test:lava_source", walkable = name == "mcl_core:stone"} end,
+	function() return false end)
+	eq(#lava_column, 0, "lava is never replaced by wall masonry")
+	eq(#lava_omissions, 1, "lava still blocks a wall column")
+	local obstructed_water, obstructed_water_omissions = walls.inspect({cells = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}}}, openings = {}}, 0, {get = function(_, y)
+		if y == -10 then return "test:water_source" end
+		if y == -11 then return "test:tree" end
+		return y == -12 and "mcl_core:stone" or "air"
+	end}, function(name)
+		return {liquid = name == "test:water_source", walkable = name == "mcl_core:stone" or name == "test:tree"}
+	end, function() return false end)
+	eq(#obstructed_water, 0, "structure in a water foundation column is preserved")
+	eq(obstructed_water_omissions[1].reason, "water or obstruction", "obstructed water foundation is reported")
+	local submerged_approach = {cells = {}, openings = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}, material = "road"}}}
+	local submerged_changes, submerged_omissions = walls.inspect(submerged_approach, 0,
+		{get = function(_, y) return y == 1 and "test:water_source" or y == -1 and "mcl_core:stone" or "air" end},
+		function(name) return {liquid = name == "test:water_source", walkable = name == "mcl_core:stone"} end,
+		function() return false end)
+	eq(#submerged_changes, 0, "water in approach headroom is preserved")
+	eq(submerged_omissions[1].reason, "approach: water in approach headroom", "submerged approach omission is reported")
 	local deep_reservation = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
 	local reserved_deep = false
 	walls.reserve(deep_reservation, 0, function(p)
