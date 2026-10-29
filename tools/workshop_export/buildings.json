@@ -735,6 +735,40 @@
         "z": 303
       },
       "role": "workshop"
+    },
+    {
+      "id": "wall_gatehouse",
+      "label": "Primary-road gatehouse",
+      "scan_min": {
+        "x": 287,
+        "y": 7,
+        "z": 203
+      },
+      "scan_max": {
+        "x": 299,
+        "y": 24,
+        "z": 226
+      },
+      "floor_y": 8,
+      "capture_min": {
+        "x": 289,
+        "y": 8,
+        "z": 207
+      },
+      "capture_max": {
+        "x": 297,
+        "y": 22,
+        "z": 222
+      },
+      "ground_y": 8,
+      "clip_to_capture": true,
+      "rotation": 270,
+      "entrance": {
+        "x": 289,
+        "y": 9,
+        "z": 214
+      },
+      "entrance_kind": "opening"
     }
   ]
 }
