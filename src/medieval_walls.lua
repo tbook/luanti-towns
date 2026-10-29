@@ -110,7 +110,8 @@ M.STAIR = "mcl_stairs:stair_stonebrick"
 -- Only known natural terrain can support new masonry. Group membership such
 -- as "stone" is insufficient because crafted structures can share it.
 local NATURAL = {
-	["mcl_core:stone"] = true, ["mcl_core:dirt"] = true,
+	["mcl_core:stone"] = true, ["mcl_core:granite"] = true,
+	["mcl_core:dirt"] = true,
 	["mcl_core:dirt_with_grass"] = true, ["mcl_core:dirt_with_snow"] = true,
 	["mcl_core:dirt_with_grass_snow"] = true,
 	["mcl_core:coarse_dirt"] = true, ["mcl_core:podzol"] = true,
