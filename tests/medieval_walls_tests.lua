@@ -224,7 +224,7 @@ do
 	for _, blocked_y in ipairs({4, 5}) do
 		local placed, skipped = walls.inspect(vegetated_wall, 0, {get = function(x, y)
 			if y == 0 then return "mcl_core:stone" end
-			if x == 1 and y == blocked_y then return "mcl_core:tree" end
+			if x == 1 and y == blocked_y then return "mcl_chests:chest" end
 			return "air"
 		end}, wall_node_info, function() return false end)
 		local core_count, decoration_count = 0, 0
@@ -252,7 +252,7 @@ do
 	eq(runtime_omissions[1].reason, "decoration: protected", "new overhang protection is reported")
 	local core_changes, core_omissions = walls.inspect(vegetated_wall, 0, {get = function(x, y)
 		if y == 0 then return "mcl_core:stone" end
-		if x == 0 and y == 3 then return "mcl_core:tree" end
+		if x == 0 and y == 3 then return "mcl_chests:chest" end
 		return "air"
 	end}, wall_node_info, function() return false end)
 	eq(#core_changes, 0, "roof overlapping core is preserved without partial wall placement")
@@ -290,8 +290,23 @@ do
 	end
 	eq(paved_mushroom, true, "approach paving replaces a mushroom")
 	eq(cleared_plant, true, "approach clears overhead plants")
-	for _, structure in ipairs({"mcl_chests:chest", "mcl_core:crafting_table", "test:buildable_structure",
-			"mcl_core:tree"}) do
+	local log_approach_changes, log_approach_omissions = walls.inspect(vegetated_approach, 0,
+		{get = function(x, y)
+			if y == -1 and x == 0 then return "mcl_core:stone" end
+			if y == 0 and x == 0 then return "mcl_core:tree" end
+			if y == 1 and x == 1 then return "mcl_core:tree" end
+			if y == 0 and x ~= 0 then return "mcl_core:stone" end
+			return "air"
+		end}, wall_node_info, function() return false end)
+	local paved_log, cleared_overhead_log = false, false
+	for _, change in ipairs(log_approach_changes) do
+		if change.x == 0 and change.y == 0 and change.name == "road" then paved_log = true end
+		if change.x == 1 and change.y == 1 and change.name == "air" then cleared_overhead_log = true end
+	end
+	eq(#log_approach_omissions, 0, "tree-group logs do not block an approach")
+	eq(paved_log, true, "approach paving replaces a ground-level log")
+	eq(cleared_overhead_log, true, "approach clears an overhead log")
+	for _, structure in ipairs({"mcl_chests:chest", "mcl_core:crafting_table", "test:buildable_structure"}) do
 		local structure_changes, structure_omissions = walls.inspect(vegetated_wall, 0,
 			{get = function(_, y)
 				if y == -1 then return "mcl_core:stone" end
@@ -301,6 +316,22 @@ do
 		eq(#structure_changes, 0, structure .. " is preserved in wall columns")
 		eq(#structure_omissions, 1, structure .. " blocks its wall column")
 	end
+	local log_changes, log_omissions = walls.inspect(vegetated_wall, 0, {get = function(_, y)
+		if y == -1 then return "mcl_core:stone" end
+		if y == 2 then return "mcl_core:tree" end
+		return "air"
+	end}, wall_node_info, function() return false end)
+	local replaced_log = false
+	for _, change in ipairs(log_changes) do
+		if change.x == 0 and change.y == 2 and change.name == walls.BRICK then replaced_log = true end
+	end
+	eq(#log_omissions, 0, "tree-group logs do not leave wall-core gaps")
+	eq(replaced_log, true, "wall replaces a log inside its footprint")
+	local protected_log_changes, protected_log_omissions = walls.inspect(vegetated_wall, 0,
+		{get = function(_, y) return y == -1 and "mcl_core:stone" or y == 2 and "mcl_core:tree" or "air" end},
+		wall_node_info, function(p) return p.x == 0 and p.y == 2 end)
+	eq(#protected_log_changes, 0, "protected log is preserved")
+	eq(protected_log_omissions[1].reason, "protected", "protected log keeps its wall column omitted")
 	for _, obstruction in ipairs({"test:liquid_plant", "test:icy_plant", "test:unknown"}) do
 		local unsafe_changes, unsafe_omissions = walls.inspect(vegetated_wall, 0,
 			{get = function(_, y)

@@ -198,7 +198,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 	local function vegetation(name)
 		if name == "air" then return false end
 		local info = node_info(name)
-		return info ~= nil and info.vegetation and not info.liquid and not info.ice
+		return info ~= nil and (info.vegetation or info.tree) and not info.liquid and not info.ice
 	end
 	local function supported(x, y, z)
 		-- A falling surface is stable only when its contiguous falling stack

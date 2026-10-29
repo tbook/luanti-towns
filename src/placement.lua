@@ -32,6 +32,9 @@ function M.node_info(registered_nodes, name)
 		-- Wall generation may remove known vegetation, but must not infer this
 		-- from buildable_to or deco_block: both can include useful structures.
 		vegetation = vegetation and true or false,
+		-- Wall generation treats the tree group as log blocks it may clear
+		-- from its footprint, even when those blocks belong to an existing build.
+		tree = has_group("tree"),
 		ice = ice,
 		falling = g.falling_node and true or false,
 		-- Doors and gates can be walked through (opened), even when closed.
