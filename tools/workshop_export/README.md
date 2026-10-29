@@ -309,3 +309,34 @@ is kept (`floor_y` and `ground_y` 8, `ground_offset` 0), so the hall floor
 (104,9,197) is the workshop label and is excluded; a 5-wide diorite_smooth
 paving strip (source x 109..113, y 8) in front of the porch is part of the
 capture.
+
+## Medieval wall tower (#276)
+
+`wall_tower` is the corner tower sample in TownsWorkshop, not a general-purpose
+straight-wall tower. The source crop is x 288..295, y 8..24, z 187..194
+(8 x 17 x 8), with the ground/floor datum at y 8. The export rotates the
+source 180 degrees; its canonical entrance is (4,1,1), facing -Z. The sample
+has a spruce door at source (291,9,193), mapped to that entrance. Its two
+one-node wall tie-in stubs are retained at canonical (3,1..4,0) and
+(7,1..4,4). The associated wall centerlines project to x=3 and z=4; their
+intersection is (3,4), four nodes inward from the -Z entry edge and four nodes
+inward from the +X edge. Thus the projected wall runs meet at a right angle
+within the tower footprint, with the stubs marking where each run reaches the
+perimeter. Longer wall arms outside the crop are omitted. This is a
+corner-only contract; do not use the sample for straight runs without
+preparing a separate variant or trimming one of the stubs.
+
+The entrance door at (4,1,1) is immediately beside the (3,1..4,0) stub at its
+front-left corner (diagonal at floor level); the stub does not occupy the door
+cell. The full captured ground layer, local y=0 across the 8 x 8 footprint,
+contains dirt, grass and cobble. Placement therefore owns/replaces that whole
+ground footprint, not just the tower's masonry.
+
+The source coordinates are the #276 TownsWorkshop tower location. The survey
+margin includes neighboring wall/sample blocks, so the entry uses a fixed
+capture box and `clip_to_capture`; the export does not modify the source world.
+The isolated export was validated against a disposable world: 1,088 nodes in
+the tower template and all catalog rotations/placements passed runtime
+validation. This is not an in-game visual preview or a claim that #276 is
+complete. No separate standalone wall asset was exported as part of this
+ticket.

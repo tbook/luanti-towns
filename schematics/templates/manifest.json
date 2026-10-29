@@ -2,7 +2,7 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "tower"
+    "wall_tower"
   ],
   "buildings": [
     {
@@ -1760,12 +1760,62 @@
       },
       "verified_nodes": 630,
       "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
+    },
+    {
+      "entrance": {
+        "x": 4,
+        "y": 1,
+        "z": 1
+      },
+      "entrance_kind": "door",
+      "ground_offset": 0,
+      "id": "wall_tower",
+      "label": "Medieval wall tower",
+      "required_nodes": [
+        "mcl_core:cobble",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:ladder",
+        "mcl_core:stonebrick",
+        "mcl_doors:spruce_door_b_1",
+        "mcl_doors:spruce_door_b_2",
+        "mcl_doors:spruce_door_t_1",
+        "mcl_doors:spruce_door_t_2",
+        "mcl_stairs:slab_wood_top",
+        "mcl_stairs:stair_stonebrick",
+        "mcl_torches:torch"
+      ],
+      "rotation": 180,
+      "size": {
+        "x": 8,
+        "y": 17,
+        "z": 8
+      },
+      "source_max": {
+        "x": 295,
+        "y": 24,
+        "z": 194
+      },
+      "source_min": {
+        "x": 288,
+        "y": 8,
+        "z": 187
+      },
+      "source_size": {
+        "x": 8,
+        "y": 17,
+        "z": 8
+      },
+      "verified_nodes": 1088,
+      "wall_count": 0,
+      "wall_mismatches": 0,
+      "snapshot_sha256": "e3d795b949619917db22b033caa2f75c56ce49c0838e242d2b6daf5419a8e034"
     }
   ],
   "runtime_validation": {
     "inventory_lists": 2424,
-    "metadata_nodes": 4620,
-    "non_air_nodes": 426912,
-    "placements": 128
+    "metadata_nodes": 4644,
+    "non_air_nodes": 428636,
+    "placements": 132
   }
 }

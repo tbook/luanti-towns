@@ -40,6 +40,19 @@
       "role": "city_hall"
     },
     {
+      "id": "wall_tower",
+      "label": "Medieval wall tower",
+      "scan_min": {"x": 286, "y": 8, "z": 186},
+      "scan_max": {"x": 296, "y": 26, "z": 197},
+      "floor_y": 8,
+      "capture_min": {"x": 288, "y": 8, "z": 187},
+      "capture_max": {"x": 295, "y": 24, "z": 194},
+      "ground_y": 8,
+      "rotation": 180,
+      "entrance": {"x": 291, "y": 9, "z": 193},
+      "clip_to_capture": true
+    },
+    {
       "id": "leather_worker",
       "label": "Leather worker",
       "scan_min": {

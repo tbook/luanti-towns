@@ -79,7 +79,9 @@ local rreport = roman.files["report.md"]
 eq(rreport:find("Town type: roman", 1, true) ~= nil, true, "roman report names its town type")
 eq(rreport:find("forum_size = 30", 1, true) ~= nil, true, "roman report lists layout settings")
 eq(rreport:find("Authored layout settings:", 1, true) ~= nil, true, "roman report hashes settings")
-eq(rreport:find("Catalog: 32 entries", 1, true) ~= nil, true, "roman report lists catalog identity")
+local catalog_hash, catalog_count = lib.catalog_hash(catalog.snapshot())
+eq(rreport:find(("Catalog: %d entries, hash `%s`"):format(catalog_count, catalog_hash), 1, true) ~= nil,
+	true, "roman report lists catalog identity")
 eq(rr1.parvis_area, "n/a", "parvis is not applicable to Roman")
 eq(rr1.market_open_share, "n/a", "market is not applicable to Roman")
 eq(rreport:find("Not applicable to Roman plans", 1, true) ~= nil, true, "roman report marks n/a")
