@@ -14,6 +14,68 @@ do
 	eq(has(wall.cells, 4, -1), false, "crossing contains no wall")
 	eq(has(wall.cells, 4, 10), false, "compound join is not walled")
 	eq(has(wall.cells, -1, -1), true, "outer corner joins both runs")
+	eq(wall.openings[1].street_rect ~= nil, true, "road opening retains its street rectangle")
+	local gate_entry = {id = "wall_gatehouse", size = {x = 16, y = 15, z = 9}}
+	local outward_cases = {
+		{direction = {x = 0, z = 1}, rotation = 0, plane = {x = 20, z = 30}},
+		{direction = {x = 1, z = 0}, rotation = 90, plane = {x = 30, z = 20}},
+		{direction = {x = 0, z = -1}, rotation = 180, plane = {x = 20, z = 30}},
+		{direction = {x = -1, z = 0}, rotation = 270, plane = {x = 30, z = 20}},
+	}
+	local function gate_openings(case, count, kind)
+		local out = {}
+		for i = 0, count - 1 do
+			local c = {x = case.plane.x, z = case.plane.z,
+				direction = case.direction, street = 4, kind = kind or "principal",
+				material = "road", street_rect = {x1 = 8, z1 = 8, x2 = 23, z2 = 23}}
+			if case.direction.x == 0 then c.x = 10 + i else c.z = 10 + i end
+			out[#out + 1] = c
+		end
+		return out
+	end
+	local function rotated_local(x, z, sx, sz, rotation)
+		if rotation == 0 then return x, z
+		elseif rotation == 90 then return z, sx - 1 - x
+		elseif rotation == 180 then return sx - 1 - x, sz - 1 - z
+		else return sz - 1 - z, x end
+	end
+	for _, case in ipairs(outward_cases) do
+		local openings = gate_openings(case, 6)
+		local candidate = walls.gatehouse_candidates({openings = openings}, 12, gate_entry)[1]
+		eq(candidate ~= nil, true, "gatehouse candidate exists for rotation " .. case.rotation)
+		eq(candidate.rotation, case.rotation, "gatehouse faces outward for rotation " .. case.rotation)
+		eq(candidate.road_width_inside, 6, "gatehouse preserves six-node inside road")
+		eq(candidate.road_width_gate, 4, "gatehouse passage narrows to four nodes")
+		eq(#candidate.openings, 6, "gatehouse candidate owns the full six-cell wall opening")
+		local passage_low, passage_high
+		for local_x = 6, 9 do
+			local rx, rz = rotated_local(local_x, 3, gate_entry.size.x, gate_entry.size.z, case.rotation)
+			local x, z = candidate.pos.x + rx, candidate.pos.z + rz
+			local transverse = case.direction.x == 0 and x or z
+			local normal = case.direction.x ~= 0 and x or z
+			passage_low = math.min(passage_low or transverse, transverse)
+			passage_high = math.max(passage_high or transverse, transverse)
+			eq(normal, case.direction.x ~= 0 and case.plane.x or case.plane.z,
+				"passage lies on the wall plane for rotation " .. case.rotation)
+		end
+		eq(passage_low, 11, "passage begins centered within six-node road for rotation " .. case.rotation)
+		eq(passage_high, 14, "passage ends centered within six-node road for rotation " .. case.rotation)
+		eq(candidate.bounds.min.y, 12, "gatehouse bounds include foundation datum")
+		eq(candidate.bounds.max.y, 26, "gatehouse bounds include full roof height")
+	end
+	eq(#walls.gatehouse_candidates({openings = gate_openings(outward_cases[1], 5)}, 12, gate_entry),
+		0, "partial primary crossing stays a safe road gap")
+	eq(#walls.gatehouse_candidates({openings = gate_openings(outward_cases[1], 6, "secondary")}, 12, gate_entry),
+		0, "secondary crossing stays reserved for posterns")
+	local disjoint = gate_openings(outward_cases[1], 6)
+	for _, c in ipairs(gate_openings(outward_cases[1], 6)) do
+		c.x = c.x + 10
+		disjoint[#disjoint + 1] = c
+	end
+	local disjoint_candidates = walls.gatehouse_candidates({openings = disjoint}, 12, gate_entry)
+	eq(#disjoint_candidates, 2, "disjoint six-node crossings on one wall plane form separate gates")
+	eq(#disjoint_candidates[1].openings, 6, "first disjoint gate claims only its own crossing")
+	eq(#disjoint_candidates[2].openings, 6, "second disjoint gate claims only its own crossing")
 	eq(walls.plan(plan, false), nil, "wall can be forced off")
 	plan.town_type = "roman"
 	eq(walls.plan(plan, true), nil, "Roman towns never get walls")
@@ -512,6 +574,23 @@ do
 		for _, gap in ipairs(actual.openings) do kinds[gap.kind] = true end
 		eq(kinds.principal, true, "rotation " .. turn .. " retains a principal exit")
 		eq(kinds.secondary, true, "rotation " .. turn .. " retains secondary exits")
+		local gates = walls.gatehouse_candidates(actual, 0, gate_entry)
+		eq(#gates > 0, true, "rotation " .. turn .. " has an external primary gate candidate")
+		for _, gate in ipairs(gates) do
+			eq(gate.kind, "principal", "rotation " .. turn .. " gate candidate is a primary road")
+			for _, opening in ipairs(gate.openings) do
+				local boundary_x = opening.x - opening.direction.x
+				local boundary_z = opening.z - opening.direction.z
+				local touches_boundary = false
+				for _, r in ipairs(town.boundary.rects) do
+					if boundary_x >= r.x1 and boundary_x <= r.x2
+							and boundary_z >= r.z1 and boundary_z <= r.z2 then
+						touches_boundary = true
+					end
+				end
+				eq(touches_boundary, true, "rotation " .. turn .. " gate opens at external boundary only")
+			end
+		end
 		for _, c in ipairs(actual.cells) do
 			for _, r in ipairs(town.boundary.rects) do
 				assert(not (c.x >= r.x1 and c.x <= r.x2 and c.z >= r.z1 and c.z <= r.z2),

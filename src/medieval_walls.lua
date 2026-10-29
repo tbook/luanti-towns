@@ -42,7 +42,9 @@ function M.plan(plan, force)
 						local k = key(ox, oz)
 						local s = road(x, z, d)
 						if s then openings[k] = {x = ox, z = oz, direction = d, street = s.id, kind = s.kind,
-							material = s.material}
+							material = s.material,
+							street_rect = {x1 = s.rect.x1, z1 = s.rect.z1,
+								x2 = s.rect.x2, z2 = s.rect.z2}}
 						else cells[k] = cells[k] or {x = ox, z = oz, direction = d} end
 					end
 				end
@@ -99,6 +101,130 @@ function M.plan(plan, force)
 		return ka < kb
 	end)
 	return {cells = list, runs = runs, corners = corners, openings = gaps}
+end
+
+-- Return world placement candidates for the authored primary-road gatehouse.
+-- `wall.openings` is the road-crossing plan: each entry is one column across
+-- the six-node road where the wall would otherwise stand. The template's
+-- four-node passage is centered on those six columns. Placement is only a
+-- candidate here; the generation writer must validate protection, terrain,
+-- overlap and foundation safety before reserving/masking anything.
+--
+-- Candidate bounds cover the complete schematic volume, including its
+-- captured foundation and air cells, because place_schematic writes both.
+function M.gatehouse_candidates(wall, ground, entry)
+	assert(type(wall) == "table" and type(wall.openings) == "table", "wall openings are required")
+	assert(type(entry) == "table" and type(entry.size) == "table", "gatehouse catalog entry is required")
+	local groups = {}
+	for _, opening in ipairs(wall.openings) do
+		if opening.kind == "principal" and opening.street ~= nil then
+			local d = opening.direction
+			local normal = d.x .. ":" .. d.z
+			local fixed = d.x ~= 0 and opening.x or opening.z
+			local key = tostring(opening.street) .. ":" .. normal .. ":" .. fixed
+			local group = groups[key]
+			if not group then
+				group = {street = opening.street, direction = {x = d.x, z = d.z}, fixed = fixed,
+					kind = opening.kind, material = opening.material, columns = {}}
+				groups[key] = group
+			end
+			group.columns[#group.columns + 1] = opening
+		end
+	end
+	local candidates = {}
+	-- Each entry maps canonical +Z (the gatehouse's outward face) to the
+	-- indicated world normal, with the associated canonical +X tangent.
+	local orientation = {
+		["0:1"] = {rotation = 0, nx = 0, nz = 1, tx = 1, tz = 0},
+		["1:0"] = {rotation = 90, nx = 1, nz = 0, tx = 0, tz = -1},
+		["0:-1"] = {rotation = 180, nx = 0, nz = -1, tx = -1, tz = 0},
+		["-1:0"] = {rotation = 270, nx = -1, nz = 0, tx = 0, tz = 1},
+	}
+	local function sort_openings(a, b)
+		local ta = a.direction.x ~= 0 and a.z or a.x
+		local tb = b.direction.x ~= 0 and b.z or b.x
+		return ta < tb
+	end
+	local function add_candidate(group, o, openings, low, high)
+		local first = openings[1]
+		local plane_x, plane_z = first.x, first.z
+		-- Passage local x=6..9 has center 7.5. Center it in the
+		-- six-node road (cell-center 2.5) in world coordinates. Compute
+		-- pos as the rotated footprint's minimum corner, matching
+		-- core.place_schematic and geometry.place conventions.
+		local center = (low + high) / 2
+		local local_x, local_z
+		if o.rotation == 0 then local_x, local_z = 7.5, 3
+		elseif o.rotation == 90 then local_x, local_z = 3, entry.size.x - 1 - 7.5
+		elseif o.rotation == 180 then local_x, local_z = entry.size.x - 1 - 7.5, entry.size.z - 1 - 3
+		else local_x, local_z = entry.size.z - 1 - 3, 7.5 end
+		local target_x = o.tx ~= 0 and center or plane_x
+		local target_z = o.tz ~= 0 and center or plane_z
+		if o.nx ~= 0 then target_x = plane_x end
+		if o.nz ~= 0 then target_z = plane_z end
+		local origin = {x = target_x - local_x, y = ground, z = target_z - local_z}
+		local sx, sz = entry.size.x, entry.size.z
+		if o.rotation == 90 or o.rotation == 270 then sx, sz = sz, sx end
+		candidates[#candidates + 1] = {
+			asset = entry.id or "wall_gatehouse",
+			rotation = o.rotation,
+			pos = origin,
+			direction = {x = o.nx, z = o.nz},
+			street = group.street,
+			kind = group.kind,
+			material = group.material,
+			openings = openings,
+			passage = {first = 6, last = 9, width = 4},
+			road_width_inside = 6,
+			road_width_gate = 4,
+			road_width_outside = 4,
+			wall_plane = {x = plane_x, z = plane_z},
+			bounds = {min = {x = origin.x, y = ground, z = origin.z},
+				max = {x = origin.x + sx - 1, y = ground + entry.size.y - 1,
+					z = origin.z + sz - 1}},
+			street_rect = first.street_rect,
+		}
+	end
+	for _, group in pairs(groups) do
+		local o = orientation[group.direction.x .. ":" .. group.direction.z]
+		if o then
+			table.sort(group.columns, sort_openings)
+			local unique, positions = {}, {}
+			for _, c in ipairs(group.columns) do
+				local transverse = o.tx ~= 0 and c.x or c.z
+				if not unique[transverse] then
+					unique[transverse] = c
+					positions[#positions + 1] = transverse
+				end
+			end
+			table.sort(positions)
+			-- Split a street's edge crossings into contiguous runs before
+			-- matching the authored six-node gate width. A disjoint crossing
+			-- on the same street and wall plane must not swallow the first.
+			local run = {}
+			local previous
+			local function finish_run()
+				if #run == 6 then
+					local openings = {}
+					for _, transverse in ipairs(run) do openings[#openings + 1] = unique[transverse] end
+					add_candidate(group, o, openings, run[1], run[#run])
+				end
+				run = {}
+			end
+			for _, transverse in ipairs(positions) do
+				if previous and transverse ~= previous + 1 then finish_run() end
+				run[#run + 1] = transverse
+				previous = transverse
+			end
+			finish_run()
+		end
+	end
+	table.sort(candidates, function(a, b)
+		if a.street ~= b.street then return a.street < b.street end
+		if a.wall_plane.x ~= b.wall_plane.x then return a.wall_plane.x < b.wall_plane.x end
+		return a.wall_plane.z < b.wall_plane.z
+	end)
+	return candidates
 end
 
 -- Search for support up to 32 nodes below the town surface. Beyond that,
