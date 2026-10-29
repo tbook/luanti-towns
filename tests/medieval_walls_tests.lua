@@ -344,6 +344,29 @@ do
 	eq(built_at[0], true, "snowy grass supports the wall")
 	eq(built_at[3], true, "sand supported by natural stone supports the wall")
 	eq(built_at[9], true, "gravel supported by natural stone supports the wall")
+	-- Reproduce the reported y=27 town edge with natural granite at y=29.
+	-- Rough granite generates as terrain; crafted variants remain blockers.
+	local function inspect_surface(surface)
+		return walls.inspect({cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}, 27,
+			{get = function(_, y)
+				if y == 29 then return surface end
+				return y < 29 and "mcl_core:stone" or "air"
+			end}, function(name)
+			return {walkable = name ~= "air"}
+		end, function() return false end)
+	end
+	local granite_changes, granite_omissions = inspect_surface("mcl_core:granite")
+	eq(#granite_omissions, 0, "natural granite at y=29 supports a wall at town ground y=27")
+	local masonry_above_granite = false
+	for _, change in ipairs(granite_changes) do
+		if change.y == 30 and change.name == walls.BRICK then masonry_above_granite = true end
+	end
+	eq(masonry_above_granite, true, "wall masonry is placed above the granite surface")
+	for _, structure in ipairs({"mcl_core:granite_smooth", "mcl_core:stonebrick"}) do
+		local blocked_changes, blocked_omissions = inspect_surface(structure)
+		eq(#blocked_changes, 0, structure .. " structures are not replaced")
+		eq(#blocked_omissions, 1, structure .. " structures remain blockers")
+	end
 	-- VoxeLibre badlands use these real hardened-clay node names. A wall may
 	-- stand on natural terracotta while crafted masonry remains an obstruction.
 	for _, substrate in ipairs({"mcl_colorblocks:hardened_clay",
