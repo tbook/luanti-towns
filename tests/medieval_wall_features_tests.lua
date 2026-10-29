@@ -62,7 +62,9 @@ local clear = function() return false end
 local natural = function(name) return name == "stone" end
 eq(features.inspect(feature, region, info, clear, natural), true, "clear supported tower passes")
 obstacle = {x = 1, y = 11, z = 1, name = "building"}
-eq(features.inspect(feature, region, info, clear, natural), nil, "obstruction in schematic air volume blocks tower")
+local blocked, obstruction = features.inspect(feature, region, info, clear, natural)
+eq(blocked, nil, "obstruction in schematic air volume blocks tower")
+eq(obstruction, "obstruction building at (1,11,1)", "tower obstruction reports the exact blocking position")
 obstacle = {x = 1, y = 11, z = 1, name = "tree"}
 local tree_info = function(name) return {walkable = name == "stone", tree = name == "tree", vegetation = name == "tree"} end
 eq(features.inspect(feature, region, tree_info, clear, natural), nil, "tree-group logs in the tower volume remain intact")
@@ -75,6 +77,36 @@ eq(#foundations, 8, "every footprint column receives two foundation nodes")
 local protected_lower = function(p) return p.y == 8 end
 eq(features.inspect(feature, lower, info, protected_lower, natural), nil,
 	"protected terrain below the tower prevents foundation writes")
+local tall_feature = {min = {x = 0, y = 10, z = 0}, max = {x = 1, y = 13, z = 1}}
+local shallow_rise = {get = function(_, y) return y == 9 and "stone" or y == 12 and "dirt" or "air" end}
+local natural_info = function(name)
+	return {walkable = name == "stone" or name == "dirt"}
+end
+local natural_ground = function(name) return name == "stone" or name == "dirt" end
+eq(features.inspect(tall_feature, shallow_rise, natural_info, clear, natural_ground), true,
+	"natural terrain up to two nodes above the tower datum can be graded")
+local tall_rise = {get = function(_, y) return y == 9 and "stone" or y == 13 and "dirt" or "air" end}
+local high_ok, high_reason = features.inspect(tall_feature, tall_rise, natural_info, clear, natural_ground)
+eq(high_ok, nil, "natural terrain above the bounded tower cut still blocks placement")
+eq(high_reason, "obstruction dirt at (0,13,0)", "bounded-cut rejection reports the blocking position")
+eq(features.inspect(tall_feature, shallow_rise, function(name) return {walkable = name == "stone" or name == "dirt"} end,
+	function(p) return p.x == 0 and p.y == 11 and p.z == 0 end, natural_ground), nil,
+	"protected natural terrain in the cut area prevents tower placement")
+local liquid_rise = {get = function(_, y) return y == 9 and "stone" or y == 11 and "water" or "air" end}
+local liquid_info = function(name)
+	return {walkable = name == "stone", liquid = name == "water"}
+end
+local liquid_ok, liquid_reason = features.inspect(tall_feature, liquid_rise, liquid_info, clear, natural_ground)
+eq(liquid_ok, nil, "water in the bounded natural cut area still blocks tower placement")
+eq(liquid_reason, "obstruction water at (0,11,0)", "water obstruction reports the blocking position")
+local crafted_rise = {get = function(_, y) return y == 9 and "stone" or y == 11 and "mcl_core:stonebrick" or "air" end}
+local crafted_info = function(name)
+	return {walkable = name == "stone" or name == "mcl_core:stonebrick"}
+end
+local crafted_ok, crafted_reason = features.inspect(tall_feature, crafted_rise, crafted_info, clear, natural_ground)
+eq(crafted_ok, nil, "crafted masonry in the bounded cut area still blocks tower placement")
+eq(crafted_reason, "obstruction mcl_core:stonebrick at (0,11,0)",
+	"crafted-node obstruction reports the blocking position")
 local sand = {get = function(_, y) return y == 9 and "sand" or y == 8 and "stone" or "air" end}
 local sand_info = function(name) return {walkable = name == "sand" or name == "stone", falling = name == "sand"} end
 local sand_natural = function(name) return name == "sand" or name == "stone" end

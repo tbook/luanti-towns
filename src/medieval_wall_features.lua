@@ -3,6 +3,10 @@
 -- placing a schematic.
 local M = {}
 M.FOUNDATION_DEPTH = 32
+-- Allow the tower schematic to cut a shallow natural rise at its footprint.
+-- This keeps slight terrain variation from omitting a tower while avoiding
+-- unbounded excavation into hillsides.
+M.MAX_CUT_HEIGHT = 2
 
 local function rotate(x, z, rotation, size)
 	if rotation == 0 then return x, z end
@@ -152,8 +156,9 @@ function M.inspect(candidate, region, node_info, protected, natural)
 				if protected({x = x, y = y, z = z}) then return nil, "protected" end
 				if name ~= "air" and not (item and item.vegetation and not item.tree
 						and not item.liquid and not item.ice)
-						and not (y == candidate.min.y and natural(name)) then
-					return nil, "obstruction " .. tostring(name)
+					and not (y <= candidate.min.y + M.MAX_CUT_HEIGHT and natural(name)) then
+					return nil, ("obstruction %s at (%d,%d,%d)"):format(
+						tostring(name), x, y, z)
 				end
 			end
 		end
