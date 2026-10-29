@@ -184,6 +184,18 @@ function M.gatehouse_candidates(wall, ground, entry)
 					z = origin.z + sz - 1}},
 			street_rect = first.street_rect,
 		}
+		local candidate = candidates[#candidates]
+		candidate.outside_approach = {}
+		-- The authored capture ends five nodes beyond the wall. Continue its
+		-- central four road columns for another four nodes beyond that face.
+		for i = 2, 5 do
+			local gap = openings[i]
+			candidate.outside_approach[#candidate.outside_approach + 1] = {
+				x = gap.x + 6 * o.nx, z = gap.z + 6 * o.nz,
+				direction = {x = o.nx, z = o.nz}, material = group.material,
+				pave_surface = true,
+			}
+		end
 	end
 	for _, group in pairs(groups) do
 		local o = orientation[group.direction.x .. ":" .. group.direction.z]
@@ -310,6 +322,11 @@ function M.inspect(wall, ground, region, node_info, protected)
 	for _, c in ipairs(wall.openings) do
 		for distance = 0, 3 do
 			occupied[key(c.x + c.direction.x * distance, c.z + c.direction.z * distance)] = true
+		end
+	end
+	for _, rect in ipairs(wall.feature_footprints or {}) do
+		for x = rect.x1, rect.x2 do
+			for z = rect.z1, rect.z2 do occupied[key(x, z)] = true end
 		end
 	end
 	local function clear(name)
@@ -492,6 +509,15 @@ function M.inspect(wall, ground, region, node_info, protected)
 			end
 			local proposed = {}
 			if base and not why then
+				if c.pave_surface and base == ground then
+					local name = region.get(x, ground, z)
+					if protected({x = x, y = ground, z = z}) then
+						why = "protected"; blocker = {x = x, y = ground, z = z, node = name}
+					else
+						proposed[#proposed + 1] = {x = x, y = ground, z = z,
+							name = c.material or M.BRICK, param2 = 0}
+					end
+				end
 				for y = base + 1, ground + 2 do
 					local name = region.get(x, y, z)
 					if protected({x = x, y = y, z = z}) then why = "protected"; blocker = {x = x, y = y, z = z, node = name}; break end

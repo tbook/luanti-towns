@@ -578,6 +578,12 @@ do
 		eq(#gates > 0, true, "rotation " .. turn .. " has an external primary gate candidate")
 		for _, gate in ipairs(gates) do
 			eq(gate.kind, "principal", "rotation " .. turn .. " gate candidate is a primary road")
+			eq(#gate.outside_approach, 4, "outside approach has four columns")
+			local approach, omissions = walls.inspect({cells = {}, openings = gate.outside_approach}, 0,
+				{get = function(_, y) return y <= 0 and "mcl_core:stone" or "air" end},
+				function(name) return {walkable = name == "mcl_core:stone"} end, function() return false end)
+			eq(#omissions, 0, "outside approach fits flat natural terrain")
+			eq(#approach, 16, "four by four outside road is paved at ground level")
 			for _, opening in ipairs(gate.openings) do
 				local boundary_x = opening.x - opening.direction.x
 				local boundary_z = opening.z - opening.direction.z

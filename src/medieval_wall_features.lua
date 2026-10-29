@@ -70,8 +70,31 @@ function M.footprint(feature)
 	return {x1 = feature.min.x, z1 = feature.min.z, x2 = feature.max.x, z2 = feature.max.z}
 end
 
+-- Both authored end stubs must meet a planned wall column immediately outside
+-- the footprint. Otherwise an irregular boundary would leave a dangling gate.
+function M.gate_join_cells(candidate, wall)
+	local a, b
+	if candidate.direction.x ~= 0 then
+		a = {x = candidate.wall_plane.x, z = candidate.min.z - 1}
+		b = {x = candidate.wall_plane.x, z = candidate.max.z + 1}
+	else
+		a = {x = candidate.min.x - 1, z = candidate.wall_plane.z}
+		b = {x = candidate.max.x + 1, z = candidate.wall_plane.z}
+	end
+	local found_a, found_b
+	for _, cell in ipairs(wall.cells) do
+		if cell.x == a.x and cell.z == a.z then found_a = cell end
+		if cell.x == b.x and cell.z == b.z then found_b = cell end
+	end
+	if found_a and found_b then return {found_a, found_b} end
+end
+
+function M.gate_joins(candidate, wall)
+	return M.gate_join_cells(candidate, wall) ~= nil
+end
+
 function M.remaining_wall(wall, placed_footprints)
-	local remaining = {cells = {}, openings = wall.openings}
+	local remaining = {cells = {}, openings = {}, feature_footprints = placed_footprints}
 	for _, cell in ipairs(wall.cells) do
 		local covered = false
 		for _, rect in ipairs(placed_footprints) do
@@ -80,6 +103,15 @@ function M.remaining_wall(wall, placed_footprints)
 			end
 		end
 		if not covered then remaining.cells[#remaining.cells + 1] = cell end
+	end
+	for _, opening in ipairs(wall.openings) do
+		local covered = false
+		for _, rect in ipairs(placed_footprints) do
+			if opening.x >= rect.x1 and opening.x <= rect.x2 and opening.z >= rect.z1 and opening.z <= rect.z2 then
+				covered = true; break
+			end
+		end
+		if not covered then remaining.openings[#remaining.openings + 1] = opening end
 	end
 	return remaining
 end
@@ -90,16 +122,19 @@ end
 function M.select(candidates, structures, streets, protected)
 	local selected, footprints = {}, {}
 	for _, candidate in ipairs(candidates) do
-		local rect, clear = M.footprint(candidate), true
+		local rect, clear = candidate.reserve_rect or M.footprint(candidate), true
 		for _, axis in ipairs({"x", "y", "z"}) do
 			if math.abs(candidate.min[axis]) > 31000 or math.abs(candidate.max[axis]) > 31000 then clear = false end
 		end
+		if math.abs(rect.x1) > 31000 or math.abs(rect.x2) > 31000
+				or math.abs(rect.z1) > 31000 or math.abs(rect.z2) > 31000 then clear = false end
 		if candidate.min.y - M.FOUNDATION_DEPTH < -31000 then clear = false end
 		for _, structure in ipairs(structures or {}) do
 			if structure.rect and overlap(rect, structure.rect) then clear = false; break end
 		end
 		for _, street in ipairs(streets or {}) do
-			if street.rect and overlap(rect, street.rect) then clear = false; break end
+			if street.rect and overlap(rect, street.rect)
+					and not (candidate.street ~= nil and street.id == candidate.street) then clear = false; break end
 		end
 		for _, prior in ipairs(footprints) do
 			if overlap(rect, prior) then clear = false; break end
@@ -154,7 +189,10 @@ function M.inspect(candidate, region, node_info, protected, natural)
 				local name = region.get(x, y, z)
 				local item = node_info(name)
 				if protected({x = x, y = y, z = z}) then return nil, "protected" end
-				if name ~= "air" and not (item and item.vegetation and not item.tree
+				local road = candidate.street_rect and y == candidate.min.y and name == candidate.material
+					and x >= candidate.street_rect.x1 and x <= candidate.street_rect.x2
+					and z >= candidate.street_rect.z1 and z <= candidate.street_rect.z2
+				if name ~= "air" and not road and not (item and item.vegetation and not item.tree
 						and not item.liquid and not item.ice)
 					and not (y <= candidate.min.y + M.MAX_CUT_HEIGHT and natural(name)) then
 					return nil, ("obstruction %s at (%d,%d,%d)"):format(

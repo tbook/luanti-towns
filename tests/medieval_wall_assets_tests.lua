@@ -36,3 +36,12 @@ end
 local bounds = geometry.place(entry, {x = 100, y = 39, z = 100}, 0)
 eq(bounds.min.y + entry.ground_offset, 40,
 	"inline tower ground datum aligns with the generated wall's town ground")
+
+local gate = read_mts("schematics/templates/wall_gatehouse.mts")
+for x = 6, 9 do
+	for z = 0, 8 do
+		for y = 1, 3 do
+			eq(gate.at(x, y, z), "air", "gate has a four-wide clear passage throughout its capture")
+		end
+	end
+end
