@@ -450,6 +450,7 @@ run_group("tests/outskirts_assets_tests.lua", eq, geometry, catalog, placement,
 -- Rotated walls (#166): wall connections in the node name follow the rotation.
 run_group("tests/wall_rotation_tests.lua", eq, dofile("src/schematic.lua"))
 run_group("tests/medieval_walls_tests.lua", eq, dofile("src/planner.lua"), catalog)
+run_group("tests/medieval_wall_assets_tests.lua", eq, catalog, geometry)
 
 -- Roman checker expectations (#188): wall names as schematic.place leaves them.
 run_group("tests/roman_check_expect_tests.lua", eq, dofile("src/schematic.lua"))

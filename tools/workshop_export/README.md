@@ -371,3 +371,21 @@ side-room doors, two empty chests, beds, barred openings, and no gate mechanism
 or guard system. Export provenance is recorded per building in
 `schematics/templates/manifest.json`; the asset was captured from the
 read-only TownsWorkshop snapshot with `--only wall_gatehouse --validate`.
+
+## Medieval inline wall tower (#276)
+
+`wall_tower_inline` is the straight-run sample from the same issue. Its fixed
+source crop is x=289..295, y=7..23, z=230..236 (7 x 17 x 7). The full
+foundation layer at y=7 is retained, with finished ground at y=8
+(`ground_offset` 1). The exporter rotates the sample 180 degrees; the lower
+entrance is canonical file offset (4,2,1), which is one node above finished
+ground, facing -Z. In canonical orientation, the wall centerline runs along Z
+at x=3. Its one-node tie-in stubs occupy file offsets (3,2..5,0) and
+(3,2..5,6), or y=1..4 relative to finished ground; parapet details remain
+part of the captured tower. This is a straight-run asset, distinct from the
+corner-only `wall_tower`. Its full ground footprint is replaced when placed.
+The source region is clipped to the fixed capture box because the survey
+margin includes nearby samples; the Workshop is read only. The exporter
+verified all 833 captured nodes and all four runtime placements in a
+disposable world. As with the corner sample, this does not establish in-game
+fit with generated walls.
