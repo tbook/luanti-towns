@@ -118,4 +118,33 @@ local remaining = features.remaining_wall(original, {features.footprint(feature)
 eq(#remaining.cells, 1, "only successfully placed tower footprint suppresses wall columns")
 eq(remaining.cells[1].x, 2, "wall outside tower remains")
 eq(#original.cells, 2, "feature placement does not mutate original wall plan")
-eq(remaining.openings, original.openings, "feature placement preserves road openings")
+eq(#remaining.openings, 1, "feature placement preserves road openings outside its footprint")
+local gate = {min = {x = 0, y = 10, z = 0}, max = {x = 15, y = 24, z = 8},
+	street = "main", material = "road", street_rect = {x1 = 5, x2 = 10, z1 = -10, z2 = 3},
+	direction = {x = 0, z = 1}, wall_plane = {x = 5, z = 3}}
+eq(#features.select({gate}, {}, {{id = "main", rect = gate.street_rect}}), 1,
+	"gate may overlap its own planned street")
+eq(#features.select({gate}, {}, {{id = "other", rect = gate.street_rect}}), 0,
+	"gate cannot overlap another street")
+eq(features.gate_joins(gate, {cells = {{x = -1, z = 3}, {x = 16, z = 3}}}), true,
+	"gate joins both adjacent wall ends")
+eq(features.gate_joins(gate, {cells = {{x = -1, z = 3}}}), false,
+	"gate requires both wall joins")
+local gate_region = {get = function(x, y, z)
+	if y == 9 then return "stone" end
+	if y == 10 and x == 5 and z == 2 then return "road" end
+	return "air"
+end}
+eq(features.inspect(gate, gate_region, info, clear, natural), true,
+	"gate can replace its own paved street surface")
+local blocked_gate = {get = function(x, y, z)
+	if y == 9 then return "stone" end
+	if y == 10 and x == 5 and z == 2 then return "building" end
+	return "air"
+end}
+eq(features.inspect(gate, blocked_gate, info, clear, natural), nil,
+	"gate cannot overwrite a building on the street")
+local gap = {cells = {}, openings = {{x = 7, z = 3}, {x = 30, z = 3}}}
+eq(#features.remaining_wall(gap, {features.footprint(gate)}).openings, 1,
+	"placed gate suppresses approaches only inside its footprint")
+eq(#features.remaining_wall(gap, {}).openings, 2, "omitted gate retains original approaches")

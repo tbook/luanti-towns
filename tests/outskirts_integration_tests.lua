@@ -500,6 +500,92 @@ do
 	eq(#summary.wall.features, 0, "omitted tower is not reported as placed")
 	eq(#test_result.wall_feature_footprints, 0, "omitted tower releases its outskirts reservation")
 	eq(wall_count > suppressed_count, true, "omitted tower retains normal wall columns")
+	-- Gate placement permits the pavement it replaces but never a building in
+	-- the same cell; failed inspection must leave the original approach intact.
+	local real_gates, real_joins = walls.gatehouse_candidates, features.gate_joins
+	local gate = {asset = "wall_gatehouse", rotation = 0, street = "main", material = "road",
+		street_rect = {x1 = 5, x2 = 10, z1 = -8, z2 = -1}, direction = {x = 0, z = -1},
+		wall_plane = {x = 5, z = -1}, bounds = {min = {x = 0, y = 10, z = -9},
+			max = {x = 15, y = 24, z = -1}}}
+	walls.gatehouse_candidates = function(wall)
+		wall.openings = {{x = 5, z = -1, direction = {x = 0, z = -1}}}
+		return {gate}
+	end
+	features.corner_candidates = function() return {} end
+	features.gate_joins = function() return true end
+	core.read_schematic = function(path)
+		return {size = path:find("wall_gatehouse", 1, true) and catalog.entries.wall_gatehouse.size
+			or catalog.entries.wall_tower.size}
+	end
+	local approaches = 0
+	walls.inspect = function(wall) approaches = #wall.openings; return {}, {} end
+	test_result.plan.streets = {{id = "main", rect = gate.street_rect}}
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function() return {get = function(x, y, z)
+			if x == 5 and z == -1 and y == 10 then return blocked and "test:building" or "road" end
+			return y < 10 and "mcl_core:stone" or "air"
+		end, set = function() end, commit = function() end} end
+		env.place_structure = function(st) if st.id == "wall_gatehouse" then placed = placed + 1 end; return true end
+		env.setup_nodes = function() return {failed = {}, unregistered = {}} end
+		return env
+	end
+	blocked, placed = false, 0
+	towns.populated.build(test_result, function(s) summary = s end)
+	eq(placed, 1, "supported gatehouse replaces its own road")
+	eq(approaches, 0, "successful gate does not overwrite its passage with the old approach")
+	blocked, placed = true, 0
+	towns.populated.build(test_result, function(s) summary = s end)
+	eq(placed, 0, "building in gate volume prevents placement")
+	eq(approaches, 1, "failed gate keeps the original road approach")
+	walls.gatehouse_candidates, features.gate_joins = real_gates, real_joins
+	walls.inspect = real_inspect
+	local medieval = dofile("src/medieval_planner.lua")
+	local profile = assert(towns.planner.landmark_profile(catalog.snapshot()))
+	local planned = assert(medieval.plan({x = 0, z = 0}, 1, profile, {int = function(a) return a end},
+		{quadrant = 0, castle_east = true, turn = 0}))
+	local planned_wall = walls.plan(planned, true)
+	local planned_gates = walls.gatehouse_candidates(planned_wall, 10, catalog.entries.wall_gatehouse)
+	local target = planned_gates[1]
+	local road = target.outside_approach[1]
+	target.min, target.max = target.bounds.min, target.bounds.max
+	local join = features.gate_join_cells(target, planned_wall)[1]
+	local road_writes, gate_placements = {}, {}
+	local road_blocked, join_blocked = false, false
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function() return {get = function(x, y, z)
+			if road_blocked and x == road.x and z == road.z and y == 11 then return "test:building" end
+			if join_blocked and x == join.x and z == join.z and y == 11 then return "test:building" end
+			return y < 10 and "mcl_core:stone" or "air"
+		end, set = function(x, y, z, name)
+			if y == 10 and name == target.material then road_writes[x .. ":" .. z] = true end
+		end, commit = function() end} end
+		env.place_structure = function(st)
+			if st.id == "wall_gatehouse" then gate_placements[st.min.x .. ":" .. st.min.z] = true end
+			return true
+		end
+		env.setup_nodes = function() return {failed = {}, unregistered = {}} end
+		return env
+	end
+	test_result.plan = planned
+	towns.populated.build(test_result, function(s) summary = s end)
+	eq(gate_placements[target.pos.x .. ":" .. target.pos.z], true,
+		"real medieval crossing places its planned gatehouse")
+	for _, c in ipairs(target.outside_approach) do
+		for distance = 0, 3 do
+			local k = (c.x + distance * c.direction.x) .. ":" .. (c.z + distance * c.direction.z)
+			eq(road_writes[k], true, "real gate paves every outside approach cell")
+		end
+	end
+	road_blocked, gate_placements, road_writes = true, {}, {}
+	towns.populated.build(test_result, function(s) summary = s end)
+	eq(gate_placements[target.pos.x .. ":" .. target.pos.z], nil,
+		"blocked real outside approach omits its gatehouse")
+	road_blocked, join_blocked, gate_placements = false, true, {}
+	towns.populated.build(test_result, function(s) summary = s end)
+	eq(gate_placements[target.pos.x .. ":" .. target.pos.z], nil,
+		"obstructed adjoining wall column omits the gatehouse")
 	features.corner_candidates, walls.inspect = real_candidates, real_inspect
 	towns.builder.core_env = previous_env
 end

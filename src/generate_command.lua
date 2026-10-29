@@ -166,18 +166,55 @@ local function build_urban(result)
 		return nil, msg, "inspection_failed", {reason = reason}
 	end
 	if result.wall and towns.medieval_wall_features then
-		local features, entry = towns.medieval_wall_features, towns.catalog.entries.wall_tower
-		local asset_ok, valid = pcall(function()
-			local sc = assert(core.read_schematic(towns.modpath .. "/" .. entry.path, {}))
-			assert(sc.size.x == entry.size.x and sc.size.y == entry.size.y and sc.size.z == entry.size.z)
-			return towns.schematic.validate(entry, towns.modpath)
-		end)
-		if asset_ok and valid then
-			local candidates = features.corner_candidates(result.wall, result.ground_y, entry)
-			result.wall_features, result.wall_feature_footprints = features.select(candidates,
-				pre.structures, result.plan.streets, function(pos) return core.is_protected(pos, "") end)
-		else
-			core.log("warning", "towns: corner tower asset unavailable; using ordinary walls")
+		local features = towns.medieval_wall_features
+		local candidates = {}
+		for _, spec in ipairs({{id = "wall_gatehouse", gate = true}, {id = "wall_tower"}}) do
+			local entry = towns.catalog.entries[spec.id]
+			local asset_ok, valid = pcall(function()
+				local sc = assert(core.read_schematic(towns.modpath .. "/" .. entry.path, {}))
+				assert(sc.size.x == entry.size.x and sc.size.y == entry.size.y and sc.size.z == entry.size.z)
+				return towns.schematic.validate(entry, towns.modpath)
+			end)
+			if asset_ok and valid then
+				local found = spec.gate and walls.gatehouse_candidates(result.wall, result.ground_y, entry)
+					or features.corner_candidates(result.wall, result.ground_y, entry)
+				for _, candidate in ipairs(found) do
+					if spec.gate then
+						candidate.min, candidate.max = candidate.bounds.min, candidate.bounds.max
+						candidate.reserve_rect = features.footprint(candidate)
+						for _, c in ipairs(candidate.outside_approach or {}) do
+							for n = 0, 3 do
+								local x, z = c.x + c.direction.x * n, c.z + c.direction.z * n
+								local rect = candidate.reserve_rect
+								rect.x1, rect.x2 = math.min(rect.x1, x), math.max(rect.x2, x)
+								rect.z1, rect.z2 = math.min(rect.z1, z), math.max(rect.z2, z)
+							end
+						end
+						-- Keep another feature out of the two wall columns that must
+						-- connect the gate to the ordinary wall.
+						if candidate.direction.x ~= 0 then
+							candidate.reserve_rect.z1 = candidate.reserve_rect.z1 - 1
+							candidate.reserve_rect.z2 = candidate.reserve_rect.z2 + 1
+						else
+							candidate.reserve_rect.x1 = candidate.reserve_rect.x1 - 1
+							candidate.reserve_rect.x2 = candidate.reserve_rect.x2 + 1
+						end
+					end
+					if not spec.gate or features.gate_joins(candidate, result.wall) then
+						candidates[#candidates + 1] = candidate
+					else
+						core.log("warning", "towns: wall_gatehouse omitted: missing adjoining wall columns")
+					end
+				end
+			else
+				core.log("warning", "towns: " .. spec.id .. " asset unavailable; using ordinary walls")
+			end
+		end
+		result.wall_features, result.wall_feature_footprints = features.select(candidates,
+			pre.structures, result.plan.streets, function(pos) return core.is_protected(pos, "") end)
+		if #result.wall_features < #candidates then
+			core.log("warning", ("towns: omitted %d wall features due to overlap or protection")
+				:format(#candidates - #result.wall_features))
 		end
 	end
 	local env = towns.builder.core_env(core, {
@@ -357,6 +394,9 @@ local function build(result, done)
 		for _, feature in ipairs(result.wall_features or {}) do
 			boxes[#boxes + 1] = {min = {x = feature.min.x,
 				y = feature.min.y - towns.medieval_wall_features.FOUNDATION_DEPTH, z = feature.min.z}, max = feature.max}
+			if feature.outside_approach then
+				boxes[#boxes + 1] = walls.bounds({cells = {}, openings = feature.outside_approach}, result.ground_y)
+			end
 		end
 		local bounds = bounds_union(boxes)
 		if not bounds then start_outskirts(); return end
@@ -371,22 +411,38 @@ local function build(result, done)
 			end
 			local report = {attempted_bounds = bounds}
 			summary.wall = report
-			local placed_features, placed_footprints = {}, {}
+			local placed_features, placed_footprints, wall_masks = {}, {}, {}
 			local feature_api = towns.medieval_wall_features
 			for _, feature in ipairs(result.wall_features or {}) do
 				local entry = towns.catalog.entries[feature.asset]
-				local read_ok, eligible, detail, feature_region = pcall(function()
+				local read_ok, eligible, detail, feature_region, approach_changes = pcall(function()
 					local r = assert(env.open_region(bounds.min, bounds.max))
-					local ok, result = feature_api.inspect(feature, r, env.node_info,
+					local ok, detail = feature_api.inspect(feature, r, env.node_info,
 						function(pos) return core.is_protected(pos, "") end, walls.natural)
-					return ok, result, r
+					if ok and feature.outside_approach then
+						local joins = feature_api.gate_join_cells(feature, wall)
+						if not joins then return nil, "missing adjoining wall columns", r end
+						local _, join_omissions = walls.inspect({cells = joins, openings = {}},
+							result.ground_y, r, env.node_info, function(pos) return core.is_protected(pos, "") end)
+						for _, omission in ipairs(join_omissions) do
+							if not omission.reason:match("^decoration: ") then
+								return nil, "wall join: " .. omission.reason, r
+							end
+						end
+						local changes, omissions = walls.inspect({cells = {}, openings = feature.outside_approach},
+							result.ground_y, r, env.node_info, function(pos) return core.is_protected(pos, "") end)
+						if #omissions > 0 then return nil, "outside road: " .. omissions[1].reason, r end
+						return ok, detail, r, changes
+					end
+					return ok, detail, r
 				end)
 				if not read_ok or not eligible then
-					warning(summary, "tower omitted: " .. tostring(read_ok and detail or eligible))
+					warning(summary, feature.asset .. " omitted: " .. tostring(read_ok and detail or eligible))
 				else
 					local foundation_ok, foundation_error = pcall(function()
 						for _, p in ipairs(detail) do feature_region.set(p.x, p.y, p.z, walls.BRICK, 0) end
-						if #detail > 0 then feature_region.commit() end
+						for _, c in ipairs(approach_changes or {}) do feature_region.set(c.x, c.y, c.z, c.name, c.param2) end
+						if #detail > 0 or (approach_changes and #approach_changes > 0) then feature_region.commit() end
 					end)
 					if not foundation_ok then
 						return fail_writer("tower foundation failed: " .. tostring(foundation_error), nil,
@@ -400,7 +456,8 @@ local function build(result, done)
 							{bounds = bounds, reason = "wall_feature_write"})
 					end
 					placed_features[#placed_features + 1] = st
-					placed_footprints[#placed_footprints + 1] = st.rect
+					wall_masks[#wall_masks + 1] = st.rect
+					placed_footprints[#placed_footprints + 1] = feature.reserve_rect or st.rect
 				end
 			end
 			if #placed_features > 0 then
@@ -415,7 +472,7 @@ local function build(result, done)
 			end
 			report.features = placed_features
 			result.wall_feature_footprints = placed_footprints
-			local remaining = feature_api and feature_api.remaining_wall(wall, placed_footprints) or wall
+			local remaining = feature_api and feature_api.remaining_wall(wall, wall_masks) or wall
 			local read_ok, changes, omissions, region = pcall(function()
 				local r = assert(env.open_region(bounds.min, bounds.max))
 				local c, o = walls.inspect(remaining, result.ground_y, r, env.node_info,
