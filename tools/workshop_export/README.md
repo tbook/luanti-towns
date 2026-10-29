@@ -340,3 +340,34 @@ the tower template and all catalog rotations/placements passed runtime
 validation. This is not an in-game visual preview or a claim that #276 is
 complete. No separate standalone wall asset was exported as part of this
 ticket.
+
+## Primary-road gatehouse (#278)
+
+`wall_gatehouse` is the primary-road gatehouse sample in TownsWorkshop. The
+source capture is x 289..297, y 8..22, z 207..222 (9 x 15 x 16); its ground
+datum and full captured ground/foundation row are y 8. Source `-X` is
+normalized to canonical `-Z` with a 270-degree export rotation. This is the
+inward face: the gatehouse extends three nodes inward from the wall plane at
+source x 292, and five nodes outward to source x 297. The canonical footprint
+is 16 x 15 x 9, with the wall plane at local z=3 and the outward face at z=8.
+The inward face is canonical z=0. That orientation puts the shorter projection
+inside town and leaves the longer approach outside.
+
+The road axis is canonical Z. The four-node passage crosses the wall at
+canonical x=6..9 (source z=213..216) and runs from canonical z=0..8 (source
+x=289..297). Above the floor, canonical y=1..3 stays clear across the full
+passage. Iron-bar grilles cross the passage at y=4 in two rows, and upper-half
+slabs form the roof at y=5, leaving four nodes of practical standing
+clearance. The attached wall centerline is canonical z=3;
+its core reaches four nodes above ground (local y=1..4). The short wall tie-in
+stubs at both ends of that line remain inside the capture box. The capture
+also retains the sample's full ground/foundation footprint, including its
+cobble approach and dirt/grass border.
+
+The passage is four nodes wide through the gatehouse. Generation must taper a
+primary road from six nodes inside town to four nodes at the gate and outside;
+that approach grading is separate from this imported asset. The sample has
+side-room doors, two empty chests, beds, barred openings, and no gate mechanism
+or guard system. Export provenance is recorded per building in
+`schematics/templates/manifest.json`; the asset was captured from the
+read-only TownsWorkshop snapshot with `--only wall_gatehouse --validate`.
