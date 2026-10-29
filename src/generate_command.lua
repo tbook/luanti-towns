@@ -384,6 +384,62 @@ local function build(result, done)
 			if counts.wall > 0 then warning(summary, ("wall omitted %d columns due to terrain, obstructions or protection"):format(counts.wall)) end
 			if counts.decoration > 0 then warning(summary, ("wall decorations omitted: %d due to obstructions or protection"):format(counts.decoration)) end
 			if counts.approach > 0 then warning(summary, ("wall approach omitted %d columns due to terrain, obstructions or protection"):format(counts.approach)) end
+			-- Keep the log useful for diagnosing the specific gap while bounding
+			-- output for unusually rough town edges. Every record includes the
+			-- omitted column and, where available, the exact blocking node.
+			local diagnostic_limit = 24
+			local diagnostic_order = {}
+			for _, o in ipairs(omissions) do diagnostic_order[#diagnostic_order + 1] = o end
+			local function priority(o)
+				if o.reason:match("^decoration: ") then return 3 end
+				if o.reason:match("^approach: ") then return 2 end
+				return 1
+			end
+			table.sort(diagnostic_order, function(a, b)
+				local ap, bp = priority(a), priority(b)
+				if ap ~= bp then return ap < bp end
+				if a.x ~= b.x then return a.x < b.x end
+				if a.z ~= b.z then return a.z < b.z end
+				return a.reason < b.reason
+			end)
+			for i = 1, math.min(#diagnostic_order, diagnostic_limit) do
+				local o, b = diagnostic_order[i], diagnostic_order[i].blocker
+				local kind = o.reason:match("^(decoration): ") or o.reason:match("^(approach): ") or "wall"
+				local message = ("wall gap kind=%s column=(%d,%d) reason=%s")
+					:format(kind, o.x, o.z, o.reason:gsub("^(decoration): ", ""):gsub("^(approach): ", ""))
+				if b then
+					if b.x and b.y and b.z then
+						message = message .. (" blocker=(%d,%d,%d) node=%s")
+							:format(b.x, b.y, b.z, tostring(b.node))
+					else
+						message = message .. " blocker=unknown node=" .. tostring(b.node or "unknown")
+					end
+					if b.search_limit_y then message = message .. " search_limit_y=" .. tostring(b.search_limit_y) end
+				end
+				core.log("warning", "towns: " .. message)
+			end
+			if #omissions > diagnostic_limit then
+				local causes = {}
+				for _, o in ipairs(omissions) do
+					local reason = o.reason:gsub("^(decoration): ", ""):gsub("^(approach): ", "")
+					local node = o.blocker and o.blocker.node or "unknown"
+					local key = reason .. " node=" .. tostring(node)
+					causes[key] = (causes[key] or 0) + 1
+				end
+				core.log("warning", ("towns: wall gap diagnostics capped at %d; %d additional omissions not listed")
+					:format(diagnostic_limit, #omissions - diagnostic_limit))
+				local sorted_causes = {}
+				for cause in pairs(causes) do sorted_causes[#sorted_causes + 1] = cause end
+				table.sort(sorted_causes)
+				local cause_count = #sorted_causes
+				for i = 1, math.min(cause_count, 12) do
+					local cause = sorted_causes[i]
+					core.log("warning", ("towns: wall gap cause summary count=%d %s"):format(causes[cause], cause))
+				end
+				if cause_count > 12 then
+					core.log("warning", ("towns: %d additional wall gap cause groups not listed"):format(cause_count - 12))
+				end
+			end
 			start_outskirts()
 		end
 		local function after_emerge(success)

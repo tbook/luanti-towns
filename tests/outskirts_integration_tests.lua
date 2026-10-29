@@ -397,12 +397,45 @@ do
 		"wall inspection follows an incomplete margin pass")
 	margin_mode = "success"
 	local real_inspect = walls.inspect
-	walls.inspect = function() return {}, {{reason = "decoration: water or obstruction"}} end
+	walls.inspect = function() return {}, {{x = 1, z = 2, reason = "decoration: water or obstruction",
+		blocker = {x = 1, y = 10, z = 2, node = "mcl_core:stone"}}} end
 	local decoration_summary
 	towns.populated.build(test_result, function(s) decoration_summary = s end)
 	local warning_text = table.concat(decoration_summary.warnings or {}, " ")
 	eq(warning_text:find("wall decorations omitted: 1", 1, true) ~= nil, true, "decoration omission is reported")
 	eq(warning_text:find("wall omitted 1 columns", 1, true) == nil, true, "decoration omission is not a missing wall column")
+	local recorded_logs, real_log = {}, core.log
+	core.log = function(level, message) recorded_logs[#recorded_logs + 1] = message end
+	local many_omissions = {}
+	for i = 1, 25 do
+		many_omissions[#many_omissions + 1] = {x = i, z = 0, reason = "decoration: protected",
+			blocker = {x = i, y = 4, z = 0, node = "test:tree"}}
+	end
+	many_omissions[#many_omissions + 1] = {x = 99, z = 0, reason = "protected",
+		blocker = {x = 99, y = -2, z = 0, node = "test:chest", search_limit_y = -30}}
+	walls.inspect = function() return {}, many_omissions end
+	towns.populated.build(test_result, function() end)
+	core.log = real_log
+	local first_gap
+	for _, message in ipairs(recorded_logs) do
+		if message:find("wall gap kind=", 1, true) then first_gap = message; break end
+	end
+	eq(first_gap and first_gap:find("kind=wall column=(99,0)", 1, true) ~= nil, true,
+		"capped diagnostics prioritize actual wall gaps over decorations")
+	eq(first_gap and first_gap:find("blocker=(99,-2,0) node=test:chest", 1, true) ~= nil, true,
+		"wall gap log includes exact blocker position and node")
+	eq(first_gap and first_gap:find("search_limit_y=-30", 1, true) ~= nil, true,
+		"wall gap log distinguishes the found water from the search limit")
+	local summary_index, previous_cause = nil, nil
+	for index, message in ipairs(recorded_logs) do
+		if message:find("wall gap cause summary", 1, true) then
+			summary_index = index
+			local cause = message:match("count=%d+ (.*)$")
+			if previous_cause then eq(cause >= previous_cause, true, "cause summaries are deterministic and sorted") end
+			previous_cause = cause
+		end
+	end
+	eq(summary_index ~= nil, true, "capped diagnostics include a cause summary")
 	walls.inspect = real_inspect
 	local pending, failure_code, failure_extra
 	towns.site_search.core_env = function() return {

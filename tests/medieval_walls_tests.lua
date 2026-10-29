@@ -69,6 +69,8 @@ do
 	end}, function(name) return {liquid = name == "test:water_source"} end, function() return false end)
 	eq(#deep_water, 0, "water deeper than the foundation search is left untouched")
 	eq(deep_water_omissions[1].reason, "water bottom beyond reach", "deep water fallback is reported")
+	eq(deep_water_omissions[1].blocker.node, "test:water_source", "deep water diagnostic names the water node")
+	eq(deep_water_omissions[1].blocker.y, -walls.DEPTH, "deep water diagnostic points to the search limit")
 	local protected_water, protected_water_omissions = walls.inspect({cells = {{x = 0, z = 0,
 		direction = {x = 1, z = 0}, protected = true}}, openings = {}}, 0, {get = function(_, y)
 		if y < 0 then return "test:water_source" end
@@ -111,6 +113,10 @@ do
 	end, function() return false end)
 	eq(#obstructed_water, 0, "structure in a water foundation column is preserved")
 	eq(obstructed_water_omissions[1].reason, "water or obstruction", "obstructed water foundation is reported")
+	eq(obstructed_water_omissions[1].blocker.x, 0, "obstruction diagnostic gives world x")
+	eq(obstructed_water_omissions[1].blocker.y, -11, "obstruction diagnostic gives blocker height")
+	eq(obstructed_water_omissions[1].blocker.z, 0, "obstruction diagnostic gives world z")
+	eq(obstructed_water_omissions[1].blocker.node, "test:tree", "obstruction diagnostic names the blocking node")
 	local submerged_approach = {cells = {}, openings = {{x = 0, z = 0,
 		direction = {x = 1, z = 0}, material = "road"}}}
 	local submerged_changes, submerged_omissions = walls.inspect(submerged_approach, 0,
@@ -118,7 +124,16 @@ do
 		function(name) return {liquid = name == "test:water_source", walkable = name == "mcl_core:stone"} end,
 		function() return false end)
 	eq(#submerged_changes, 0, "water in approach headroom is preserved")
+	eq(submerged_omissions[1].blocker.node, "test:water_source", "approach diagnostic names the water node")
+	eq(submerged_omissions[1].blocker.y, 1, "approach diagnostic gives water height")
 	eq(submerged_omissions[1].reason, "approach: water in approach headroom", "submerged approach omission is reported")
+	local deep_water_approach = {cells = {}, openings = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}, material = "road"}}}
+	local _, deep_approach_omissions = walls.inspect(deep_water_approach, 0, {get = function(_, y)
+		return y < 0 and "test:water_source" or "air"
+	end}, function(name) return {liquid = name == "test:water_source"} end, function() return false end)
+	eq(deep_approach_omissions[1].blocker.node, "test:water_source", "deep approach reports water instead of air at the limit")
+	eq(deep_approach_omissions[1].blocker.search_limit_y, -walls.DEPTH, "deep approach diagnostic states the search limit")
 	local deep_reservation = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
 	local reserved_deep = false
 	walls.reserve(deep_reservation, 0, function(p)
@@ -155,6 +170,35 @@ do
 		return y == 0 and "mcl_core:stone" or "air"
 	end}, function(name) return {walkable = name == "mcl_core:stone"} end, function() return false end)
 	eq(#protected, 4, "reservation preserves protection across the full crossing approach")
+	eq(protected[1].blocker.x, 3, "reserved approach diagnostic reports the actual protected column")
+	local multi_approach = {cells = {}, openings = {{x = 0, z = 0, direction = {x = 1, z = 0}, material = "road"}}}
+	walls.reserve(multi_approach, 0, function(p)
+		return (p.x == 1 and p.y == -2) or (p.x == 3 and p.y == 1)
+	end)
+	local _, multi_protected = walls.inspect(multi_approach, 0, {get = function(x, y)
+		if x == 1 and y == -2 then return "test:first" end
+		if x == 3 and y == 1 then return "test:second" end
+		return y == -1 and "mcl_core:stone" or "air"
+	end}, function(name) return {walkable = name == "mcl_core:stone"} end, function() return false end)
+	eq(#multi_protected, 4, "any opening reservation preserves whole-approach protection")
+	eq(multi_protected[1].blocker.x, 1, "first protected approach reports its own position")
+	eq(multi_protected[1].blocker.y, -2, "first protected approach reports its own height")
+	eq(multi_protected[1].blocker.node, "test:first", "first protected approach reports its own node")
+	eq(multi_protected[2].blocker.x, 1, "whole-approach omission retains the actual protected position")
+	local legacy_opening = {cells = {}, openings = {{x = 5, z = 0,
+		direction = {x = 1, z = 0}, material = "road", protected = true}}}
+	local _, legacy_protected = walls.inspect(legacy_opening, 0, {get = function() return "air" end},
+		function() return {} end, function() return false end)
+	eq(#legacy_protected, 4, "legacy boolean opening reservation remains supported")
+	eq(legacy_protected[1].blocker.node, "unknown", "legacy boolean reservation reports unknown blocker details")
+	local already_reserved = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}, protected = true}}, openings = {}}
+	local legacy_reserve_ok = pcall(function()
+		walls.reserve(already_reserved, 0, function(p) return p.x == 0 and p.y == 2 end)
+	end)
+	eq(legacy_reserve_ok, true, "reserve safely preserves a preexisting boolean protection marker")
+	local _, legacy_core_protected = walls.inspect(already_reserved, 0, {get = function() return "air" end},
+		function() return {} end, function() return false end)
+	eq(legacy_core_protected[1].blocker.node, "unknown", "legacy core protection avoids a fabricated position")
 	approach.openings[1].protected = false
 	local built, missing = walls.inspect(approach, 0, {get = function(_, y)
 		return y == -2 and "mcl_core:stone" or "air"
@@ -198,6 +242,9 @@ do
 	end}, wall_node_info, function() return false end)
 	eq(#reserved_changes, 4, "reserved protected overhang does not omit the core")
 	eq(reserved_omissions[1].reason, "decoration: protected", "reserved overhang protection is reported")
+	eq(reserved_omissions[1].blocker.x, 1, "reserved decoration reports protected x")
+	eq(reserved_omissions[1].blocker.y, 4, "reserved decoration reports protected y")
+	eq(reserved_omissions[1].blocker.node, "air", "reserved decoration reports the node at protection position")
 	local runtime_changes, runtime_omissions = walls.inspect(vegetated_wall, 0, {get = function(_, y)
 		return y == 0 and "mcl_core:stone" or "air"
 	end}, wall_node_info, function(p) return p.x == 1 and p.y == 5 end)
@@ -343,6 +390,15 @@ do
 	end, function() return false end)
 	eq(#loose_sand, 0, "unsupported natural sand is never replaced by a floating wall")
 	eq(#loose_sand_omissions, 1, "unsupported natural sand is reported")
+	eq(loose_sand_omissions[1].blocker.y, -1, "unsupported sand diagnostic points below the falling stack")
+	eq(loose_sand_omissions[1].blocker.node, "air", "unsupported sand diagnostic names the failed support node")
+	local reserved_core = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+	walls.reserve(reserved_core, 0, function(p) return p.x == 0 and p.y == -7 end)
+	local _, protected_omissions = walls.inspect(reserved_core, 0, {get = function(_, y)
+		return y == -7 and "mcl_core:chest" or "air"
+	end}, function() return {} end, function() return false end)
+	eq(protected_omissions[1].blocker.y, -7, "reserved wall reports exact protected height")
+	eq(protected_omissions[1].blocker.node, "mcl_core:chest", "reserved wall reports protected node")
 	-- Wall columns can sit on an outside edge above or below the town's
 	-- planned ground. Masonry rises from the found surface to a fixed top.
 	for _, surface in ipairs({-2, -1, 0, 1, 3}) do
