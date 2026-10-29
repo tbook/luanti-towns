@@ -65,6 +65,11 @@ function M.terraform(terrain, plan, schematic_table, protected, options)
 	for k, v in pairs(options or {}) do opts[k] = v end
 	opts.schematic_table = schematic_table
 	opts.protected = {protected}
+	for _, feature in ipairs((options or {}).feature_footprints or {}) do
+		opts.protected[#opts.protected + 1] = {x0 = feature.x1, z0 = feature.z1,
+			x1 = feature.x2, z1 = feature.z2, margin = 0}
+	end
+	opts.feature_footprints = nil
 	local accepted, result = terrain.terraform(plan, nil, opts)
 	if not accepted then return nil, "terraform_declined", result end
 	local stats = result or {}

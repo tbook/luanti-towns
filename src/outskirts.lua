@@ -69,6 +69,9 @@ function M.fits(rect, plots, protected, player_pos, constants)
 	local p = {x1 = protected.x0 - protected.margin, z1 = protected.z0 - protected.margin,
 		x2 = protected.x1 + protected.margin, z2 = protected.z1 + protected.margin}
 	if rect_gap(rect, p) <= 0 then return false, "plot_protected" end
+	for _, feature in ipairs(protected.features or {}) do
+		if rect_gap(rect, feature) <= 0 then return false, "plot_protected" end
+	end
 	for _, plot in ipairs(plots) do
 		if rect_gap(rect, plot.rect) < constants.MIN_SPACING then return false, "plot_spacing" end
 	end
@@ -91,7 +94,7 @@ local function ordered_entries(entries, class)
 	return found
 end
 
-function M.new(plan, seed, entries, player_pos)
+function M.new(plan, seed, entries, player_pos, feature_footprints)
 	assert(type(plan) == "table" and valid_rect(plan.bounds), "urban plan.bounds is required")
 	assert(type(entries) == "table", "merged outskirts entries are required")
 	local c = M.CONSTANTS
@@ -112,7 +115,7 @@ function M.new(plan, seed, entries, player_pos)
 		center = plan.center and {x = plan.center.x, z = plan.center.z} or nil,
 		ground_y = nil,
 		protected = {x0 = plan.bounds.x1, z0 = plan.bounds.z1, x1 = plan.bounds.x2,
-			z1 = plan.bounds.z2, margin = c.PROTECT_MARGIN},
+			z1 = plan.bounds.z2, margin = c.PROTECT_MARGIN, features = feature_footprints or {}},
 		entries = entries, plots = {}, structures = {}, rejections = {},
 		counts = {requested = {farm = c.FARM_COUNT, hut = c.HUT_COUNT, villa = 0, chapel = 0},
 			planned = {farm = 0, hut = 0, villa = 0, chapel = 0}, rejected = {}},
@@ -338,7 +341,7 @@ function M.search(result, opts, done, env)
 	local function fatal(message, kind)
 		finish(nil, "internal error in outskirts: " .. tostring(message), kind or "outskirts_error")
 	end
-	local state_ok, state = pcall(M.new, result.plan, result.plan.seed, entries, opts.player_pos)
+	local state_ok, state = pcall(M.new, result.plan, result.plan.seed, entries, opts.player_pos, opts.feature_footprints)
 	if not state_ok then
 		fatal(state)
 		return

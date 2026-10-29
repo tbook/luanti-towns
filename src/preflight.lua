@@ -280,6 +280,11 @@ function M.check_outskirts(out, env, params)
 			x2 = protected.x1 + (protected.margin or 0), z2 = protected.z1 + (protected.margin or 0)}) then
 			return nil, "Outskirts plot touches protected town bounds", "outskirts_error"
 		end
+		for _, feature in ipairs(params.feature_footprints or {}) do
+			if overlap(st.rect, feature) then
+				return nil, "Outskirts plot touches a wall feature", "outskirts_error"
+			end
+		end
 		if player and gap(st.rect, {x1 = player.x, z1 = player.z, x2 = player.x, z2 = player.z})
 				< M.OUTSKIRTS_PLAYER_MARGIN then
 			return nil, "Outskirts plot is too close to the player", "outskirts_error"
