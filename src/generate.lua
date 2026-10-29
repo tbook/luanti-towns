@@ -590,7 +590,7 @@ function M.new(deps)
 
 		deps.log("action", ("towns_generate (%s): %s seed %d%s, searching near (%.1f,%.1f,%.1f)"):format(
 			name, town, seed, generated and " (generated)" or "", pos.x, pos.y, pos.z))
-		local searched, serr = pcall(deps.search, pos, seed, town, on_done)
+		local searched, serr = pcall(deps.search, pos, seed, town, on_done, args.force_walls)
 		if not searched and not search_done then
 			search_done = true
 			release()

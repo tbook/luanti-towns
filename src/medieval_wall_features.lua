@@ -62,6 +62,41 @@ function M.corner_candidates(wall, ground, entry)
 	return out
 end
 
+-- Shared candidate construction for planning reservations and actual placement.
+function M.candidates(wall, ground, entries, walls, missing_join)
+ local candidates = {}
+ for _, spec in ipairs({{id = "wall_gatehouse", gate = true}, {id = "wall_tower"}}) do
+  local entry = entries[spec.id]
+  if entry then
+   local found = spec.gate and walls.gatehouse_candidates(wall, ground, entry)
+    or M.corner_candidates(wall, ground, entry)
+   for _, candidate in ipairs(found) do
+    if spec.gate then
+     candidate.min, candidate.max = candidate.bounds.min, candidate.bounds.max
+     candidate.reserve_rect = M.footprint(candidate)
+     for _, c in ipairs(candidate.outside_approach or {}) do
+      for n = 0, 3 do
+       local x, z = c.x + c.direction.x * n, c.z + c.direction.z * n
+       local r = candidate.reserve_rect
+       r.x1, r.x2 = math.min(r.x1, x), math.max(r.x2, x)
+       r.z1, r.z2 = math.min(r.z1, z), math.max(r.z2, z)
+      end
+     end
+     local r = candidate.reserve_rect
+     if candidate.direction.x ~= 0 then r.z1, r.z2 = r.z1 - 1, r.z2 + 1
+     else r.x1, r.x2 = r.x1 - 1, r.x2 + 1 end
+    end
+    if not spec.gate or M.gate_joins(candidate, wall) then
+     candidates[#candidates + 1] = candidate
+    elseif missing_join then
+     missing_join(candidate)
+    end
+   end
+  end
+ end
+ return candidates
+end
+
 local function overlap(a, b)
 	return a.x1 <= b.x2 and b.x1 <= a.x2 and a.z1 <= b.z2 and b.z1 <= a.z2
 end
@@ -119,16 +154,18 @@ end
 -- Candidates arrive in priority order; callers can put gatehouses before
 -- towers. A candidate must avoid every authored structure, street, and
 -- already accepted feature, even where those overlap only in projection.
-function M.select(candidates, structures, streets, protected)
+function M.select(candidates, structures, streets, protected, ignore_limits)
 	local selected, footprints = {}, {}
 	for _, candidate in ipairs(candidates) do
 		local rect, clear = candidate.reserve_rect or M.footprint(candidate), true
-		for _, axis in ipairs({"x", "y", "z"}) do
-			if math.abs(candidate.min[axis]) > 31000 or math.abs(candidate.max[axis]) > 31000 then clear = false end
-		end
-		if math.abs(rect.x1) > 31000 or math.abs(rect.x2) > 31000
-				or math.abs(rect.z1) > 31000 or math.abs(rect.z2) > 31000 then clear = false end
-		if candidate.min.y - M.FOUNDATION_DEPTH < -31000 then clear = false end
+        if not ignore_limits then
+			for _, axis in ipairs({"x", "y", "z"}) do
+				if math.abs(candidate.min[axis]) > 31000 or math.abs(candidate.max[axis]) > 31000 then clear = false end
+			end
+			if math.abs(rect.x1) > 31000 or math.abs(rect.x2) > 31000
+					or math.abs(rect.z1) > 31000 or math.abs(rect.z2) > 31000 then clear = false end
+			if candidate.min.y - M.FOUNDATION_DEPTH < -31000 then clear = false end
+        end
 		for _, structure in ipairs(structures or {}) do
 			if structure.rect and overlap(rect, structure.rect) then clear = false; break end
 		end
