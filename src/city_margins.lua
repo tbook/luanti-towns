@@ -80,6 +80,9 @@ return function(terrain)
 			skip("town boundary or ground level is unavailable")
 			return
 		end
+		for _, feature in ipairs(result.wall_features or {}) do
+			boxes[#boxes + 1] = {min = feature.min, max = feature.max}
+		end
 		local plan = result.plan
 		local boundary_data = type(plan) == "table" and plan.boundary or nil
 		local source = type(boundary_data) == "table" and boundary_data.rects or nil

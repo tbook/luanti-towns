@@ -165,6 +165,21 @@ local function build_urban(result)
 	if not pre then
 		return nil, msg, "inspection_failed", {reason = reason}
 	end
+	if result.wall and towns.medieval_wall_features then
+		local features, entry = towns.medieval_wall_features, towns.catalog.entries.wall_tower
+		local asset_ok, valid = pcall(function()
+			local sc = assert(core.read_schematic(towns.modpath .. "/" .. entry.path, {}))
+			assert(sc.size.x == entry.size.x and sc.size.y == entry.size.y and sc.size.z == entry.size.z)
+			return towns.schematic.validate(entry, towns.modpath)
+		end)
+		if asset_ok and valid then
+			local candidates = features.corner_candidates(result.wall, result.ground_y, entry)
+			result.wall_features, result.wall_feature_footprints = features.select(candidates,
+				pre.structures, result.plan.streets, function(pos) return core.is_protected(pos, "") end)
+		else
+			core.log("warning", "towns: corner tower asset unavailable; using ordinary walls")
+		end
+	end
 	local env = towns.builder.core_env(core, {
 		schematic = towns.schematic, modpath = towns.modpath,
 		node_setup = towns.node_setup,
@@ -269,7 +284,7 @@ local function build(result, done)
 		local ok, outskirts_pre, outskirts_msg = pcall(
 			towns.preflight.check_outskirts, out, built.preflight_env, {
 				entries = out.entries, plan = result.plan, player = result.player_pos,
-				modpath = towns.modpath,
+				modpath = towns.modpath, feature_footprints = result.wall_feature_footprints,
 			})
 		if not ok or not outskirts_pre then
 			warning(summary, "outskirts preflight failed after urban build: "
@@ -285,7 +300,8 @@ local function build(result, done)
 					terrain = terrain, place_structure = env.place_structure, get_node = env.get_node,
 					node_info = env.node_info, check_door = towns.builder.check_door,
 					setup_nodes = env.setup_nodes,
-				}, {bounds = result.plan.bounds, structures = outskirts_pre.structures})
+				}, {bounds = result.plan.bounds, structures = outskirts_pre.structures,
+					feature_footprints = result.wall_feature_footprints})
 			end)
 		if not apply_ok or not outskirts_summary then
 			return fail_writer(apply_ok and outskirts_error or outskirts_summary,
@@ -327,6 +343,7 @@ local function build(result, done)
 		local function start_outskirts()
 			local search_ok, search_err = pcall(towns.outskirts.search, result, {
 				assets = towns.catalog.entries, terrain = terrain, player_pos = result.player_pos,
+				feature_footprints = result.wall_feature_footprints,
 			}, searched, towns.site_search.core_env(core))
 			if not search_ok then searched(nil, "outskirts search failed: " .. tostring(search_err)) end
 		end
@@ -335,7 +352,13 @@ local function build(result, done)
 		-- Wall columns inspect the actual post-margin terrain and independently
 		-- reject protected, obstructed, or unsupported stretches. A partial
 		-- boundary-smoothing result must not suppress the whole wall.
-		local bounds = wall and walls.bounds(wall, result.ground_y)
+		local wall_bounds = wall and walls.bounds(wall, result.ground_y)
+		local boxes = {wall_bounds}
+		for _, feature in ipairs(result.wall_features or {}) do
+			boxes[#boxes + 1] = {min = {x = feature.min.x,
+				y = feature.min.y - towns.medieval_wall_features.FOUNDATION_DEPTH, z = feature.min.z}, max = feature.max}
+		end
+		local bounds = bounds_union(boxes)
 		if not bounds then start_outskirts(); return end
 		local settled = false
 		local function after_emerge_inner(success)
@@ -343,13 +366,59 @@ local function build(result, done)
 			settled = true
 			if not success then
 				warning(summary, "wall emerge failed or timed out")
+				result.wall_feature_footprints = {}
 				start_outskirts(); return
 			end
 			local report = {attempted_bounds = bounds}
 			summary.wall = report
+			local placed_features, placed_footprints = {}, {}
+			local feature_api = towns.medieval_wall_features
+			for _, feature in ipairs(result.wall_features or {}) do
+				local entry = towns.catalog.entries[feature.asset]
+				local read_ok, eligible, detail, feature_region = pcall(function()
+					local r = assert(env.open_region(bounds.min, bounds.max))
+					local ok, result = feature_api.inspect(feature, r, env.node_info,
+						function(pos) return core.is_protected(pos, "") end, walls.natural)
+					return ok, result, r
+				end)
+				if not read_ok or not eligible then
+					warning(summary, "tower omitted: " .. tostring(read_ok and detail or eligible))
+				else
+					local foundation_ok, foundation_error = pcall(function()
+						for _, p in ipairs(detail) do feature_region.set(p.x, p.y, p.z, walls.BRICK, 0) end
+						if #detail > 0 then feature_region.commit() end
+					end)
+					if not foundation_ok then
+						return fail_writer("tower foundation failed: " .. tostring(foundation_error), nil,
+							{bounds = bounds, reason = "wall_feature_foundation"})
+					end
+					local st = towns.geometry.place(entry, feature.min, feature.rotation)
+					st.id, st.kind, st.rect = feature.asset, "wall_feature", feature_api.footprint(feature)
+					local called, success, place_error = pcall(env.place_structure, st, entry)
+					if not called or not success then
+						return fail_writer("tower placement failed: " .. tostring(called and place_error or success), nil,
+							{bounds = bounds, reason = "wall_feature_write"})
+					end
+					placed_features[#placed_features + 1] = st
+					placed_footprints[#placed_footprints + 1] = st.rect
+				end
+			end
+			if #placed_features > 0 then
+				local ok, setup = pcall(env.setup_nodes, placed_features, towns.catalog.entries)
+				if not ok or type(setup) ~= "table" or type(setup.failed) ~= "table"
+						or #setup.failed > 0 or type(setup.unregistered) ~= "table" or #setup.unregistered > 0 then
+					return fail_writer("tower node setup failed: " .. tostring(setup), nil,
+						{bounds = bounds, reason = "wall_feature_setup"})
+				end
+				for _, st in ipairs(placed_features) do summary.town.structures[#summary.town.structures + 1] = st end
+				summary.town.placed = summary.town.placed + #placed_features
+			end
+			report.features = placed_features
+			result.wall_feature_footprints = placed_footprints
+			local remaining = feature_api and feature_api.remaining_wall(wall, placed_footprints) or wall
 			local read_ok, changes, omissions, region = pcall(function()
 				local r = assert(env.open_region(bounds.min, bounds.max))
-				local c, o = walls.inspect(wall, result.ground_y, r, env.node_info,
+				local c, o = walls.inspect(remaining, result.ground_y, r, env.node_info,
 					function(pos) return core.is_protected(pos, "") end)
 				return c, o, r
 			end)

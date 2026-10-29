@@ -50,8 +50,13 @@ function M.apply(out, env, opts)
 			{attempted = attempted, placement_attempted = placement_attempted, boxes = boxes} end
 		local plan, schematic, protected = terrain_adapter.mapping(plot, entry, bounds,
 			contract.CONSTANTS.PROTECT_MARGIN)
+		local protected_regions = {protected}
+		for _, feature in ipairs(opts.feature_footprints or {}) do
+			protected_regions[#protected_regions + 1] = {x0 = feature.x1, z0 = feature.z1,
+				x1 = feature.x2, z1 = feature.z2, margin = 0}
+		end
 		local volume_ok, volume = pcall(terrain_adapter.volume, terrain, plan, schematic,
-			{protected = {protected}})
+			{protected = protected_regions})
 		local attempted_box = volume_ok and valid_volume(volume)
 			and {min = volume.minp, max = volume.maxp} or box(st)
 		attempted[#attempted + 1] = attempted_box -- known even if terraform throws
@@ -59,7 +64,10 @@ function M.apply(out, env, opts)
 			return nil, "outskirts terrain volume failed: " .. tostring(volume_ok and "invalid volume" or volume),
 				"write_failed", {attempted = attempted, placement_attempted = placement_attempted, boxes = boxes}
 		end
-		local called, tok, stats, detail = pcall(terrain_adapter.terraform, terrain, plan, schematic, protected, opts.terrain_options)
+		local terrain_options = {}
+		for k, v in pairs(opts.terrain_options or {}) do terrain_options[k] = v end
+		terrain_options.feature_footprints = opts.feature_footprints
+		local called, tok, stats, detail = pcall(terrain_adapter.terraform, terrain, plan, schematic, protected, terrain_options)
 		if not called then
 			return nil, "outskirts terraform raised: " .. tostring(tok), "write_failed",
 				{attempted = attempted, placement_attempted = placement_attempted,

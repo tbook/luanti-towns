@@ -453,4 +453,55 @@ do
 	towns.builder.core_env = previous_env
 end
 
+-- A tower is inspected in full before force placement. Only a successful
+-- placement removes the corresponding ordinary wall columns.
+do
+	local walls = dofile("src/medieval_walls.lua")
+	local features = dofile("src/medieval_wall_features.lua")
+	local real_candidates, real_inspect = features.corner_candidates, walls.inspect
+	local candidate = {asset = "wall_tower", rotation = 0,
+		min = {x = -4, y = 10, z = -4}, max = {x = 3, y = 26, z = 3}}
+	features.corner_candidates = function() return {candidate} end
+	towns.medieval_walls, towns.medieval_wall_features = walls, features
+	towns.geometry = dofile("src/geometry.lua")
+	core.read_schematic = function() return {size = catalog.entries.wall_tower.size} end
+	core.is_protected = function() return false end
+	towns.schematic.validate = function() return true end
+	defs[walls.BRICK], defs[walls.STAIR] = {walkable = true}, {walkable = true}
+	local blocked, placed, wall_count = false, 0
+	walls.inspect = function(wall) wall_count = #wall.cells; return {}, {} end
+	towns.site_search.core_env = function() return {emerge = function(_, _, done) done(true) end,
+		after = function() end} end
+	local previous_env = towns.builder.core_env
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function() return {get = function(x, y, z)
+			if blocked and x == -4 and z == -4 and y == 11 then return "test:building" end
+			return y <= 10 and "mcl_core:stone" or "air"
+		end, set = function() end, commit = function() end} end
+		env.place_structure = function(st) if st.id == "wall_tower" then placed = placed + 1 end; return true end
+		env.setup_nodes = function() return {failed = {}, unregistered = {}} end
+		return env
+	end
+	local test_result = {plan = {seed = 8, town_type = "medieval", bounds = urban_bounds,
+		boundary = {rects = {{x1 = 0, z1 = 0, x2 = 20, z2 = 20}}}, streets = {}},
+		ground_y = 10, build_bounds = result.build_bounds, build_volume = result.build_volume,
+		player_pos = result.player_pos, force_walls = true}
+	local summary
+	towns.populated.build(test_result, function(s) summary = s end)
+	eq(summary ~= nil, true, "tower path completes generation")
+	eq(placed, 1, "supported tower is placed")
+	eq(#summary.wall.features, 1, "placed tower is reported")
+	eq(#test_result.wall_feature_footprints, 1, "placed tower stays reserved from outskirts")
+	local suppressed_count = wall_count
+	blocked, placed = true, 0
+	towns.populated.build(test_result, function(s) summary = s end)
+	eq(placed, 0, "obstructed schematic volume prevents tower placement")
+	eq(#summary.wall.features, 0, "omitted tower is not reported as placed")
+	eq(#test_result.wall_feature_footprints, 0, "omitted tower releases its outskirts reservation")
+	eq(wall_count > suppressed_count, true, "omitted tower retains normal wall columns")
+	features.corner_candidates, walls.inspect = real_candidates, real_inspect
+	towns.builder.core_env = previous_env
+end
+
 _G.core, _G.towns, _G.living_villages = nil, nil, nil

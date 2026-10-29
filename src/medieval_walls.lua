@@ -127,6 +127,7 @@ local function natural(name)
 	return NATURAL[name] or name:match("^mcl_colorblocks:hardened_clay_[a-z_]+$") ~= nil
 		or name == "mcl_colorblocks:hardened_clay"
 end
+M.natural = natural
 
 -- Remember protection separately for the wall and its optional overhang,
 -- including protection that might change before inspection.

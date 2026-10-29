@@ -206,6 +206,7 @@ function M.format_report(summary, command)
 	if s.wall then
 		add("Medieval wall: %d nodes placed, %d columns omitted; possible write envelope %s.",
 			s.wall.placed or 0, #(s.wall.omissions or {}), bounds_str(s.wall.attempted_bounds))
+		if s.wall.features then add("Wall towers placed: %d.", #s.wall.features) end
 	end
 	if type(s.write_bounds) == "table" and not same_bounds(s.write_bounds, urban_write_bounds) then
 		add("Possible overall write envelope %s; bounds include attempted volumes and do not mean every node changed.",
