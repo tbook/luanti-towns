@@ -1,5 +1,21 @@
 local eq = ...
 local features = dofile("src/medieval_wall_features.lua")
+local walls = dofile("src/medieval_walls.lua")
+local function check_apron(candidate, dx, dz, label)
+ local found = {}
+ for _, p in ipairs(walls.feature_clearance_positions(candidate)) do
+  found[p.x .. ":" .. p.z] = true
+  eq(p.x < candidate.min.x or p.x > candidate.max.x or p.z < candidate.min.z or p.z > candidate.max.z,
+   true, label .. " apron does not overlap schematic")
+ end
+ local x = dx > 0 and candidate.max.x + 5 or dx < 0 and candidate.min.x - 5 or candidate.min.x
+ local z = dz > 0 and candidate.max.z + 5 or dz < 0 and candidate.min.z - 5 or candidate.min.z
+ eq(found[x .. ":" .. z], true, label .. " apron follows candidate outward direction")
+ if dx ~= 0 and dz ~= 0 then
+  eq(found[x .. ":" .. candidate.min.z], true, label .. " apron includes X face")
+  eq(found[candidate.min.x .. ":" .. z], true, label .. " apron includes Z face")
+ end
+end
 local entry = {size = {x = 8, y = 17, z = 8}}
 local cases = {
 	{dx = -1, dz = 1, rotation = 0, a = {0, -5}, b = {5, 0}},
@@ -18,6 +34,7 @@ for _, t in ipairs(cases) do
 	eq(#candidates, 1, "eligible corner yields a candidate")
 	eq(candidates[1].rotation, t.rotation, "corner rotation follows wall directions")
 	eq(candidates[1].min.y, 10, "corner ground datum")
+	check_apron(candidates[1], t.dx, t.dz, "corner")
 	wall.openings = {{x = 0, z = 0, direction = {x = t.dx, z = 0}}}
 	eq(#features.corner_candidates(wall, 10, entry), 0, "road within footprint excludes tower")
 	wall.openings = {}
@@ -74,6 +91,7 @@ do
 			fixed = 10, first = 0, last = 39}
 		local candidate = features.inline_candidates({runs = {run}}, 20, inline_entry)[1]
 		eq(candidate.rotation, direction.rotation, "inline tower rotates its outer parapet toward the wall exterior")
+		check_apron(candidate, direction.x, direction.z, "inline")
 		eq(outward[candidate.rotation].x, direction.x, "rotated parapet faces wall exterior X")
 		eq(outward[candidate.rotation].z, direction.z, "rotated parapet faces wall exterior Z")
 		local corbel_x, corbel_z = rotate(0, 1, candidate.rotation)

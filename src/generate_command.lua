@@ -189,6 +189,17 @@ local function build_urban(result)
    function() core.log("warning", "towns: wall_gatehouse omitted: missing adjoining wall columns") end)
 		result.wall_features, result.wall_feature_footprints = features.select(candidates,
 			pre.structures, result.plan.streets, function(pos) return core.is_protected(pos, "") end)
+		for _, feature in ipairs(result.wall_features) do
+			local apron = walls.feature_clearance_bounds(feature, result.ground_y)
+			if apron then
+				for _, axis in ipairs({"x", "y", "z"}) do
+					if math.abs(apron.min[axis]) > towns.preflight.LIMIT or math.abs(apron.max[axis]) > towns.preflight.LIMIT then
+						return nil, "Wall feature clearance exceeds map limits", "inspection_failed"
+					end
+				end
+			end
+			walls.reserve_feature_clearance(feature, result.ground_y, function(pos) return core.is_protected(pos, "") end)
+		end
 		if #result.wall_features < #candidates then
 			core.log("warning", ("towns: omitted %d wall features due to overlap or protection")
 				:format(#candidates - #result.wall_features))
@@ -369,6 +380,7 @@ local function build(result, done)
 		local wall_bounds = wall and walls.bounds(wall, result.ground_y)
 		local boxes = {wall_bounds}
 		for _, feature in ipairs(result.wall_features or {}) do
+			boxes[#boxes + 1] = walls.feature_clearance_bounds(feature, result.ground_y)
 			boxes[#boxes + 1] = {min = {x = feature.min.x,
 				y = feature.min.y - towns.medieval_wall_features.FOUNDATION_DEPTH, z = feature.min.z}, max = feature.max}
 			if feature.outside_approach then
@@ -388,7 +400,7 @@ local function build(result, done)
 			end
 			local report = {attempted_bounds = bounds}
 			summary.wall = report
-			local placed_features, placed_footprints, wall_masks = {}, {}, {}
+			local placed_features, placed_footprints, wall_masks, placed_candidates = {}, {}, {}, {}
 			local feature_api = towns.medieval_wall_features
 			for _, feature in ipairs(result.wall_features or {}) do
 				local entry = towns.catalog.entries[feature.asset]
@@ -432,9 +444,12 @@ local function build(result, done)
 						return fail_writer("tower placement failed: " .. tostring(called and place_error or success), nil,
 							{bounds = bounds, reason = "wall_feature_write"})
 					end
+					placed_candidates[#placed_candidates + 1] = feature
 					placed_features[#placed_features + 1] = st
 					wall_masks[#wall_masks + 1] = st.rect
 					placed_footprints[#placed_footprints + 1] = feature.reserve_rect or st.rect
+					local apron = walls.feature_clearance_bounds(feature, result.ground_y)
+					if apron then placed_footprints[#placed_footprints + 1] = {x1=apron.min.x,z1=apron.min.z,x2=apron.max.x,z2=apron.max.z} end
 				end
 			end
 			if #placed_features > 0 then
@@ -450,6 +465,9 @@ local function build(result, done)
 			report.features = placed_features
 			result.wall_feature_footprints = placed_footprints
 			local remaining = feature_api and feature_api.remaining_wall(wall, wall_masks) or wall
+			remaining.placed_features = placed_candidates
+			remaining.road_openings = wall.openings
+			remaining.streets = result.plan.streets
 			local read_ok, changes, omissions, region = pcall(function()
 				local r = assert(env.open_region(bounds.min, bounds.max))
 				local c, o = walls.inspect(remaining, result.ground_y, r, env.node_info,

@@ -305,6 +305,53 @@ M.natural = natural
 
 -- Reserve protected wall and clearance voxels before town structures are
 -- written, then recheck protection during final inspection.
+-- Exterior apron follows the outside faces of each authored feature.
+function M.feature_clearance_positions(feature)
+ local d = feature.direction or (feature.corner and feature.corner.direction)
+  or (feature.run and feature.run.direction)
+ if not d then return {} end
+ local r, out = feature, {}
+ local x1, x2, z1, z2 = r.min.x, r.max.x, r.min.z, r.max.z
+ if d.x > 0 then x1, x2 = r.max.x + 1, r.max.x + M.CLEARANCE
+ elseif d.x < 0 then x1, x2 = r.min.x - M.CLEARANCE, r.min.x - 1 end
+ if d.z > 0 then z1, z2 = r.max.z + 1, r.max.z + M.CLEARANCE
+ elseif d.z < 0 then z1, z2 = r.min.z - M.CLEARANCE, r.min.z - 1 end
+ -- Corner aprons include both faces as well as the outer quadrant.
+ if d.x ~= 0 and d.z ~= 0 then
+  x1 = d.x > 0 and r.min.x or r.min.x - M.CLEARANCE
+  x2 = d.x > 0 and r.max.x + M.CLEARANCE or r.max.x
+  z1 = d.z > 0 and r.min.z or r.min.z - M.CLEARANCE
+  z2 = d.z > 0 and r.max.z + M.CLEARANCE or r.max.z
+ end
+ for x = x1, x2 do for z = z1, z2 do
+  if x < r.min.x or x > r.max.x or z < r.min.z or z > r.max.z then
+   out[#out + 1] = {x=x,z=z}
+  end
+ end end
+ return out
+end
+
+function M.reserve_feature_clearance(feature, ground, protected)
+ feature.clearance_protected = {}
+ for _, p in ipairs(M.feature_clearance_positions(feature)) do
+  for y = ground + 1, ground + M.CLEARANCE_TOP do
+   if protected({x=p.x,y=y,z=p.z}) then
+    feature.clearance_protected[p.x .. ":" .. y .. ":" .. p.z] = true
+   end
+  end
+ end
+end
+
+function M.feature_clearance_bounds(feature, ground)
+ local b
+ for _, p in ipairs(M.feature_clearance_positions(feature)) do
+  if not b then b={min={x=p.x,y=ground+1,z=p.z},max={x=p.x,y=ground+M.CLEARANCE_TOP,z=p.z}}
+  else b.min.x=math.min(b.min.x,p.x); b.min.z=math.min(b.min.z,p.z)
+   b.max.x=math.max(b.max.x,p.x); b.max.z=math.max(b.max.z,p.z) end
+ end
+ return b
+end
+
 function M.reserve(wall, ground, protected)
 	assert(type(protected) == "function", "protection API unavailable")
 	for _, c in ipairs(wall.cells) do
@@ -321,7 +368,7 @@ function M.reserve(wall, ground, protected)
 		c.clearance_protected = c.clearance_protected or {}
 		for _, p in ipairs(clearance_positions(c)) do
 			if p.x ~= c.x or p.z ~= c.z then
-				for y = ground, ground + M.CLEARANCE_TOP do
+				for y = ground + 1, ground + M.CLEARANCE_TOP do
 					if protected({x = p.x, y = y, z = p.z}) then
 						c.clearance_protected[p.x .. ":" .. y .. ":" .. p.z] = {x = p.x, y = y, z = p.z}
 					end
@@ -389,6 +436,14 @@ function M.inspect(wall, ground, region, node_info, protected)
 		for distance = 0, 3 do
 			local x, z = c.x + c.direction.x * distance, c.z + c.direction.z * distance
 			occupied[key(x, z)], road_cells[key(x, z)] = true, true
+		end
+	end
+	for _, c in ipairs(wall.road_openings or {}) do
+		for distance = 0, 3 do road_cells[key(c.x + c.direction.x * distance, c.z + c.direction.z * distance)] = true end
+	end
+	for _, feature in ipairs(wall.placed_features or {}) do
+		for _, c in ipairs(feature.outside_approach or {}) do
+			for distance = 0, 3 do road_cells[key(c.x + c.direction.x * distance, c.z + c.direction.z * distance)] = true end
 		end
 	end
 	for _, rect in ipairs(wall.feature_footprints or {}) do
@@ -494,7 +549,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 			local k = key(p.x, p.z)
 			if not wall_core[k]
 					and not road_cells[k] and not feature_cells[k] then
-				for y = ground, ground + M.CLEARANCE_TOP do
+				for y = ground + 1, ground + M.CLEARANCE_TOP do
 					local vk = voxel_key(p.x,y,p.z)
 					local have = region.get(p.x,y,p.z)
 					local info = node_info(have)
@@ -692,6 +747,41 @@ function M.inspect(wall, ground, region, node_info, protected)
 			if why then omission(x, z, "approach: " .. why, blocker)
 			else for _, change in ipairs(proposed) do changes[#changes + 1] = change end end
 		end
+	end
+	local wall_written = {}
+	for _, c in ipairs(changes) do
+		if c.name ~= "air" then wall_written[voxel_key(c.x,c.y,c.z)] = true end
+	end
+	-- Clear only around features actually placed, keeping all road and feature
+	-- footprints and protected voxels intact.
+	for _, feature in ipairs(wall.placed_features or {}) do
+	 for _, p in ipairs(M.feature_clearance_positions(feature)) do
+	  local k = key(p.x,p.z)
+	  local r = feature.street_rect
+	  local road = road_cells[k] or (r and p.x >= r.x1 and p.x <= r.x2 and p.z >= r.z1 and p.z <= r.z2)
+	  for _, street in ipairs(wall.streets or {}) do
+	   local sr = street.rect
+	   if sr and p.x >= sr.x1 and p.x <= sr.x2 and p.z >= sr.z1 and p.z <= sr.z2 then road = true end
+	  end
+	  for _, approach in ipairs(feature.outside_approach or {}) do
+	   for n = 0, 3 do
+	    if p.x == approach.x + n * approach.direction.x and p.z == approach.z + n * approach.direction.z then road = true end
+	   end
+	  end
+	  if not road and not feature_cells[k] and not wall_core[k] then
+	   for y = ground + 1, ground + M.CLEARANCE_TOP do
+	    local vk = voxel_key(p.x,y,p.z)
+	    local have = region.get(p.x,y,p.z)
+	    local info = node_info(have)
+	    if not emitted_clear[vk] and not wall_written[vk] and not (feature.clearance_protected or {})[vk]
+	      and not protected({x=p.x,y=y,z=p.z}) and have ~= "air" and have ~= "ignore"
+	      and not (info and info.liquid) then
+	     emitted_clear[vk] = true
+	     changes[#changes+1] = {x=p.x,y=y,z=p.z,name="air",param2=0,clearance=true}
+	    end
+	   end
+	  end
+	 end
 	end
 	for _, change in ipairs(changes) do
 		local existing = region.get(change.x, change.y, change.z)
