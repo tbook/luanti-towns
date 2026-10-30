@@ -3,18 +3,6 @@
 -- placing a schematic.
 local M = {}
 M.FOUNDATION_DEPTH = 32
-M.MAX_CUT_HEIGHT = 2
--- Towers may replace dirt throughout their authored footprint. Keeping this
--- narrower than natural terrain support avoids cutting into stone or other
--- landscape materials when a tower sits against a hillside.
-local TOWER_REPLACEABLE_TERRAIN = {
-	["mcl_core:dirt"] = true,
-	["mcl_core:dirt_with_grass"] = true,
-	["mcl_core:dirt_with_snow"] = true,
-	["mcl_core:dirt_with_grass_snow"] = true,
-	["mcl_core:coarse_dirt"] = true,
-	["mcl_core:podzol"] = true,
-}
 
 local function rotate(x, z, rotation, size)
 	if rotation == 0 then return x, z end
@@ -192,14 +180,6 @@ local function overlap(a, b)
 	return a.x1 <= b.x2 and b.x1 <= a.x2 and a.z1 <= b.z2 and b.z1 <= a.z2
 end
 
-local function replaceable_terrain(candidate, y, name, natural)
-	-- Keep the existing shallow cut for natural terrain on all wall features.
-	-- Towers can additionally replace dirt throughout their authored volume.
-	return (y <= candidate.min.y + M.MAX_CUT_HEIGHT and natural(name))
-		or ((candidate.asset == "wall_tower" or candidate.asset == "wall_tower_inline")
-			and TOWER_REPLACEABLE_TERRAIN[name] == true)
-end
-
 function M.footprint(feature)
 	return {x1 = feature.min.x, z1 = feature.min.z, x2 = feature.max.x, z2 = feature.max.z}
 end
@@ -291,18 +271,17 @@ function M.select(candidates, structures, streets, protected, ignore_limits)
 	return selected, footprints
 end
 
--- Force-placement writes air as well as solid schematic nodes. Require every
--- occupied voxel to be clearable and every foundation column to sit on
--- stable natural support; partial placement is never attempted.
+-- Stage clearance for selected features before deciding whether they can be
+-- placed. The caller applies these removals only after the complete footprint
+-- and foundations pass protection and safety checks.
 function M.inspect(candidate, region, node_info, protected, natural)
-	local foundations = {}
-	-- Towers may clear tree-group logs throughout their complete authored
-	-- volume and foundation. Gatehouses keep the narrower wall behavior: logs
-	-- can be part of a building, so they remain an obstruction there.
-	local clear_tree = candidate.asset == "wall_tower" or candidate.asset == "wall_tower_inline"
+	local foundations, clearance = {}, {}
+	-- Any registered, non-liquid node in the authored volume can be replaced.
+	-- This lets features cut through cliffs and vegetation under one policy
+	-- while keeping liquids, unloaded cells, and protected nodes safe.
 	local function vegetation(info)
 		return info and not info.liquid and not info.ice
-			and ((info.vegetation and (clear_tree or not info.tree)) or (clear_tree and info.tree))
+			and (info.vegetation or info.tree)
 	end
 	for x = candidate.min.x, candidate.max.x do
 		for z = candidate.min.z, candidate.max.z do
@@ -310,17 +289,16 @@ function M.inspect(candidate, region, node_info, protected, natural)
 			local falling_stack = false
 			for y = candidate.min.y - 1, candidate.min.y - M.FOUNDATION_DEPTH, -1 do
 				local name = region.get(x, y, z)
+				if name == "ignore" then return nil, "unloaded foundation" end
 				local info = node_info(name)
 				if protected({x = x, y = y, z = z}) then return nil, "protected foundation" end
 				if vegetation(info) then
 					if falling_stack then return nil, "unsupported falling foundation" end
-					foundations[#foundations + 1] = {x = x, y = y, z = z}
-				elseif info and info.tree then
-					return nil, "foundation obstruction " .. tostring(name)
+					foundations[#foundations + 1] = {x = x, y = y, z = z, clear_metadata = name ~= "air"}
 				elseif info and info.walkable and not info.liquid then
 					if info.falling then
 						falling_stack = true
-						foundations[#foundations + 1] = {x = x, y = y, z = z}
+						foundations[#foundations + 1] = {x = x, y = y, z = z, clear_metadata = name ~= "air"}
 					else
 						supported = true
 						break
@@ -334,7 +312,7 @@ function M.inspect(candidate, region, node_info, protected, natural)
 					if name ~= "air" and not water then
 						return nil, "foundation obstruction " .. tostring(name)
 					end
-					foundations[#foundations + 1] = {x = x, y = y, z = z}
+					foundations[#foundations + 1] = {x = x, y = y, z = z, clear_metadata = name ~= "air"}
 				end
 			end
 			if not supported then
@@ -342,21 +320,25 @@ function M.inspect(candidate, region, node_info, protected, natural)
 			end
 			for y = candidate.min.y, candidate.max.y do
 				local name = region.get(x, y, z)
+				if name == "ignore" then return nil, "unloaded obstruction" end
 				local item = node_info(name)
 				if protected({x = x, y = y, z = z}) then return nil, "protected" end
 				local road_y = candidate.min.y + (candidate.ground_offset or 0)
 				local road = candidate.street_rect and y == road_y and name == candidate.material
 					and x >= candidate.street_rect.x1 and x <= candidate.street_rect.x2
 					and z >= candidate.street_rect.z1 and z <= candidate.street_rect.z2
-				if name ~= "air" and not road and not vegetation(item)
-					and not replaceable_terrain(candidate, y, name, natural) then
-					return nil, ("obstruction %s at (%d,%d,%d)"):format(
-						tostring(name), x, y, z)
+				if name ~= "air" and not road then
+					if not item or item.liquid then
+						return nil, ("unsafe obstruction %s at (%d,%d,%d)"):format(
+							tostring(name), x, y, z)
+					end
+					clearance[#clearance + 1] = {x = x, y = y, z = z,
+						name = "air", param2 = 0, clearance = true}
 				end
 			end
 		end
 	end
-	return true, foundations
+	return true, foundations, clearance
 end
 
 return M

@@ -10,6 +10,7 @@ local rural = assert(outskirts.assets(catalog.entries))
 local assets = dofile("schematics/outskirts/catalog.lua")
 
 local nodes, metadata, storage_values, constructed = {}, {}, {}, 0
+local cleared_metadata, stopped_timers = {}, {}
 local stage_order = {}
 local margin_mode = "success"
 local rural_search_mode = "success"
@@ -66,6 +67,10 @@ local core = {
 		local k = key(p); metadata[k] = metadata[k] or {fields = {}, inventory = {}}
 		local m = metadata[k]
 		return {
+			from_table = function(_, value)
+				m.fields, m.inventory = value.fields or {}, value.inventory or {}
+				cleared_metadata[k] = true
+			end,
 			get_string = function(_, field) return m.fields[field] or "" end,
 			set_string = function(_, field, value) m.fields[field] = value end,
 			to_table = function() return {fields = m.fields, inventory = m.inventory} end,
@@ -76,6 +81,10 @@ local core = {
 				set_list = function(_, list, v) m.inventory[list] = v end,
 			} end,
 		}
+	end,
+	get_node_timer = function(p)
+		local k = key(p)
+		return {stop = function() stopped_timers[k] = true end}
 	end,
 	add_entity = function()
 		return {get_luaentity = function() return {_id = "resident-1"} end, remove = function() end}
@@ -356,6 +365,8 @@ do
 	local walls = dofile("src/medieval_walls.lua")
 	towns.medieval_walls = walls
 	defs[walls.BRICK], defs[walls.STAIR] = {walkable = true}, {walkable = true}
+	defs["test:building"] = {walkable = true}
+	defs["test:tree"] = {walkable = true, tree = true}
 	core.is_protected = function() return false end
 	margin_mode, rural_search_mode = "success", "success"
 	_G.living_villages.terrain.terraform = function() return true, {unloaded_blocks = 0} end
@@ -381,7 +392,7 @@ do
 	local wall_summary, wall_error
 	towns.populated.build(test_result, function(s, m) wall_summary, wall_error = s, m end)
 	eq(wall_summary ~= nil, true, "wall stage builds: " .. tostring(wall_error))
-	eq(table.concat(stage_order, ","), "margin,wall_emerge,wall_read,wall_write,rural_search",
+	eq(table.concat(stage_order, ","), "margin,wall_emerge,wall_read,wall_read,wall_write,rural_search",
 		"walls are written between margins and outskirts")
 	eq(wall_summary.wall.placed > 0, true, "wall nodes were written")
 	eq(wall_summary.wall.attempted_bounds.min.y, 10 - walls.DEPTH,
@@ -393,7 +404,7 @@ do
 	towns.populated.build(test_result, function(s) rough_wall = s end)
 	eq(rough_wall ~= nil, true, "partial margins do not suppress wall generation")
 	eq(rough_wall.wall.placed > 0, true, "supported wall sections are built after partial margins")
-	eq(table.concat(stage_order, ","), "margin,wall_emerge,wall_read,wall_write,rural_search",
+	eq(table.concat(stage_order, ","), "margin,wall_emerge,wall_read,wall_read,wall_write,rural_search",
 		"wall inspection follows an incomplete margin pass")
 	margin_mode = "success"
 	local real_inspect = walls.inspect
@@ -527,12 +538,12 @@ do
 	blocked, placed = true, 0
 	wall_count = nil
 	towns.populated.build(test_result, function(s) summary = s end)
-	eq(placed, 0, "obstructed schematic volume prevents inline tower placement")
-	eq(#summary.wall.features, 0, "omitted inline tower is not reported as placed")
-	eq(#test_result.wall_feature_footprints, 0, "omitted inline tower releases its outskirts reservation")
-	eq(wall_count, ordinary_wall_count, "obstructed inline tower retains every ordinary wall column")
-	-- Gate placement permits the pavement it replaces but never a building in
-	-- the same cell; failed inspection must leave the original approach intact.
+	eq(placed, 1, "inline tower clears an obstruction inside its selected footprint")
+	eq(#summary.wall.features, 1, "cleared inline tower is reported as placed")
+	eq(#test_result.wall_feature_footprints, 1, "placed inline tower keeps its outskirts reservation")
+	eq(wall_count < ordinary_wall_count, true, "placed inline tower masks covered wall columns")
+	-- Gate placement replaces its passage and clears other registered nodes in
+	-- the authored footprint before installing the schematic.
 	local real_gates, real_joins = walls.gatehouse_candidates, features.gate_joins
 	local gate = {asset = "wall_gatehouse", rotation = 0, street = "main", material = "road",
 		street_rect = {x1 = 5, x2 = 10, z1 = -8, z2 = -1}, direction = {x = 0, z = -1},
@@ -568,8 +579,9 @@ do
 	eq(approaches, 0, "successful gate does not overwrite its passage with the old approach")
 	blocked, placed = true, 0
 	towns.populated.build(test_result, function(s) summary = s end)
-	eq(placed, 0, "building in gate volume prevents placement")
-	eq(approaches, 1, "failed gate keeps the original road approach")
+	eq(placed, 1, "building in the gate footprint is cleared for placement")
+	eq(approaches, 0, "successful gate does not restore the old road approach")
+	walls.inspect = dofile("src/medieval_walls.lua").inspect
 	-- An obstructed postern must leave all four secondary-road columns open
 	-- for the ordinary wall-gap inspection.
 	local real_posterns, real_feature_inspect, real_postern_wall_inspect =
@@ -584,11 +596,14 @@ do
 	walls.gatehouse_candidates = function() return {} end
 	walls.postern_candidates = function(wall)
 		wall.openings = {}
+		wall.road_openings = nil
+		wall.feature_footprints = nil
 		for z = -1, 2 do wall.openings[#wall.openings + 1] = {x = 5, z = z,
 			direction = {x = 1, z = 0}, street = "secondary", kind = "secondary",
 			material = "road", street_rect = postern.street_rect} end
 		wall.cells = {{x = 5, z = -6, direction = {x = 1, z = 0}},
-			{x = 5, z = 5, direction = {x = 1, z = 0}}}
+			{x = 5, z = 5, direction = {x = 1, z = 0}},
+			{x = 4, z = 3, direction = {x = 1, z = 0}}}
 		return {postern}
 	end
 	features.corner_candidates, features.inline_candidates = function() return {} end, function() return {} end
@@ -599,43 +614,135 @@ do
 			or path:find("wall_tower_inline", 1, true) and "wall_tower_inline" or "wall_tower"
 		return {size = catalog.entries[id].size}
 	end
-	local fallback_width
+	defs["test:building"] = {walkable = true}
+	local fallback_width, cleared_postern_obstruction, staged_apron_node, staged_apron_change, staged_apron_omission, stage_cells, staged_voxels
 	local inspected_asset, inspection_reason
 	features.inspect = function(candidate, ...)
 		inspected_asset = candidate.asset
-		local ok, reason = real_feature_inspect(candidate, ...)
+		local region = select(1, ...)
+		for _, p in ipairs(staged_voxels or {}) do
+			if p.x >= candidate.min.x and p.x <= candidate.max.x
+					and p.y >= candidate.min.y and p.y <= candidate.max.y
+					and p.z >= candidate.min.z and p.z <= candidate.max.z then
+				staged_apron_node = region.get(p.x, p.y, p.z)
+				break
+			end
+		end
+		local ok, reason, clearance = real_feature_inspect(candidate, ...)
 		inspection_reason = reason
-		return ok, reason
+		return ok, reason, clearance
 	end
 	walls.inspect = function(wall, ...)
-		if #wall.openings == 4 then fallback_width = #wall.openings end
-		return real_postern_wall_inspect(wall, ...)
+		if not stage_cells and not wall.placed_features then stage_cells = #wall.cells end
+		if #wall.openings == 4 and wall.placed_features then fallback_width = #wall.openings end
+		local changes, omissions = real_postern_wall_inspect(wall, ...)
+		if not staged_voxels and #wall.cells == 3 and not wall.placed_features then
+			staged_voxels = {}
+			for _, change in ipairs(changes) do
+				if change.clearance then staged_voxels[#staged_voxels + 1] = change end
+			end
+		end
+		for _, change in ipairs(changes) do
+			if change.x == 6 and change.z == 3 and change.clearance then staged_apron_change = change.y end
+		end
+		for _, omission in ipairs(omissions) do
+			if omission.x == 4 and omission.z == 3 then staged_apron_omission = omission.reason end
+		end
+		return changes, omissions
 	end
 	test_result.plan = {seed = 8, town_type = "medieval", bounds = urban_bounds,
 		boundary = {rects = {{x1 = 0, z1 = 0, x2 = 3, z2 = 3}}},
 		streets = {{id = "secondary", kind = "secondary", rect = postern.street_rect}}}
+	local written_nodes = {}
+	local protected_obstruction = false
+	local arm_protection_on_emerge = false
+	local protection_pos = {x = 6, y = 13, z = 0}
+	local old_is_protected = core.is_protected
+	local old_site_search_env = towns.site_search.core_env
+	core.is_protected = function(pos)
+		return protected_obstruction and pos.x == protection_pos.x
+			and pos.y == protection_pos.y and pos.z == protection_pos.z
+	end
+	towns.site_search.core_env = function()
+		return {emerge = function(_, _, done)
+			if arm_protection_on_emerge then
+				protected_obstruction = true
+				arm_protection_on_emerge = false
+			end
+			done(true)
+		end, after = function() end}
+	end
+	local rejected_feature_writes = {}
 	towns.builder.core_env = function(...)
 		local env = previous_env(...)
 		env.open_region = function() return {get = function(x, y, z)
+			local written = written_nodes[x .. ":" .. y .. ":" .. z]
+			if written then return written end
+			if protected_obstruction and x == protection_pos.x and y == protection_pos.y and z == protection_pos.z then
+				return "test:protected"
+			end
 			if x == postern.min.x and y == postern.min.y + 2 and z == postern.min.z then
 				return "test:building"
 			end
+			if x == 6 and y == 11 and z == 3 then return "mcl_core:stone" end
+			if x == postern.min.x and y == 8 and z == postern.min.z then return "test:tree" end
 			return y <= 10 and "mcl_core:stone" or "air"
-		end, set = function() end, commit = function() end} end
+		end, set = function(x, y, z, name)
+			written_nodes[x .. ":" .. y .. ":" .. z] = name
+			rejected_feature_writes[#rejected_feature_writes + 1] = {x = x, y = y, z = z, name = name}
+			if x == postern.min.x and y == postern.min.y + 2 and z == postern.min.z and name == "air" then
+				cleared_postern_obstruction = true
+			end
+		end, commit = function() end} end
 		env.place_structure = function(st) if st.id == "wall_postern" then placed = placed + 1 end; return true end
 		env.setup_nodes = function() return {failed = {}, unregistered = {}} end
 		return env
 	end
-	placed, fallback_width, inspected_asset, inspection_reason = 0, nil, nil, nil
+	placed, fallback_width, inspected_asset, inspection_reason, cleared_postern_obstruction, staged_apron_node = 0, nil, nil, nil, false, nil
+	staged_apron_change, staged_apron_omission, stage_cells, staged_voxels = false, nil, nil, nil
+	cleared_metadata[postern.min.x .. ",8," .. postern.min.z] = nil
+	stopped_timers[postern.min.x .. ",8," .. postern.min.z] = nil
 	local postern_summary
 	towns.populated.build(test_result, function(s) postern_summary = s end)
 	eq(inspected_asset, "wall_postern", "blocked fallback reaches inspection for a selected postern")
-	eq(inspection_reason and inspection_reason:find("obstruction test:building", 1, true) ~= nil, true,
-		"postern is omitted because its actual schematic footprint hits the test building")
-	eq(placed, 0, "building obstruction skips postern placement")
-	eq(#postern_summary.wall.features, 0, "skipped postern is not reported as placed")
-	eq(#test_result.wall_feature_footprints, 0, "skipped postern releases its reservation")
-	eq(fallback_width, 4, "skipped postern retains all four columns for wall-gap inspection")
+	eq(type(inspection_reason), "table", "registered building in the postern volume is clearable")
+	eq(staged_apron_node, "air", "feature inspection sees the staged wall-exterior clearance")
+	eq(staged_apron_change, 11, "wall staging emits clearance for the feature-adjacent apron")
+	eq(staged_apron_omission, nil, "feature-adjacent wall column remains eligible for staged clearance")
+	eq(stage_cells, 3, "staging inspects the selected wall geometry")
+	eq(cleared_postern_obstruction, true, "postern obstruction is cleared before schematic placement")
+	eq(cleared_metadata[postern.min.x .. ",8," .. postern.min.z], true,
+		"metadata is removed from vegetation overwritten by a feature foundation")
+	eq(stopped_timers[postern.min.x .. ",8," .. postern.min.z], true,
+		"timers are stopped on vegetation overwritten by a feature foundation")
+	eq(placed, 1, "building obstruction inside the postern footprint no longer blocks placement")
+	eq(#postern_summary.wall.features, 1, "cleared postern is reported as placed")
+	eq(#test_result.wall_feature_footprints >= 1, true, "placed postern keeps its reservation")
+	eq(fallback_width, nil, "successful postern does not fall back to an open road gap")
+	-- A protected voxel rejects the whole feature. The ordinary wall pass may
+	-- still clear its own apron and build fallback columns, but must not apply
+	-- feature-only cuts elsewhere in the rejected feature footprint.
+	placed, protected_obstruction, arm_protection_on_emerge, written_nodes, rejected_feature_writes =
+		0, false, true, {}, {}
+	inspected_asset, inspection_reason = nil, nil
+	local rejected_summary
+	towns.populated.build(test_result, function(s) rejected_summary = s end)
+	eq(placed, 0, "protected postern is rejected")
+	eq(inspected_asset, "wall_postern", "post-margin protection reaches feature inspection after selection")
+	eq(inspection_reason, "protected", "feature inspection rejects the protected voxel after selection")
+	eq(#rejected_summary.wall.features, 0, "rejected postern is absent from placed features")
+	eq(written_nodes[protection_pos.x .. ":" .. protection_pos.y .. ":" .. protection_pos.z], nil,
+		"protected feature obstruction is never overwritten")
+	eq(written_nodes[postern.min.x .. ":" .. (postern.min.y + 2) .. ":" .. postern.min.z], nil,
+		"rejected feature does not commit its feature-only clearance")
+	local fallback_wall_writes = 0
+	for _, write in ipairs(rejected_feature_writes) do
+		if write.x == 5 and write.name == walls.BRICK then fallback_wall_writes = fallback_wall_writes + 1 end
+	end
+	eq(fallback_wall_writes > 0, true, "ordinary wall fallback still builds around rejected postern")
+	protected_obstruction = false
+	core.is_protected = old_is_protected
+	towns.site_search.core_env = old_site_search_env
 	walls.postern_candidates, features.inspect = real_posterns, real_feature_inspect
 	walls.gatehouse_candidates, features.gate_joins = real_gates, real_joins
 	walls.inspect = real_inspect
@@ -739,8 +846,8 @@ do
 	eq(placed, 1, "corner tower still places through the shared feature path")
 	obstructed, placed, remaining_count = true, 0, nil
 	towns.populated.build(test_result, function() end)
-	eq(placed, 0, "obstructed corner tower is omitted")
-	eq(remaining_count, ordinary_count, "failed corner tower retains every ordinary wall column")
+		eq(placed, 1, "corner tower clears a building inside its selected footprint")
+		eq(remaining_count < ordinary_count, true, "placed corner tower masks covered wall columns")
 	features.corner_candidates, features.inline_candidates = real_corner, real_inline
 	walls.inspect = real_inspect
 	towns.builder.core_env = previous_env
