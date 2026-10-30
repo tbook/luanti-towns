@@ -68,6 +68,32 @@ eq(obstruction, "obstruction building at (1,11,1)", "tower obstruction reports t
 obstacle = {x = 1, y = 11, z = 1, name = "tree"}
 local tree_info = function(name) return {walkable = name == "stone", tree = name == "tree", vegetation = name == "tree"} end
 eq(features.inspect(feature, region, tree_info, clear, natural), nil, "tree-group logs in the tower volume remain intact")
+local placement = dofile("src/placement.lua")
+local vine_nodes = {
+	["stone"] = {walkable = true},
+	-- Mineclonia's mcl_core:vine definition uses vinelike_node and deco_block,
+	-- with buildable_to=true; it has no plant/vines/leaves group.
+	["mcl_core:vine"] = {walkable = false, buildable_to = true,
+		groups = {deco_block = 1, vinelike_node = 4}},
+	["test:other_vinelike_attachment"] = {walkable = false, buildable_to = true,
+		groups = {deco_block = 1, vinelike_node = 4}},
+}
+local vine_info = function(name) return placement.node_info(vine_nodes, name) end
+obstacle = {x = 0, y = 9, z = 0, name = "mcl_core:vine"}
+eq(vine_info("mcl_core:vine").vegetation, true,
+	"Mineclonia's vine is explicitly recognized as vegetation")
+eq(vine_info("test:other_vinelike_attachment").vegetation, false,
+	"generic vinelike attachments are not assumed to be vegetation")
+local vine_foundation = {get = function(x, y, z)
+	if obstacle and obstacle.x == x and obstacle.y == y and obstacle.z == z then return obstacle.name end
+	if y == 8 or (y == 9 and (x ~= 0 or z ~= 0)) then return "stone" end
+	return "air"
+end}
+eq(features.inspect(feature, vine_foundation, vine_info, clear, natural), true,
+	"a vine in the foundation above stable support is safely replaceable")
+eq(features.inspect(feature, vine_foundation, vine_info, function(p)
+	return p.x == 0 and p.y == 9 and p.z == 0
+end, natural), nil, "protected vine foundation prevents tower placement")
 obstacle = {x = 0, y = 9, z = 0, name = "air"}
 eq(features.inspect(feature, region, info, clear, natural), nil, "unsupported foundation blocks tower")
 local lower = {get = function(_, y) return y == 7 and "stone" or "air" end}

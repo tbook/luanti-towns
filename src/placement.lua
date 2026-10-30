@@ -17,6 +17,7 @@ function M.node_info(registered_nodes, name)
 	end
 	-- The broad tree group also covers logs, which can belong to buildings.
 	local vegetation = has_group("leaves") or has_group("plant") or has_group("vines")
+		or name == "mcl_core:vine"
 		or has_group("flower") or has_group("dead_bush") or has_group("mushroom") or has_group("sapling")
 		or name:find("^mcl_core:snow_?%d*$") ~= nil
 	local clearable = def.buildable_to
