@@ -1082,6 +1082,122 @@ do
 		local _, o17 = ramp({x = 1, z = 0}, 1, function(d) return d >= 1 and 15 or 0 end)
 		eq(#o17, 1, "terrain first met at column 17 is omitted")
 	end
+	-- Bare openings (no gatehouse/postern) are graded by the same ramp.
+	do
+		local function info(name)
+			if name == "test:water" then return {liquid = true, walkable = false} end
+			return {walkable = name ~= "air"}
+		end
+		local function opening(kind, n)
+			local out = {}
+			for z = 0, n - 1 do
+				out[#out + 1] = {x = 0, z = z, direction = {x = 1, z = 0}, street = 1, kind = kind}
+			end
+			return out
+		end
+		local function grade(kind, n, height, special)
+			local region = {get = function(x, y, z)
+				if special and special(x, y, z) then return special(x, y, z) end
+				return y <= height(x) and "mcl_core:stone" or "air"
+			end}
+			local o = opening(kind, n)
+			local changes, failures = walls.grade_openings(o, 0, region, info, function() return false end)
+			local at = {}
+			for _, c in ipairs(changes) do at[c.x .. ":" .. c.y .. ":" .. c.z] = c end
+			return changes, failures, at, o
+		end
+		local crossings = walls.bare_crossings(opening("principal", 6))
+		eq(#crossings, 1, "principal opening is one crossing")
+		eq(#crossings[1], 6, "principal opening grades its full width")
+		eq(crossings[1][1].z, 0, "principal grading starts at the first column")
+		crossings = walls.bare_crossings(opening("secondary", 4))
+		eq(#crossings[1], 4, "secondary opening grades its full width")
+		local changes, failures, _, o = grade("principal", 6, function(x) return x >= 6 and 3 or 0 end)
+		eq(#failures, 0, "rising terrain is graded")
+		for i = 1, 6 do eq(o[i].graded, true, "every column is flagged graded") end
+		local rows = {}
+		for _, c in ipairs(changes) do rows[c.z] = true end
+		for z = 0, 5 do eq(rows[z], true, "ramp covers column " .. z) end
+		eq(rows[-1] == nil and rows[6] == nil, true, "ramp stays within the opening width")
+		_, failures, at = grade("principal", 6, function(x) return x >= 3 and 1 or 0 end)
+		eq(#failures, 0, "gentle rise is graded")
+		local rise = at["3:1:1"]
+		eq(rise ~= nil and rise.name, walls.RAMP_SLAB, "rising ramp starts with a slab")
+		_, failures, at = grade("secondary", 4, function(x) return x >= 2 and -3 or 0 end)
+		eq(#failures, 0, "falling terrain is graded")
+		local deepest = 0
+		for key, c in pairs(at) do if c.name ~= "air" then deepest = math.min(deepest, c.y) end end
+		eq(deepest < 0, true, "falling ramp descends")
+		eq(at["2:0:0"] ~= nil and at["2:0:3"] ~= nil, true, "secondary flanks are graded")
+		_, failures, _, o = grade("principal", 6, function() return 0 end, function(x, y) if x == 2 and y == 1 then return "test:water" end end)
+		eq(#failures, 1, "water blocks grading")
+		eq(failures[1].blocker.node, "test:water", "failure names the blocker")
+		for i = 1, 6 do eq(o[i].graded, nil, "failed crossing is not flagged") end
+		_, failures = grade("principal", 6, function(x) return 2 * x end)
+		eq(failures[1].reason:match("terrain not met") ~= nil, true, "unreachable terrain fails")
+		local protect_region = {get = function(_, y) return y <= 0 and "mcl_core:stone" or "air" end}
+		_, failures = walls.grade_openings(opening("principal", 6), 0, protect_region, info,
+			function(p) return p.x == 2 end)
+		eq(failures[1].reason, "approach: protected", "protected node blocks grading")
+		-- A graded opening is skipped by inspect; ungraded ones keep the stub.
+		local gap = {get = function(_, y) return y <= -1 and "mcl_core:stone" or "air" end}
+		local function stub_rows(o)
+			local rows = {}
+			for _, c in ipairs((walls.inspect({cells = {}, openings = o}, 0, gap, info, function() return false end))) do
+				rows[c.z] = (rows[c.z] or 0) + 1
+			end
+			return rows
+		end
+		local o2 = opening("principal", 6)
+		local base = stub_rows(o2)
+		for z = 0, 5 do eq(base[z], 4, "ungraded column emits a four node stub") end
+		o2[1].graded = true
+		eq(stub_rows(o2)[0], nil, "graded column stub is gone")
+		eq(stub_rows(o2)[1], 4, "ungraded column keeps its stub")
+		for z = 2, 6 do o2[z].graded = true end
+		eq(next(stub_rows(o2)), nil, "fully graded opening emits no stub")
+		-- Every direction grades its own columns.
+		for _, d in ipairs({{x = 1, z = 0}, {x = -1, z = 0}, {x = 0, z = 1}, {x = 0, z = -1}}) do
+			local o3 = {}
+			for t = 0, 5 do
+				o3[#o3 + 1] = {x = d.x ~= 0 and 10 * d.x or t, z = d.x ~= 0 and t or 10 * d.z,
+					direction = d, street = 1, kind = "principal"}
+			end
+			local cr = walls.bare_crossings(o3)
+			eq(#cr, 1, "one crossing for direction " .. d.x .. "," .. d.z)
+			eq(#cr[1], 6, "six columns for direction " .. d.x .. "," .. d.z)
+			local t1 = d.x ~= 0 and cr[1][1].z or cr[1][1].x
+			local t6 = d.x ~= 0 and cr[1][6].z or cr[1][6].x
+			eq(t1 == 0 and t6 == 5, true, "full width for direction " .. d.x .. "," .. d.z)
+			local region = {get = function(x, y, z)
+				return y <= 0 and "mcl_core:stone" or "air" end}
+			local ch, fail = walls.grade_openings(o3, 0, region, info, function() return false end)
+			eq(#fail, 0, "flat grading succeeds for direction " .. d.x .. "," .. d.z)
+			eq(#ch, 24, "flat ramp paves 6x4 for direction " .. d.x .. "," .. d.z)
+		end
+		-- Two disjoint runs on the same street and wall plane.
+		local two = opening("secondary", 4)
+		for z = 10, 13 do two[#two + 1] = {x = 0, z = z, direction = {x = 1, z = 0}, street = 1, kind = "secondary"} end
+		local cr = walls.bare_crossings(two)
+		eq(#cr, 2, "disjoint runs are separate crossings")
+		eq(#cr[1] + #cr[2], 8, "each run grades its full width")
+		eq(cr[2][1].z, 10, "second run starts at its own first column")
+		local flat = {get = function(_, y) return y <= 0 and "mcl_core:stone" or "air" end}
+		-- Covered openings are excluded after remaining_wall.
+		local fapi = dofile("src/medieval_wall_features.lua")
+		local wall = {cells = {}, openings = opening("principal", 6)}
+		local rest = fapi.remaining_wall(wall, {{x1 = 0, x2 = 6, z1 = 0, z2 = 5}})
+		eq(#rest.openings, 0, "placed footprint removes its openings")
+		local rc, rf = walls.grade_openings(rest.openings, 0, flat, info, function() return false end)
+		eq(#rc + #rf, 0, "covered openings get no ramp")
+		-- Ramp changes come after, and so win over, wall clearance.
+		local cw = {cells = {{x = 3, z = -1, direction = {x = 0, z = -1}}}, openings = opening("principal", 6)}
+		local plain = walls.inspect(cw, 0, flat, info, function() return false end)
+		local graded = walls.inspect_graded(cw, 0, flat, info, function() return false end)
+		eq(#graded > #plain, true, "ramp changes are added")
+		eq(graded[#graded].name ~= nil and graded[#plain + 1].name, walls.RAMP_FULL, "ramp changes follow wall changes")
+		for i = 1, #plain do eq(graded[i].x, plain[i].x, "wall changes keep their order") end
+	end
 	-- Regression: adjacent ramp columns are always walkable. A descending stair
 	-- followed by a slab once left a 1.5 node climb when walking back to town.
 	do
