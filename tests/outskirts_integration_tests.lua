@@ -684,7 +684,7 @@ do
 			if x == postern.min.x and y == postern.min.y + 2 and z == postern.min.z then
 				return "test:building"
 			end
-			if x == 6 and y == 11 and z == 3 then return "mcl_core:stone" end
+			if x == 6 and y == 12 and z == 3 then return "mcl_core:stone" end
 			if x == postern.min.x and y == 8 and z == postern.min.z then return "test:tree" end
 			return y <= 10 and "mcl_core:stone" or "air"
 		end, set = function(x, y, z, name)
@@ -707,7 +707,8 @@ do
 	eq(inspected_asset, "wall_postern", "blocked fallback reaches inspection for a selected postern")
 	eq(type(inspection_reason), "table", "registered building in the postern volume is clearable")
 	eq(staged_apron_node, "air", "feature inspection sees the staged wall-exterior clearance")
-	eq(staged_apron_change, 11, "wall staging emits clearance for the feature-adjacent apron")
+	-- Distance two from the wall keeps terrain up to ground + 1, so the staged cut starts at 12.
+	eq(staged_apron_change, 12, "wall staging emits clearance for the feature-adjacent apron")
 	eq(staged_apron_omission, nil, "feature-adjacent wall column remains eligible for staged clearance")
 	eq(stage_cells, 3, "staging inspects the selected wall geometry")
 	eq(cleared_postern_obstruction, true, "postern obstruction is cleared before schematic placement")

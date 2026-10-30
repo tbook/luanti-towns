@@ -23,17 +23,23 @@ function M.clear_metadata(core, changes)
 end
 local directions = {{x = 1, z = 0}, {x = -1, z = 0}, {x = 0, z = 1}, {x = 0, z = -1}}
 local function key(x, z) return x .. ":" .. z end
+-- Each position carries k, its distance from the wall face: the straight-run
+-- index, or the Chebyshev ring for a corner square.
 local function clearance_positions(c)
 	local out, extent = {}, M.CLEARANCE
 	if c.corner then
 		for x = 0, extent do for z = 0, extent do out[#out + 1] = {
 			x = c.x + (c.direction.x < 0 and -x or x),
-			z = c.z + (c.direction.z < 0 and -z or z)} end end
+			z = c.z + (c.direction.z < 0 and -z or z), k = math.max(x, z)} end end
 	else
 		for distance = 0, extent do out[#out + 1] = {
-			x = c.x + c.direction.x * distance, z = c.z + c.direction.z * distance} end
+			x = c.x + c.direction.x * distance, z = c.z + c.direction.z * distance, k = distance} end
 	end
 	return out
+end
+-- Highest surface y a clearance column at distance k may keep (1:1 slope).
+local function clearance_cap(ground, k)
+	return ground + (k - 1) * M.CLEARANCE_RISE
 end
 local function inside(rects, x, z)
 	for _, r in ipairs(rects) do
@@ -385,9 +391,12 @@ end
 -- maximum depth instead of disappearing entirely.
 M.DEPTH = 32
 -- The wall has masonry through ground+4 and an optional parapet at +5.
--- Clear five nodes beyond that profile, starting above the support surface.
+-- The exterior cut spans five nodes out. At distance k it keeps terrain up to
+-- ground + (k-1) * CLEARANCE_RISE, so the surface slopes 1:1 up from the foot.
 M.CLEARANCE = 5
-M.CLEARANCE_TOP = 10
+M.CLEARANCE_RISE = 1
+-- Clearing reaches this high so tall terrain leaves no overhang above the cut.
+M.CLEARANCE_TOP = 100
 M.BRICK = "mcl_core:stonebrick"
 M.STAIR = "mcl_stairs:stair_stonebrick"
 -- Outside gate/postern roads: cobblestone ramp pieces. A ramp is at most
@@ -419,9 +428,17 @@ local function natural(name)
 end
 M.natural = natural
 
+-- Chebyshev distance from (x,z) to the footprint rectangle r (0 inside it).
+local function rect_distance(r, x, z)
+ local dx = x < r.min.x and r.min.x - x or x > r.max.x and x - r.max.x or 0
+ local dz = z < r.min.z and r.min.z - z or z > r.max.z and z - r.max.z or 0
+ return math.max(dx, dz)
+end
+
 -- Reserve protected wall and clearance voxels before town structures are
 -- written, then recheck protection during final inspection.
 -- Exterior apron follows the outside faces of each authored feature.
+-- Each position carries k, its Chebyshev distance from the feature footprint.
 function M.feature_clearance_positions(feature)
  local d = feature.direction or (feature.corner and feature.corner.direction)
   or (feature.run and feature.run.direction)
@@ -441,7 +458,7 @@ function M.feature_clearance_positions(feature)
  end
  for x = x1, x2 do for z = z1, z2 do
   if x < r.min.x or x > r.max.x or z < r.min.z or z > r.max.z then
-   out[#out + 1] = {x=x,z=z}
+   out[#out + 1] = {x=x,z=z,k=rect_distance(r,x,z)}
   end
  end end
  return out
@@ -671,7 +688,10 @@ function M.inspect(wall, ground, region, node_info, protected)
 					local info = node_info(have)
 					local reservations = c.clearance_protected
 					local reserved_cell = type(reservations) == "table" and reservations[vk]
-					if not reserved_cell and not protected({x=p.x,y=y,z=p.z}) and have ~= "air"
+					-- Above the cap everything goes; below it only trees and vegetation are
+					-- removed so no stumps stand in the cut.
+					local cut = y > clearance_cap(ground, p.k) or (info and (info.tree or info.vegetation))
+					if cut and not reserved_cell and not protected({x=p.x,y=y,z=p.z}) and have ~= "air"
 							and have ~= "ignore" and not (info and info.liquid) then
 						staged_clear[#staged_clear + 1] = {x=p.x,y=y,z=p.z}
 						cleared[vk] = true
@@ -890,7 +910,8 @@ function M.inspect(wall, ground, region, node_info, protected)
 	    local vk = voxel_key(p.x,y,p.z)
 	    local have = region.get(p.x,y,p.z)
 	    local info = node_info(have)
-	    if not emitted_clear[vk] and not wall_written[vk] and not (feature.clearance_protected or {})[vk]
+	    local cut = y > clearance_cap(ground, p.k) or (info and (info.tree or info.vegetation))
+	    if cut and not emitted_clear[vk] and not wall_written[vk] and not (feature.clearance_protected or {})[vk]
 	      and not protected({x=p.x,y=y,z=p.z}) and have ~= "air" and have ~= "ignore"
 	      and not (info and info.liquid) then
 	     emitted_clear[vk] = true
