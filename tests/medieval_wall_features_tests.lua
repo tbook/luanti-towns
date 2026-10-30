@@ -368,6 +368,75 @@ local sand_info = function(name) return {walkable = name == "sand" or name == "s
 local sand_natural = function(name) return name == "sand" or name == "stone" end
 eq(features.inspect(feature, sand, sand_info, clear, sand_natural), true,
 	"a falling surface resting on stable natural ground supports a tower")
+
+-- Every authored feature type uses registered solid support, even when the
+-- terrain is not in the old natural-material allowlist. Falling sand may be
+-- cleared only when its stack reaches a stable solid node.
+do
+	local feature_types = {"wall_tower", "wall_tower_inline", "wall_gatehouse", "wall_postern"}
+	local solids = {"mcl_core:andesite", "mcl_core:stone_with_coal", "mcl_core:stonebrick"}
+	local function make_region(nodes)
+		return {get = function(_, y) return nodes[y] or "air" end}
+	end
+	local function node_info(name)
+		local falling = name == "mcl_core:sand" or name == "mcl_core:gravel"
+		return {walkable = name ~= "air" and name ~= "ignore" and name ~= "water"
+			and name ~= "lava" and name ~= "test:plant",
+			falling = falling, liquid = name == "water" or name == "lava",
+			ice = name == "mcl_core:ice", vegetation = name == "test:plant"}
+	end
+	local no_material_allowlist = function() return false end
+	for _, asset in ipairs(feature_types) do
+		local candidate = {asset = asset, min = {x = 0, y = 10, z = 0},
+			max = {x = 1, y = 11, z = 1}}
+		for _, support in ipairs(solids) do
+			local ok = features.inspect(candidate, make_region({[9] = support}), node_info, clear,
+				no_material_allowlist)
+			eq(ok, true, asset .. " accepts solid support " .. support)
+		end
+		eq(features.inspect(candidate, make_region({[9] = "mcl_core:ice"}), node_info, clear,
+			no_material_allowlist), true, asset .. " accepts walkable Mineclonia ice as support")
+		local sand_ok, foundation = features.inspect(candidate,
+			make_region({[9] = "mcl_core:sand", [8] = "mcl_core:gravel", [7] = "mcl_core:andesite"}),
+			node_info, clear, no_material_allowlist)
+		eq(sand_ok, true, asset .. " accepts falling sand and gravel over stable andesite")
+		local included_sand, included_gravel = false, false
+		for _, p in ipairs(foundation or {}) do
+			if p.y == 9 then included_sand = true end
+			if p.y == 8 then included_gravel = true end
+		end
+		eq(included_sand and included_gravel, true,
+			asset .. " replaces the complete falling stack beneath its footprint")
+		eq(features.inspect(candidate,
+			make_region({[9] = "mcl_core:sand", [8] = "air", [7] = "mcl_core:andesite"}),
+			node_info, clear, no_material_allowlist), nil,
+			asset .. " rejects falling sand over an unsupported cavity")
+		eq(features.inspect(candidate,
+			make_region({[9] = "mcl_core:sand", [8] = "test:plant", [7] = "mcl_core:andesite"}),
+			node_info, clear, no_material_allowlist), nil,
+			asset .. " rejects falling sand above a cleared non-solid plant")
+		for _, protected_y in ipairs({9, 8, 7}) do
+			local allowed = features.inspect(candidate,
+				make_region({[9] = "mcl_core:sand", [8] = "mcl_core:gravel", [7] = "mcl_core:andesite"}),
+				node_info, function(p) return p.x == 0 and p.z == 0 and p.y == protected_y end,
+				no_material_allowlist)
+			eq(allowed, nil, asset .. " respects protection throughout falling stack/support")
+		end
+		eq(features.inspect(candidate, make_region({[9] = "mcl_core:andesite"}), node_info,
+			function(p) return p.x == 0 and p.y == 9 and p.z == 0 end, no_material_allowlist), nil,
+			asset .. " respects protection on a solid foundation")
+		eq(features.inspect(candidate, make_region({[9] = "water", [8] = "mcl_core:andesite"}),
+			node_info, clear, no_material_allowlist), true,
+			asset .. " may fill water above a stable foundation")
+		eq(features.inspect(candidate, make_region({[9] = "lava", [8] = "mcl_core:andesite"}),
+			node_info, clear, no_material_allowlist), nil,
+			asset .. " rejects non-water liquid foundations")
+		eq(features.inspect(candidate, make_region({[9] = "ignore"}), node_info, clear,
+			no_material_allowlist), nil, asset .. " rejects unloaded foundation nodes")
+		eq(features.inspect(candidate, make_region({[-23] = "mcl_core:andesite"}), node_info,
+			clear, no_material_allowlist), nil, asset .. " respects the bounded foundation depth")
+	end
+end
 local original = {cells = {{x = 0, z = 0}, {x = 2, z = 0}}, openings = {{x = 4, z = 0}}}
 eq(#features.remaining_wall(original, {}).cells, 2, "failed towers retain every normal wall column")
 local remaining = features.remaining_wall(original, {features.footprint(feature)})
