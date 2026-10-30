@@ -49,7 +49,7 @@ FARM_BAND_FAR = 24,           -- ... (exclusive); farms stay within villager job
 OUTER_BAND_NEAR = 24,         -- huts, villas, chapel: gap to plan.bounds (inclusive)
 OUTER_BAND_FAR = 58,          -- ... (exclusive)
 MIN_SPACING = 20,             -- minimum gap between two plot rects
-PROTECT_MARGIN = 4,           -- Living Villages protected margin around plan.bounds
+PROTECT_MARGIN = 6,           -- Living Villages protected margin around plan.bounds
 TERRAFORM_REACH = 10,         -- Living Villages margin 2 + radius 8 (defaults), for spacing checks only
 PLAYER_MARGIN = 16,           -- plots stay this far from the player
 ATTEMPTS_PER_BUILDING = 6,    -- candidate sites tried per building
@@ -327,7 +327,7 @@ installed Living Villages `docs/terrain-api.md`. Towns calls
 optional nonnegative expansion). No protected column is read as changeable or
 written, including tree removal and cleanup, hole filling and ramps; protected
 columns stay fixed slope constraints. Towns passes one rectangle: `plan.bounds`
-(`x0 = b.x1`, ...) with `margin = PROTECT_MARGIN` (4). Living Villages enforces
+(`x0 = b.x1`, ...) with `margin = PROTECT_MARGIN` (6). Living Villages enforces
 the protected rectangle during its per-column write process, including tree
 removal and cleanup, hole filling and ramps. Towns keeps plot footprints outside
 that rectangle and passes it unchanged on each call. The farm band's 10-node
@@ -343,7 +343,7 @@ Farm `f01`: rect `x 1000..1006, z -1895..-1887` (rotation 90 of a 9 x 7
 footprint), ground 61: `plan = {{name = "farm", pos = {x = 1000, y = 61, z =
 -1895}, rotat = "90"}}`, `opts = {schematic_table = {{name = "farm", hwidth = 9,
 hdepth = 7, hheight = 8}}, protected = {{x0 = 905, z0 = -2086, x1 = 1085, z1 =
--1915, margin = 4}}}`.
+-1915, margin = 6}}}`.
 
 ## 7. Integration
 
@@ -491,7 +491,7 @@ omissions and never fail the command.
 
 Fixture: `tests/outskirts_fixture.lua`. Roman town, seed 8, centre `(1000,
 -2000)`, urban ground 62, `plan.bounds x 905..1085, z -2086..-1915`; protected
-rectangle `{x0 = 905, z0 = -2086, x1 = 1085, z1 = -1915, margin = 4}`, i.e.
+rectangle `{x0 = 905, z0 = -2086, x1 = 1085, z1 = -1915, margin = 6}`, i.e.
 `x 901..1089, z -2090..-1911`.
 
 | | `f01` farm | `h01` hut |

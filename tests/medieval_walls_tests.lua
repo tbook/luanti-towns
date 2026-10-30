@@ -1,6 +1,50 @@
 local eq, planner, catalog = ...
 do
 	local walls = dofile("src/medieval_walls.lua")
+	for _, d in ipairs({{x=1,z=0},{x=-1,z=0},{x=0,z=1},{x=0,z=-1},
+		{x=1,z=1},{x=1,z=-1},{x=-1,z=1},{x=-1,z=-1}}) do
+		local feature = {min={x=0,y=0,z=0},max={x=2,y=9,z=2},direction=d}
+		local bounds = walls.feature_clearance_bounds(feature, 0)
+		local x = d.x > 0 and 7 or d.x < 0 and -5 or 1
+		local z = d.z > 0 and 7 or d.z < 0 and -5 or 1
+		eq(x >= bounds.min.x and x <= bounds.max.x and z >= bounds.min.z and z <= bounds.max.z,
+			true, "feature apron extends five nodes in its outward direction")
+		local found = false
+		for _, pos in ipairs(walls.feature_clearance_positions(feature)) do
+			if pos.x == x and pos.z == z then found = true end
+			eq(pos.x < 0 or pos.x > 2 or pos.z < 0 or pos.z > 2, true, "apron excludes feature footprint")
+		end
+		eq(found, true, "feature apron includes outward edge and corner quadrant")
+	end
+	-- Accepted features clear above ground, but preserve the reserved road,
+	-- protection snapshot, liquids and their own schematic footprint.
+	do
+		local f = {min={x=0,y=0,z=0},max={x=2,y=9,z=2},direction={x=0,z=1},
+			street_rect={x1=1,x2=1,z1=0,z2=8}}
+		walls.reserve_feature_clearance(f, 0, function(p) return p.x==0 and p.z==3 and p.y==1 end)
+		local region = {get=function(x,y,z) return y==1 and (x==2 and z==3 and "water" or "dirt") or "air" end}
+		local changes = walls.inspect({cells={},openings={},placed_features={f},
+			feature_footprints={{x1=0,x2=2,z1=0,z2=2}}},0,region,
+			function(name) return {walkable=name=="dirt", liquid=name=="water"} end, function() return false end)
+		local seen = {}
+		for _, c in ipairs(changes) do seen[c.x..":"..c.y..":"..c.z]=true end
+		eq(seen["0:1:4"],true,"feature apron clears obstructions")
+		eq(seen["0:1:3"],nil,"pre-urban protection snapshot survives")
+		eq(seen["1:1:3"],nil,"gate road is preserved")
+		eq(seen["2:1:3"],nil,"liquid is preserved")
+		eq(seen["0:0:4"],nil,"ground surface is preserved")
+	end
+	local metadata_cleared, timers_stopped = {}, 0
+	walls.clear_metadata({
+		get_meta = function(pos)
+			return {from_table = function(_, value) metadata_cleared[pos.x .. ":" .. pos.y .. ":" .. pos.z] = value end}
+		end,
+		get_node_timer = function() return {stop = function() timers_stopped = timers_stopped + 1 end} end,
+	}, {{x=1,y=2,z=3,name="air",clearance=true},
+		{x=2,y=2,z=3,name=walls.BRICK,clear_metadata=true}, {x=3,y=2,z=3,name=walls.BRICK}})
+	eq(metadata_cleared["1:2:3"] ~= nil, true, "clearing a voxel removes its metadata and inventory")
+	eq(metadata_cleared["2:2:3"] ~= nil, true, "overwriting a structure removes its metadata and inventory")
+	eq(timers_stopped, 2, "clearing or overwriting a voxel stops its node timer")
 	local plan = {town_type = "medieval", seed = 42,
 		boundary = {rects = {{x1 = 0, z1 = 0, x2 = 9, z2 = 9},
 			{x1 = 3, z1 = 10, x2 = 6, z2 = 13}}},
@@ -42,6 +86,18 @@ do
 	for _, case in ipairs(outward_cases) do
 		local openings = gate_openings(case, 6)
 		local candidate = walls.gatehouse_candidates({openings = openings}, 12, gate_entry)[1]
+		-- Candidate APIs expose bounds before M.candidates normalizes min/max.
+		candidate.min, candidate.max = candidate.bounds.min, candidate.bounds.max
+		local apron = {}
+		for _, p in ipairs(walls.feature_clearance_positions(candidate)) do
+			apron[p.x .. ":" .. p.z] = true
+			eq(p.x < candidate.min.x or p.x > candidate.max.x or p.z < candidate.min.z or p.z > candidate.max.z,
+				true, "gate apron does not overlap schematic")
+		end
+		local dx, dz = case.direction.x, case.direction.z
+		local x = dx > 0 and candidate.max.x + 5 or dx < 0 and candidate.min.x - 5 or candidate.min.x
+		local z = dz > 0 and candidate.max.z + 5 or dz < 0 and candidate.min.z - 5 or candidate.min.z
+		eq(apron[x .. ":" .. z], true, "gate apron extends from outward face")
 		eq(candidate ~= nil, true, "gatehouse candidate exists for rotation " .. case.rotation)
 		eq(candidate.rotation, case.rotation, "gatehouse faces outward for rotation " .. case.rotation)
 		eq(candidate.road_width_inside, 6, "gatehouse preserves six-node inside road")
@@ -173,12 +229,12 @@ do
 	end}, function(name)
 		return {liquid = name == "test:water_source", walkable = name == "mcl_core:stone" or name == "test:tree"}
 	end, function() return false end)
-	eq(#obstructed_water, 0, "structure in a water foundation column is preserved")
-	eq(obstructed_water_omissions[1].reason, "water or obstruction", "obstructed water foundation is reported")
-	eq(obstructed_water_omissions[1].blocker.x, 0, "obstruction diagnostic gives world x")
-	eq(obstructed_water_omissions[1].blocker.y, -11, "obstruction diagnostic gives blocker height")
-	eq(obstructed_water_omissions[1].blocker.z, 0, "obstruction diagnostic gives world z")
-	eq(obstructed_water_omissions[1].blocker.node, "test:tree", "obstruction diagnostic names the blocking node")
+	eq(#obstructed_water_omissions, 0, "a solid node can support a water-crossing wall")
+	local above_structure = false
+	for _, change in ipairs(obstructed_water) do
+		if change.y == -10 and change.name == walls.BRICK then above_structure = true end
+	end
+	eq(above_structure, true, "water-crossing wall starts above its solid support")
 	local submerged_approach = {cells = {}, openings = {{x = 0, z = 0,
 		direction = {x = 1, z = 0}, material = "road"}}}
 	local submerged_changes, submerged_omissions = walls.inspect(submerged_approach, 0,
@@ -276,6 +332,7 @@ do
 		["test:buildable_structure"] = {walkable = true, buildable_to = true},
 		["mcl_core:tree"] = {walkable = true, groups = {tree = 1, building_block = 1}},
 		["test:liquid_plant"] = {walkable = false, liquidtype = "source", groups = {plant = 1}},
+		["test:lava_source"] = {walkable = false, liquidtype = "source"},
 		["test:icy_plant"] = {walkable = true, groups = {plant = 1, ice = 1}},
 	}
 	local function wall_node_info(name)
@@ -283,6 +340,88 @@ do
 		return placement.node_info(wall_nodes, name)
 	end
 	local vegetated_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+	local clearance_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+	local clearance_changes = walls.inspect(clearance_wall, 0, {get = function(x, y)
+		if x == 0 and y == 0 then return "mcl_core:stone" end
+		if x == 3 and y == 0 then return "mcl_chests:chest" end
+		if x == 3 and y == 1 then return "mcl_chests:chest" end
+		if x == 3 and y == 8 then return "mcl_chests:chest" end
+		if x == 4 and y == 1 then return "mcl_core:dirt" end
+		if x == 3 and y == -1 then return "mcl_core:stone" end
+		if x == 5 and y == 10 then return "mcl_core:tree" end
+		return "air"
+	end}, wall_node_info, function() return false end)
+	local cleared_roof, cleared_tree, cleared_raised_terrain = false, false, false
+	local preserved_subsurface, preserved_ground_level, cleared_first_clearance_level = true, true, false
+	for _, change in ipairs(clearance_changes) do
+		if change.x == 3 and change.y == 8 and change.name == "air" then cleared_roof = true end
+		if change.x == 5 and change.y == 10 and change.name == "air" then cleared_tree = true end
+		if change.x == 4 and change.y == 1 and change.name == "air" then cleared_raised_terrain = true end
+		if change.x == 3 and change.y == -1 and change.name == "air" then preserved_subsurface = false end
+		if change.x == 3 and change.y == 0 and change.name == "air" then preserved_ground_level = false end
+		if change.x == 3 and change.y == 1 and change.name == "air" then cleared_first_clearance_level = true end
+	end
+	eq(cleared_roof, true, "clearance removes buildings five nodes outside the wall")
+	eq(cleared_tree, true, "clearance reaches five nodes above the wall top")
+	eq(cleared_raised_terrain, true, "raised natural terrain is cleared from the wall core")
+	eq(preserved_subsurface, true, "exterior clearance preserves terrain below the wall base")
+	eq(preserved_ground_level, true, "exterior clearance preserves town ground")
+	eq(cleared_first_clearance_level, true, "exterior clearance starts one node above town ground")
+	local safe_clearance = walls.inspect(clearance_wall, 0, {get = function(x, y)
+		if x == 0 and y == 0 then return "mcl_core:stone" end
+		if x == 2 and y == 7 then return "test:water_source" end
+		if x == 3 and y == 7 then return "ignore" end
+		if x == 4 and y == 7 then return "mcl_core:sand" end
+		return "air"
+	end}, function(name)
+		if name == "test:water_source" then return {liquid = true} end
+		if name == "mcl_core:sand" then return {walkable = true, falling = true} end
+		return wall_node_info(name)
+	end, function() return false end)
+	local kept_water, kept_unloaded, cleared_falling = false, false, false
+	for _, change in ipairs(safe_clearance) do
+		if change.x == 2 and change.y == 7 and change.name == "air" then kept_water = true end
+		if change.x == 3 and change.y == 7 and change.name == "air" then kept_unloaded = true end
+		if change.x == 4 and change.y == 7 and change.name == "air" then cleared_falling = true end
+	end
+	eq(kept_water, false, "clearance preserves liquids")
+	eq(kept_unloaded, false, "clearance preserves unloaded ignore cells")
+	eq(cleared_falling, true, "clearance removes falling blocks inside its bounded strip")
+	local clearance_bounds = walls.bounds(clearance_wall, 0)
+	eq(clearance_bounds.max.x, 5, "wall bounds include the five-node outer strip")
+	eq(clearance_bounds.max.y, 10, "wall bounds include clearance above the profile")
+	local protected_clearance_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+	walls.reserve(protected_clearance_wall, 0, function(p) return p.x == 3 and (p.y == 0 or p.y == 1 or p.y == 8) end)
+	eq(protected_clearance_wall.cells[1].clearance_protected["3:0:0"], nil,
+		"clearance does not reserve town-ground nodes for removal")
+	eq(protected_clearance_wall.cells[1].clearance_protected["3:1:0"] ~= nil, true,
+		"clearance reserves from one node above town ground")
+	local protected_clearance_changes = walls.inspect(protected_clearance_wall, 0, {get = function(x, y)
+		if x == 0 and y == 0 then return "mcl_core:stone" end
+		if x == 3 and y == 8 then return "mcl_chests:chest" end
+		return "air"
+	end}, wall_node_info, function() return false end)
+	local preserved_protected = true
+	for _, change in ipairs(protected_clearance_changes) do
+		if change.x == 3 and change.y == 8 then preserved_protected = false end
+	end
+	eq(preserved_protected, true, "reserved protected nodes remain untouched in the clearance")
+	local feature_clearance = {cells = clearance_wall.cells, openings = {},
+		feature_footprints = {{x1 = 3, z1 = 0, x2 = 3, z2 = 0}}}
+	local feature_changes = walls.inspect(feature_clearance, 0, {get = function(x, y)
+		if x == 0 and y == 0 then return "mcl_core:stone" end
+		if x == 3 and y == 8 then return "mcl_chests:chest" end
+		return "air"
+	end}, wall_node_info, function() return false end)
+	local feature_preserved = true
+	for _, change in ipairs(feature_changes) do
+		if change.x == 3 and change.y == 8 then feature_preserved = false end
+	end
+	eq(feature_preserved, true, "clearance preserves selected tower and gate footprints")
+	local road_clearance = walls.inspect({cells = {}, openings = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}}}}, 0, {get = function() return "mcl_core:tree" end},
+		wall_node_info, function() return false end)
+	eq(#road_clearance, 0, "road openings stay outside the wall clearance strip")
 	for _, blocked_y in ipairs({4, 5}) do
 		local placed, skipped = walls.inspect(vegetated_wall, 0, {get = function(x, y)
 			if y == 0 then return "mcl_core:stone" end
@@ -294,15 +433,19 @@ do
 			if change.x == 0 then core_count = core_count + 1 else decoration_count = decoration_count + 1 end
 		end
 		eq(core_count, 4, "roof at overhang height " .. blocked_y .. " leaves wall core intact")
-		eq(decoration_count, 0, "blocked overhang is omitted as a unit")
-		eq(skipped[1].reason, "decoration: water or obstruction", "blocked overhang is reported")
+		eq(decoration_count >= 2, true, "clearance removes the overhang obstruction")
+		eq(#skipped, 0, "cleared overhang obstruction is not reported")
 	end
 	local reserved_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
 	walls.reserve(reserved_wall, 0, function(p) return p.x == 1 and p.y == 4 end)
 	local reserved_changes, reserved_omissions = walls.inspect(reserved_wall, 0, {get = function(_, y)
 		return y == 0 and "mcl_core:stone" or "air"
 	end}, wall_node_info, function() return false end)
-	eq(#reserved_changes, 4, "reserved protected overhang does not omit the core")
+	local reserved_core_count = 0
+	for _, change in ipairs(reserved_changes) do
+		if change.x == 0 and change.name == walls.BRICK then reserved_core_count = reserved_core_count + 1 end
+	end
+	eq(reserved_core_count, 4, "reserved protected overhang does not omit the core")
 	eq(reserved_omissions[1].reason, "decoration: protected", "reserved overhang protection is reported")
 	eq(reserved_omissions[1].blocker.x, 1, "reserved decoration reports protected x")
 	eq(reserved_omissions[1].blocker.y, 4, "reserved decoration reports protected y")
@@ -310,16 +453,23 @@ do
 	local runtime_changes, runtime_omissions = walls.inspect(vegetated_wall, 0, {get = function(_, y)
 		return y == 0 and "mcl_core:stone" or "air"
 	end}, wall_node_info, function(p) return p.x == 1 and p.y == 5 end)
-	eq(#runtime_changes, 4, "new protection on overhang leaves the core intact")
+	local runtime_core_count = 0
+	for _, change in ipairs(runtime_changes) do
+		if change.x == 0 and change.name == walls.BRICK then runtime_core_count = runtime_core_count + 1 end
+	end
+	eq(runtime_core_count, 4, "new protection on overhang leaves the core intact")
 	eq(runtime_omissions[1].reason, "decoration: protected", "new overhang protection is reported")
 	local core_changes, core_omissions = walls.inspect(vegetated_wall, 0, {get = function(x, y)
 		if y == 0 then return "mcl_core:stone" end
 		if x == 0 and y == 3 then return "mcl_chests:chest" end
 		return "air"
 	end}, wall_node_info, function() return false end)
-	eq(#core_changes, 0, "roof overlapping core is preserved without partial wall placement")
-	eq(#core_omissions, 1, "core overlap is reported as a wall gap")
-	eq(core_omissions[1].reason, "water or obstruction", "core obstruction has a wall omission reason")
+	eq(#core_omissions, 0, "core obstruction is cleared before wall placement")
+	local core_overwrite = false
+	for _, change in ipairs(core_changes) do
+		if change.x == 0 and change.y == 3 and change.name == walls.BRICK then core_overwrite = true end
+	end
+	eq(core_overwrite, true, "wall replaces an obstruction in its core")
 	local vegetation_changes, vegetation_omissions = walls.inspect(vegetated_wall, 0,
 		{get = function(x, y)
 			if y == -1 then return "mcl_core:stone" end
@@ -335,6 +485,67 @@ do
 	end
 	eq(replaced_mushroom, true, "wall replaces a mushroom in its foundation footprint")
 	eq(replaced_plant, true, "wall replaces a plant above its foundation")
+	local berry_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+	local berry_changes, berry_omissions = walls.inspect(berry_wall, 0, {get = function(_, y)
+		if y == -1 then return "mcl_core:stone" end
+		if y == 0 then return "test:berry" end
+		return "air"
+	end}, function(name)
+		if name == "test:berry" then return {walkable = false} end
+		return wall_node_info(name)
+	end, function() return false end)
+	eq(#berry_omissions, 0, "non-walkable berry at ground does not block wall support")
+	local berry_removed = false
+	for _, change in ipairs(berry_changes) do
+		if change.x == 0 and change.y == 0 and change.name == "air" and change.clearance then berry_removed = true end
+	end
+	eq(berry_removed, true, "wall clears non-walkable core blockers before placement")
+	local deep_water_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+	local deep_water_changes, deep_water_omissions = walls.inspect(deep_water_wall, 0,
+		{get = function(x, y)
+			if x == 0 and y >= -32 and y <= 0 then return "test:water_source" end
+			if x == 3 and y == 5 then return "mcl_chests:chest" end
+			return "air"
+		end}, function(name)
+		if name == "test:water_source" then return {liquid = true} end
+		return wall_node_info(name)
+	end, function() return false end)
+	eq(#deep_water_omissions, 1, "unsupported water column is omitted")
+	local chest_cleared_for_omitted_column = false
+	for _, change in ipairs(deep_water_changes) do
+		if change.x == 3 and change.y == 5 and change.clearance then chest_cleared_for_omitted_column = true end
+	end
+	eq(chest_cleared_for_omitted_column, false, "omitted wall column does not clear its apron")
+	local overlap_wall = {cells = {
+		{x = 0, z = 0, direction = {x = 0, z = 1}},
+		{x = -1, z = 0, direction = {x = 1, z = 0}},
+	}, openings = {}}
+	local overlap_changes = walls.inspect(overlap_wall, 0, {get = function(x, y)
+		if y == 0 and (x == -1 or x == 0) then return "mcl_core:stone" end
+		if x == 0 and y == 5 then return "mcl_chests:chest" end
+		return "air"
+	end}, wall_node_info, function(p) return p.x == 0 and p.z == 0 and p.y == 0 end)
+	local protected_apron_cleared = false
+	for _, change in ipairs(overlap_changes) do
+		if change.x == 0 and change.z == 0 and change.y == 5 and change.name == "air" and change.clearance then
+			protected_apron_cleared = true
+		end
+	end
+	eq(protected_apron_cleared, false, "neighbor apron preserves a protected wall-core column")
+	for _, blocker_name in ipairs({"ignore", "test:lava_source"}) do
+		local blocked_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+		local blocked_changes, blocked_omissions = walls.inspect(blocked_wall, 0, {get = function(_, y)
+			if y == 0 then return "mcl_core:stone" end
+			if y == 4 then return blocker_name end
+			return "air"
+		end}, wall_node_info, function() return false end)
+		local blocker_replaced = false
+		for _, change in ipairs(blocked_changes) do
+			if change.x == 0 and change.y == 4 and change.name == walls.BRICK then blocker_replaced = true end
+		end
+		eq(#blocked_omissions, 1, blocker_name .. " at wall cap safely omits the column")
+		eq(blocker_replaced, false, blocker_name .. " at wall cap is never overwritten")
+	end
 	local vegetated_approach = {cells = {}, openings = {{x = 0, z = 0, direction = {x = 1, z = 0}, material = "road"}}}
 	local approach_changes, approach_omissions = walls.inspect(vegetated_approach, 0,
 		{get = function(x, y)
@@ -369,14 +580,18 @@ do
 	eq(paved_log, true, "approach paving replaces a ground-level log")
 	eq(cleared_overhead_log, true, "approach clears an overhead log")
 	for _, structure in ipairs({"mcl_chests:chest", "mcl_core:crafting_table", "test:buildable_structure"}) do
-		local structure_changes, structure_omissions = walls.inspect(vegetated_wall, 0,
+	local structure_changes, structure_omissions = walls.inspect(vegetated_wall, 0,
 			{get = function(_, y)
 				if y == -1 then return "mcl_core:stone" end
 				if y == 2 then return structure end
 				return "air"
 			end}, wall_node_info, function() return false end)
-		eq(#structure_changes, 0, structure .. " is preserved in wall columns")
-		eq(#structure_omissions, 1, structure .. " blocks its wall column")
+		local replaced = false
+		for _, change in ipairs(structure_changes) do
+			if change.x == 0 and change.y == 2 and change.name == walls.BRICK then replaced = true end
+		end
+		eq(replaced, true, structure .. " is cleared from the wall core")
+		eq(#structure_omissions, 0, structure .. " no longer blocks its wall column")
 	end
 	local log_changes, log_omissions = walls.inspect(vegetated_wall, 0, {get = function(_, y)
 		if y == -1 then return "mcl_core:stone" end
@@ -401,8 +616,17 @@ do
 				return y == 2 and obstruction or "air"
 			end}, wall_node_info,
 			function() return false end)
-		eq(#unsafe_changes, 0, obstruction .. " is never replaced")
-		eq(#unsafe_omissions, 1, obstruction .. " remains an obstruction")
+		if obstruction == "test:liquid_plant" then
+			eq(#unsafe_changes, 0, "liquid is preserved in the wall core")
+			eq(#unsafe_omissions, 1, "liquid remains a wall obstruction")
+		else
+			local cleared = false
+			for _, change in ipairs(unsafe_changes) do
+				if change.x == 0 and change.y == 2 and change.name == walls.BRICK then cleared = true end
+			end
+			eq(cleared, true, obstruction .. " is cleared from the wall core")
+			eq(#unsafe_omissions, 0, obstruction .. " no longer blocks its wall column")
+		end
 	end
 	local protected_changes, protected_omissions = walls.inspect(vegetated_wall, 0,
 		{get = function(_, y)
@@ -415,8 +639,34 @@ do
 	local obstructed, blocked = walls.inspect(sample, 0, {get = function(_, y)
 		return y == 0 and "mcl_core:stonebrick" or "air"
 	end}, function() return {walkable = true} end, function() return false end)
-	eq(#obstructed, 0, "existing masonry is not treated as terrain support")
-	eq(#blocked, 2, "existing structures cause local omissions")
+	eq(#blocked, 0, "existing masonry can support a wall")
+	local masonry_on_existing = false
+	for _, change in ipairs(obstructed) do if change.name == walls.BRICK then masonry_on_existing = true end end
+	eq(masonry_on_existing, true, "wall masonry is built above any solid support")
+	local buildable_support, buildable_support_omissions = walls.inspect({cells = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}}}, openings = {}}, 0, {get = function(_, y)
+			if y == 0 then return "test:buildable_structure" end
+			return "air"
+		end}, wall_node_info, function() return false end)
+	eq(#buildable_support_omissions, 0, "walkable buildable_to solid supports wall placement")
+	local masonry_above_buildable_solid = false
+	for _, change in ipairs(buildable_support) do
+		if change.x == 0 and change.z == 0 and change.y == 1 and change.name == walls.BRICK then
+			masonry_above_buildable_solid = true
+		end
+	end
+	eq(masonry_above_buildable_solid, true, "walkable buildable_to block can support a wall")
+	local tree_support, tree_support_omissions = walls.inspect({cells = {{x = 0, z = 0,
+		direction = {x = 1, z = 0}}}, openings = {}}, 0, {get = function(_, y)
+		if y == 0 then return "mcl_core:tree" end
+		return "air"
+	end}, wall_node_info, function() return false end)
+	eq(#tree_support_omissions, 0, "walkable log block can support a wall")
+	local masonry_above_log = false
+	for _, change in ipairs(tree_support) do
+		if change.x == 0 and change.y == 1 and change.name == walls.BRICK then masonry_above_log = true end
+	end
+	eq(masonry_above_log, true, "wall masonry is placed above a walkable log support")
 	local terrain_sample = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}},
 		{x = 0, z = 3, direction = {x = 1, z = 0}},
 		{x = 0, z = 6, direction = {x = 1, z = 0}},
@@ -457,8 +707,12 @@ do
 	eq(masonry_above_granite, true, "wall masonry is placed above the granite surface")
 	for _, structure in ipairs({"mcl_core:granite_smooth", "mcl_core:stonebrick"}) do
 		local blocked_changes, blocked_omissions = inspect_surface(structure)
-		eq(#blocked_changes, 0, structure .. " structures are not replaced")
-		eq(#blocked_omissions, 1, structure .. " structures remain blockers")
+		eq(#blocked_omissions, 0, structure .. " in the clearance is removed")
+		local cleared = false
+		for _, change in ipairs(blocked_changes) do
+			if change.y == 29 and change.name == "air" then cleared = true end
+		end
+		eq(cleared, true, structure .. " is cleared above the wall support")
 	end
 	-- VoxeLibre badlands use these real hardened-clay node names. A wall may
 	-- stand on natural terracotta while crafted masonry remains an obstruction.
@@ -542,9 +796,12 @@ do
 				and "mcl_core:dirt_with_grass" or "mcl_core:stone" end
 			return "air"
 		end}, function(name) return {walkable = name ~= "air"} end, function() return false end)
-		eq(#placed, 0, "terrain at wall cap " .. surface .. " is not overwritten")
-		eq(#skipped, 1, "terrain at wall cap " .. surface .. " is reported")
-		eq(skipped[1].reason, "water or obstruction", "wall cap obstruction reason " .. surface)
+		eq(#skipped, 0, "terrain at wall cap " .. surface .. " is cleared")
+		local masonry = false
+		for _, change in ipairs(placed) do
+			if change.x == 0 and change.z == 0 and change.y == 4 and change.name == walls.BRICK then masonry = true end
+		end
+		eq(masonry, true, "wall cap is rebuilt after clearing terrain " .. surface)
 	end
 	local raised_opening = {cells = {}, openings = {{x = 0, z = 0,
 		direction = {x = 1, z = 0}, material = "road"}}}
@@ -566,10 +823,11 @@ do
 			{quadrant = 0, castle_east = true, turn = turn}))
 		local actual = walls.plan(town, true)
 		local envelope = walls.bounds(actual, 0)
-		local margin = dofile("src/outskirts.lua").CONSTANTS.PROTECT_MARGIN
+		local margin = math.max(dofile("src/outskirts.lua").CONSTANTS.PROTECT_MARGIN,
+			walls.CLEARANCE + 1)
 		eq(envelope.min.x >= town.bounds.x1 - margin and envelope.max.x <= town.bounds.x2 + margin
 			and envelope.min.z >= town.bounds.z1 - margin and envelope.max.z <= town.bounds.z2 + margin,
-			true, "rotation " .. turn .. " wall and approach fit the outskirts protection envelope")
+			true, "rotation " .. turn .. " clearance fits the town boundary envelope")
 		local kinds = {}
 		for _, gap in ipairs(actual.openings) do kinds[gap.kind] = true end
 		eq(kinds.principal, true, "rotation " .. turn .. " retains a principal exit")

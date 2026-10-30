@@ -1,8 +1,40 @@
 -- Pure geometry for the first phase of medieval walls. Coordinates are world
 -- coordinates; the plan is independent of the town layout's random stream.
 local M = {}
+function M.clear_metadata(core, changes)
+	local cleaned = {}
+	for _, change in ipairs(changes) do
+		if change.clearance or change.clear_metadata then
+			local k = change.x .. ":" .. change.y .. ":" .. change.z
+			if not cleaned[k] then
+				cleaned[k] = true
+				local pos = {x = change.x, y = change.y, z = change.z}
+				if type(core.get_meta) == "function" then
+					local meta = core.get_meta(pos)
+					if meta and type(meta.from_table) == "function" then meta:from_table({}) end
+				end
+				if type(core.get_node_timer) == "function" then
+					local timer = core.get_node_timer(pos)
+					if timer and type(timer.stop) == "function" then timer:stop() end
+				end
+			end
+		end
+	end
+end
 local directions = {{x = 1, z = 0}, {x = -1, z = 0}, {x = 0, z = 1}, {x = 0, z = -1}}
 local function key(x, z) return x .. ":" .. z end
+local function clearance_positions(c)
+	local out, extent = {}, M.CLEARANCE
+	if c.corner then
+		for x = 0, extent do for z = 0, extent do out[#out + 1] = {
+			x = c.x + (c.direction.x < 0 and -x or x),
+			z = c.z + (c.direction.z < 0 and -z or z)} end end
+	else
+		for distance = 0, extent do out[#out + 1] = {
+			x = c.x + c.direction.x * distance, z = c.z + c.direction.z * distance} end
+	end
+	return out
+end
 local function inside(rects, x, z)
 	for _, r in ipairs(rects) do
 		if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return true end
@@ -243,10 +275,14 @@ end
 -- an unobstructed wall column hangs from its normal level top for this same
 -- maximum depth instead of disappearing entirely.
 M.DEPTH = 32
+-- The wall has masonry through ground+4 and an optional parapet at +5.
+-- Clear five nodes beyond that profile, starting above the support surface.
+M.CLEARANCE = 5
+M.CLEARANCE_TOP = 10
 M.BRICK = "mcl_core:stonebrick"
 M.STAIR = "mcl_stairs:stair_stonebrick"
--- Only known natural terrain can support new masonry. Group membership such
--- as "stone" is insufficient because crafted structures can share it.
+-- Keep the natural-material helper for callers that need to distinguish
+-- terrain from authored blocks. Wall support itself uses any solid node.
 local NATURAL = {
 	["mcl_core:stone"] = true, ["mcl_core:granite"] = true,
 	["mcl_core:dirt"] = true,
@@ -267,67 +303,192 @@ local function natural(name)
 end
 M.natural = natural
 
--- Remember protection separately for the wall and its optional overhang,
--- including protection that might change before inspection.
+-- Reserve protected wall and clearance voxels before town structures are
+-- written, then recheck protection during final inspection.
+-- Exterior apron follows the outside faces of each authored feature.
+function M.feature_clearance_positions(feature)
+ local d = feature.direction or (feature.corner and feature.corner.direction)
+  or (feature.run and feature.run.direction)
+ if not d then return {} end
+ local r, out = feature, {}
+ local x1, x2, z1, z2 = r.min.x, r.max.x, r.min.z, r.max.z
+ if d.x > 0 then x1, x2 = r.max.x + 1, r.max.x + M.CLEARANCE
+ elseif d.x < 0 then x1, x2 = r.min.x - M.CLEARANCE, r.min.x - 1 end
+ if d.z > 0 then z1, z2 = r.max.z + 1, r.max.z + M.CLEARANCE
+ elseif d.z < 0 then z1, z2 = r.min.z - M.CLEARANCE, r.min.z - 1 end
+ -- Corner aprons include both faces as well as the outer quadrant.
+ if d.x ~= 0 and d.z ~= 0 then
+  x1 = d.x > 0 and r.min.x or r.min.x - M.CLEARANCE
+  x2 = d.x > 0 and r.max.x + M.CLEARANCE or r.max.x
+  z1 = d.z > 0 and r.min.z or r.min.z - M.CLEARANCE
+  z2 = d.z > 0 and r.max.z + M.CLEARANCE or r.max.z
+ end
+ for x = x1, x2 do for z = z1, z2 do
+  if x < r.min.x or x > r.max.x or z < r.min.z or z > r.max.z then
+   out[#out + 1] = {x=x,z=z}
+  end
+ end end
+ return out
+end
+
+function M.reserve_feature_clearance(feature, ground, protected)
+ feature.clearance_protected = {}
+ for _, p in ipairs(M.feature_clearance_positions(feature)) do
+  for y = ground + 1, ground + M.CLEARANCE_TOP do
+   if protected({x=p.x,y=y,z=p.z}) then
+    feature.clearance_protected[p.x .. ":" .. y .. ":" .. p.z] = true
+   end
+  end
+ end
+end
+
+function M.feature_clearance_bounds(feature, ground)
+ local b
+ for _, p in ipairs(M.feature_clearance_positions(feature)) do
+  if not b then b={min={x=p.x,y=ground+1,z=p.z},max={x=p.x,y=ground+M.CLEARANCE_TOP,z=p.z}}
+  else b.min.x=math.min(b.min.x,p.x); b.min.z=math.min(b.min.z,p.z)
+   b.max.x=math.max(b.max.x,p.x); b.max.z=math.max(b.max.z,p.z) end
+ end
+ return b
+end
+
 function M.reserve(wall, ground, protected)
 	assert(type(protected) == "function", "protection API unavailable")
-	local function reserve(c, positions, field)
-		local d = c.direction
-		for _, distance in ipairs(positions) do
-			local p = {x = c.x + d.x * distance, z = c.z + d.z * distance}
-			for y = ground - M.DEPTH, ground + 5 do
-				if protected({x = p.x, y = y, z = p.z}) then
-					-- Preserve legacy boolean reservations; their original position
-					-- cannot be recovered, and indexing true would raise an error.
-					if c[field] ~= true then
-						c[field] = c[field] or {}
-						c[field][distance] = {x = p.x, y = y, z = p.z}
+	for _, c in ipairs(wall.cells) do
+		-- Preserve the existing conservative reservation for the core and all
+		-- possible foundation writes.
+		if not c.protected then
+			for y = ground - M.DEPTH, ground + M.CLEARANCE_TOP do
+				if protected({x = c.x, y = y, z = c.z}) then
+					c.protected = {x = c.x, y = y, z = c.z}
+					break
+				end
+			end
+		end
+		c.clearance_protected = c.clearance_protected or {}
+		for _, p in ipairs(clearance_positions(c)) do
+			if p.x ~= c.x or p.z ~= c.z then
+				for y = ground + 1, ground + M.CLEARANCE_TOP do
+					if protected({x = p.x, y = y, z = p.z}) then
+						c.clearance_protected[p.x .. ":" .. y .. ":" .. p.z] = {x = p.x, y = y, z = p.z}
+					end
+				end
+			end
+		end
+	end
+	for _, c in ipairs(wall.openings) do
+		for distance = 0, 3 do
+			local x, z = c.x + c.direction.x * distance, c.z + c.direction.z * distance
+			for y = ground - M.DEPTH, ground + M.CLEARANCE_TOP do
+				if protected({x = x, y = y, z = z}) then
+					if c.protected ~= true then
+						c.protected = c.protected or {}
+						c.protected[distance] = {x = x, y = y, z = z}
 					end
 					break
 				end
 			end
 		end
 	end
-	for _, c in ipairs(wall.cells) do
-		reserve(c, {0}, "protected")
-		reserve(c, {1}, "decoration_protected")
-	end
-	for _, c in ipairs(wall.openings) do reserve(c, {0, 1, 2, 3}, "protected") end
 end
 
 function M.bounds(wall, ground)
 	local b
-	local function include(c, distances)
-		for _, distance in ipairs(distances) do
-			local p = {x = c.x + c.direction.x * distance, z = c.z + c.direction.z * distance}
+	local function include(c, positions)
+		for _, p in ipairs(positions) do
 			if not b then b = {min = {x = p.x, y = ground - M.DEPTH, z = p.z},
-				max = {x = p.x, y = ground + 5, z = p.z}}
+				max = {x = p.x, y = ground + M.CLEARANCE_TOP, z = p.z}}
 			else
 				b.min.x, b.min.z = math.min(b.min.x, p.x), math.min(b.min.z, p.z)
 				b.max.x, b.max.z = math.max(b.max.x, p.x), math.max(b.max.z, p.z)
 			end
 		end
 	end
-	for _, c in ipairs(wall.cells) do include(c, {0, 1}) end
-	for _, c in ipairs(wall.openings) do include(c, {0, 1, 2, 3}) end
+	for _, c in ipairs(wall.cells) do
+		include(c, clearance_positions(c))
+	end
+	for _, c in ipairs(wall.openings) do
+		local positions = {}
+		for distance = 0, 3 do positions[#positions + 1] = {x = c.x + c.direction.x * distance,
+			z = c.z + c.direction.z * distance} end
+		-- Approaches are part of the actual wall write envelope.
+		for _, p in ipairs(positions) do
+			if not b then b = {min = {x = p.x, y = ground - M.DEPTH, z = p.z},
+				max = {x = p.x, y = ground + 2, z = p.z}}
+			else
+				b.min.x, b.min.z = math.min(b.min.x, p.x), math.min(b.min.z, p.z)
+				b.max.x, b.max.z = math.max(b.max.x, p.x), math.max(b.max.z, p.z)
+				b.max.y = math.max(b.max.y, ground + 2)
+			end
+		end
+	end
+	-- Road openings remain open and are not part of the clearance volume.
 	return b
 end
 
--- Inspect after smoothing. An unsafe core column is omitted; an unsafe
--- overhang is omitted independently so it does not interrupt the wall.
+-- Inspect after smoothing. Build the clearance overlay first, then place only
+-- supported wall columns and their optional overhangs.
 function M.inspect(wall, ground, region, node_info, protected)
-	local changes, omissions = {}, {}
-	local occupied = {}
+	local changes, omissions, emitted_clear = {}, {}, {}
+	local occupied, feature_cells, road_cells, cleared = {}, {}, {}, {}
 	for _, c in ipairs(wall.cells) do occupied[key(c.x, c.z)] = true end
 	for _, c in ipairs(wall.openings) do
 		for distance = 0, 3 do
-			occupied[key(c.x + c.direction.x * distance, c.z + c.direction.z * distance)] = true
+			local x, z = c.x + c.direction.x * distance, c.z + c.direction.z * distance
+			occupied[key(x, z)], road_cells[key(x, z)] = true, true
+		end
+	end
+	for _, c in ipairs(wall.road_openings or {}) do
+		for distance = 0, 3 do road_cells[key(c.x + c.direction.x * distance, c.z + c.direction.z * distance)] = true end
+	end
+	for _, feature in ipairs(wall.placed_features or {}) do
+		for _, c in ipairs(feature.outside_approach or {}) do
+			for distance = 0, 3 do road_cells[key(c.x + c.direction.x * distance, c.z + c.direction.z * distance)] = true end
 		end
 	end
 	for _, rect in ipairs(wall.feature_footprints or {}) do
 		for x = rect.x1, rect.x2 do
-			for z = rect.z1, rect.z2 do occupied[key(x, z)] = true end
+			for z = rect.z1, rect.z2 do
+				occupied[key(x, z)], feature_cells[key(x, z)] = true, true
+			end
 		end
+	end
+	local function voxel_key(x, y, z) return x .. ":" .. y .. ":" .. z end
+	-- Protected wall-core columns must also shield their full vertical column
+	-- from a neighboring cell's overlapping apron.
+	local protected_core, wall_core = {}, {}
+	for _, c in ipairs(wall.cells) do
+		wall_core[key(c.x, c.z)] = true
+		local is_protected = c.protected ~= nil and c.protected ~= false
+		local protected_pos
+		if not is_protected then
+			for y = ground - M.DEPTH, ground + M.CLEARANCE_TOP do
+				local pos = {x = c.x, y = y, z = c.z}
+				if protected(pos) then is_protected, protected_pos = true, pos; break end
+			end
+		end
+		c._inspect_protected, c._inspect_protected_pos = is_protected, protected_pos
+		if is_protected then protected_core[key(c.x, c.z)] = true end
+	end
+	local core_clear_by_cell = {}
+	for _, c in ipairs(wall.cells) do
+		local to_clear = {}
+		if not c._inspect_protected then
+			for y = ground - M.DEPTH, ground + M.CLEARANCE_TOP do
+				local have = region.get(c.x, y, c.z)
+				local info = node_info(have)
+				if have ~= "air" and have ~= "ignore" and not (info and info.liquid)
+					and (not info or not info.walkable or info.vegetation or y > ground) then
+					to_clear[#to_clear + 1] = {x = c.x, y = y, z = c.z}
+					cleared[voxel_key(c.x, y, c.z)] = true
+				end
+			end
+		end
+		core_clear_by_cell[c] = to_clear
+	end
+	local function get(x, y, z)
+		if cleared[voxel_key(x, y, z)] then return "air" end
+		return region.get(x, y, z)
 	end
 	local function clear(name)
 		return name == "air"
@@ -337,24 +498,27 @@ function M.inspect(wall, ground, region, node_info, protected)
 		return info ~= nil and info.liquid and name:find("water", 1, true) ~= nil
 	end
 	local function replaceable(name)
-		return clear(name) or water(name)
+		local info = node_info(name)
+		return clear(name) or water(name) or (info ~= nil and not info.walkable and not info.liquid)
 	end
 	local function vegetation(name)
 		if name == "air" then return false end
 		local info = node_info(name)
-		return info ~= nil and (info.vegetation or info.tree) and not info.liquid and not info.ice
+		return info ~= nil and info.vegetation and not info.liquid and not info.ice
 	end
 	local function supported(x, y, z)
 		-- A falling surface is stable only when its contiguous falling stack
-		-- rests on non-falling natural ground within the inspected envelope.
+		-- rests on a non-falling solid within the inspected envelope.
 		for below = y, ground - M.DEPTH, -1 do
-			local name = region.get(x, below, z)
+			local name = get(x, below, z)
 			local info = node_info(name)
-			if not natural(name) or not info or not info.walkable or info.liquid
-					or info.ice or info.clearable then return false, {x = x, y = below, z = z, node = name} end
+			if not info or not info.walkable or info.liquid or info.vegetation
+					or (info.tree and below > ground) then
+				return false, {x = x, y = below, z = z, node = name}
+			end
 			if not info.falling then return true end
 		end
-		local name = region.get(x, ground - M.DEPTH, z)
+		local name = get(x, ground - M.DEPTH, z)
 		return false, {x = x, y = ground - M.DEPTH, z = z, node = name}
 	end
 	local function omission(x, z, reason, blocker)
@@ -380,20 +544,39 @@ function M.inspect(wall, ground, region, node_info, protected)
 		end
 	end
 	for _, c in ipairs(wall.cells) do
-		local protected_pos = reserved(c, "protected", 0)
+		local staged_clear = {}
+		for _, p in ipairs(clearance_positions(c)) do
+			local k = key(p.x, p.z)
+			if not wall_core[k]
+					and not road_cells[k] and not feature_cells[k] then
+				for y = ground + 1, ground + M.CLEARANCE_TOP do
+					local vk = voxel_key(p.x,y,p.z)
+					local have = region.get(p.x,y,p.z)
+					local info = node_info(have)
+					local reservations = c.clearance_protected
+					local reserved_cell = type(reservations) == "table" and reservations[vk]
+					if not reserved_cell and not protected({x=p.x,y=y,z=p.z}) and have ~= "air"
+							and have ~= "ignore" and not (info and info.liquid) then
+						staged_clear[#staged_clear + 1] = {x=p.x,y=y,z=p.z}
+						cleared[vk] = true
+					end
+				end
+			end
+		end
+		local protected_pos = reserved(c, "protected", 0) or c._inspect_protected_pos
 		local why = protected_pos and "protected" or nil
 		local base, floating, water_seen, blocker
 		if why then
 			if protected_pos.unknown then blocker = {node = "unknown"}
 			else blocker = {x = protected_pos.x, y = protected_pos.y, z = protected_pos.z,
-				node = region.get(protected_pos.x, protected_pos.y, protected_pos.z)} end
+				node = get(protected_pos.x, protected_pos.y, protected_pos.z)} end
 		end
 		if not why then
 			-- Search up to one node below the intended wall cap. This lets a
 			-- raised edge support a shorter wall while ensuring at least one
 			-- masonry node remains above its foundation; the cap stays level.
 			for y = ground + 3, ground - M.DEPTH, -1 do
-				local name = region.get(c.x, y, c.z)
+				local name = get(c.x, y, c.z)
 				local stable, failure = supported(c.x, y, c.z)
 				if stable then base = y; break end
 				if failure then blocker = failure end
@@ -406,7 +589,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 				if water_seen then
 					why = "water bottom beyond reach"
 					for y = ground - M.DEPTH, ground + 3 do
-						local name = region.get(c.x, y, c.z)
+						local name = get(c.x, y, c.z)
 						if water(name) then
 							blocker = {x = c.x, y = y, z = c.z, node = name,
 								search_limit_y = ground - M.DEPTH}
@@ -419,9 +602,17 @@ function M.inspect(wall, ground, region, node_info, protected)
 		local candidate = {}
 		local function add(x, y, z, name, param2)
 			if why then return end
-			local have = region.get(x, y, z)
-			if protected({x = x, y = y, z = z}) then why = "protected"; blocker = {x = x, y = y, z = z, node = have}
-			elseif not replaceable(have) and not vegetation(have) then why = "water or obstruction"; blocker = {x = x, y = y, z = z, node = have}
+			local have = get(x, y, z)
+			local reservation = c.clearance_protected
+			local reserved_cell = type(reservation) == "table" and reservation[voxel_key(x, y, z)]
+			if reserved_cell or protected({x = x, y = y, z = z}) then
+				why = "protected"
+				blocker = {x = x, y = y, z = z, node = have}
+			elseif have == "ignore" or (node_info(have) and node_info(have).liquid and not water(have)) then
+				why = "unloaded or non-water liquid obstruction"
+				blocker = {x = x, y = y, z = z, node = have}
+			elseif not replaceable(have) and not vegetation(have) and not (node_info(have) or {}).tree
+					and (x ~= c.x or z ~= c.z) then why = "water or obstruction"; blocker = {x = x, y = y, z = z, node = have}
 			else candidate[#candidate + 1] = {x = x, y = y, z = z, name = name, param2 = param2 or 0} end
 		end
 		if base or floating then
@@ -439,7 +630,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 					why = "protected"
 					if decoration_pos.unknown then blocker = {node = "unknown"}
 					else blocker = {x = decoration_pos.x, y = decoration_pos.y, z = decoration_pos.z,
-						node = region.get(decoration_pos.x, decoration_pos.y, decoration_pos.z)} end
+						node = get(decoration_pos.x, decoration_pos.y, decoration_pos.z)} end
 				end
 				local axis = d.x ~= 0 and c.z or c.x
 				if axis % 2 == 0 then
@@ -459,8 +650,25 @@ function M.inspect(wall, ground, region, node_info, protected)
 				candidate = core
 			end
 		end
-		if why then omission(c.x, c.z, why, blocker)
-		else for _, change in ipairs(candidate) do changes[#changes + 1] = change end end
+		if why then
+			for _, p in ipairs(staged_clear) do cleared[voxel_key(p.x,p.y,p.z)] = nil end
+			omission(c.x, c.z, why, blocker)
+		else
+			local function append_clear(p)
+				local vk = voxel_key(p.x,p.y,p.z)
+				if not emitted_clear[vk] then
+					emitted_clear[vk] = true
+					changes[#changes + 1] = {x=p.x,y=p.y,z=p.z,name="air",param2=0,clearance=true}
+				end
+			end
+			for _, p in ipairs(core_clear_by_cell[c] or {}) do
+				append_clear(p)
+			end
+			for _, p in ipairs(staged_clear) do
+				append_clear(p)
+			end
+			for _, change in ipairs(candidate) do changes[#changes + 1] = change end
+		end
 	end
 	-- Extend every crossing by three nodes. Only fill gaps above stable support;
 	-- avoid clearing solid terrain or structures in the approach headroom.
@@ -475,13 +683,13 @@ function M.inspect(wall, ground, region, node_info, protected)
 			if why then
 				if protected_pos.unknown then blocker = {node = "unknown"}
 				else blocker = {x = protected_pos.x, y = protected_pos.y, z = protected_pos.z,
-					node = region.get(protected_pos.x, protected_pos.y, protected_pos.z)} end
+					node = get(protected_pos.x, protected_pos.y, protected_pos.z)} end
 			end
 			if not why then
 				-- Probe only up to the road's fixed target surface. Raised
 				-- approaches are reported below without clearing or filling them.
 				for y = ground + 2, ground - M.DEPTH, -1 do
-					local name = region.get(x, y, z)
+					local name = get(x, y, z)
 					local stable, failure = supported(x, y, z)
 					if stable then base = y; break end
 					if failure then blocker = failure end
@@ -489,7 +697,8 @@ function M.inspect(wall, ground, region, node_info, protected)
 						water_seen = true
 						water_blocker = {x = x, y = y, z = z, node = name}
 					end
-					if not replaceable(name) and not vegetation(name) then
+					if not replaceable(name) and not vegetation(name)
+							and not (c.material and (node_info(name) or {}).tree) then
 						why = "water or obstruction"; blocker = failure or {x = x, y = y, z = z, node = name}; break
 					end
 				end
@@ -500,17 +709,18 @@ function M.inspect(wall, ground, region, node_info, protected)
 						blocker.search_limit_y = ground - M.DEPTH
 					elseif not blocker then
 						local y = ground - M.DEPTH
-						blocker = {x = x, y = y, z = z, node = region.get(x, y, z)}
+						blocker = {x = x, y = y, z = z, node = get(x, y, z)}
 					end
 				end
 				-- A road approach must meet the town at its planned ground level.
 				-- Leave a raised natural step untouched and report this crossing.
-				if base and base > ground then why = "raised terrain"; blocker = {x = x, y = base, z = z, node = region.get(x, base, z)} end
+				if base and base > ground then why = "raised terrain"; blocker = {x = x, y = base, z = z, node = get(x, base, z)} end
 			end
 			local proposed = {}
 			if base and not why then
-				if c.pave_surface and base == ground then
-					local name = region.get(x, ground, z)
+				if (c.pave_surface or (c.material and (vegetation(get(x, ground, z))
+						or (node_info(get(x, ground, z)) or {}).tree))) and base == ground then
+					local name = get(x, ground, z)
 					if protected({x = x, y = ground, z = z}) then
 						why = "protected"; blocker = {x = x, y = ground, z = z, node = name}
 					else
@@ -519,14 +729,17 @@ function M.inspect(wall, ground, region, node_info, protected)
 					end
 				end
 				for y = base + 1, ground + 2 do
-					local name = region.get(x, y, z)
+					local name = get(x, y, z)
 					if protected({x = x, y = y, z = z}) then why = "protected"; blocker = {x = x, y = y, z = z, node = name}; break end
-					if not replaceable(name) and not vegetation(name) then why = "water or obstruction"; blocker = {x = x, y = y, z = z, node = name}; break end
+					if not replaceable(name) and not vegetation(name)
+							and not (c.material and (node_info(name) or {}).tree) then
+						why = "water or obstruction"; blocker = {x = x, y = y, z = z, node = name}; break
+					end
 					if y <= ground then
 						proposed[#proposed + 1] = {x = x, y = y, z = z, name = c.material or M.BRICK, param2 = 0}
 					elseif water(name) then
 						why = "water in approach headroom"; blocker = {x = x, y = y, z = z, node = name}; break
-					elseif vegetation(name) then
+					elseif vegetation(name) or (c.material and (node_info(name) or {}).tree) then
 						proposed[#proposed + 1] = {x = x, y = y, z = z, name = "air", param2 = 0}
 					end
 				end
@@ -534,6 +747,45 @@ function M.inspect(wall, ground, region, node_info, protected)
 			if why then omission(x, z, "approach: " .. why, blocker)
 			else for _, change in ipairs(proposed) do changes[#changes + 1] = change end end
 		end
+	end
+	local wall_written = {}
+	for _, c in ipairs(changes) do
+		if c.name ~= "air" then wall_written[voxel_key(c.x,c.y,c.z)] = true end
+	end
+	-- Clear only around features actually placed, keeping all road and feature
+	-- footprints and protected voxels intact.
+	for _, feature in ipairs(wall.placed_features or {}) do
+	 for _, p in ipairs(M.feature_clearance_positions(feature)) do
+	  local k = key(p.x,p.z)
+	  local r = feature.street_rect
+	  local road = road_cells[k] or (r and p.x >= r.x1 and p.x <= r.x2 and p.z >= r.z1 and p.z <= r.z2)
+	  for _, street in ipairs(wall.streets or {}) do
+	   local sr = street.rect
+	   if sr and p.x >= sr.x1 and p.x <= sr.x2 and p.z >= sr.z1 and p.z <= sr.z2 then road = true end
+	  end
+	  for _, approach in ipairs(feature.outside_approach or {}) do
+	   for n = 0, 3 do
+	    if p.x == approach.x + n * approach.direction.x and p.z == approach.z + n * approach.direction.z then road = true end
+	   end
+	  end
+	  if not road and not feature_cells[k] and not wall_core[k] then
+	   for y = ground + 1, ground + M.CLEARANCE_TOP do
+	    local vk = voxel_key(p.x,y,p.z)
+	    local have = region.get(p.x,y,p.z)
+	    local info = node_info(have)
+	    if not emitted_clear[vk] and not wall_written[vk] and not (feature.clearance_protected or {})[vk]
+	      and not protected({x=p.x,y=y,z=p.z}) and have ~= "air" and have ~= "ignore"
+	      and not (info and info.liquid) then
+	     emitted_clear[vk] = true
+	     changes[#changes+1] = {x=p.x,y=y,z=p.z,name="air",param2=0,clearance=true}
+	    end
+	   end
+	  end
+	 end
+	end
+	for _, change in ipairs(changes) do
+		local existing = region.get(change.x, change.y, change.z)
+		if existing ~= "air" and existing ~= "ignore" then change.clear_metadata = true end
 	end
 	return changes, omissions
 end

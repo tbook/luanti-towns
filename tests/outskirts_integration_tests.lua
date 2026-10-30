@@ -96,7 +96,7 @@ local plots = {
 	{id = "h01", class = "hut", asset = "shepherd_hut", rotation = 0, ground_y = 10,
 		heights = {min = 10, max = 10}, rect = {x1 = 80, z1 = 40, x2 = 88, z2 = 47}},
 }
-local out = {entries = rural, protected = {margin = 4}, plots = plots}
+local out = {entries = rural, protected = {margin = 6}, plots = plots}
 local result = {plan = {seed = 8, town_type = "medieval", bounds = urban_bounds},
 	ground_y = 10, build_bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
 	build_volume = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
@@ -616,8 +616,8 @@ do
 		"blocked real outside approach omits its gatehouse")
 	road_blocked, join_blocked, gate_placements = false, true, {}
 	towns.populated.build(test_result, function(s) summary = s end)
-	eq(gate_placements[target.pos.x .. ":" .. target.pos.z], nil,
-		"obstructed adjoining wall column omits the gatehouse")
+	eq(gate_placements[target.pos.x .. ":" .. target.pos.z], true,
+		"clearance removes obstruction from adjoining wall column so gatehouse places")
 	features.corner_candidates, features.inline_candidates = real_corner_candidates, real_inline_candidates
 	walls.inspect = real_inspect
 	towns.builder.core_env = previous_env

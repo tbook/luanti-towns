@@ -28,7 +28,7 @@ F.constants = {
 	OUTER_BAND_NEAR = 24,
 	OUTER_BAND_FAR = 58,
 	MIN_SPACING = 20,
-	PROTECT_MARGIN = 4,
+	PROTECT_MARGIN = 6,
 	TERRAFORM_REACH = 10,
 	PLAYER_MARGIN = 16,
 	ATTEMPTS_PER_BUILDING = 6,
@@ -68,7 +68,7 @@ F.assets = {
 }
 
 -- Living Villages protected rectangle spelling: inclusive x0..z1 plus margin.
-F.protected = {x0 = 905, z0 = -2086, x1 = 1085, z1 = -1915, margin = 4}   -- plan.bounds
+F.protected = {x0 = 905, z0 = -2086, x1 = 1085, z1 = -1915, margin = 6}   -- plan.bounds
 F.bounds = {x1 = 905, z1 = -2086, x2 = 1085, z2 = -1915}      -- Roman plan.bounds at this centre
 
 -- Accepted plots. distance = Chebyshev gap between rect and plan.bounds.

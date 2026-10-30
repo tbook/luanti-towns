@@ -40,7 +40,7 @@ Paths in this section are relative to this repository unless prefixed with
 | `src/generate_command.lua` | Currently searches urban and rural sites before writes, preflights both, builds the town, applies rural terrain/structures, then initializes residents. |
 | `src/generate.lua` | Controller expects synchronous `deps.build(result)`. It currently releases its busy lock before invoking build. That is unsuitable for a build with asynchronous stages. |
 | `src/outskirts.lua` | Existing asynchronous, read-only plot search. Reads real map nodes; rejects water and footprint spread over four nodes. No change to its sampling algorithm is needed. |
-| `src/outskirts_terrain.lua` | Maps individual rural plots to Living Villages' schematic-based terrain API. Protects the urban **bounding rectangle plus four nodes**. Keep that rural contract unchanged. |
+| `src/outskirts_terrain.lua` | Maps individual rural plots to Living Villages' schematic-based terrain API. Protects the urban **bounding rectangle plus six nodes**. Keep that rural contract unchanged. |
 | `src/outskirts_build.lua` | Terraforms surviving plots first, then places structures. Existing declines/incomplete terrain omit individual plots. |
 | `../living_villages/init.lua` | Exposes `living_villages.terrain.volume`, `terraform`, `pads`, `targets`, `structure_test`; supplies default tree/structure helpers. |
 | `../living_villages/village_smoothing.lua` | Pure pad/height-grid slope solver; engine pipeline for load checks, trees, heights, structures, writes, then hole filling. Defaults: yard 2, radius 8, movement cap 5. |

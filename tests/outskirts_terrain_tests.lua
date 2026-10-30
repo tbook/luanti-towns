@@ -18,7 +18,7 @@ eq(p.pos.x == plot.rect.x1 and p.pos.y == plot.ground_y and p.pos.z == plot.rect
 eq(p.rotat, "90", "mapped rotation uses Living Villages spelling")
 eq(schematics[1].hwidth == 17 and schematics[1].hdepth == 13 and schematics[1].hheight == 2, true,
 	"mapped schematic dimensions use catalog size")
-eq(protected.margin, 4, "protected rectangle carries the margin once")
+eq(protected.margin, 6, "protected rectangle carries the margin once")
 
 local candidate = {{name = "farm", pos = {x = 10, z = 20}, rotat = "0"}}
 local opts = {surface_y = {min = 14, max = 110}}
