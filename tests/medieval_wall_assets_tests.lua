@@ -72,3 +72,5 @@ for z = 6, 7 do
 		end
 	end
 end
+local _, postern_door_facing = postern.at(1, 2, 6)
+eq(postern_door_facing, 3, "postern door faces local -X in the authored schematic")

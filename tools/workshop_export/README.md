@@ -400,5 +400,7 @@ the first lower door at (1,2,6). Both approaches have two clear nodes of
 headroom. The exporter checked all four schematic rotations and every catalog
 placement in a disposable world. Generation should align the door pair with
 the central two columns of a four-wide secondary road, tapering from four
-nodes inside to two through the postern and outside. In-game fit and the
-entrance's town-facing side remain to be confirmed.
+nodes inside to two through the postern and outside. Placement maps local +X
+outward, so the authored door facing (local -X) faces back toward town. The
+passage is otherwise symmetric across the wall plane. In-game fit remains to
+be confirmed.

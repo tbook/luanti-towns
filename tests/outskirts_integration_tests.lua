@@ -570,6 +570,73 @@ do
 	towns.populated.build(test_result, function(s) summary = s end)
 	eq(placed, 0, "building in gate volume prevents placement")
 	eq(approaches, 1, "failed gate keeps the original road approach")
+	-- An obstructed postern must leave all four secondary-road columns open
+	-- for the ordinary wall-gap inspection.
+	local real_posterns, real_feature_inspect, real_postern_wall_inspect =
+		walls.postern_candidates, features.inspect, walls.inspect
+	local postern = {asset = "wall_postern", rotation = 0, street = "secondary", material = "road",
+		street_rect = {x1 = 0, x2 = 5, z1 = -1, z2 = 2}, direction = {x = 1, z = 0},
+		wall_plane = {x = 5}, min = {x = 4, y = 9, z = -5}, max = {x = 6, y = 16, z = 4},
+		ground_offset = 1,
+		outside_approach = {{x = 7, z = 0, direction = {x = 1, z = 0}, material = "road", pave_surface = true},
+			{x = 7, z = 1, direction = {x = 1, z = 0}, material = "road", pave_surface = true}}}
+	postern.bounds = {min = postern.min, max = postern.max}
+	walls.gatehouse_candidates = function() return {} end
+	walls.postern_candidates = function(wall)
+		wall.openings = {}
+		for z = -1, 2 do wall.openings[#wall.openings + 1] = {x = 5, z = z,
+			direction = {x = 1, z = 0}, street = "secondary", kind = "secondary",
+			material = "road", street_rect = postern.street_rect} end
+		wall.cells = {{x = 5, z = -6, direction = {x = 1, z = 0}},
+			{x = 5, z = 5, direction = {x = 1, z = 0}}}
+		return {postern}
+	end
+	features.corner_candidates, features.inline_candidates = function() return {} end, function() return {} end
+	features.gate_joins = function() return true end
+	core.read_schematic = function(path)
+		local id = path:find("wall_postern", 1, true) and "wall_postern"
+			or path:find("wall_gatehouse", 1, true) and "wall_gatehouse"
+			or path:find("wall_tower_inline", 1, true) and "wall_tower_inline" or "wall_tower"
+		return {size = catalog.entries[id].size}
+	end
+	local fallback_width
+	local inspected_asset, inspection_reason
+	features.inspect = function(candidate, ...)
+		inspected_asset = candidate.asset
+		local ok, reason = real_feature_inspect(candidate, ...)
+		inspection_reason = reason
+		return ok, reason
+	end
+	walls.inspect = function(wall, ...)
+		if #wall.openings == 4 then fallback_width = #wall.openings end
+		return real_postern_wall_inspect(wall, ...)
+	end
+	test_result.plan = {seed = 8, town_type = "medieval", bounds = urban_bounds,
+		boundary = {rects = {{x1 = 0, z1 = 0, x2 = 3, z2 = 3}}},
+		streets = {{id = "secondary", kind = "secondary", rect = postern.street_rect}}}
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function() return {get = function(x, y, z)
+			if x == postern.min.x and y == postern.min.y + 2 and z == postern.min.z then
+				return "test:building"
+			end
+			return y <= 10 and "mcl_core:stone" or "air"
+		end, set = function() end, commit = function() end} end
+		env.place_structure = function(st) if st.id == "wall_postern" then placed = placed + 1 end; return true end
+		env.setup_nodes = function() return {failed = {}, unregistered = {}} end
+		return env
+	end
+	placed, fallback_width, inspected_asset, inspection_reason = 0, nil, nil, nil
+	local postern_summary
+	towns.populated.build(test_result, function(s) postern_summary = s end)
+	eq(inspected_asset, "wall_postern", "blocked fallback reaches inspection for a selected postern")
+	eq(inspection_reason and inspection_reason:find("obstruction test:building", 1, true) ~= nil, true,
+		"postern is omitted because its actual schematic footprint hits the test building")
+	eq(placed, 0, "building obstruction skips postern placement")
+	eq(#postern_summary.wall.features, 0, "skipped postern is not reported as placed")
+	eq(#test_result.wall_feature_footprints, 0, "skipped postern releases its reservation")
+	eq(fallback_width, 4, "skipped postern retains all four columns for wall-gap inspection")
+	walls.postern_candidates, features.inspect = real_posterns, real_feature_inspect
 	walls.gatehouse_candidates, features.gate_joins = real_gates, real_joins
 	walls.inspect = real_inspect
 	local medieval = dofile("src/medieval_planner.lua")

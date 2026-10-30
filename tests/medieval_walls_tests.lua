@@ -132,6 +132,61 @@ do
 	eq(#disjoint_candidates, 2, "disjoint six-node crossings on one wall plane form separate gates")
 	eq(#disjoint_candidates[1].openings, 6, "first disjoint gate claims only its own crossing")
 	eq(#disjoint_candidates[2].openings, 6, "second disjoint gate claims only its own crossing")
+	local postern_entry = {id = "wall_postern", size = {x = 3, y = 8, z = 10}, ground_offset = 1}
+	local postern_cases = {
+		{direction = {x = 1, z = 0}, rotation = 0, plane = {x = 20, z = 30}},
+		{direction = {x = 0, z = 1}, rotation = 270, plane = {x = 30, z = 20}},
+		{direction = {x = -1, z = 0}, rotation = 180, plane = {x = 20, z = 30}},
+		{direction = {x = 0, z = -1}, rotation = 90, plane = {x = 30, z = 20}},
+	}
+	for _, case in ipairs(postern_cases) do
+		local openings = {}
+		for i = 0, 3 do
+			openings[#openings + 1] = {x = case.plane.x, z = case.plane.z,
+				direction = case.direction, street = 8, kind = "secondary", material = "road",
+				street_rect = {x1 = 10, z1 = 10, x2 = 30, z2 = 30}}
+			if case.direction.x ~= 0 then openings[#openings].z = 10 + i
+			else openings[#openings].x = 10 + i end
+		end
+		local candidates = walls.postern_candidates({openings = openings}, 12, postern_entry)
+		eq(#candidates, 1, "four-wide external secondary crossing yields one postern")
+		local postern = candidates[1]
+		eq(postern.rotation, case.rotation, "postern rotates along the crossing axis")
+		eq(postern.road_width_inside, 4, "postern keeps four-wide road inside")
+		eq(postern.road_width_gate, 2, "postern narrows the gate to two")
+		eq(postern.road_width_outside, 2, "postern keeps two-wide road outside")
+		eq(postern.min.y, 11, "postern honors its captured foundation datum")
+		eq(#postern.door_cells, 2, "postern keeps both authored door leaves")
+		eq(#postern.outside_approach, 2, "postern extends only its two door columns outside")
+		local transverse = {}
+		for _, cell in ipairs(postern.door_cells) do
+			transverse[#transverse + 1] = case.direction.x ~= 0 and cell.z or cell.x
+			eq(case.direction.x ~= 0 and cell.x or cell.z,
+				case.direction.x ~= 0 and case.plane.x or case.plane.z,
+				"postern doors align with the wall plane")
+		end
+		table.sort(transverse)
+		eq(transverse[1], 11, "postern door pair begins at the crossing center")
+		eq(transverse[2], 12, "postern door pair ends at the crossing center")
+		local facings = {
+			[0] = {x = -1, z = 0}, [90] = {x = 0, z = 1},
+			[180] = {x = 1, z = 0}, [270] = {x = 0, z = -1},
+		}
+		local facing = facings[postern.rotation]
+		eq(facing.x * case.direction.x + facing.z * case.direction.z, -1,
+			"authored door faces toward town after rotation")
+		for _, approach in ipairs(postern.outside_approach) do
+			eq((approach.x - postern.door_cells[1].x) * case.direction.x
+				+ (approach.z - postern.door_cells[1].z) * case.direction.z, 2,
+				"postern outside approach starts beyond its outer face")
+		end
+		local paved = walls.inspect({cells = {}, openings = postern.outside_approach}, 12,
+			{get = function(_, y) return y <= 12 and "mcl_core:stone" or "air" end},
+			function(name) return {walkable = name == "mcl_core:stone"} end, function() return false end)
+		eq(#paved, 8, "postern paves four outside nodes on each of two road columns")
+	end
+	eq(#walls.postern_candidates({openings = gate_openings(postern_cases[1], 4, "principal")}, 12, postern_entry),
+		0, "principal crossings stay reserved for gatehouses")
 	eq(walls.plan(plan, false), nil, "wall can be forced off")
 	plan.town_type = "roman"
 	eq(walls.plan(plan, true), nil, "Roman towns never get walls")
