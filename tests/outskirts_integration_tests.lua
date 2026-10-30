@@ -453,19 +453,28 @@ do
 	towns.builder.core_env = previous_env
 end
 
--- A tower is inspected in full before force placement. Only a successful
--- placement removes the corresponding ordinary wall columns.
+-- An inline tower is inspected in full before force placement. Protected or
+-- obstructed placement keeps the corresponding ordinary wall columns.
 do
 	local walls = dofile("src/medieval_walls.lua")
 	local features = dofile("src/medieval_wall_features.lua")
-	local real_candidates, real_inspect = features.corner_candidates, walls.inspect
-	local candidate = {asset = "wall_tower", rotation = 0,
-		min = {x = -4, y = 10, z = -4}, max = {x = 3, y = 26, z = 3}}
-	features.corner_candidates = function() return {candidate} end
+	local real_corner_candidates, real_inline_candidates, real_inspect =
+		features.corner_candidates, features.inline_candidates, walls.inspect
+	local candidate = {asset = "wall_tower_inline", rotation = 180,
+		min = {x = -4, y = 9, z = -4}, max = {x = 2, y = 25, z = 2}}
+	features.corner_candidates = function() return {} end
+	features.inline_candidates = function() return {candidate} end
 	towns.medieval_walls, towns.medieval_wall_features = walls, features
 	towns.geometry = dofile("src/geometry.lua")
-	core.read_schematic = function() return {size = catalog.entries.wall_tower.size} end
-	core.is_protected = function() return false end
+	core.read_schematic = function(path)
+		return {size = path:find("wall_tower_inline", 1, true)
+			and catalog.entries.wall_tower_inline.size or catalog.entries.wall_tower.size}
+	end
+	local protected = false
+	core.is_protected = function(pos)
+		return protected and pos.x == candidate.min.x and pos.y == candidate.min.y - 32
+			and pos.z == candidate.min.z
+	end
 	towns.schematic.validate = function() return true end
 	defs[walls.BRICK], defs[walls.STAIR] = {walkable = true}, {walkable = true}
 	local blocked, placed, wall_count = false, 0
@@ -479,7 +488,10 @@ do
 			if blocked and x == -4 and z == -4 and y == 11 then return "test:building" end
 			return y <= 10 and "mcl_core:stone" or "air"
 		end, set = function() end, commit = function() end} end
-		env.place_structure = function(st) if st.id == "wall_tower" then placed = placed + 1 end; return true end
+		env.place_structure = function(st)
+			if st.id == "wall_tower_inline" then placed = placed + 1 end
+			return true
+		end
 		env.setup_nodes = function() return {failed = {}, unregistered = {}} end
 		return env
 	end
@@ -487,19 +499,38 @@ do
 		boundary = {rects = {{x1 = 0, z1 = 0, x2 = 20, z2 = 20}}}, streets = {}},
 		ground_y = 10, build_bounds = result.build_bounds, build_volume = result.build_volume,
 		player_pos = result.player_pos, force_walls = true}
+	local ordinary_wall_count = #walls.plan(test_result.plan, true).cells
+	local masked_wall_count = 0
+	for _, cell in ipairs(walls.plan(test_result.plan, true).cells) do
+		if cell.x >= candidate.min.x and cell.x <= candidate.max.x
+				and cell.z >= candidate.min.z and cell.z <= candidate.max.z then
+			masked_wall_count = masked_wall_count + 1
+		end
+	end
 	local summary
+	wall_count = nil
 	towns.populated.build(test_result, function(s) summary = s end)
-	eq(summary ~= nil, true, "tower path completes generation")
-	eq(placed, 1, "supported tower is placed")
-	eq(#summary.wall.features, 1, "placed tower is reported")
-	eq(#test_result.wall_feature_footprints, 1, "placed tower stays reserved from outskirts")
-	local suppressed_count = wall_count
+	eq(summary ~= nil, true, "inline tower path completes generation")
+	eq(placed, 1, "supported inline tower is placed")
+	eq(#summary.wall.features, 1, "placed inline tower is reported")
+	eq(#test_result.wall_feature_footprints, 1, "placed inline tower stays reserved from outskirts")
+	eq(wall_count, ordinary_wall_count - masked_wall_count,
+		"successful inline tower removes only wall columns inside its footprint")
+	protected, blocked, placed = true, false, 0
+	wall_count = nil
+	towns.populated.build(test_result, function(s) summary = s end)
+	eq(placed, 0, "protected inline tower is omitted")
+	eq(#summary.wall.features, 0, "protected inline tower is not reported as placed")
+	eq(#test_result.wall_feature_footprints, 0, "protected inline tower releases its reservation")
+	eq(wall_count, ordinary_wall_count, "protected inline tower retains every ordinary wall column")
+	protected = false
 	blocked, placed = true, 0
+	wall_count = nil
 	towns.populated.build(test_result, function(s) summary = s end)
-	eq(placed, 0, "obstructed schematic volume prevents tower placement")
-	eq(#summary.wall.features, 0, "omitted tower is not reported as placed")
-	eq(#test_result.wall_feature_footprints, 0, "omitted tower releases its outskirts reservation")
-	eq(wall_count > suppressed_count, true, "omitted tower retains normal wall columns")
+	eq(placed, 0, "obstructed schematic volume prevents inline tower placement")
+	eq(#summary.wall.features, 0, "omitted inline tower is not reported as placed")
+	eq(#test_result.wall_feature_footprints, 0, "omitted inline tower releases its outskirts reservation")
+	eq(wall_count, ordinary_wall_count, "obstructed inline tower retains every ordinary wall column")
 	-- Gate placement permits the pavement it replaces but never a building in
 	-- the same cell; failed inspection must leave the original approach intact.
 	local real_gates, real_joins = walls.gatehouse_candidates, features.gate_joins
@@ -515,6 +546,7 @@ do
 	features.gate_joins = function() return true end
 	core.read_schematic = function(path)
 		return {size = path:find("wall_gatehouse", 1, true) and catalog.entries.wall_gatehouse.size
+			or path:find("wall_tower_inline", 1, true) and catalog.entries.wall_tower_inline.size
 			or catalog.entries.wall_tower.size}
 	end
 	local approaches = 0
@@ -586,7 +618,64 @@ do
 	towns.populated.build(test_result, function(s) summary = s end)
 	eq(gate_placements[target.pos.x .. ":" .. target.pos.z], nil,
 		"obstructed adjoining wall column omits the gatehouse")
-	features.corner_candidates, walls.inspect = real_candidates, real_inspect
+	features.corner_candidates, features.inline_candidates = real_corner_candidates, real_inline_candidates
+	walls.inspect = real_inspect
+	towns.builder.core_env = previous_env
+end
+
+-- Keep the original corner-tower fallback regression separate from inline
+-- tower coverage: failed corner placement must also leave its wall intact.
+do
+	local walls = dofile("src/medieval_walls.lua")
+	local features = dofile("src/medieval_wall_features.lua")
+	local real_corner, real_inline, real_inspect =
+		features.corner_candidates, features.inline_candidates, walls.inspect
+	local candidate = {asset = "wall_tower", rotation = 0,
+		min = {x = -4, y = 10, z = -4}, max = {x = 3, y = 26, z = 3}}
+	features.corner_candidates = function() return {candidate} end
+	features.inline_candidates = function() return {} end
+	towns.medieval_walls, towns.medieval_wall_features = walls, features
+	towns.geometry = dofile("src/geometry.lua")
+	core.read_schematic = function(path)
+		if path:find("wall_gatehouse", 1, true) then return {size = catalog.entries.wall_gatehouse.size} end
+		if path:find("wall_tower_inline", 1, true) then return {size = catalog.entries.wall_tower_inline.size} end
+		return {size = catalog.entries.wall_tower.size}
+	end
+	core.is_protected = function() return false end
+	towns.schematic.validate = function() return true end
+	defs[walls.BRICK], defs[walls.STAIR] = {walkable = true}, {walkable = true}
+	local obstructed, placed, remaining_count = false, 0, nil
+	walls.inspect = function(wall) remaining_count = #wall.cells; return {}, {} end
+	towns.site_search.core_env = function() return {
+		emerge = function(_, _, done) done(true) end, after = function() end} end
+	local previous_env = towns.builder.core_env
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function() return {get = function(x, y, z)
+			if obstructed and x == -4 and y == 11 and z == -4 then return "test:building" end
+			return y <= 9 and "mcl_core:stone" or "air"
+		end, set = function() end, commit = function() end} end
+		env.place_structure = function(st)
+			if st.id == "wall_tower" then placed = placed + 1 end
+			return true
+		end
+		env.setup_nodes = function() return {failed = {}, unregistered = {}} end
+		return env
+	end
+	local test_result = {plan = {seed = 9, town_type = "medieval", bounds = urban_bounds,
+		boundary = {rects = {{x1 = 0, z1 = 0, x2 = 20, z2 = 20}}}, streets = {}},
+		ground_y = 10, build_bounds = result.build_bounds, build_volume = result.build_volume,
+		player_pos = result.player_pos, force_walls = true}
+	local ordinary_count = #walls.plan(test_result.plan, true).cells
+	remaining_count = nil
+	towns.populated.build(test_result, function() end)
+	eq(placed, 1, "corner tower still places through the shared feature path")
+	obstructed, placed, remaining_count = true, 0, nil
+	towns.populated.build(test_result, function() end)
+	eq(placed, 0, "obstructed corner tower is omitted")
+	eq(remaining_count, ordinary_count, "failed corner tower retains every ordinary wall column")
+	features.corner_candidates, features.inline_candidates = real_corner, real_inline
+	walls.inspect = real_inspect
 	towns.builder.core_env = previous_env
 end
 

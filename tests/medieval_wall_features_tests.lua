@@ -25,6 +25,138 @@ for _, t in ipairs(cases) do
 	eq(#features.corner_candidates(wall, 10, entry), 0, "missing wall join excludes tower")
 end
 
+-- Inline towers use the separate 7x7 straight-run asset. A 40-node run gets
+-- one centered tower; a 60-node run gets two with equal spacing.
+local inline_entry = {size = {x = 7, y = 17, z = 7}, ground_offset = 1}
+local inline = features.inline_candidates({runs = {
+	{direction = {x = 1, z = 0}, fixed = 12, first = 0, last = 39},
+	{direction = {x = 0, z = -1}, fixed = -4, first = 100, last = 159},
+	{direction = {x = -1, z = 0}, fixed = 25, first = 200, last = 218},
+}}, 50, inline_entry)
+eq(#inline, 3, "inline towers follow the floor(length / 20) - 1 count")
+eq(inline[1].asset, "wall_tower_inline", "straight runs use the inline tower asset")
+eq(inline[1].min.x, 9, "inline tower centers its wall core on a vertical wall run")
+eq(inline[1].min.z, 17, "one inline tower is centered on a 40-node run")
+eq(inline[1].rotation, 180, "positive X-facing wall turns the parapet outward")
+eq(inline[1].min.y, 49, "inline tower honors captured foundation datum")
+eq(inline[2].min.x, 117, "two inline towers are evenly distributed along a 60-node run")
+eq(inline[3].min.x, 137, "second inline tower uses the same even interval")
+eq(inline[2].min.z, -7, "inline tower centers its core on a horizontal wall run")
+eq(inline[2].rotation, 270, "negative Z-facing wall rotates the inline sample")
+eq(#features.inline_candidates({runs = {
+	{direction = {x = 0, z = 1}, fixed = 0, first = 0, last = 18},
+}}, 0, inline_entry), 0, "runs shorter than 20 nodes do not receive inline towers")
+
+-- The real inline MTS has its outer parapet/corbel facing canonical -X.
+-- Check the candidate rotation for each wall normal and that the captured
+-- corbel remains on that outward side after the rotation.
+do
+	local read_mts = dofile("tests/mts_reader.lua")
+	local schematic = read_mts("schematics/templates/wall_tower_inline.mts")
+	local directions = {
+		{x = 1, z = 0, rotation = 180}, {x = -1, z = 0, rotation = 0},
+		{x = 0, z = 1, rotation = 90}, {x = 0, z = -1, rotation = 270},
+	}
+	local function rotate(x, z, rotation)
+		if rotation == 90 then return z, 6 - x end
+		if rotation == 180 then return 6 - x, 6 - z end
+		if rotation == 270 then return 6 - z, x end
+		return x, z
+	end
+	local outward = {
+		[0] = {x = -1, z = 0}, [90] = {x = 0, z = 1},
+		[180] = {x = 1, z = 0}, [270] = {x = 0, z = -1},
+	}
+	local corbel = schematic.at(0, 13, 1)
+	eq(corbel, "mcl_stairs:stair_stonebrick", "MTS has a parapet corbel on canonical -X")
+	for _, direction in ipairs(directions) do
+		local run = {direction = {x = direction.x, z = direction.z},
+			fixed = 10, first = 0, last = 39}
+		local candidate = features.inline_candidates({runs = {run}}, 20, inline_entry)[1]
+		eq(candidate.rotation, direction.rotation, "inline tower rotates its outer parapet toward the wall exterior")
+		eq(outward[candidate.rotation].x, direction.x, "rotated parapet faces wall exterior X")
+		eq(outward[candidate.rotation].z, direction.z, "rotated parapet faces wall exterior Z")
+		local corbel_x, corbel_z = rotate(0, 1, candidate.rotation)
+		local core_x, core_z = rotate(3, 3, candidate.rotation)
+		local world_corbel = {x = candidate.min.x + corbel_x, z = candidate.min.z + corbel_z}
+		local world_core = {x = candidate.min.x + core_x, z = candidate.min.z + core_z}
+		eq(schematic.at(0, 13, 1), corbel, "source MTS corbel occupies canonical -X parapet")
+		local outward_dot = (world_corbel.x - world_core.x) * direction.x
+			+ (world_corbel.z - world_core.z) * direction.z
+		eq(outward_dot > 0, true, "rotated source corbel occupies the actual outward side")
+		for _, source_z in ipairs({0, 6}) do
+			for dy = 1, 4 do
+				local source_y = inline_entry.ground_offset + dy
+				eq(schematic.at(3, source_y, source_z), "mcl_core:stonebrick",
+					"source MTS has both wall tie-in stubs")
+			end
+			local tie_x, tie_z = rotate(3, source_z, candidate.rotation)
+			local world_x, world_z = candidate.min.x + tie_x, candidate.min.z + tie_z
+			if direction.x ~= 0 then
+				eq(world_x, run.fixed, "rotated tie-in stays on wall X centerline")
+				eq(world_z >= run.first and world_z <= run.last, true,
+					"both rotated tie-ins land on the uninterrupted run")
+			else
+				eq(world_z, run.fixed, "rotated tie-in stays on wall Z centerline")
+				eq(world_x >= run.first and world_x <= run.last, true,
+					"both rotated tie-ins land on the uninterrupted run")
+			end
+		end
+	end
+end
+
+-- A primary road opening removes wall cells and splits the real planned run;
+-- inline towers are candidates only on the two continuous flanking sections.
+do
+	local walls = dofile("src/medieval_walls.lua")
+	local catalog = dofile("src/catalog.lua")
+	local plan = {town_type = "medieval", seed = 3,
+		boundary = {rects = {{x1 = 0, x2 = 19, z1 = 0, z2 = 99}}},
+		streets = {{id = "main", kind = "principal", material = "road",
+			rect = {x1 = -10, x2 = 0, z1 = 45, z2 = 50}}}}
+	local wall = walls.plan(plan, true)
+	local flanks = {}
+	for _, run in ipairs(wall.runs) do
+		if run.direction.x == -1 and run.fixed == -1 then flanks[#flanks + 1] = run end
+	end
+	eq(#flanks, 2, "road opening splits the west wall into two runs")
+	local candidates = features.inline_candidates(wall, 0, catalog.entries.wall_tower_inline)
+	local west = {}
+	for _, candidate in ipairs(candidates) do
+		if candidate.min.x == -4 then west[#west + 1] = candidate end
+	end
+	eq(#west, 2, "each long uninterrupted flank gets an inline tower")
+	for _, candidate in ipairs(west) do
+		for _, opening in ipairs(wall.openings) do
+			for depth = 0, 3 do
+				local x = opening.x + opening.direction.x * depth
+				local z = opening.z + opening.direction.z * depth
+				eq(x >= candidate.min.x and x <= candidate.max.x
+					and z >= candidate.min.z and z <= candidate.max.z, false,
+					"inline tower footprint avoids every road opening node")
+			end
+		end
+	end
+end
+
+-- In a narrow neck, a tower's footprint reaches the opposite wall run. Reject
+-- those candidates so masking a tower never removes unrelated wall columns.
+do
+	local walls = dofile("src/medieval_walls.lua")
+	local plan = {town_type = "medieval", seed = 4,
+		boundary = {rects = {{x1 = 0, x2 = 1, z1 = 0, z2 = 99}}}, streets = {}}
+	local wall = walls.plan(plan, true)
+	eq(#features.inline_candidates(wall, 0, inline_entry), 0,
+		"narrow boundary rejects towers whose footprints touch the opposite wall")
+end
+local inline_plan_candidates = features.candidates({runs = {
+	{direction = {x = 1, z = 0}, fixed = 12, first = 0, last = 39},
+}, cells = {}, openings = {}, corners = {}}, 50,
+	{wall_tower_inline = inline_entry}, {gatehouse_candidates = function() return {} end})
+eq(#inline_plan_candidates, 1, "shared planning and placement candidates include inline towers")
+eq(#features.select(inline_plan_candidates, {{rect = {x1 = 9, x2 = 15, z1 = 17, z2 = 23}}}, {}), 0,
+	"inline tower reservations avoid authored building footprints")
+
 local outskirts = dofile("src/outskirts.lua")
 local protected = {x0 = 0, x1 = 10, z0 = 0, z1 = 10, margin = 4,
 	features = {{x1 = 15, x2 = 20, z1 = 0, z2 = 5}}}
@@ -248,6 +380,11 @@ do
   local candidates = features.candidates(walls.plan(plan, true), 0, catalog.entries, walls)
   local selected, reserved = features.select(candidates, sites, plan.streets)
   eq(#selected > 0, true, "eligible wall features are reserved")
+  local selected_inline = {}
+  for _, feature in ipairs(selected) do
+   if feature.asset == "wall_tower_inline" then selected_inline[#selected_inline + 1] = feature end
+  end
+  eq(#selected_inline > 0, true, "real planner reserves eligible inline tower plots before population")
   local occupants = {}
   if plan.reservations.jail then occupants[#occupants + 1] = plan.reservations.jail end
   for _, b in ipairs(plan.reservations.services or {}) do occupants[#occupants + 1] = b end
@@ -263,6 +400,17 @@ do
   for _, b in ipairs(occupants) do all_structures[#all_structures + 1] = b end
   local actual = features.select(candidates, all_structures, plan.streets, nil, true)
   eq(#actual, #selected, "actual eligible features match the planning reservations")
+  local actual_inline = {}
+  for _, feature in ipairs(actual) do
+   if feature.asset == "wall_tower_inline" then actual_inline[#actual_inline + 1] = feature end
+  end
+  eq(#actual_inline, #selected_inline, "runtime selection retains prepopulation inline tower reservations")
+  for i, candidate in ipairs(selected_inline) do
+   eq(actual_inline[i] and actual_inline[i].min.x, candidate.min.x,
+    "inline tower runtime reservation x matches prepopulation")
+   eq(actual_inline[i] and actual_inline[i].min.z, candidate.min.z,
+    "inline tower runtime reservation z matches prepopulation")
+  end
   for i, candidate in ipairs(selected) do
    eq(actual[i] and actual[i].min.x, candidate.min.x, "reserved feature x agrees with placement")
    eq(actual[i] and actual[i].min.z, candidate.min.z, "reserved feature z agrees with placement")
