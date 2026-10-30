@@ -186,7 +186,8 @@ local function build_urban(result)
 		local features = towns.medieval_wall_features
 		local valid_entries = valid_wall_entries()
   local candidates = features.candidates(result.wall, result.ground_y, valid_entries, walls,
-   function() core.log("warning", "towns: wall_gatehouse omitted: missing adjoining wall columns") end)
+   function(candidate) core.log("warning", "towns: " .. candidate.asset
+		.. " omitted: missing adjoining wall columns") end)
 		result.wall_features, result.wall_feature_footprints = features.select(candidates,
 			pre.structures, result.plan.streets, function(pos) return core.is_protected(pos, "") end)
 		for _, feature in ipairs(result.wall_features) do

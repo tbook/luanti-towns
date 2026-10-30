@@ -271,6 +271,115 @@ function M.gatehouse_candidates(wall, ground, entry)
 	return candidates
 end
 
+-- Return authored posterns for complete four-node secondary-road crossings.
+-- The postern is 3 nodes deep and 10 wide; its double door at local
+-- (x=1,z=6..7) is centered on the inner two columns of the road. The long
+-- capture dimension runs along the wall, replacing the wall around that door.
+function M.postern_candidates(wall, ground, entry)
+	assert(type(wall) == "table" and type(wall.openings) == "table", "wall openings are required")
+	assert(type(entry) == "table" and type(entry.size) == "table", "postern catalog entry is required")
+	assert(entry.size.x == 3 and entry.size.z == 10, "postern attachment contract requires a 3 by 10 template")
+	local groups = {}
+	for _, opening in ipairs(wall.openings) do
+		if opening.kind == "secondary" and opening.street ~= nil then
+			local d = opening.direction
+			local fixed = d.x ~= 0 and opening.x or opening.z
+			local key = table.concat({opening.street, d.x, d.z, fixed}, ":")
+			local group = groups[key]
+			if not group then
+				group = {street = opening.street, direction = {x = d.x, z = d.z}, fixed = fixed,
+					kind = opening.kind, material = opening.material, street_rect = opening.street_rect, columns = {}}
+				groups[key] = group
+			end
+			group.columns[#group.columns + 1] = opening
+		end
+	end
+	local rotations = {
+		["1:0"] = 0, ["-1:0"] = 180,
+		["0:1"] = 270, ["0:-1"] = 90,
+	}
+	local function rotate(x, z, rotation)
+		if rotation == 0 then return x, z end
+		if rotation == 90 then return z, entry.size.x - 1 - x end
+		if rotation == 180 then return entry.size.x - 1 - x, entry.size.z - 1 - z end
+		return entry.size.z - 1 - z, x
+	end
+	local candidates = {}
+	for _, group in pairs(groups) do
+		local d = group.direction
+		local rotation = rotations[d.x .. ":" .. d.z]
+		local unique, values = {}, {}
+		for _, opening in ipairs(group.columns) do
+			local transverse = d.x ~= 0 and opening.z or opening.x
+			if not unique[transverse] then unique[transverse] = opening; values[#values + 1] = transverse end
+		end
+		table.sort(values)
+		local run = {}
+		local previous
+		local function finish_run()
+			if #run ~= 4 then run = {}; return end
+			local door_a_x, door_a_z = rotate(1, 6, rotation)
+			local door_b_x, door_b_z = rotate(1, 7, rotation)
+			local normal_axis = d.x ~= 0 and "x" or "z"
+			local tangent_axis = d.x ~= 0 and "z" or "x"
+			local normal_a = normal_axis == "x" and door_a_x or door_a_z
+			local normal_b = normal_axis == "x" and door_b_x or door_b_z
+			local tangent_a = tangent_axis == "x" and door_a_x or door_a_z
+			local tangent_b = tangent_axis == "x" and door_b_x or door_b_z
+			assert(normal_a == normal_b, "postern door pair must share a wall plane")
+			local door_low = math.min(tangent_a, tangent_b)
+			local first = run[1]
+			local target_low = first + 1
+			local tangent_origin = target_low - door_low
+			local plane = group.fixed
+			local normal_origin = plane - normal_a
+			local pos = normal_axis == "x" and {x = normal_origin, y = ground - (entry.ground_offset or 0), z = tangent_origin}
+				or {x = tangent_origin, y = ground - (entry.ground_offset or 0), z = normal_origin}
+			local sx, sz = entry.size.x, entry.size.z
+			if rotation == 90 or rotation == 270 then sx, sz = sz, sx end
+			local candidate = {
+				asset = entry.id or "wall_postern", rotation = rotation, pos = pos,
+				min = pos, max = {x = pos.x + sx - 1,
+					y = pos.y + entry.size.y - 1, z = pos.z + sz - 1},
+				direction = d, street = group.street, kind = group.kind, material = group.material,
+				street_rect = group.street_rect, wall_plane = d.x ~= 0 and {x = plane} or {z = plane},
+				openings = {unique[run[1]], unique[run[2]], unique[run[3]], unique[run[4]]},
+				passage = {first = 1, last = 2, width = 2},
+				road_width_inside = 4, road_width_gate = 2, road_width_outside = 2,
+				ground_offset = entry.ground_offset or 0,
+			}
+			candidate.bounds = {min = candidate.min, max = candidate.max}
+			candidate.door_cells = {}
+			for _, local_door in ipairs({{1, 6}, {1, 7}}) do
+				local rx, rz = rotate(local_door[1], local_door[2], rotation)
+				candidate.door_cells[#candidate.door_cells + 1] = {x = pos.x + rx, z = pos.z + rz}
+			end
+			candidate.outside_approach = {}
+			-- The asset extends one node past the wall plane on each side. Extend
+			-- the two door columns four more nodes outside the town.
+			for _, door in ipairs(candidate.door_cells) do
+				candidate.outside_approach[#candidate.outside_approach + 1] = {
+					x = door.x + d.x * 2, z = door.z + d.z * 2,
+					direction = d, material = group.material, pave_surface = true,
+				}
+			end
+			candidates[#candidates + 1] = candidate
+		end
+		for _, transverse in ipairs(values) do
+			if previous and transverse ~= previous + 1 then finish_run() end
+			run[#run + 1] = transverse
+			previous = transverse
+		end
+		finish_run()
+	end
+	table.sort(candidates, function(a, b)
+		if a.street ~= b.street then return a.street < b.street end
+		if a.wall_plane.x ~= b.wall_plane.x then return (a.wall_plane.x or -math.huge) < (b.wall_plane.x or -math.huge) end
+		return (a.wall_plane.z or -math.huge) < (b.wall_plane.z or -math.huge)
+	end)
+	return candidates
+end
+
 -- Search for support up to 32 nodes below the town surface. Beyond that,
 -- an unobstructed wall column hangs from its normal level top for this same
 -- maximum depth instead of disappearing entirely.

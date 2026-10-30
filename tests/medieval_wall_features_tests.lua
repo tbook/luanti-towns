@@ -64,6 +64,30 @@ eq(#features.inline_candidates({runs = {
 	{direction = {x = 0, z = 1}, fixed = 0, first = 0, last = 18},
 }}, 0, inline_entry), 0, "runs shorter than 20 nodes do not receive inline towers")
 
+-- External four-wide secondary openings reserve a postern before any towers.
+do
+	local walls = dofile("src/medieval_walls.lua")
+	local entry = {id = "wall_postern", size = {x = 3, y = 8, z = 10}, ground_offset = 1}
+	local wall = {cells = {{x = 20, z = 4, direction = {x = 1, z = 0}},
+		{x = 20, z = 15, direction = {x = 1, z = 0}}}, openings = {}}
+	for z = 10, 13 do
+		wall.openings[#wall.openings + 1] = {x = 20, z = z, direction = {x = 1, z = 0},
+			street = 9, kind = "secondary", material = "road",
+			street_rect = {x1 = 12, z1 = 10, x2 = 20, z2 = 13}}
+	end
+	local candidates = features.candidates(wall, 12, {wall_postern = entry}, walls)
+	eq(#candidates, 1, "shared wall feature planning includes the postern")
+	eq(candidates[1].asset, "wall_postern", "secondary crossing selects the postern asset")
+	eq(candidates[1].reserve_rect.x2 >= 25 and candidates[1].reserve_rect.z1 <= 4
+		and candidates[1].reserve_rect.z2 >= 15, true,
+		"postern reservation includes its full capture and outside road")
+	local selected = features.select(candidates, {}, {}, nil)
+	eq(#selected, 1, "eligible postern survives shared footprint selection")
+	local remaining = features.remaining_wall({cells = wall.cells, openings = wall.openings},
+		{features.footprint(selected[1])})
+	eq(#remaining.openings, 0, "placed postern masks the full four-wide wall opening")
+end
+
 -- The real inline MTS has its outer parapet/corbel facing canonical -X.
 -- Check the candidate rotation for each wall normal and that the captured
 -- corbel remains on that outward side after the rotation.
@@ -434,6 +458,37 @@ do
    eq(actual[i] and actual[i].min.z, candidate.min.z, "reserved feature z agrees with placement")
   end
  end
+	-- Real planner layouts exercise every boundary turn. The postern must
+	-- preserve the authored pair's alignment, facing and end joins each time.
+	local rotations = {}
+	for seed = 1, 4 do
+		local plan = assert(planner.plan({x = 0, z = 0}, seed,
+			{landmarks = profile, force_walls = true}))
+		local wall = walls.plan(plan, true)
+		local posts = walls.postern_candidates(wall, 0, catalog.entries.wall_postern)
+		local joins = 0
+		eq(#posts, 4, "real-planner seed " .. seed .. " finds four secondary crossings")
+		for _, postern in ipairs(posts) do
+			rotations[postern.rotation] = true
+			if features.gate_joins(postern, wall) then joins = joins + 1 end
+			local low = math.huge
+			for _, opening in ipairs(postern.openings) do
+				local transverse = postern.direction.x ~= 0 and opening.z or opening.x
+				low = math.min(low, transverse)
+			end
+			local pair = {}
+			for _, door in ipairs(postern.door_cells) do
+				pair[#pair + 1] = postern.direction.x ~= 0 and door.z or door.x
+			end
+			table.sort(pair)
+			eq(pair[1], low + 1, "real-planner postern centers its first door, seed " .. seed)
+			eq(pair[2], low + 2, "real-planner postern centers its second door, seed " .. seed)
+		end
+		eq(joins, 3, "real-planner seed " .. seed .. " retains three posterns with both wall joins")
+	end
+	for _, rotation in ipairs({0, 90, 180, 270}) do
+		eq(rotations[rotation], true, "real-planner postern covers wall turn " .. rotation)
+	end
 end
 
 -- Empty asset availability produces precisely the same population as walls=off.

@@ -153,15 +153,16 @@ end
 -- Shared candidate construction for planning reservations and actual placement.
 function M.candidates(wall, ground, entries, walls, missing_join)
  local candidates = {}
- for _, spec in ipairs({{id = "wall_gatehouse", gate = true}, {id = "wall_tower"},
+ for _, spec in ipairs({{id = "wall_gatehouse", gate = true}, {id = "wall_postern", postern = true}, {id = "wall_tower"},
 	{id = "wall_tower_inline", inline = true}}) do
   local entry = entries[spec.id]
   if entry then
    local found = spec.gate and walls.gatehouse_candidates(wall, ground, entry)
+    or (spec.postern and walls.postern_candidates(wall, ground, entry))
     or (spec.inline and M.inline_candidates(wall, ground, entry))
     or M.corner_candidates(wall, ground, entry)
    for _, candidate in ipairs(found) do
-    if spec.gate then
+    if spec.gate or spec.postern then
      candidate.min, candidate.max = candidate.bounds.min, candidate.bounds.max
      candidate.reserve_rect = M.footprint(candidate)
      for _, c in ipairs(candidate.outside_approach or {}) do
@@ -176,7 +177,7 @@ function M.candidates(wall, ground, entries, walls, missing_join)
      if candidate.direction.x ~= 0 then r.z1, r.z2 = r.z1 - 1, r.z2 + 1
      else r.x1, r.x2 = r.x1 - 1, r.x2 + 1 end
     end
-    if not spec.gate or M.gate_joins(candidate, wall) then
+    if (not spec.gate and not spec.postern) or M.gate_joins(candidate, wall) then
      candidates[#candidates + 1] = candidate
     elseif missing_join then
      missing_join(candidate)
@@ -331,7 +332,8 @@ function M.inspect(candidate, region, node_info, protected, natural)
 				local name = region.get(x, y, z)
 				local item = node_info(name)
 				if protected({x = x, y = y, z = z}) then return nil, "protected" end
-				local road = candidate.street_rect and y == candidate.min.y and name == candidate.material
+				local road_y = candidate.min.y + (candidate.ground_offset or 0)
+				local road = candidate.street_rect and y == road_y and name == candidate.material
 					and x >= candidate.street_rect.x1 and x <= candidate.street_rect.x2
 					and z >= candidate.street_rect.z1 and z <= candidate.street_rect.z2
 				if name ~= "air" and not road and not vegetation(item)
