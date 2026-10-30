@@ -2,8 +2,7 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "wall_gatehouse",
-    "wall_tower_inline"
+    "wall_postern"
   ],
   "buildings": [
     {
@@ -1914,12 +1913,61 @@
       "wall_count": 0,
       "wall_mismatches": 0,
       "snapshot_sha256": "7edfe3e0b2bff79f64df0b2332ef25d98f549e85d3639d0b57c459f9fd6bcfcf"
+    },
+    {
+      "entrance": {
+        "x": 1,
+        "y": 2,
+        "z": 6
+      },
+      "entrance_kind": "door",
+      "ground_offset": 1,
+      "id": "wall_postern",
+      "label": "Secondary-road postern",
+      "required_nodes": [
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:gravel",
+        "mcl_core:stonebrick",
+        "mcl_deepslate:deepslate_cobbled",
+        "mcl_doors:spruce_door_b_1",
+        "mcl_doors:spruce_door_b_3",
+        "mcl_doors:spruce_door_t_1",
+        "mcl_doors:spruce_door_t_3",
+        "mcl_stairs:stair_deepslate_cobbled",
+        "mcl_stairs:stair_stonebrick"
+      ],
+      "rotation": 0,
+      "size": {
+        "x": 3,
+        "y": 8,
+        "z": 10
+      },
+      "source_max": {
+        "x": 293,
+        "y": 14,
+        "z": 204
+      },
+      "source_min": {
+        "x": 291,
+        "y": 7,
+        "z": 195
+      },
+      "source_size": {
+        "x": 3,
+        "y": 8,
+        "z": 10
+      },
+      "verified_nodes": 240,
+      "wall_count": 0,
+      "wall_mismatches": 0,
+      "snapshot_sha256": "dc5e09758233f543d2cdf863ac7a3c46e8c1c1e21283ba6d9652b35d252c188f"
     }
   ],
   "runtime_validation": {
     "inventory_lists": 2440,
-    "metadata_nodes": 4676,
-    "non_air_nodes": 430036,
-    "placements": 132
+    "metadata_nodes": 4740,
+    "non_air_nodes": 433628,
+    "placements": 144
   }
 }
