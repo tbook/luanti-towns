@@ -1082,6 +1082,74 @@ do
 		local _, o17 = ramp({x = 1, z = 0}, 1, function(d) return d >= 1 and 15 or 0 end)
 		eq(#o17, 1, "terrain first met at column 17 is omitted")
 	end
+	-- Bare openings (no gatehouse/postern) are graded by the same ramp.
+	do
+		local function info(name)
+			if name == "test:water" then return {liquid = true, walkable = false} end
+			return {walkable = name ~= "air"}
+		end
+		local function opening(kind, n)
+			local out = {}
+			for z = 0, n - 1 do
+				out[#out + 1] = {x = 0, z = z, direction = {x = 1, z = 0}, street = 1, kind = kind}
+			end
+			return out
+		end
+		local function grade(kind, n, height, special)
+			local region = {get = function(x, y, z)
+				if special and special(x, y, z) then return special(x, y, z) end
+				return y <= height(x) and "mcl_core:stone" or "air"
+			end}
+			local o = opening(kind, n)
+			local changes, failures = walls.grade_openings(o, 0, region, info, function() return false end)
+			local at = {}
+			for _, c in ipairs(changes) do at[c.x .. ":" .. c.y .. ":" .. c.z] = c end
+			return changes, failures, at, o
+		end
+		local crossings = walls.bare_crossings(opening("principal", 6))
+		eq(#crossings, 1, "principal opening is one crossing")
+		eq(#crossings[1], 4, "principal opening grades four central columns")
+		eq(crossings[1][1].z, 1, "principal grading is centered")
+		crossings = walls.bare_crossings(opening("secondary", 4))
+		eq(#crossings[1], 2, "secondary opening grades two central columns")
+		eq(crossings[1][1].z, 1, "secondary grading is centered")
+		eq(#walls.bare_crossings(opening("principal", 5)), 0, "uncenterable crossing is skipped")
+		eq(#walls.bare_crossings(opening("principal", 3)), 0, "too narrow crossing is skipped")
+		local changes, failures, _, o = grade("principal", 6, function(x) return x >= 6 and 3 or 0 end)
+		eq(#failures, 0, "rising terrain is graded")
+		eq(o[1].graded, nil, "flank column keeps its legacy stub")
+		eq(o[2].graded, true, "central column is flagged graded")
+		local rows = {}
+		for _, c in ipairs(changes) do rows[c.z] = true end
+		eq(rows[1] and rows[4] and not rows[0] and not rows[5], true, "ramp covers only the central columns")
+		_, failures, at = grade("principal", 6, function(x) return x >= 3 and 1 or 0 end)
+		eq(#failures, 0, "gentle rise is graded")
+		local rise = at["3:1:1"]
+		eq(rise ~= nil and rise.name, walls.RAMP_SLAB, "rising ramp starts with a slab")
+		_, failures, at = grade("secondary", 4, function(x) return x >= 2 and -3 or 0 end)
+		eq(#failures, 0, "falling terrain is graded")
+		local deepest = 0
+		for key, c in pairs(at) do if c.name ~= "air" then deepest = math.min(deepest, c.y) end end
+		eq(deepest < 0, true, "falling ramp descends")
+		eq(at["0:0:0"], nil, "secondary flank is untouched")
+		_, failures, _, o = grade("principal", 6, function() return 0 end, function(x, y) if x == 2 and y == 1 then return "test:water" end end)
+		eq(#failures, 1, "water blocks grading")
+		eq(failures[1].blocker.node, "test:water", "failure names the blocker")
+		eq(o[2].graded, nil, "failed crossing is not flagged")
+		_, failures = grade("principal", 6, function(x) return 2 * x end)
+		eq(failures[1].reason:match("terrain not met") ~= nil, true, "unreachable terrain fails")
+		local protect_region = {get = function(_, y) return y <= 0 and "mcl_core:stone" or "air" end}
+		_, failures = walls.grade_openings(opening("principal", 6), 0, protect_region, info,
+			function(p) return p.x == 2 end)
+		eq(failures[1].reason, "approach: protected", "protected node blocks grading")
+		-- A graded opening is skipped by inspect; an ungraded one keeps the stub.
+		local flat = {get = function(_, y) return y <= 0 and "mcl_core:stone" or "air" end}
+		local o2 = opening("principal", 6)
+		local base = walls.inspect({cells = {}, openings = o2}, 0, flat, info, function() return false end)
+		o2[2].graded, o2[3].graded, o2[4].graded, o2[5].graded = true, true, true, true
+		local skipped = walls.inspect({cells = {}, openings = o2}, 0, flat, info, function() return false end)
+		eq(#skipped <= #base, true, "graded openings are not rebuilt by inspect")
+	end
 	-- Regression: adjacent ramp columns are always walkable. A descending stair
 	-- followed by a slab once left a 1.5 node climb when walking back to town.
 	do

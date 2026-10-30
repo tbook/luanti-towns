@@ -123,6 +123,15 @@ local function warning(summary, message)
 	core.log("warning", "towns: " .. message)
 end
 
+-- " blocker=(x,y,z) node=name" suffix for an omission blocker, or "".
+local function blocker_text(b)
+	if not b then return "" end
+	if b.x and b.y and b.z then
+		return (" blocker=(%d,%d,%d) node=%s"):format(b.x, b.y, b.z, tostring(b.node))
+	end
+	return " blocker=unknown node=" .. tostring(b.node or "unknown")
+end
+
 local function build_urban(result)
 	local walls = towns.medieval_walls
 	if walls and result.plan.town_type == "medieval" then
@@ -188,7 +197,8 @@ local function build_urban(result)
   local candidates = features.candidates(result.wall, result.ground_y, valid_entries, walls,
    function(candidate) core.log("warning", "towns: " .. candidate.asset
 		.. " omitted: missing adjoining wall columns") end)
-		result.wall_features, result.wall_feature_footprints = features.select(candidates,
+		local rejected
+		result.wall_features, result.wall_feature_footprints, rejected = features.select(candidates,
 			pre.structures, result.plan.streets, function(pos) return core.is_protected(pos, "") end)
 		for _, feature in ipairs(result.wall_features) do
 			local apron = walls.feature_clearance_bounds(feature, result.ground_y)
@@ -201,9 +211,9 @@ local function build_urban(result)
 			end
 			walls.reserve_feature_clearance(feature, result.ground_y, function(pos) return core.is_protected(pos, "") end)
 		end
-		if #result.wall_features < #candidates then
-			core.log("warning", ("towns: omitted %d wall features due to overlap or protection")
-				:format(#candidates - #result.wall_features))
+		for _, r in ipairs(rejected or {}) do
+			core.log("warning", ("towns: %s at (%d,%d) omitted: %s"):format(
+				r.candidate.asset, r.candidate.min.x, r.candidate.min.z, r.reason))
 		end
 	end
 	local env = towns.builder.core_env(core, {
@@ -380,6 +390,9 @@ local function build(result, done)
 		-- boundary-smoothing result must not suppress the whole wall.
 		local wall_bounds = wall and walls.bounds(wall, result.ground_y)
 		local boxes = {wall_bounds}
+		for _, columns in ipairs(wall and walls.bare_crossings(wall.openings) or {}) do
+			boxes[#boxes + 1] = walls.approach_bounds(columns, result.ground_y)
+		end
 		for _, feature in ipairs(result.wall_features or {}) do
 			boxes[#boxes + 1] = walls.feature_clearance_bounds(feature, result.ground_y)
 			boxes[#boxes + 1] = {min = {x = feature.min.x,
@@ -441,12 +454,14 @@ local function build(result, done)
 							result.ground_y, r, env.node_info, function(pos) return core.is_protected(pos, "") end)
 						for _, omission in ipairs(join_omissions) do
 							if not omission.reason:match("^decoration: ") then
-								return nil, "wall join: " .. omission.reason, r
+								return nil, "wall join: " .. omission.reason .. blocker_text(omission.blocker), r
 							end
 						end
 						local changes, omissions, length = walls.approach(feature.outside_approach,
 							result.ground_y, r, env.node_info, function(pos) return core.is_protected(pos, "") end)
-						if #omissions > 0 then return nil, "outside road: " .. omissions[1].reason, r end
+						if #omissions > 0 then
+							return nil, "outside road: " .. omissions[1].reason .. blocker_text(omissions[1].blocker), r
+						end
 						feature.approach_length = length
 						return ok, detail, raw_region, changes, clearance
 					end
@@ -517,8 +532,17 @@ local function build(result, done)
 			remaining.streets = result.plan.streets
 			local read_ok, changes, omissions, region = pcall(function()
 				local r = assert(env.open_region(bounds.min, bounds.max))
-				local c, o = walls.inspect(remaining, result.ground_y, r, env.node_info,
-					function(pos) return core.is_protected(pos, "") end)
+				local is_protected = function(pos) return core.is_protected(pos, "") end
+				-- Openings left without a gatehouse/postern get the graded ramp;
+				-- the ramp is appended last so it wins over wall clearance.
+				local ramp, ramp_failures = walls.grade_openings(remaining.openings,
+					result.ground_y, r, env.node_info, is_protected)
+				for _, f in ipairs(ramp_failures) do
+					warning(summary, ("wall opening at (%d,%d) left ungraded: %s%s"):format(
+						f.x, f.z, f.reason, blocker_text(f.blocker)))
+				end
+				local c, o = walls.inspect(remaining, result.ground_y, r, env.node_info, is_protected)
+				for _, change in ipairs(ramp) do c[#c + 1] = change end
 				return c, o, r
 			end)
 			if not read_ok then

@@ -789,7 +789,8 @@ function M.inspect(wall, ground, region, node_info, protected)
 	-- Extend every crossing by three nodes. Only fill gaps above stable support;
 	-- avoid clearing solid terrain or structures in the approach headroom.
 	for _, c in ipairs(wall.openings) do
-		for distance = 0, 3 do
+		-- Openings graded by M.grade_openings are replaced by a ramp.
+		for distance = 0, c.graded and -1 or 3 do
 			local x, z = c.x + c.direction.x * distance, c.z + c.direction.z * distance
 			-- Any protected node reserved anywhere along the opening preserves
 			-- the original behavior: the complete road approach stays untouched.
@@ -927,6 +928,59 @@ function M.approach_bounds(columns, ground)
 	local r = M.approach_rect(columns, M.RAMP_MAX)
 	return {min = {x = r.x1, y = ground - M.DEPTH, z = r.z1},
 		max = {x = r.x2, y = ground + M.RAMP_MAX + 4, z = r.z2}}
+end
+
+-- Outside road widths for an opening that has no gatehouse/postern.
+M.BARE_WIDTH = {principal = 4, secondary = 2}
+
+-- Group openings into contiguous crossings and return, for each, the central
+-- columns (principal 4, secondary 2) that get a graded ramp. Crossings that
+-- cannot be centered on that width are skipped and keep the legacy stub.
+function M.bare_crossings(openings)
+	local groups, order = {}, {}
+	for _, o in ipairs(openings) do
+		local d = o.direction
+		local transverse = d.x ~= 0 and o.z or o.x
+		local k = tostring(o.street) .. ":" .. d.x .. ":" .. d.z .. ":" .. (d.x ~= 0 and o.x or o.z)
+		if not groups[k] then groups[k] = {}; order[#order + 1] = k end
+		groups[k][#groups[k] + 1] = {t = transverse, o = o}
+	end
+	table.sort(order)
+	local out = {}
+	for _, k in ipairs(order) do
+		local list = groups[k]
+		table.sort(list, function(a, b) return a.t < b.t end)
+		local i = 1
+		while i <= #list do
+			local j = i
+			while j < #list and list[j + 1].t == list[j].t + 1 do j = j + 1 end
+			local n = j - i + 1
+			local width = M.BARE_WIDTH[list[i].o.kind]
+			if width and n >= width and (n - width) % 2 == 0 then
+				local trim, columns = (n - width) / 2, {}
+				for m = i + trim, j - trim do columns[#columns + 1] = list[m].o end
+				out[#out + 1] = columns
+			end
+			i = j + 1
+		end
+	end
+	return out
+end
+
+-- Grade each bare crossing with the outside-road ramp. Returns the ramp
+-- changes and a list of failed omissions; graded openings are flagged so
+-- inspect skips the flat stub. A failed crossing keeps the legacy behavior.
+function M.grade_openings(openings, ground, region, node_info, protected)
+	local changes, failures = {}, {}
+	for _, columns in ipairs(M.bare_crossings(openings)) do
+		local ramp, omissions = M.approach(columns, ground, region, node_info, protected)
+		if #omissions > 0 then failures[#failures + 1] = omissions[1]
+		else
+			for _, c in ipairs(ramp) do changes[#changes + 1] = c end
+			for _, c in ipairs(columns) do c.graded = true end
+		end
+	end
+	return changes, failures
 end
 
 local FACEDIR = {["0:1"] = 0, ["1:0"] = 1, ["0:-1"] = 2, ["-1:0"] = 3}

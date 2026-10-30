@@ -226,6 +226,22 @@ chosen = features.select({feature, feature}, {}, {}, function() return false end
 eq(#chosen, 1, "overlapping candidates are reserved only once")
 chosen = features.select({feature}, {}, {}, function(p) return p.y == 11 and p.x == 1 end)
 eq(#chosen, 0, "protection anywhere in full height prevents reservation")
+do
+	local function reason(structures, streets, protected, list, ignore_limits)
+		local _, _, rejected = features.select(list or {feature}, structures, streets, protected, ignore_limits)
+		return rejected[1] and rejected[1].reason, rejected
+	end
+	eq(reason({{rect = {x1 = 1, x2 = 3, z1 = 1, z2 = 3}, kind = "house"}}, {}), "structure:house", "structure reason")
+	eq(reason({{rect = {x1 = 1, x2 = 3, z1 = 1, z2 = 3}, name = "castle"}}, {}), "structure:castle", "named structure reason")
+	eq(reason({}, {{id = 7, rect = {x1 = 1, x2 = 3, z1 = 1, z2 = 3}}}), "street:7", "street reason")
+	local r, rejected = reason({}, {}, nil, {feature, feature})
+	eq(r, "feature", "overlapping prior feature reason")
+	eq(rejected[1].candidate, feature, "rejection names the candidate")
+	eq(reason({}, {}, function(p) return p.y == 11 end), "protected", "protected reason")
+	local far = {min = {x = 40000, y = 10, z = 0}, max = {x = 40001, y = 11, z = 1}}
+	eq(reason({}, {}, nil, {far}), "limits", "limits reason")
+	eq(reason({}, {}, nil, {far}, true), nil, "limits ignored when requested")
+end
 local obstacle
 local region = {get = function(x, y, z)
 	if obstacle and obstacle.x == x and obstacle.y == y and obstacle.z == z then return obstacle.name end

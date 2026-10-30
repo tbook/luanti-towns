@@ -249,36 +249,41 @@ end
 -- Candidates arrive in priority order; callers can put gatehouses before
 -- towers. A candidate must avoid every authored structure, street, and
 -- already accepted feature, even where those overlap only in projection.
+-- Returns selected, footprints and a third list of {candidate, reason} for
+-- every rejected candidate (reason: limits, structure:<name>, street:<id>,
+-- feature, protected).
 function M.select(candidates, structures, streets, protected, ignore_limits)
-	local selected, footprints = {}, {}
+	local selected, footprints, rejected = {}, {}, {}
 	for _, candidate in ipairs(candidates) do
 		local rect, clear, intrudes = candidate.reserve_rect or M.footprint(candidate), true, {}
+		local why
         if not ignore_limits then
 			for _, axis in ipairs({"x", "y", "z"}) do
-				if math.abs(candidate.min[axis]) > 31000 or math.abs(candidate.max[axis]) > 31000 then clear = false end
+				if math.abs(candidate.min[axis]) > 31000 or math.abs(candidate.max[axis]) > 31000 then clear, why = false, "limits" end
 			end
 			if math.abs(rect.x1) > 31000 or math.abs(rect.x2) > 31000
-					or math.abs(rect.z1) > 31000 or math.abs(rect.z2) > 31000 then clear = false end
-			if candidate.min.y - M.FOUNDATION_DEPTH < -31000 then clear = false end
+					or math.abs(rect.z1) > 31000 or math.abs(rect.z2) > 31000 then clear, why = false, "limits" end
+			if candidate.min.y - M.FOUNDATION_DEPTH < -31000 then clear, why = false, "limits" end
         end
 		for _, structure in ipairs(structures or {}) do
 			if structure.rect and overlap(rect, structure.rect) then
 				if tower_may_intrude(candidate, structure) then intrudes[#intrudes + 1] = structure.rect
-				else clear = false; break end
+				else clear, why = false, why or "structure:" .. tostring(structure.name or structure.kind or structure.id); break end
 			end
 		end
 		for _, street in ipairs(streets or {}) do
 			if street.rect and overlap(rect, street.rect)
-					and not (candidate.street ~= nil and street.id == candidate.street) then clear = false; break end
+					and not (candidate.street ~= nil and street.id == candidate.street) then
+				clear, why = false, why or "street:" .. tostring(street.id); break end
 		end
 		for _, prior in ipairs(footprints) do
-			if overlap(rect, prior) then clear = false; break end
+			if overlap(rect, prior) then clear, why = false, why or "feature"; break end
 		end
 		if clear and protected then
 			for x = candidate.min.x, candidate.max.x do
 				for z = candidate.min.z, candidate.max.z do
 					for y = candidate.min.y - M.FOUNDATION_DEPTH, candidate.max.y do
-						if protected({x = x, y = y, z = z}) then clear = false; break end
+						if protected({x = x, y = y, z = z}) then clear, why = false, why or "protected"; break end
 					end
 					if not clear then break end
 				end
@@ -288,9 +293,11 @@ function M.select(candidates, structures, streets, protected, ignore_limits)
 		if clear then
 			candidate.intrudes = intrudes
 			selected[#selected + 1] = candidate; footprints[#footprints + 1] = rect
+		else
+			rejected[#rejected + 1] = {candidate = candidate, reason = why}
 		end
 	end
-	return selected, footprints
+	return selected, footprints, rejected
 end
 
 -- Stage clearance for selected features before deciding whether they can be
