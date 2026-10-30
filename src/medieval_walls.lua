@@ -390,6 +390,13 @@ M.CLEARANCE = 5
 M.CLEARANCE_TOP = 10
 M.BRICK = "mcl_core:stonebrick"
 M.STAIR = "mcl_stairs:stair_stonebrick"
+-- Outside gate/postern roads: cobblestone ramp pieces. A ramp is at most
+-- RAMP_MAX columns long and at least RAMP_MIN columns long.
+M.RAMP_FULL = "mcl_core:cobble"
+M.RAMP_SLAB = "mcl_stairs:slab_cobble"
+M.RAMP_STAIR = "mcl_stairs:stair_cobble"
+M.RAMP_MAX = 16
+M.RAMP_MIN = 4
 -- Keep the natural-material helper for callers that need to distinguish
 -- terrain from authored blocks. Wall support itself uses any solid node.
 local NATURAL = {
@@ -552,7 +559,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 	end
 	for _, feature in ipairs(wall.placed_features or {}) do
 		for _, c in ipairs(feature.outside_approach or {}) do
-			for distance = 0, 3 do road_cells[key(c.x + c.direction.x * distance, c.z + c.direction.z * distance)] = true end
+			for distance = 0, (feature.approach_length or 4) - 1 do road_cells[key(c.x + c.direction.x * distance, c.z + c.direction.z * distance)] = true end
 		end
 	end
 	for _, rect in ipairs(wall.feature_footprints or {}) do
@@ -873,7 +880,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 	   if sr and p.x >= sr.x1 and p.x <= sr.x2 and p.z >= sr.z1 and p.z <= sr.z2 then road = true end
 	  end
 	  for _, approach in ipairs(feature.outside_approach or {}) do
-	   for n = 0, 3 do
+	   for n = 0, (feature.approach_length or 4) - 1 do
 	    if p.x == approach.x + n * approach.direction.x and p.z == approach.z + n * approach.direction.z then road = true end
 	   end
 	  end
@@ -897,6 +904,145 @@ function M.inspect(wall, ground, region, node_info, protected)
 		if existing ~= "air" and existing ~= "ignore" then change.clear_metadata = true end
 	end
 	return changes, omissions
+end
+
+-- Footprint of the first `length` ramp columns.
+function M.approach_rect(columns, length)
+	local r
+	for _, c in ipairs(columns) do
+		for _, n in ipairs({0, length - 1}) do
+			local x, z = c.x + c.direction.x * n, c.z + c.direction.z * n
+			if not r then r = {x1 = x, x2 = x, z1 = z, z2 = z}
+			else
+				r.x1, r.x2 = math.min(r.x1, x), math.max(r.x2, x)
+				r.z1, r.z2 = math.min(r.z1, z), math.max(r.z2, z)
+			end
+		end
+	end
+	return r
+end
+
+-- Region needed to read and write a ramp of the maximum length.
+function M.approach_bounds(columns, ground)
+	local r = M.approach_rect(columns, M.RAMP_MAX)
+	return {min = {x = r.x1, y = ground - M.DEPTH, z = r.z1},
+		max = {x = r.x2, y = ground + M.RAMP_MAX + 4, z = r.z2}}
+end
+
+local FACEDIR = {["0:1"] = 0, ["1:0"] = 1, ["0:-1"] = 2, ["-1:0"] = 3}
+
+-- Plan an outside road (all `columns` share one direction) that leaves town
+-- ground level and slopes until it meets natural terrain. Heights are tracked
+-- in half nodes: level 2y is a full block at node y, level 2y-1 a bottom slab
+-- at node y. Each column outward moves one level (slab/full alternating), or
+-- two levels (a stair) when the gap is at least two nodes and the road is on a
+-- full block. Higher terrain is trenched to road width; lower terrain gets a
+-- cobblestone causeway. Buildings, fluids and protected nodes are never
+-- replaced: the first such hit omits the whole approach.
+-- Returns changes, omissions, length.
+function M.approach(columns, ground, region, node_info, protected)
+	local changes, omissions = {}, {}
+	local dir = columns[1].direction
+	local function kind(name)
+		if name == "air" then return "air" end
+		local info = node_info(name)
+		if not info then return "other" end
+		if info.liquid then return "liquid" end
+		if info.vegetation or info.tree then return "air" end
+		if M.natural(name) then return "terrain" end
+		if not info.walkable then return "air" end
+		return "other"
+	end
+	local function fail(x, y, z, why, name)
+		omissions[1] = {x = x, z = z, reason = "approach: " .. why, blocker = {x = x, y = y, z = z, node = name}}
+		return {}, omissions
+	end
+	local function surface(x, z)
+		for y = ground + M.RAMP_MAX + 1, ground - M.DEPTH, -1 do
+			local name = region.get(x, y, z)
+			local k = kind(name)
+			if k == "terrain" then return y end
+			if k ~= "air" then return nil, y, name, k == "liquid" and "water in approach" or "water or obstruction" end
+		end
+		local y = ground - M.DEPTH
+		return nil, y, region.get(x, y, z), "unsupported drop"
+	end
+	local function put(x, y, z, name, param2)
+		local have = region.get(x, y, z)
+		if protected({x = x, y = y, z = z}) then return false, "protected", have end
+		changes[#changes + 1] = {x = x, y = y, z = z, name = name, param2 = param2 or 0,
+			clear_metadata = have ~= "air" and have ~= "ignore" or nil}
+		return true
+	end
+	local level, last_step = 2 * ground, 0
+	for n = 0, M.RAMP_MAX - 1 do
+		local surf, top = {}, nil
+		for i, c in ipairs(columns) do
+			local x, z = c.x + dir.x * n, c.z + dir.z * n
+			local s, y, name, why = surface(x, z)
+			if not s then return fail(x, y, z, why, name) end
+			surf[i] = s
+			top = math.max(top or s, s)
+		end
+		local diff = 2 * top - level
+		-- A descending stair leaves its outer half a half node below the road
+		-- above it, so it may only be followed by another stair or a flat/rising
+		-- piece, never a slab one full node lower.
+		local stair = math.abs(diff) >= 4 and level % 2 == 0 or (diff == -2 and last_step == -2)
+		local step = diff == 0 and 0 or stair and 2 or 1
+		if diff < 0 then step = -step end
+		level, last_step = level + step, step
+		local y, name, p2 = nil, M.RAMP_FULL, 0
+		if step == 2 then y, name, p2 = level / 2, M.RAMP_STAIR, FACEDIR[dir.x .. ":" .. dir.z]
+		elseif step == -2 then y, name, p2 = level / 2 + 1, M.RAMP_STAIR, FACEDIR[(0 - dir.x) .. ":" .. (0 - dir.z)]
+		elseif level % 2 == 0 then y = level / 2
+		else y, name = (level + 1) / 2, M.RAMP_SLAB end
+		for i, c in ipairs(columns) do
+			local x, z = c.x + dir.x * n, c.z + dir.z * n
+			local function check(yy)
+				local have = region.get(x, yy, z)
+				local k = kind(have)
+				if k == "liquid" then return fail(x, yy, z, "water in approach", have) end
+				if k == "other" then return fail(x, yy, z, "water or obstruction", have) end
+				return nil, have, k
+			end
+			local function write(yy, node, param2)
+				local ok, why, have = put(x, yy, z, node, param2)
+				if not ok then return fail(x, yy, z, why, have) end
+			end
+			-- Headroom and trench above the road surface.
+			for yy = math.max(surf[i], y + 3), y + 1, -1 do
+				local bad, have = check(yy)
+				if bad then return bad, omissions end
+				if have ~= "air" then
+					local f = write(yy, "air")
+					if f then return f, omissions end
+				end
+			end
+			local bad = check(y)
+			if bad then return bad, omissions end
+			local f = write(y, name, p2)
+			if f then return f, omissions end
+			-- Causeway fill down to the first solid support.
+			local yy = y - 1
+			while true do
+				if yy < ground - M.DEPTH then
+					return fail(x, yy, z, "unsupported drop", region.get(x, yy, z))
+				end
+				local have = region.get(x, yy, z)
+				local k = kind(have)
+				if k == "liquid" then return fail(x, yy, z, "water in approach", have) end
+				if k ~= "air" then break end
+				f = write(yy, M.RAMP_FULL)
+				if f then return f, omissions end
+				yy = yy - 1
+			end
+		end
+		if n >= M.RAMP_MIN - 1 and level == 2 * top then return changes, omissions, n + 1 end
+	end
+	local c = columns[1]
+	return fail(c.x + dir.x * (M.RAMP_MAX - 1), ground, c.z + dir.z * (M.RAMP_MAX - 1),
+		"terrain not met within " .. M.RAMP_MAX .. " blocks", "unknown")
 end
 
 return M

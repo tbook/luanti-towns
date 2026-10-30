@@ -757,13 +757,14 @@ do
 	target.min, target.max = target.bounds.min, target.bounds.max
 	local join = features.gate_join_cells(target, planned_wall)[1]
 	local road_writes, gate_placements = {}, {}
-	local road_blocked, join_blocked = false, false
+	local road_blocked, join_blocked, road_rise = false, false, false
 	towns.builder.core_env = function(...)
 		local env = previous_env(...)
 		env.open_region = function() return {get = function(x, y, z)
 			if road_blocked and x == road.x and z == road.z and y == 11 then return "test:building" end
 			if join_blocked and x == join.x and z == join.z and y == 11 then return "test:building" end
-			return y < 10 and "mcl_core:stone" or "air"
+			local dist = (x - road.x) * target.direction.x + (z - road.z) * target.direction.z
+			return y <= (road_rise and dist >= 2 and 12 or 10) and "mcl_core:stone" or "air"
 		end, set = function(x, y, z, name)
 			if y == 10 and name == target.material then road_writes[x .. ":" .. z] = true end
 		end, commit = function() end} end
@@ -784,6 +785,16 @@ do
 			eq(road_writes[k], true, "real gate paves every outside approach cell")
 		end
 	end
+	road_rise, gate_placements = true, {}
+	towns.populated.build(test_result, function(s) summary = s end)
+	eq(gate_placements[target.pos.x .. ":" .. target.pos.z], true, "gate with a rising outside road still places")
+	local reaches_ramp_end = false
+	for _, r in ipairs(test_result.wall_feature_footprints) do
+		local x, z = road.x + 4 * target.direction.x, road.z + 4 * target.direction.z
+		if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then reaches_ramp_end = true end
+	end
+	eq(reaches_ramp_end, true, "ramp longer than four columns is reserved from outskirts")
+	road_rise = false
 	road_blocked, gate_placements, road_writes = true, {}, {}
 	towns.populated.build(test_result, function(s) summary = s end)
 	eq(gate_placements[target.pos.x .. ":" .. target.pos.z], nil,
