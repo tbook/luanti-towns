@@ -1142,13 +1142,64 @@ do
 		_, failures = walls.grade_openings(opening("principal", 6), 0, protect_region, info,
 			function(p) return p.x == 2 end)
 		eq(failures[1].reason, "approach: protected", "protected node blocks grading")
-		-- A graded opening is skipped by inspect; an ungraded one keeps the stub.
-		local flat = {get = function(_, y) return y <= 0 and "mcl_core:stone" or "air" end}
+		-- A graded opening is skipped by inspect; ungraded ones keep the stub.
+		local gap = {get = function(_, y) return y <= -1 and "mcl_core:stone" or "air" end}
+		local function stub_rows(o)
+			local rows = {}
+			for _, c in ipairs((walls.inspect({cells = {}, openings = o}, 0, gap, info, function() return false end))) do
+				rows[c.z] = (rows[c.z] or 0) + 1
+			end
+			return rows
+		end
 		local o2 = opening("principal", 6)
-		local base = walls.inspect({cells = {}, openings = o2}, 0, flat, info, function() return false end)
-		o2[2].graded, o2[3].graded, o2[4].graded, o2[5].graded = true, true, true, true
-		local skipped = walls.inspect({cells = {}, openings = o2}, 0, flat, info, function() return false end)
-		eq(#skipped <= #base, true, "graded openings are not rebuilt by inspect")
+		local base = stub_rows(o2)
+		for z = 0, 5 do eq(base[z], 4, "ungraded column emits a four node stub") end
+		for z = 1, 4 do o2[z + 1].graded = true end
+		local skipped = stub_rows(o2)
+		eq(skipped[0], 4, "ungraded flank keeps its stub")
+		eq(skipped[5], 4, "other ungraded flank keeps its stub")
+		for z = 1, 4 do eq(skipped[z], nil, "graded column stub is gone") end
+		-- Every direction grades its own central columns.
+		for _, d in ipairs({{x = 1, z = 0}, {x = -1, z = 0}, {x = 0, z = 1}, {x = 0, z = -1}}) do
+			local o3 = {}
+			for t = 0, 5 do
+				o3[#o3 + 1] = {x = d.x ~= 0 and 10 * d.x or t, z = d.x ~= 0 and t or 10 * d.z,
+					direction = d, street = 1, kind = "principal"}
+			end
+			local cr = walls.bare_crossings(o3)
+			eq(#cr, 1, "one crossing for direction " .. d.x .. "," .. d.z)
+			eq(#cr[1], 4, "four columns for direction " .. d.x .. "," .. d.z)
+			local t1 = d.x ~= 0 and cr[1][1].z or cr[1][1].x
+			local t4 = d.x ~= 0 and cr[1][4].z or cr[1][4].x
+			eq(t1 == 1 and t4 == 4, true, "central columns for direction " .. d.x .. "," .. d.z)
+			local region = {get = function(x, y, z)
+				return y <= 0 and "mcl_core:stone" or "air" end}
+			local ch, fail = walls.grade_openings(o3, 0, region, info, function() return false end)
+			eq(#fail, 0, "flat grading succeeds for direction " .. d.x .. "," .. d.z)
+			eq(#ch, 16, "flat ramp paves 4x4 for direction " .. d.x .. "," .. d.z)
+		end
+		-- Two disjoint runs on the same street and wall plane.
+		local two = opening("secondary", 4)
+		for z = 10, 13 do two[#two + 1] = {x = 0, z = z, direction = {x = 1, z = 0}, street = 1, kind = "secondary"} end
+		local cr = walls.bare_crossings(two)
+		eq(#cr, 2, "disjoint runs are separate crossings")
+		eq(#cr[1] + #cr[2], 4, "each run grades two columns")
+		eq(cr[2][1].z, 11, "second run is centered independently")
+		local flat = {get = function(_, y) return y <= 0 and "mcl_core:stone" or "air" end}
+		-- Covered openings are excluded after remaining_wall.
+		local fapi = dofile("src/medieval_wall_features.lua")
+		local wall = {cells = {}, openings = opening("principal", 6)}
+		local rest = fapi.remaining_wall(wall, {{x1 = 0, x2 = 6, z1 = 0, z2 = 5}})
+		eq(#rest.openings, 0, "placed footprint removes its openings")
+		local rc, rf = walls.grade_openings(rest.openings, 0, flat, info, function() return false end)
+		eq(#rc + #rf, 0, "covered openings get no ramp")
+		-- Ramp changes come after, and so win over, wall clearance.
+		local cw = {cells = {{x = 3, z = -1, direction = {x = 0, z = -1}}}, openings = opening("principal", 6)}
+		local plain = walls.inspect(cw, 0, flat, info, function() return false end)
+		local graded = walls.inspect_graded(cw, 0, flat, info, function() return false end)
+		eq(#graded > #plain, true, "ramp changes are added")
+		eq(graded[#graded].name ~= nil and graded[#plain + 1].name, walls.RAMP_FULL, "ramp changes follow wall changes")
+		for i = 1, #plain do eq(graded[i].x, plain[i].x, "wall changes keep their order") end
 	end
 	-- Regression: adjacent ramp columns are always walkable. A descending stair
 	-- followed by a slab once left a 1.5 node climb when walking back to town.

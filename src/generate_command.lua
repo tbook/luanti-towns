@@ -533,16 +533,13 @@ local function build(result, done)
 			local read_ok, changes, omissions, region = pcall(function()
 				local r = assert(env.open_region(bounds.min, bounds.max))
 				local is_protected = function(pos) return core.is_protected(pos, "") end
-				-- Openings left without a gatehouse/postern get the graded ramp;
-				-- the ramp is appended last so it wins over wall clearance.
-				local ramp, ramp_failures = walls.grade_openings(remaining.openings,
+				-- Openings left without a gatehouse/postern get the graded ramp.
+				local c, o, ramp_failures = walls.inspect_graded(remaining,
 					result.ground_y, r, env.node_info, is_protected)
 				for _, f in ipairs(ramp_failures) do
 					warning(summary, ("wall opening at (%d,%d) left ungraded: %s%s"):format(
 						f.x, f.z, f.reason, blocker_text(f.blocker)))
 				end
-				local c, o = walls.inspect(remaining, result.ground_y, r, env.node_info, is_protected)
-				for _, change in ipairs(ramp) do c[#c + 1] = change end
 				return c, o, r
 			end)
 			if not read_ok then

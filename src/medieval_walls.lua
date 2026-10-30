@@ -983,6 +983,15 @@ function M.grade_openings(openings, ground, region, node_info, protected)
 	return changes, failures
 end
 
+-- Grade bare openings, then inspect the wall. Ramp changes come last so they
+-- win over wall clearance. Returns changes, omissions, ramp failures.
+function M.inspect_graded(wall, ground, region, node_info, protected)
+	local ramp, failures = M.grade_openings(wall.openings, ground, region, node_info, protected)
+	local changes, omissions = M.inspect(wall, ground, region, node_info, protected)
+	for _, c in ipairs(ramp) do changes[#changes + 1] = c end
+	return changes, omissions, failures
+end
+
 local FACEDIR = {["0:1"] = 0, ["1:0"] = 1, ["0:-1"] = 2, ["-1:0"] = 3}
 
 -- Plan an outside road (all `columns` share one direction) that leaves town
