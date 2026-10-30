@@ -463,7 +463,7 @@ do
 	eq(cleared_falling, true, "clearance removes falling blocks inside its bounded strip")
 	local clearance_bounds = walls.bounds(clearance_wall, 0)
 	eq(clearance_bounds.max.x, 5, "wall bounds include the five-node outer strip")
-	eq(clearance_bounds.max.y, 100, "wall bounds include clearance up to the sloped-cut top")
+	eq(clearance_bounds.max.y, 32, "wall bounds include clearance up to the top of the read box")
 	-- Sloped exterior cut: at distance k terrain may stand up to ground + (k - 1).
 	-- Returns the clearance voxels keyed "x:y:z" for a wall and a node getter.
 	local function sloped_cut(wall, get)
@@ -560,13 +560,54 @@ do
 	do
 		local tall = sloped_cut(strip_wall({x = 1, z = 0}), function(x, y, z)
 			if y <= 0 then return "mcl_core:stone" end
-			if x == 3 and y >= 1 and y <= 50 and z == 0 then return "mcl_core:stone" end
+			if x == 3 and y >= 1 and y <= 30 and z == 0 then return "mcl_core:stone" end
 			return "air"
 		end)
-		eq(tall["3:50:0"], "air", "terrain at ground plus fifty above the strip is cleared")
+		eq(tall["3:30:0"], "air", "terrain at ground plus thirty above the strip is cleared")
 		eq(tall["3:3:0"], "air", "tall terrain is cut from the first node above the cap")
 		eq(tall["3:2:0"], nil, "tall terrain keeps the cap level at distance three")
 		eq(tall["3:1:0"], nil, "tall terrain keeps the nodes below the cap")
+	end
+	-- A protected voxel above the envelope leaves the wall built and is itself untouched.
+	do
+		local high_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+		local protected_high = function(p) return p.x == 0 and p.y == 30 and p.z == 0 end
+		walls.reserve(high_wall, 0, protected_high)
+		eq(high_wall.cells[1].protected, nil, "protection above the envelope does not omit the wall column")
+		local high_changes, high_omissions = walls.inspect(high_wall, 0, {get = function(x, y, z)
+			if y <= 0 then return "mcl_core:stone" end
+			if x == 0 and (y == 10 or y == 30) and z == 0 then return "mcl_core:stone" end
+			return "air"
+		end}, wall_node_info, protected_high)
+		local built, touched_protected, cleared_core = false, false, false
+		for _, change in ipairs(high_changes) do
+			if change.x == 0 and change.y == 4 and change.z == 0 and change.name == walls.BRICK then built = true end
+			if change.x == 0 and change.y == 30 and change.z == 0 then touched_protected = true end
+			if change.x == 0 and change.y == 10 and change.name == "air" then cleared_core = true end
+		end
+		eq(#high_omissions, 0, "protected voxel above the envelope omits nothing")
+		eq(built, true, "wall column is built beside a protected voxel at ground plus thirty")
+		eq(cleared_core, true, "unprotected terrain above the envelope in the wall column is still cleared")
+		eq(touched_protected, false, "protected voxel above the envelope is left untouched")
+	end
+	-- Protection is consulted only for voxels that would actually be cleared.
+	do
+		local probes, cut_probes = 0, 0
+		local probe_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+		local probe_region = {get = function(x, y, z)
+			if y <= 0 then return "mcl_core:stone" end
+			if x == 3 and y == 4 and z == 0 then return "mcl_core:stone" end
+			return "air"
+		end}
+		walls.inspect(probe_wall, 0, probe_region, wall_node_info, function(p)
+			if p.x == 3 and p.z == 0 then
+				probes = probes + 1
+				if probe_region.get(p.x, p.y, p.z) ~= "air" then cut_probes = cut_probes + 1 end
+			end
+			return false
+		end)
+		eq(probes > 0, true, "probe reaches the strip")
+		eq(cut_probes, 1, "protection is checked only for non-air voxels in the strip")
 	end
 	local protected_clearance_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
 	walls.reserve(protected_clearance_wall, 0, function(p) return p.x == 3 and (p.y == 0 or p.y == 1 or p.y == 8) end)

@@ -395,8 +395,13 @@ M.DEPTH = 32
 -- ground + (k-1) * CLEARANCE_RISE, so the surface slopes 1:1 up from the foot.
 M.CLEARANCE = 5
 M.CLEARANCE_RISE = 1
--- Clearing reaches this high so tall terrain leaves no overhang above the cut.
-M.CLEARANCE_TOP = 100
+-- Clearing reaches this high above ground. It matches M.DEPTH so the read box
+-- stays about 64 nodes tall; terrain above ground+32 is not cut.
+M.CLEARANCE_TOP = 32
+-- Protection and omission consider only the wall envelope, from the foundation
+-- up to ground+5 (masonry, parapet and stair). Higher clearance voxels are left
+-- alone one by one, as the exterior strip does, and never omit the wall.
+M.ENVELOPE_TOP = 5
 M.BRICK = "mcl_core:stonebrick"
 M.STAIR = "mcl_stairs:stair_stonebrick"
 -- Outside gate/postern roads: cobblestone ramp pieces. A ramp is at most
@@ -491,7 +496,7 @@ function M.reserve(wall, ground, protected)
 		-- Preserve the existing conservative reservation for the core and all
 		-- possible foundation writes.
 		if not c.protected then
-			for y = ground - M.DEPTH, ground + M.CLEARANCE_TOP do
+			for y = ground - M.DEPTH, ground + M.ENVELOPE_TOP do
 				if protected({x = c.x, y = y, z = c.z}) then
 					c.protected = {x = c.x, y = y, z = c.z}
 					break
@@ -512,7 +517,7 @@ function M.reserve(wall, ground, protected)
 	for _, c in ipairs(wall.openings) do
 		for distance = 0, 3 do
 			local x, z = c.x + c.direction.x * distance, c.z + c.direction.z * distance
-			for y = ground - M.DEPTH, ground + M.CLEARANCE_TOP do
+			for y = ground - M.DEPTH, ground + M.ENVELOPE_TOP do
 				if protected({x = x, y = y, z = z}) then
 					if c.protected ~= true then
 						c.protected = c.protected or {}
@@ -595,7 +600,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 		local is_protected = c.protected ~= nil and c.protected ~= false
 		local protected_pos
 		if not is_protected then
-			for y = ground - M.DEPTH, ground + M.CLEARANCE_TOP do
+			for y = ground - M.DEPTH, ground + M.ENVELOPE_TOP do
 				local pos = {x = c.x, y = y, z = c.z}
 				if protected(pos) then is_protected, protected_pos = true, pos; break end
 			end
@@ -611,7 +616,8 @@ function M.inspect(wall, ground, region, node_info, protected)
 				local have = region.get(c.x, y, c.z)
 				local info = node_info(have)
 				if have ~= "air" and have ~= "ignore" and not (info and info.liquid)
-					and (not info or not info.walkable or info.vegetation or y > ground) then
+					and (not info or not info.walkable or info.vegetation or y > ground)
+					and (y <= ground + M.ENVELOPE_TOP or not protected({x = c.x, y = y, z = c.z})) then
 					to_clear[#to_clear + 1] = {x = c.x, y = y, z = c.z}
 					cleared[voxel_key(c.x, y, c.z)] = true
 				end
@@ -691,8 +697,8 @@ function M.inspect(wall, ground, region, node_info, protected)
 					-- Above the cap everything goes; below it only trees and vegetation are
 					-- removed so no stumps stand in the cut.
 					local cut = y > clearance_cap(ground, p.k) or (info and (info.tree or info.vegetation))
-					if cut and not reserved_cell and not protected({x=p.x,y=y,z=p.z}) and have ~= "air"
-							and have ~= "ignore" and not (info and info.liquid) then
+					if cut and have ~= "air" and have ~= "ignore" and not (info and info.liquid)
+							and not reserved_cell and not protected({x=p.x,y=y,z=p.z}) then
 						staged_clear[#staged_clear + 1] = {x=p.x,y=y,z=p.z}
 						cleared[vk] = true
 					end
@@ -911,9 +917,9 @@ function M.inspect(wall, ground, region, node_info, protected)
 	    local have = region.get(p.x,y,p.z)
 	    local info = node_info(have)
 	    local cut = y > clearance_cap(ground, p.k) or (info and (info.tree or info.vegetation))
-	    if cut and not emitted_clear[vk] and not wall_written[vk] and not (feature.clearance_protected or {})[vk]
-	      and not protected({x=p.x,y=y,z=p.z}) and have ~= "air" and have ~= "ignore"
-	      and not (info and info.liquid) then
+	    if cut and have ~= "air" and have ~= "ignore" and not (info and info.liquid)
+	      and not emitted_clear[vk] and not wall_written[vk] and not (feature.clearance_protected or {})[vk]
+	      and not protected({x=p.x,y=y,z=p.z}) then
 	     emitted_clear[vk] = true
 	     changes[#changes+1] = {x=p.x,y=y,z=p.z,name="air",param2=0,clearance=true}
 	    end
