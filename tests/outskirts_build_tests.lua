@@ -5,7 +5,7 @@ local catalog = dofile("schematics/outskirts/catalog.lua")
 local entries = {}
 for id, e in pairs(catalog) do entries[id] = e end
 local bounds = {x1 = 0, z1 = 0, x2 = 20, z2 = 20}
-local out = {entries = entries, protected = {margin = 4}, plots = {
+local out = {entries = entries, protected = {margin = 6}, plots = {
 	{id = "f1", asset = "farm", class = "farm", rotation = 90, ground_y = 11,
 		rect = {x1 = 30, z1 = 30, x2 = 42, z2 = 46}},
 	{id = "h1", asset = "shepherd_hut", class = "hut", rotation = 0, ground_y = 17,

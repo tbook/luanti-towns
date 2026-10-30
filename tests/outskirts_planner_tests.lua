@@ -17,7 +17,7 @@ end
 eq(C.FARM_COUNT == 18 and C.HUT_COUNT == 6 and C.VILLA_COUNT == 2 and C.CHAPEL_COUNT == 1,
 	true, "production class counts match the contract")
 eq(C.FARM_BAND_NEAR == 10 and C.FARM_BAND_FAR == 24 and C.OUTER_BAND_NEAR == 24
-	and C.OUTER_BAND_FAR == 58 and C.MIN_SPACING == 20 and C.PROTECT_MARGIN == 4
+	and C.OUTER_BAND_FAR == 58 and C.MIN_SPACING == 20 and C.PROTECT_MARGIN == 6
 	and C.PLAYER_MARGIN == 16 and C.ATTEMPTS_PER_BUILDING == 6 and C.SAMPLE_LIMIT == 50,
 	true, "production bands and limits match the contract")
 

@@ -204,8 +204,8 @@ function M.format_report(summary, command)
 	local urban_write_bounds = s.urban_write_bounds or s.write_bounds or s.bounds
 	add("Urban builder write envelope %s.", bounds_str(urban_write_bounds))
 	if s.wall then
-		add("Medieval wall: %d nodes placed, %d columns omitted; possible write envelope %s.",
-			s.wall.placed or 0, #(s.wall.omissions or {}), bounds_str(s.wall.attempted_bounds))
+		add("Medieval wall: %d masonry nodes placed, %d clearance nodes removed, %d columns omitted; possible write envelope %s.",
+			s.wall.placed or 0, s.wall.clearance or 0, #(s.wall.omissions or {}), bounds_str(s.wall.attempted_bounds))
 		if s.wall.features then add("Wall towers placed: %d.", #s.wall.features) end
 	end
 	if type(s.write_bounds) == "table" and not same_bounds(s.write_bounds, urban_write_bounds) then

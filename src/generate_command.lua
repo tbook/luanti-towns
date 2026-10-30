@@ -130,13 +130,13 @@ local function build_urban(result)
 		if result.wall then
 			local wall_bounds = walls.bounds(result.wall, result.ground_y)
 			if wall_bounds then
-				-- Wall overhangs and three-node approaches reach at most four
-				-- nodes past the urban footprint. Outskirts candidate and
-				-- terraform protection both use this same margin.
-				local b, margin = result.plan.bounds, towns.outskirts.CONSTANTS.PROTECT_MARGIN
+				-- A boundary wall sits one node beyond town; its five-node apron
+				-- therefore needs six nodes of placement room.
+				local b = result.plan.bounds
+				local margin = towns.outskirts.CONSTANTS.PROTECT_MARGIN
 				if wall_bounds.min.x < b.x1 - margin or wall_bounds.max.x > b.x2 + margin
 						or wall_bounds.min.z < b.z1 - margin or wall_bounds.max.z > b.z2 + margin then
-					return nil, "Wall footprint exceeds outskirts protection", "inspection_failed"
+					return nil, "Wall clearance exceeds the town boundary margin", "inspection_failed"
 				end
 				for _, axis in ipairs({"x", "y", "z"}) do
 					if math.abs(wall_bounds.min[axis]) > towns.preflight.LIMIT
@@ -460,7 +460,14 @@ local function build(result, done)
 				warning(summary, "wall inspection failed: " .. tostring(changes))
 				start_outskirts(); return
 			end
-			report.omissions, report.placed = omissions, #changes
+			report.omissions = omissions
+			report.placed, report.clearance = 0, 0
+			for _, change in ipairs(changes) do
+				if change.clearance then report.clearance = report.clearance + 1
+				elseif change.name == walls.BRICK or change.name == walls.STAIR then
+					report.placed = report.placed + 1
+				end
+			end
 			if #changes > 0 then
 				local first = changes[1]
 				report.write_bounds = {min = {x = first.x, y = first.y, z = first.z},
@@ -479,6 +486,11 @@ local function build(result, done)
 			if not wrote then
 				return fail_writer("wall write failed: " .. tostring(err), nil, {bounds = bounds, reason = "wall_write"})
 			end
+			-- VoxelManip writes bypass node destruction callbacks. Remove metadata
+			-- and timers only after the map write succeeds, so cleared chests and
+			-- other nodes cannot leave stale inventories behind.
+			local metadata_ok, metadata_err = pcall(walls.clear_metadata, core, changes)
+			if not metadata_ok then warning(summary, "wall clearance metadata cleanup failed: " .. tostring(metadata_err)) end
 			local counts = {wall = 0, decoration = 0, approach = 0}
 			for _, omission in ipairs(omissions) do
 				local kind = omission.reason:match("^(decoration): ") or omission.reason:match("^(approach): ") or "wall"
