@@ -11,7 +11,10 @@ function M.node_info(registered_nodes, name)
 	local def = registered_nodes[name]
 	if not def then return nil end
 	local g = def.groups or {}
+	-- VoxeLibre registers sweet berry bushes and cobwebs as "source" liquids that
+	-- point their own liquid_alternative_flowing at themselves: not real liquid.
 	local liquid = def.liquidtype ~= nil and def.liquidtype ~= "none"
+		and not (def.liquidtype == "source" and def.liquid_alternative_flowing == name)
 	local function has_group(group)
 		return tonumber(g[group]) ~= nil and tonumber(g[group]) > 0
 	end
