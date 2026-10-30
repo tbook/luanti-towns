@@ -315,38 +315,34 @@ function M.inspect(candidate, region, node_info, protected, natural)
 	for x = candidate.min.x, candidate.max.x do
 		for z = candidate.min.z, candidate.max.z do
 			local supported = false
-			local falling_stack = false
 			for y = candidate.min.y - 1, candidate.min.y - M.FOUNDATION_DEPTH, -1 do
 				local name = region.get(x, y, z)
 				if name == "ignore" then return nil, "unloaded foundation" end
 				local info = node_info(name)
 				if protected({x = x, y = y, z = z}) then return nil, "protected foundation" end
 				if vegetation(info) then
-					if falling_stack then return nil, "unsupported falling foundation" end
 					foundations[#foundations + 1] = {x = x, y = y, z = z, clear_metadata = name ~= "air"}
 				elseif info and info.walkable and not info.liquid then
 					if info.falling then
-						falling_stack = true
+						-- Falling blocks are replaced with brick, so a sand/gravel stack is
+						-- filled bottom-up like any other cell until stable support is reached.
 						foundations[#foundations + 1] = {x = x, y = y, z = z, clear_metadata = name ~= "air"}
 					else
 						supported = true
 						break
 					end
-				elseif falling_stack then
-					-- Falling blocks need a continuous, stable column beneath them.
-					-- Do not treat a cavity or liquid as support for sand/gravel.
-					return nil, "unsupported falling foundation"
 				else
 					local water = info and info.liquid and name:find("water", 1, true)
 					-- An intruding tower fills over cathedral/castle blocks in its columns.
 					if name ~= "air" and not water and not intruded(candidate, x, z) then
-						return nil, "foundation obstruction " .. tostring(name)
+						return nil, ("foundation obstruction %s at (%d,%d,%d)"):format(
+							tostring(name), x, y, z)
 					end
 					foundations[#foundations + 1] = {x = x, y = y, z = z, clear_metadata = name ~= "air"}
 				end
 			end
 			if not supported then
-				return nil, falling_stack and "unsupported falling foundation" or "unsupported foundation"
+				return nil, "unsupported foundation"
 			end
 			for y = candidate.min.y, candidate.max.y do
 				local name = region.get(x, y, z)
@@ -357,13 +353,19 @@ function M.inspect(candidate, region, node_info, protected, natural)
 				local road = candidate.street_rect and y == road_y and name == candidate.material
 					and x >= candidate.street_rect.x1 and x <= candidate.street_rect.x2
 					and z >= candidate.street_rect.z1 and z <= candidate.street_rect.z2
+				local water = item and item.liquid and name:find("water", 1, true)
 				if name ~= "air" and not road and not intruded(candidate, x, z) then
-					if not item or item.liquid then
-						return nil, ("unsafe obstruction %s at (%d,%d,%d)"):format(
-							tostring(name), x, y, z)
+					if water and y < road_y then
+						-- Water below ground level is fill, like the foundation cells.
+						foundations[#foundations + 1] = {x = x, y = y, z = z, clear_metadata = true}
+					else
+						if not item or item.liquid then
+							return nil, ("unsafe obstruction %s at (%d,%d,%d)"):format(
+								tostring(name), x, y, z)
+						end
+						clearance[#clearance + 1] = {x = x, y = y, z = z,
+							name = "air", param2 = 0, clearance = true}
 					end
-					clearance[#clearance + 1] = {x = x, y = y, z = z,
-						name = "air", param2 = 0, clearance = true}
 				end
 			end
 		end

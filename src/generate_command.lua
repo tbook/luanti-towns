@@ -468,7 +468,8 @@ local function build(result, done)
 					return ok, detail, raw_region, nil, clearance
 				end)
 				if not read_ok or not eligible then
-					warning(summary, feature.asset .. " omitted: " .. tostring(read_ok and detail or eligible))
+					warning(summary, ("%s at (%d,%d) omitted: %s"):format(feature.asset,
+						feature.min.x, feature.min.z, tostring(read_ok and detail or eligible)))
 				else
 					-- Read overwritten cathedral/castle nodes before the tower writes them.
 					local overwritten = feature_api.overwritten_nodes(feature, feature_region, detail)

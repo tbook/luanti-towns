@@ -406,6 +406,12 @@ do
 	local function make_region(nodes)
 		return {get = function(_, y) return nodes[y] or "air" end}
 	end
+	local function has_pos(list, x, y, z)
+		for _, p in ipairs(list or {}) do
+			if p.x == x and p.y == y and p.z == z then return true end
+		end
+		return false
+	end
 	local function node_info(name)
 		local falling = name == "mcl_core:sand" or name == "mcl_core:gravel"
 		return {walkable = name ~= "air" and name ~= "ignore" and name ~= "water"
@@ -435,14 +441,30 @@ do
 		end
 		eq(included_sand and included_gravel, true,
 			asset .. " replaces the complete falling stack beneath its footprint")
-		eq(features.inspect(candidate,
+		-- Falling stacks over a cavity or plant are filled with brick down to the
+		-- first stable support (#337). Previously these were rejected (#327).
+		local cavity_ok, cavity_fill = features.inspect(candidate,
 			make_region({[9] = "mcl_core:sand", [8] = "air", [7] = "mcl_core:andesite"}),
-			node_info, clear, no_material_allowlist), nil,
-			asset .. " rejects falling sand over an unsupported cavity")
-		eq(features.inspect(candidate,
+			node_info, clear, no_material_allowlist)
+		eq(cavity_ok, true, asset .. " fills falling sand over an unsupported cavity")
+		eq(has_pos(cavity_fill, 0, 8, 0), true, asset .. " fills the cavity beneath falling sand")
+		local plant_ok, plant_fill = features.inspect(candidate,
 			make_region({[9] = "mcl_core:sand", [8] = "test:plant", [7] = "mcl_core:andesite"}),
+			node_info, clear, no_material_allowlist)
+		eq(plant_ok, true, asset .. " fills falling sand above a non-solid plant")
+		eq(has_pos(plant_fill, 0, 8, 0), true, asset .. " replaces the plant beneath falling sand")
+		eq(features.inspect(candidate, make_region({[9] = "mcl_core:sand"}),
 			node_info, clear, no_material_allowlist), nil,
-			asset .. " rejects falling sand above a cleared non-solid plant")
+			asset .. " rejects falling sand with no stable support in depth")
+		-- Water below the ground level (ground_offset) is fill; water at ground level blocks.
+		local ground_candidate = {asset = asset, min = {x = 0, y = 10, z = 0},
+			max = {x = 1, y = 12, z = 1}, ground_offset = 1}
+		local water_ok, water_fill = features.inspect(ground_candidate,
+			make_region({[9] = "mcl_core:andesite", [10] = "water"}), node_info, clear, no_material_allowlist)
+		eq(water_ok, true, asset .. " accepts water below its ground level")
+		eq(has_pos(water_fill, 0, 10, 0), true, asset .. " fills water below its ground level")
+		eq(features.inspect(ground_candidate, make_region({[9] = "mcl_core:andesite", [11] = "water"}),
+			node_info, clear, no_material_allowlist), nil, asset .. " rejects water at its ground level")
 		for _, protected_y in ipairs({9, 8, 7}) do
 			local allowed = features.inspect(candidate,
 				make_region({[9] = "mcl_core:sand", [8] = "mcl_core:gravel", [7] = "mcl_core:andesite"}),
