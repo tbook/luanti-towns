@@ -594,3 +594,58 @@ do
  eq(#features.select({at_limit}, {}, {}, nil), 0,
   "placement still rejects feature beyond map limit")
 end
+
+do
+ -- Cathedral and castle landmarks may be overwritten by wall towers (#320).
+ local tower = {asset = "wall_tower", min = {x = 0, y = 10, z = 0}, max = {x = 7, y = 11, z = 7}}
+ local gatehouse = {asset = "wall_gatehouse", min = tower.min, max = tower.max}
+ local rect = {x1 = 5, x2 = 9, z1 = 5, z2 = 9}
+ local plan_cathedral = {name = "cathedral", kind = "landmark", rect = rect}
+ local composed_castle = {kind = "castle", rect = rect}
+ local office = {kind = "content", role = "office", rect = rect}
+ eq(#features.select({tower}, {plan_cathedral}, {}), 1, "tower is accepted over a planned cathedral")
+ eq(#features.select({tower}, {composed_castle}, {}), 1, "tower is accepted over a composed castle")
+ eq(#features.select({tower}, {plan_cathedral, office}, {}), 0,
+  "tower over a cathedral still rejects an overlapping office")
+ eq(#features.select({tower}, {office}, {}), 0, "tower is rejected over an office")
+ eq(#features.select({gatehouse}, {plan_cathedral}, {}), 0, "gatehouse is still rejected over a cathedral")
+
+ local chosen = features.select({tower}, {plan_cathedral}, {})[1]
+ local cathedral_node = {get = function(x, y, z)
+  if x == 6 and y == 11 and z == 6 then return "cathedral:wall" end
+  return y == 9 and "stone" or "air"
+ end}
+ -- Unknown nodes are unsafe obstructions; known non-liquid ones are cleared (#328).
+ local info = function(name)
+  if name == "cathedral:wall" then return nil end
+  return {walkable = name == "stone"}
+ end
+ local clear = function() return false end
+ local natural = function(name) return name == "stone" end
+ eq(features.inspect(chosen, cathedral_node, info, clear, natural), true,
+  "intruding tower overwrites cathedral nodes in its volume")
+ -- select records intrudes on the candidate it accepts, so use a fresh table here.
+ local blocked = features.select({{asset = "wall_tower", min = tower.min, max = tower.max}}, {}, {})[1]
+ eq(features.inspect(blocked, cathedral_node, info, clear, natural), nil,
+  "tower without a cathedral intrusion still treats cathedral nodes as obstructions")
+
+ -- A non-walkable cathedral block (door, torch) in the foundation column is
+ -- overwritten by an intruding tower but still obstructs a non-intruding one.
+ local door_foundation = {get = function(x, y, z)
+  if x == 6 and y == 9 and z == 6 then return "cathedral:door" end
+  return y == 8 and "stone" or "air"
+ end}
+ local door_info = function(name) return {walkable = name == "stone"} end
+ local ok_foundation, foundations = features.inspect(chosen, door_foundation, door_info, clear, natural)
+ eq(ok_foundation, true, "intruding tower fills over a non-walkable cathedral foundation block")
+ local filled = false
+ for _, p in ipairs(foundations) do
+  if p.x == 6 and p.y == 9 and p.z == 6 then filled = true end
+ end
+ eq(filled, true, "intruded foundation block is filled by the tower")
+ local stale = features.overwritten_nodes(chosen, door_foundation, foundations)
+ eq(#stale, 1, "overwritten cathedral block is reported for metadata cleanup")
+ eq(stale[1] and stale[1].clear_metadata, true, "overwritten block requests metadata cleanup")
+ eq(features.inspect(blocked, door_foundation, door_info, clear, natural), nil,
+  "same non-walkable block outside an intruded rect still rejects the tower")
+end

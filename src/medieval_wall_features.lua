@@ -230,13 +230,29 @@ function M.remaining_wall(wall, placed_footprints)
 	return remaining
 end
 
+-- Towers may overwrite cathedral and castle landmarks (#320). Other structures
+-- still reject an overlapping tower, as do gatehouses and postern candidates.
+local TOWER_INTRUDABLE = {cathedral = true, castle = true}
+-- True when (x,z) lies in a cathedral or castle rect the candidate may overwrite.
+local function intruded(candidate, x, z)
+	for _, r in ipairs(candidate.intrudes or {}) do
+		if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return true end
+	end
+	return false
+end
+local function tower_may_intrude(candidate, structure)
+	local tower = candidate.asset == "wall_tower" or candidate.asset == "wall_tower_inline"
+	-- Plan sites name landmarks in `name`; composed structures carry it in `kind`.
+	return tower and TOWER_INTRUDABLE[structure.name or structure.kind] == true
+end
+
 -- Candidates arrive in priority order; callers can put gatehouses before
 -- towers. A candidate must avoid every authored structure, street, and
 -- already accepted feature, even where those overlap only in projection.
 function M.select(candidates, structures, streets, protected, ignore_limits)
 	local selected, footprints = {}, {}
 	for _, candidate in ipairs(candidates) do
-		local rect, clear = candidate.reserve_rect or M.footprint(candidate), true
+		local rect, clear, intrudes = candidate.reserve_rect or M.footprint(candidate), true, {}
         if not ignore_limits then
 			for _, axis in ipairs({"x", "y", "z"}) do
 				if math.abs(candidate.min[axis]) > 31000 or math.abs(candidate.max[axis]) > 31000 then clear = false end
@@ -246,7 +262,10 @@ function M.select(candidates, structures, streets, protected, ignore_limits)
 			if candidate.min.y - M.FOUNDATION_DEPTH < -31000 then clear = false end
         end
 		for _, structure in ipairs(structures or {}) do
-			if structure.rect and overlap(rect, structure.rect) then clear = false; break end
+			if structure.rect and overlap(rect, structure.rect) then
+				if tower_may_intrude(candidate, structure) then intrudes[#intrudes + 1] = structure.rect
+				else clear = false; break end
+			end
 		end
 		for _, street in ipairs(streets or {}) do
 			if street.rect and overlap(rect, street.rect)
@@ -266,7 +285,10 @@ function M.select(candidates, structures, streets, protected, ignore_limits)
 				if not clear then break end
 			end
 		end
-		if clear then selected[#selected + 1] = candidate; footprints[#footprints + 1] = rect end
+		if clear then
+			candidate.intrudes = intrudes
+			selected[#selected + 1] = candidate; footprints[#footprints + 1] = rect
+		end
 	end
 	return selected, footprints
 end
@@ -309,7 +331,8 @@ function M.inspect(candidate, region, node_info, protected, natural)
 					return nil, "unsupported falling foundation"
 				else
 					local water = info and info.liquid and name:find("water", 1, true)
-					if name ~= "air" and not water then
+					-- An intruding tower fills over cathedral/castle blocks in its columns.
+					if name ~= "air" and not water and not intruded(candidate, x, z) then
 						return nil, "foundation obstruction " .. tostring(name)
 					end
 					foundations[#foundations + 1] = {x = x, y = y, z = z, clear_metadata = name ~= "air"}
@@ -327,7 +350,7 @@ function M.inspect(candidate, region, node_info, protected, natural)
 				local road = candidate.street_rect and y == road_y and name == candidate.material
 					and x >= candidate.street_rect.x1 and x <= candidate.street_rect.x2
 					and z >= candidate.street_rect.z1 and z <= candidate.street_rect.z2
-				if name ~= "air" and not road then
+				if name ~= "air" and not road and not intruded(candidate, x, z) then
 					if not item or item.liquid then
 						return nil, ("unsafe obstruction %s at (%d,%d,%d)"):format(
 							tostring(name), x, y, z)
@@ -339,6 +362,25 @@ function M.inspect(candidate, region, node_info, protected, natural)
 		end
 	end
 	return true, foundations, clearance
+end
+
+-- Non-air nodes an intruding tower overwrites (foundation fill and volume).
+-- Call before the writes; the caller clears their metadata and timers after.
+function M.overwritten_nodes(candidate, region, foundations)
+	local out = {}
+	local function add(x, y, z)
+		local name = region.get(x, y, z)
+		if name ~= "air" and name ~= "ignore" and intruded(candidate, x, z) then
+			out[#out + 1] = {x = x, y = y, z = z, clear_metadata = true}
+		end
+	end
+	for _, p in ipairs(foundations or {}) do add(p.x, p.y, p.z) end
+	for x = candidate.min.x, candidate.max.x do
+		for z = candidate.min.z, candidate.max.z do
+			for y = candidate.min.y, candidate.max.y do add(x, y, z) end
+		end
+	end
+	return out
 end
 
 return M
