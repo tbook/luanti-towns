@@ -454,6 +454,8 @@ local function build(result, done)
 				if not read_ok or not eligible then
 					warning(summary, feature.asset .. " omitted: " .. tostring(read_ok and detail or eligible))
 				else
+					-- Read overwritten cathedral/castle nodes before the tower writes them.
+					local overwritten = feature_api.overwritten_nodes(feature, feature_region, detail)
 					local foundation_ok, foundation_error = pcall(function()
 						for _, p in ipairs(feature_clearance or {}) do feature_region.set(p.x, p.y, p.z, p.name, p.param2) end
 						for _, p in ipairs(detail) do feature_region.set(p.x, p.y, p.z, walls.BRICK, 0) end
@@ -478,6 +480,9 @@ local function build(result, done)
 						return fail_writer("tower placement failed: " .. tostring(called and place_error or success), nil,
 							{bounds = bounds, reason = "wall_feature_write"})
 					end
+					-- Like wall clearance, VoxelManip writes skip node destruction callbacks.
+					local meta_ok, meta_error = pcall(walls.clear_metadata, core, overwritten)
+					if not meta_ok then warning(summary, "tower metadata cleanup failed: " .. tostring(meta_error)) end
 					placed_candidates[#placed_candidates + 1] = feature
 					placed_features[#placed_features + 1] = st
 					wall_masks[#wall_masks + 1] = st.rect
