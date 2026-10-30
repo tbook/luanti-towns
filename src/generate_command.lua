@@ -401,13 +401,38 @@ local function build(result, done)
 			end
 			local report = {attempted_bounds = bounds}
 			summary.wall = report
+			-- Apply the ordinary wall clearance before inspecting features. This
+			-- only clears wall-owned cells; feature-specific cuts are committed
+			-- after the entire feature passes inspection.
+			local preclear = {}
+			local stage_ok, stage_err = pcall(function()
+				local region = assert(env.open_region(bounds.min, bounds.max))
+				local changes = walls.inspect(wall, result.ground_y, region, env.node_info,
+					function(pos) return core.is_protected(pos, "") end)
+				for _, change in ipairs(changes) do
+					if change.clearance then
+						preclear[#preclear + 1] = change
+						region.set(change.x, change.y, change.z, change.name, change.param2)
+					end
+				end
+				if #preclear > 0 then region.commit() end
+			end)
+			if not stage_ok then
+				return fail_writer("wall clearance failed: " .. tostring(stage_err), nil,
+					{bounds = bounds, reason = "wall_clearance"})
+			end
+			local preclear_metadata_ok, preclear_metadata_err = pcall(walls.clear_metadata, core, preclear)
+			if not preclear_metadata_ok then
+				warning(summary, "wall clearance metadata cleanup failed: " .. tostring(preclear_metadata_err))
+			end
 			local placed_features, placed_footprints, wall_masks, placed_candidates = {}, {}, {}, {}
 			local feature_api = towns.medieval_wall_features
 			for _, feature in ipairs(result.wall_features or {}) do
 				local entry = towns.catalog.entries[feature.asset]
-				local read_ok, eligible, detail, feature_region, approach_changes = pcall(function()
-					local r = assert(env.open_region(bounds.min, bounds.max))
-					local ok, detail = feature_api.inspect(feature, r, env.node_info,
+				local read_ok, eligible, detail, feature_region, approach_changes, feature_clearance = pcall(function()
+					local raw_region = assert(env.open_region(bounds.min, bounds.max))
+					local r = raw_region
+					local ok, detail, clearance = feature_api.inspect(feature, r, env.node_info,
 						function(pos) return core.is_protected(pos, "") end, walls.natural)
 					if ok and feature.outside_approach then
 						local joins = feature_api.gate_join_cells(feature, wall)
@@ -422,22 +447,30 @@ local function build(result, done)
 						local changes, omissions = walls.inspect({cells = {}, openings = feature.outside_approach},
 							result.ground_y, r, env.node_info, function(pos) return core.is_protected(pos, "") end)
 						if #omissions > 0 then return nil, "outside road: " .. omissions[1].reason, r end
-						return ok, detail, r, changes
+						return ok, detail, raw_region, changes, clearance
 					end
-					return ok, detail, r
+					return ok, detail, raw_region, nil, clearance
 				end)
 				if not read_ok or not eligible then
 					warning(summary, feature.asset .. " omitted: " .. tostring(read_ok and detail or eligible))
 				else
 					local foundation_ok, foundation_error = pcall(function()
+						for _, p in ipairs(feature_clearance or {}) do feature_region.set(p.x, p.y, p.z, p.name, p.param2) end
 						for _, p in ipairs(detail) do feature_region.set(p.x, p.y, p.z, walls.BRICK, 0) end
 						for _, c in ipairs(approach_changes or {}) do feature_region.set(c.x, c.y, c.z, c.name, c.param2) end
-						if #detail > 0 or (approach_changes and #approach_changes > 0) then feature_region.commit() end
+						if #detail > 0 or (feature_clearance and #feature_clearance > 0)
+								or (approach_changes and #approach_changes > 0) then feature_region.commit() end
 					end)
 					if not foundation_ok then
 						return fail_writer("tower foundation failed: " .. tostring(foundation_error), nil,
 							{bounds = bounds, reason = "wall_feature_foundation"})
 					end
+					if feature_clearance and #feature_clearance > 0 then
+						local metadata_ok, metadata_err = pcall(walls.clear_metadata, core, feature_clearance)
+						if not metadata_ok then warning(summary, "wall feature clearance metadata cleanup failed: " .. tostring(metadata_err)) end
+					end
+					local foundation_metadata_ok, foundation_metadata_err = pcall(walls.clear_metadata, core, detail)
+					if not foundation_metadata_ok then warning(summary, "wall foundation metadata cleanup failed: " .. tostring(foundation_metadata_err)) end
 					local st = towns.geometry.place(entry, feature.min, feature.rotation)
 					st.id, st.kind, st.rect = feature.asset, "wall_feature", feature_api.footprint(feature)
 					local called, success, place_error = pcall(env.place_structure, st, entry)
@@ -480,18 +513,21 @@ local function build(result, done)
 				start_outskirts(); return
 			end
 			report.omissions = omissions
-			report.placed, report.clearance = 0, 0
+			report.placed, report.clearance = 0, #preclear
 			for _, change in ipairs(changes) do
 				if change.clearance then report.clearance = report.clearance + 1
 				elseif change.name == walls.BRICK or change.name == walls.STAIR then
 					report.placed = report.placed + 1
 				end
 			end
-			if #changes > 0 then
-				local first = changes[1]
+			if #changes > 0 or #preclear > 0 then
+				local first = changes[1] or preclear[1]
 				report.write_bounds = {min = {x = first.x, y = first.y, z = first.z},
 					max = {x = first.x, y = first.y, z = first.z}}
-				for _, c in ipairs(changes) do
+				local reported_changes = {}
+				for _, c in ipairs(preclear) do reported_changes[#reported_changes + 1] = c end
+				for _, c in ipairs(changes) do reported_changes[#reported_changes + 1] = c end
+				for _, c in ipairs(reported_changes) do
 					for _, axis in ipairs({"x", "y", "z"}) do
 						report.write_bounds.min[axis] = math.min(report.write_bounds.min[axis], c[axis])
 						report.write_bounds.max[axis] = math.max(report.write_bounds.max[axis], c[axis])

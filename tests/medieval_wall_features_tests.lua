@@ -231,17 +231,29 @@ local region = {get = function(x, y, z)
 	if obstacle and obstacle.x == x and obstacle.y == y and obstacle.z == z then return obstacle.name end
 	return y == 9 and "stone" or "air"
 end}
-local info = function(name) return {walkable = name == "stone"} end
+local info = function(name) return {walkable = name ~= "air"} end
 local clear = function() return false end
 local natural = function(name) return name == "stone" end
 eq(features.inspect(feature, region, info, clear, natural), true, "clear supported tower passes")
+local registered_ignore = function(name)
+	if name == "ignore" then return {walkable = true} end
+	return info(name)
+end
+eq(features.inspect(feature, {get = function(_, y) return y == 9 and "ignore" or "air" end},
+	registered_ignore, clear, natural), nil, "registered walkable ignore remains an unsafe foundation blocker")
+eq(features.inspect(feature, {get = function(_, y) return y == 11 and "ignore" or y == 9 and "stone" or "air" end},
+	registered_ignore, clear, natural), nil, "registered walkable ignore remains an unsafe structure blocker")
 obstacle = {x = 1, y = 11, z = 1, name = "building"}
-local blocked, obstruction = features.inspect(feature, region, info, clear, natural)
-eq(blocked, nil, "obstruction in schematic air volume blocks tower")
-eq(obstruction, "obstruction building at (1,11,1)", "tower obstruction reports the exact blocking position")
+local staged_ok, _, staged_clearance = features.inspect(feature, region, info, clear, natural)
+eq(staged_ok, true, "registered obstruction in schematic air volume is staged for clearing")
+local staged_building = false
+for _, p in ipairs(staged_clearance) do
+	if p.x == 1 and p.y == 11 and p.z == 1 and p.name == "air" then staged_building = true end
+end
+eq(staged_building, true, "staged clearance includes the blocking building voxel")
 obstacle = {x = 1, y = 11, z = 1, name = "tree"}
 local tree_info = function(name) return {walkable = name == "stone", tree = name == "tree", vegetation = false} end
-eq(features.inspect(feature, region, tree_info, clear, natural), nil, "generic feature leaves tree-group logs intact")
+eq(features.inspect(feature, region, tree_info, clear, natural), true, "every feature may clear tree-group logs in its authored volume")
 local placement = dofile("src/placement.lua")
 local tower_log_nodes = {
 	stone = {walkable = true},
@@ -270,8 +282,8 @@ eq(features.inspect(tower_feature, log_foundation, tower_log_info, function(p)
 	return p.x == 0 and p.y == 9 and p.z == 0
 end, natural), nil, "protected tower log remains a blocker")
 local gatehouse_feature = {asset = "wall_gatehouse", min = feature.min, max = feature.max}
-eq(features.inspect(gatehouse_feature, region, tower_log_info, clear, natural), nil,
-	"gatehouse still cannot clear tree-group logs")
+eq(features.inspect(gatehouse_feature, region, tower_log_info, clear, natural), true,
+	"gatehouse may clear tree-group logs in its authored volume")
 local dirt_gatehouse = {asset = "wall_gatehouse", min = {x = 0, y = 10, z = 0}, max = {x = 1, y = 13, z = 1}}
 local dirt_gate_region = {get = function(_, y) return y == 9 and "stone" or y == 12 and "mcl_core:dirt" or "air" end}
 eq(features.inspect(dirt_gatehouse, dirt_gate_region, function(name)
@@ -282,8 +294,8 @@ local dual_group_info = function(name)
 	if name == "mcl_core:tree" then return {walkable = true, tree = true, vegetation = true} end
 	return tower_log_info(name)
 end
-eq(features.inspect(gatehouse_feature, region, dual_group_info, clear, natural), nil,
-	"gatehouse keeps blocking nodes tagged as both tree and vegetation")
+eq(features.inspect(gatehouse_feature, region, dual_group_info, clear, natural), true,
+	"registered tree and vegetation nodes stage for gatehouse clearance")
 eq(features.inspect(tower_feature, region, dual_group_info, clear, natural), true,
 	"tower may clear a node tagged as both tree and vegetation")
 local vine_nodes = {
@@ -343,26 +355,26 @@ eq(features.inspect(tall_feature, shallow_stone,
 	clear, function(name) return name == "stone" or name == "mcl_core:stone" end), true,
 	"tower retains its prior shallow natural stone cut")
 local stone_rise = {get = function(_, y) return y == 9 and "stone" or y == 13 and "mcl_core:stone" or "air" end}
-local stone_ok, stone_reason = features.inspect(tall_feature, stone_rise,
+local stone_ok, _, stone_reason = features.inspect(tall_feature, stone_rise,
 	function(name) return {walkable = name == "stone" or name == "mcl_core:stone"} end,
 	clear, function(name) return name == "stone" or name == "mcl_core:stone" end)
-eq(stone_ok, nil, "tower does not cut stone in its footprint")
-eq(stone_reason, "obstruction mcl_core:stone at (0,13,0)", "stone cut rejection reports blocker")
+eq(stone_ok, true, "tower stages stone in its footprint for clearance")
+eq(stone_reason[1].x, 0, "staged stone clearance records the blocked column")
+eq(stone_reason[1].y, 13, "staged stone clearance records the blocked height")
 local liquid_rise = {get = function(_, y) return y == 9 and "stone" or y == 11 and "water" or "air" end}
 local liquid_info = function(name)
 	return {walkable = name == "stone", liquid = name == "water"}
 end
 local liquid_ok, liquid_reason = features.inspect(tall_feature, liquid_rise, liquid_info, clear, natural_ground)
-eq(liquid_ok, nil, "water in the bounded natural cut area still blocks tower placement")
-eq(liquid_reason, "obstruction water at (0,11,0)", "water obstruction reports the blocking position")
+eq(liquid_ok, nil, "water in the feature footprint still blocks placement")
+eq(liquid_reason, "unsafe obstruction water at (0,11,0)", "water obstruction reports the blocking position")
 local crafted_rise = {get = function(_, y) return y == 9 and "stone" or y == 11 and "mcl_core:stonebrick" or "air" end}
 local crafted_info = function(name)
 	return {walkable = name == "stone" or name == "mcl_core:stonebrick"}
 end
-local crafted_ok, crafted_reason = features.inspect(tall_feature, crafted_rise, crafted_info, clear, natural_ground)
-eq(crafted_ok, nil, "crafted masonry in the tower footprint still blocks placement")
-eq(crafted_reason, "obstruction mcl_core:stonebrick at (0,11,0)",
-	"crafted-node obstruction reports the blocking position")
+local crafted_ok, _, crafted_reason = features.inspect(tall_feature, crafted_rise, crafted_info, clear, natural_ground)
+eq(crafted_ok, true, "crafted masonry in the tower footprint is staged for clearance")
+eq(crafted_reason[1].name, "air", "crafted masonry clearance replaces the occupied node with air")
 local sand = {get = function(_, y) return y == 9 and "sand" or y == 8 and "stone" or "air" end}
 local sand_info = function(name) return {walkable = name == "sand" or name == "stone", falling = name == "sand"} end
 local sand_natural = function(name) return name == "sand" or name == "stone" end
@@ -467,8 +479,8 @@ local blocked_gate = {get = function(x, y, z)
 	if y == 10 and x == 5 and z == 2 then return "building" end
 	return "air"
 end}
-eq(features.inspect(gate, blocked_gate, info, clear, natural), nil,
-	"gate cannot overwrite a building on the street")
+eq(features.inspect(gate, blocked_gate, info, clear, natural), true,
+	"gate may clear a building occupying its planned passage")
 local gap = {cells = {}, openings = {{x = 7, z = 3}, {x = 30, z = 3}}}
 eq(#features.remaining_wall(gap, {features.footprint(gate)}).openings, 1,
 	"placed gate suppresses approaches only inside its footprint")
