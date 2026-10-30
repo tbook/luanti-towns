@@ -307,27 +307,39 @@ function M.inspect(candidate, region, node_info, protected, natural)
 	for x = candidate.min.x, candidate.max.x do
 		for z = candidate.min.z, candidate.max.z do
 			local supported = false
+			local falling_stack = false
 			for y = candidate.min.y - 1, candidate.min.y - M.FOUNDATION_DEPTH, -1 do
 				local name = region.get(x, y, z)
 				local info = node_info(name)
 				if protected({x = x, y = y, z = z}) then return nil, "protected foundation" end
-				if natural(name) and info and info.walkable and not info.liquid and not info.ice then
-					if not info.falling then supported = true; break end
-					for below = y - 1, candidate.min.y - M.FOUNDATION_DEPTH, -1 do
-						local n = region.get(x, below, z)
-						local i = node_info(n)
-						if not natural(n) or not i or not i.walkable or i.liquid or i.ice then break end
-						if not i.falling then supported = true; break end
-					end
-					if supported then break end
-				end
-				local water = info and info.liquid and name:find("water", 1, true)
-				if name ~= "air" and not water and not vegetation(info) then
+				if vegetation(info) then
+					if falling_stack then return nil, "unsupported falling foundation" end
+					foundations[#foundations + 1] = {x = x, y = y, z = z}
+				elseif info and info.tree then
 					return nil, "foundation obstruction " .. tostring(name)
+				elseif info and info.walkable and not info.liquid then
+					if info.falling then
+						falling_stack = true
+						foundations[#foundations + 1] = {x = x, y = y, z = z}
+					else
+						supported = true
+						break
+					end
+				elseif falling_stack then
+					-- Falling blocks need a continuous, stable column beneath them.
+					-- Do not treat a cavity or liquid as support for sand/gravel.
+					return nil, "unsupported falling foundation"
+				else
+					local water = info and info.liquid and name:find("water", 1, true)
+					if name ~= "air" and not water then
+						return nil, "foundation obstruction " .. tostring(name)
+					end
+					foundations[#foundations + 1] = {x = x, y = y, z = z}
 				end
-				foundations[#foundations + 1] = {x = x, y = y, z = z}
 			end
-			if not supported then return nil, "unsupported foundation" end
+			if not supported then
+				return nil, falling_stack and "unsupported falling foundation" or "unsupported foundation"
+			end
 			for y = candidate.min.y, candidate.max.y do
 				local name = region.get(x, y, z)
 				local item = node_info(name)
