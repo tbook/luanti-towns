@@ -60,6 +60,8 @@ local roman_planner = load_sibling("roman_planner.lua")
 local medieval_planner = load_sibling("medieval_planner.lua")
 local catalog = load_sibling("catalog.lua")
 local open_space = load_sibling("open_space.lua")
+local walls = load_sibling("medieval_walls.lua")
+local wall_features = load_sibling("medieval_wall_features.lua")
 
 M.CONSTANTS = {
 	-- Population (populate): jail, services and chapels.
@@ -330,7 +332,7 @@ end
 -- a finished plan with plan.frontage; sets plan.reservations, plan.shortages
 -- and plan.content. A shortage never fails the plan. `profile` is a landmark
 -- profile (jail, services and content are optional).
-function M.populate(full, profile, seed)
+function M.populate(full, profile, seed, occupied)
 	local C = M.CONSTANTS
 	if not (profile and (profile.jail or profile.services or profile.content)) then
 		return
@@ -339,14 +341,14 @@ function M.populate(full, profile, seed)
 	full.shortages = {}
 	if profile.jail then
 		local placed, short = jail_reservation.reserve(full,
-			profile.jail, {seed = seed, bias = C.JAIL_MARKET_BIAS})
+			profile.jail, {seed = seed, bias = C.JAIL_MARKET_BIAS, occupied = occupied})
 		full.reservations.jail = placed
 		if short then full.shortages[1] = short end
 	end
 	if profile.services then
 		local placed, shorts, counts = service_reservation.reserve(
 			full, profile.services, {seed = seed,
-				variants = profile.service_variants,
+				variants = profile.service_variants, occupied = occupied,
 				targets = {tavern = C.SERVICE_TAVERNS,
 					well = C.SERVICE_WELLS, chapel = C.SERVICE_CHAPELS},
 				chapel_min_cathedral = C.CHAPEL_MIN_FROM_CATHEDRAL,
@@ -360,8 +362,8 @@ function M.populate(full, profile, seed)
 	if profile.content then
 		-- Private random stream: derived from the seed, never drawn from the
 		-- planner's `rng`.
-		full.content = content_planner.plan(full, profile.content, {seed = seed})
-		full.objects = open_space.plan(full, seed)
+		full.content = content_planner.plan(full, profile.content, {seed = seed, occupied = occupied})
+		full.objects = open_space.plan(full, seed, occupied)
 	end
 end
 
@@ -483,8 +485,17 @@ function M.plan(center, seed, opts)
 	end
 	local plan, why, detail = medieval_planner.plan(center, seed, profile, new_rng(seed))
 	if not plan then return nil, why, detail end
-	M.populate(plan, profile, seed)
-	return plan
+	local wall = walls.plan(plan, opts.force_walls)
+ local occupied
+ if wall then
+  local structures = {}
+  for _, site in pairs(plan.sites) do structures[#structures + 1] = site end
+  local candidates = wall_features.candidates(wall, 0, opts.wall_feature_entries or catalog.entries, walls)
+  local _, rects = wall_features.select(candidates, structures, plan.streets, nil, true)
+  occupied = rects
+ end
+ M.populate(plan, profile, seed, occupied)
+ return plan
 end
 
 return M

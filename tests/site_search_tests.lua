@@ -214,7 +214,7 @@ do
 	local catalog = dofile("src/catalog.lua")
 	local profile = assert(planner.landmark_profile(catalog.snapshot()))
 	local opts = {step = 160, max_radius = 160,
-		planner_opts = {landmarks = profile}}
+		planner_opts = {landmarks = profile, force_walls = true}}
 	local content_plan = assert(planner.plan({x = 0, z = 0}, 101, opts.planner_opts))
 	eq(content_plan.content and #content_plan.content.buildings > 0, true,
 		"populated catalog fixture includes content buildings")
@@ -228,6 +228,20 @@ do
 			"populated catalog search excludes player-overlapping origin")
 		eq(result.plan.content and #result.plan.content.buildings > 0, true,
 			"populated catalog result retains content buildings")
+        local walls = dofile("src/medieval_walls.lua")
+        local features = dofile("src/medieval_wall_features.lua")
+        local function selected(plan)
+            local sites = {}
+            for _, site in pairs(plan.sites) do sites[#sites + 1] = site end
+            return features.select(features.candidates(walls.plan(plan, true), 0, catalog.entries, walls),
+                sites, plan.streets, nil, true)
+        end
+        local original, translated = selected(content_plan), selected(result.plan)
+        eq(#translated, #original, "site search retains feature reservations after translation")
+        for i, feature in ipairs(original) do
+            eq(translated[i].min.x - feature.min.x, result.candidate.dx, "feature translated x")
+            eq(translated[i].min.z - feature.min.z, result.candidate.dz, "feature translated z")
+        end
 	else
 		eq(type(summary), "string", "populated catalog search failure summary")
 		eq(details.rejections.plan_failed or 0, 0,

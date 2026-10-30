@@ -17,10 +17,26 @@ local function profile()
 	return assert(towns.planner.landmark_profile(towns.catalog.snapshot()))
 end
 
+-- Use the same asset validation before population and again before placement.
+local function valid_wall_entries()
+ local valid_entries = {}
+ for _, id in ipairs({"wall_gatehouse", "wall_tower"}) do
+  local entry = towns.catalog.entries[id]
+  local ok, valid = pcall(function()
+   local sc = assert(core.read_schematic(towns.modpath .. "/" .. entry.path, {}))
+   assert(sc.size.x == entry.size.x and sc.size.y == entry.size.y and sc.size.z == entry.size.z)
+   return towns.schematic.validate(entry, towns.modpath)
+  end)
+  if ok and valid then valid_entries[id] = entry
+  else core.log("warning", "towns: " .. id .. " asset unavailable; using ordinary walls") end
+ end
+ return valid_entries
+end
+
 -- Search and build halves, exposed for headless validation
 -- (tools/place_check) as towns.populated. `town_type` is "medieval" (nil
 -- means medieval) or "roman"; both share every stage after the plan.
-local function search(pos, seed, town_type, done)
+local function search(pos, seed, town_type, done, force_walls)
 	-- Ticket #104: wet sites (shallow ponds, rivers, ice) are landfilled under
 	-- the conservative towns.site_search.WET_DEFAULTS.
 	local opts = {}
@@ -29,7 +45,8 @@ local function search(pos, seed, town_type, done)
 		opts.planner_opts = {town_type = "roman"}
 		opts.entries = towns.catalog.entries
 	else
-		opts.planner_opts = {landmarks = profile()}
+		opts.planner_opts = {landmarks = profile(), force_walls = force_walls,
+			wall_feature_entries = valid_wall_entries()}
 	end
 	for k, v in pairs(towns.site_search.WET_DEFAULTS) do opts[k] = v end
 	return towns.site_search.search(pos, seed, opts, function(result, message, details)
@@ -167,49 +184,9 @@ local function build_urban(result)
 	end
 	if result.wall and towns.medieval_wall_features then
 		local features = towns.medieval_wall_features
-		local candidates = {}
-		for _, spec in ipairs({{id = "wall_gatehouse", gate = true}, {id = "wall_tower"}}) do
-			local entry = towns.catalog.entries[spec.id]
-			local asset_ok, valid = pcall(function()
-				local sc = assert(core.read_schematic(towns.modpath .. "/" .. entry.path, {}))
-				assert(sc.size.x == entry.size.x and sc.size.y == entry.size.y and sc.size.z == entry.size.z)
-				return towns.schematic.validate(entry, towns.modpath)
-			end)
-			if asset_ok and valid then
-				local found = spec.gate and walls.gatehouse_candidates(result.wall, result.ground_y, entry)
-					or features.corner_candidates(result.wall, result.ground_y, entry)
-				for _, candidate in ipairs(found) do
-					if spec.gate then
-						candidate.min, candidate.max = candidate.bounds.min, candidate.bounds.max
-						candidate.reserve_rect = features.footprint(candidate)
-						for _, c in ipairs(candidate.outside_approach or {}) do
-							for n = 0, 3 do
-								local x, z = c.x + c.direction.x * n, c.z + c.direction.z * n
-								local rect = candidate.reserve_rect
-								rect.x1, rect.x2 = math.min(rect.x1, x), math.max(rect.x2, x)
-								rect.z1, rect.z2 = math.min(rect.z1, z), math.max(rect.z2, z)
-							end
-						end
-						-- Keep another feature out of the two wall columns that must
-						-- connect the gate to the ordinary wall.
-						if candidate.direction.x ~= 0 then
-							candidate.reserve_rect.z1 = candidate.reserve_rect.z1 - 1
-							candidate.reserve_rect.z2 = candidate.reserve_rect.z2 + 1
-						else
-							candidate.reserve_rect.x1 = candidate.reserve_rect.x1 - 1
-							candidate.reserve_rect.x2 = candidate.reserve_rect.x2 + 1
-						end
-					end
-					if not spec.gate or features.gate_joins(candidate, result.wall) then
-						candidates[#candidates + 1] = candidate
-					else
-						core.log("warning", "towns: wall_gatehouse omitted: missing adjoining wall columns")
-					end
-				end
-			else
-				core.log("warning", "towns: " .. spec.id .. " asset unavailable; using ordinary walls")
-			end
-		end
+		local valid_entries = valid_wall_entries()
+  local candidates = features.candidates(result.wall, result.ground_y, valid_entries, walls,
+   function() core.log("warning", "towns: wall_gatehouse omitted: missing adjoining wall columns") end)
 		result.wall_features, result.wall_feature_footprints = features.select(candidates,
 			pre.structures, result.plan.streets, function(pos) return core.is_protected(pos, "") end)
 		if #result.wall_features < #candidates then

@@ -4,7 +4,7 @@
 local M = {}
 local DIRS = {{0,-1,0}, {-1,0,90}, {0,1,180}, {1,0,270}}
 
-function M.plan(plan, seed)
+function M.plan(plan, seed, reserved)
 	local b, free, public = plan.bounds, {}, {}
 	local function key(x, z) return (z - b.z1) * (b.x2 - b.x1 + 1) + x - b.x1 + 1 end
 	local function inside(x, z) return x >= b.x1 and x <= b.x2 and z >= b.z1 and z <= b.z2 end
@@ -17,6 +17,13 @@ function M.plan(plan, seed)
 	for _, r in ipairs(plan.boundary.rects) do paint(r, true) end
 	for _, s in ipairs(plan.streets) do paint(s.rect, false, true) end
 	for _, s in pairs(plan.sites) do paint(s.rect, false, s.kind == "square") end
+	for _, r in ipairs(reserved or {}) do
+		local clipped = {x1 = math.max(r.x1, b.x1), x2 = math.min(r.x2, b.x2),
+			z1 = math.max(r.z1, b.z1), z2 = math.min(r.z2, b.z2)}
+		for z = clipped.z1, clipped.z2 do for x = clipped.x1, clipped.x2 do
+			free[key(x, z)] = false
+		end end
+	end
 	local res = plan.reservations or {}
 	if res.jail then paint(res.jail.rect, false) end
 	for _, s in ipairs(res.services or {}) do paint(s.rect, false) end

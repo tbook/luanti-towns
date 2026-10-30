@@ -270,8 +270,8 @@ local function fakes(opts)
 			if name == "ghost" then return nil end
 			return f.pos
 		end,
-		search = function(pos, seed, town_type, done)
-			f.searches[#f.searches + 1] = {pos = pos, seed = seed, town_type = town_type, done = done}
+		search = function(pos, seed, town_type, done, force_walls)
+			f.searches[#f.searches + 1] = {pos = pos, seed = seed, town_type = town_type, done = done, force_walls = force_walls}
 			if opts.search_raises then error(opts.search_raises) end
 			if opts.sync_search then opts.sync_search(done) end
 		end,
@@ -903,6 +903,12 @@ do -- one job at a time across types
 	eq((f.c.run("alice", "roman 3")), true, "across types: roman runs after medieval")
 end
 
+do
+ local f = fakes()
+ f.c.run("alice", "medieval 2 walls=off")
+ eq(f.searches[1].force_walls, false, "wall override reaches search before planning")
+end
+
 ------------------------------------------------------------------------
 -- Real search wiring (src/generate_command.lua) for each type. The chunk is
 -- loaded with a stub `core` and a stub `towns`; only site_search.search is
@@ -933,4 +939,10 @@ do
 	eq(captured.opts.entries, entries, "wiring roman: opts.entries is the catalog entries")
 	eq(captured.opts.planner_opts.landmarks, nil, "wiring roman: no medieval landmark profile")
 	eq(captured.opts.wet_probe, true, "wiring roman: wet defaults merged")
+ towns.catalog.snapshot = function() return dofile("src/catalog.lua").snapshot() end
+ stub_core.read_schematic = function() error("missing asset") end
+ stub_core.log = function() end
+ towns.populated.search({x = 1, y = 2, z = 3}, 11, "medieval", function() end, true)
+ eq(captured.opts.planner_opts.force_walls, true, "wiring preserves forced walls in search")
+ eq(next(captured.opts.planner_opts.wall_feature_entries), nil, "unavailable assets excluded from planning")
 end

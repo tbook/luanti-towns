@@ -174,3 +174,65 @@ local gap = {cells = {}, openings = {{x = 7, z = 3}, {x = 30, z = 3}}}
 eq(#features.remaining_wall(gap, {features.footprint(gate)}).openings, 1,
 	"placed gate suppresses approaches only inside its footprint")
 eq(#features.remaining_wall(gap, {}).openings, 2, "omitted gate retains original approaches")
+
+-- A full town must reserve the same footprints that placement will select,
+-- before all categories of building and open-space objects are populated.
+do
+ local planner = dofile("src/planner.lua")
+ local catalog = dofile("src/catalog.lua")
+ local walls = dofile("src/medieval_walls.lua")
+ local profile = assert(planner.landmark_profile(catalog.snapshot()))
+ local function overlap(a, b)
+  return a.x1 <= b.x2 and b.x1 <= a.x2 and a.z1 <= b.z2 and b.z1 <= a.z2
+ end
+ for _, center in ipairs({{x = 0, z = 0}, {x = 120, z = -90}}) do
+  local plan = assert(planner.plan(center, 2, {landmarks = profile, force_walls = true}))
+  local sites = {}
+  for _, site in pairs(plan.sites) do sites[#sites + 1] = site end
+  local candidates = features.candidates(walls.plan(plan, true), 0, catalog.entries, walls)
+  local selected, reserved = features.select(candidates, sites, plan.streets)
+  eq(#selected > 0, true, "eligible wall features are reserved")
+  local occupants = {}
+  if plan.reservations.jail then occupants[#occupants + 1] = plan.reservations.jail end
+  for _, b in ipairs(plan.reservations.services or {}) do occupants[#occupants + 1] = b end
+  for _, b in ipairs(plan.content.buildings or {}) do occupants[#occupants + 1] = b end
+  for _, b in ipairs(plan.objects or {}) do occupants[#occupants + 1] = b end
+  local clear = true
+  for _, b in ipairs(occupants) do for _, r in ipairs(reserved) do
+   if overlap(b.reserved_rect or b.rect, r) then clear = false end
+  end end
+  eq(clear, true, "populated buildings and objects avoid reserved wall features")
+  local all_structures = {}
+  for _, site in pairs(plan.sites) do all_structures[#all_structures + 1] = site end
+  for _, b in ipairs(occupants) do all_structures[#all_structures + 1] = b end
+  local actual = features.select(candidates, all_structures, plan.streets, nil, true)
+  eq(#actual, #selected, "actual eligible features match the planning reservations")
+  for i, candidate in ipairs(selected) do
+   eq(actual[i] and actual[i].min.x, candidate.min.x, "reserved feature x agrees with placement")
+   eq(actual[i] and actual[i].min.z, candidate.min.z, "reserved feature z agrees with placement")
+  end
+ end
+end
+
+-- Empty asset availability produces precisely the same population as walls=off.
+do
+ local planner = dofile("src/planner.lua")
+ local catalog = dofile("src/catalog.lua")
+ local profile = assert(planner.landmark_profile(catalog.snapshot()))
+ local empty = assert(planner.plan({x=0,z=0}, 2, {landmarks=profile, force_walls=true, wall_feature_entries={}}))
+ local off = assert(planner.plan({x=0,z=0}, 2, {landmarks=profile, force_walls=false}))
+ eq(#empty.content.buildings, #off.content.buildings, "missing assets do not reserve population plots")
+ for i, b in ipairs(off.content.buildings) do
+  local a = empty.content.buildings[i]
+  eq(a and a.rect.x1, b.rect.x1, "missing assets preserve off layout x")
+  eq(a and a.rect.z1, b.rect.z1, "missing assets preserve off layout z")
+ end
+end
+
+do
+ local at_limit = {min={x=30999,y=0,z=0}, max={x=31001,y=1,z=1}}
+ eq(#features.select({at_limit}, {}, {}, nil, true), 1,
+  "planning reserves feature across map limit consistently with origin planning")
+ eq(#features.select({at_limit}, {}, {}, nil), 0,
+  "placement still rejects feature beyond map limit")
+end
