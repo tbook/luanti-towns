@@ -465,6 +465,20 @@ do
 		eq(has_pos(water_fill, 0, 10, 0), true, asset .. " fills water below its ground level")
 		eq(features.inspect(ground_candidate, make_region({[9] = "mcl_core:andesite", [11] = "water"}),
 			node_info, clear, no_material_allowlist), nil, asset .. " rejects water at its ground level")
+		-- Non-water liquids stay unsafe below ground (volume) and in the foundation layer.
+		eq(features.inspect(ground_candidate, make_region({[9] = "mcl_core:andesite", [10] = "lava"}),
+			node_info, clear, no_material_allowlist), nil, asset .. " rejects lava below its ground level")
+		eq(features.inspect(ground_candidate, make_region({[9] = "lava", [8] = "mcl_core:andesite"}),
+			node_info, clear, no_material_allowlist), nil, asset .. " rejects lava in the foundation layer")
+		-- Water without a ground offset is still at ground level, so it blocks.
+		local flat_candidate = {asset = asset, min = {x = 0, y = 10, z = 0}, max = {x = 1, y = 11, z = 1}}
+		eq(features.inspect(flat_candidate, make_region({[9] = "mcl_core:andesite", [10] = "water"}),
+			node_info, clear, no_material_allowlist), nil, asset .. " rejects water at min.y without ground_offset")
+		-- A column may take water fill below ground, but a non-water obstruction above it still blocks.
+		eq(features.inspect(ground_candidate,
+			make_region({[9] = "mcl_core:andesite", [10] = "water", [11] = "lava"}),
+			node_info, clear, no_material_allowlist), nil,
+			asset .. " rejects a water-fill column with lava at ground level")
 		for _, protected_y in ipairs({9, 8, 7}) do
 			local allowed = features.inspect(candidate,
 				make_region({[9] = "mcl_core:sand", [8] = "mcl_core:gravel", [7] = "mcl_core:andesite"}),
