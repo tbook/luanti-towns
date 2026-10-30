@@ -66,9 +66,46 @@ local blocked, obstruction = features.inspect(feature, region, info, clear, natu
 eq(blocked, nil, "obstruction in schematic air volume blocks tower")
 eq(obstruction, "obstruction building at (1,11,1)", "tower obstruction reports the exact blocking position")
 obstacle = {x = 1, y = 11, z = 1, name = "tree"}
-local tree_info = function(name) return {walkable = name == "stone", tree = name == "tree", vegetation = name == "tree"} end
-eq(features.inspect(feature, region, tree_info, clear, natural), nil, "tree-group logs in the tower volume remain intact")
+local tree_info = function(name) return {walkable = name == "stone", tree = name == "tree", vegetation = false} end
+eq(features.inspect(feature, region, tree_info, clear, natural), nil, "generic feature leaves tree-group logs intact")
 local placement = dofile("src/placement.lua")
+local tower_log_nodes = {
+	stone = {walkable = true},
+	["mcl_core:tree"] = {walkable = true, groups = {tree = 1, building_block = 1}},
+}
+local tower_log_info = function(name) return placement.node_info(tower_log_nodes, name) end
+local tower_feature = {asset = "wall_tower", min = feature.min, max = feature.max}
+obstacle = {x = 1, y = 11, z = 1, name = "mcl_core:tree"}
+eq(tower_log_info("mcl_core:tree").vegetation, false, "game tree-group log is not generic vegetation")
+eq(tower_log_info("mcl_core:tree").tree, true, "game tree-group log is recognized as a log")
+eq(features.inspect(tower_feature, region, tower_log_info, clear, natural), true,
+	"tower clears tree-group logs in its authored volume")
+local log_foundation = {get = function(x, y, z)
+	if x == 0 and z == 0 and y == 9 then return "mcl_core:tree" end
+	return y == 8 and "stone" or "air"
+end}
+local tower_foundation_ok, tower_foundations = features.inspect(tower_feature, log_foundation,
+	tower_log_info, clear, natural)
+eq(tower_foundation_ok, true, "tower clears a tree-group log above stable foundation support")
+local log_foundation_cleared = false
+for _, p in ipairs(tower_foundations) do
+	if p.x == 0 and p.y == 9 and p.z == 0 then log_foundation_cleared = true end
+end
+eq(log_foundation_cleared, true, "tree-group log is included in tower foundation clearing")
+eq(features.inspect(tower_feature, log_foundation, tower_log_info, function(p)
+	return p.x == 0 and p.y == 9 and p.z == 0
+end, natural), nil, "protected tower log remains a blocker")
+local gatehouse_feature = {asset = "wall_gatehouse", min = feature.min, max = feature.max}
+eq(features.inspect(gatehouse_feature, region, tower_log_info, clear, natural), nil,
+	"gatehouse still cannot clear tree-group logs")
+local dual_group_info = function(name)
+	if name == "mcl_core:tree" then return {walkable = true, tree = true, vegetation = true} end
+	return tower_log_info(name)
+end
+eq(features.inspect(gatehouse_feature, region, dual_group_info, clear, natural), nil,
+	"gatehouse keeps blocking nodes tagged as both tree and vegetation")
+eq(features.inspect(tower_feature, region, dual_group_info, clear, natural), true,
+	"tower may clear a node tagged as both tree and vegetation")
 local vine_nodes = {
 	["stone"] = {walkable = true},
 	-- Mineclonia's mcl_core:vine definition uses vinelike_node and deco_block,
