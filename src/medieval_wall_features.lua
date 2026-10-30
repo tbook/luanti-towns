@@ -3,10 +3,18 @@
 -- placing a schematic.
 local M = {}
 M.FOUNDATION_DEPTH = 32
--- Allow the tower schematic to cut a shallow natural rise at its footprint.
--- This keeps slight terrain variation from omitting a tower while avoiding
--- unbounded excavation into hillsides.
 M.MAX_CUT_HEIGHT = 2
+-- Towers may replace dirt throughout their authored footprint. Keeping this
+-- narrower than natural terrain support avoids cutting into stone or other
+-- landscape materials when a tower sits against a hillside.
+local TOWER_REPLACEABLE_TERRAIN = {
+	["mcl_core:dirt"] = true,
+	["mcl_core:dirt_with_grass"] = true,
+	["mcl_core:dirt_with_snow"] = true,
+	["mcl_core:dirt_with_grass_snow"] = true,
+	["mcl_core:coarse_dirt"] = true,
+	["mcl_core:podzol"] = true,
+}
 
 local function rotate(x, z, rotation, size)
 	if rotation == 0 then return x, z end
@@ -99,6 +107,14 @@ end
 
 local function overlap(a, b)
 	return a.x1 <= b.x2 and b.x1 <= a.x2 and a.z1 <= b.z2 and b.z1 <= a.z2
+end
+
+local function replaceable_terrain(candidate, y, name, natural)
+	-- Keep the existing shallow cut for natural terrain on all wall features.
+	-- Towers can additionally replace dirt throughout their authored volume.
+	return (y <= candidate.min.y + M.MAX_CUT_HEIGHT and natural(name))
+		or ((candidate.asset == "wall_tower" or candidate.asset == "wall_tower_inline")
+			and TOWER_REPLACEABLE_TERRAIN[name] == true)
 end
 
 function M.footprint(feature)
@@ -237,7 +253,7 @@ function M.inspect(candidate, region, node_info, protected, natural)
 					and x >= candidate.street_rect.x1 and x <= candidate.street_rect.x2
 					and z >= candidate.street_rect.z1 and z <= candidate.street_rect.z2
 				if name ~= "air" and not road and not vegetation(item)
-					and not (y <= candidate.min.y + M.MAX_CUT_HEIGHT and natural(name)) then
+					and not replaceable_terrain(candidate, y, name, natural) then
 					return nil, ("obstruction %s at (%d,%d,%d)"):format(
 						tostring(name), x, y, z)
 				end
