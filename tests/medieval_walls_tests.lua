@@ -1108,20 +1108,17 @@ do
 		end
 		local crossings = walls.bare_crossings(opening("principal", 6))
 		eq(#crossings, 1, "principal opening is one crossing")
-		eq(#crossings[1], 4, "principal opening grades four central columns")
-		eq(crossings[1][1].z, 1, "principal grading is centered")
+		eq(#crossings[1], 6, "principal opening grades its full width")
+		eq(crossings[1][1].z, 0, "principal grading starts at the first column")
 		crossings = walls.bare_crossings(opening("secondary", 4))
-		eq(#crossings[1], 2, "secondary opening grades two central columns")
-		eq(crossings[1][1].z, 1, "secondary grading is centered")
-		eq(#walls.bare_crossings(opening("principal", 5)), 0, "uncenterable crossing is skipped")
-		eq(#walls.bare_crossings(opening("principal", 3)), 0, "too narrow crossing is skipped")
+		eq(#crossings[1], 4, "secondary opening grades its full width")
 		local changes, failures, _, o = grade("principal", 6, function(x) return x >= 6 and 3 or 0 end)
 		eq(#failures, 0, "rising terrain is graded")
-		eq(o[1].graded, nil, "flank column keeps its legacy stub")
-		eq(o[2].graded, true, "central column is flagged graded")
+		for i = 1, 6 do eq(o[i].graded, true, "every column is flagged graded") end
 		local rows = {}
 		for _, c in ipairs(changes) do rows[c.z] = true end
-		eq(rows[1] and rows[4] and not rows[0] and not rows[5], true, "ramp covers only the central columns")
+		for z = 0, 5 do eq(rows[z], true, "ramp covers column " .. z) end
+		eq(rows[-1] == nil and rows[6] == nil, true, "ramp stays within the opening width")
 		_, failures, at = grade("principal", 6, function(x) return x >= 3 and 1 or 0 end)
 		eq(#failures, 0, "gentle rise is graded")
 		local rise = at["3:1:1"]
@@ -1131,11 +1128,11 @@ do
 		local deepest = 0
 		for key, c in pairs(at) do if c.name ~= "air" then deepest = math.min(deepest, c.y) end end
 		eq(deepest < 0, true, "falling ramp descends")
-		eq(at["0:0:0"], nil, "secondary flank is untouched")
+		eq(at["2:0:0"] ~= nil and at["2:0:3"] ~= nil, true, "secondary flanks are graded")
 		_, failures, _, o = grade("principal", 6, function() return 0 end, function(x, y) if x == 2 and y == 1 then return "test:water" end end)
 		eq(#failures, 1, "water blocks grading")
 		eq(failures[1].blocker.node, "test:water", "failure names the blocker")
-		eq(o[2].graded, nil, "failed crossing is not flagged")
+		for i = 1, 6 do eq(o[i].graded, nil, "failed crossing is not flagged") end
 		_, failures = grade("principal", 6, function(x) return 2 * x end)
 		eq(failures[1].reason:match("terrain not met") ~= nil, true, "unreachable terrain fails")
 		local protect_region = {get = function(_, y) return y <= 0 and "mcl_core:stone" or "air" end}
@@ -1154,12 +1151,12 @@ do
 		local o2 = opening("principal", 6)
 		local base = stub_rows(o2)
 		for z = 0, 5 do eq(base[z], 4, "ungraded column emits a four node stub") end
-		for z = 1, 4 do o2[z + 1].graded = true end
-		local skipped = stub_rows(o2)
-		eq(skipped[0], 4, "ungraded flank keeps its stub")
-		eq(skipped[5], 4, "other ungraded flank keeps its stub")
-		for z = 1, 4 do eq(skipped[z], nil, "graded column stub is gone") end
-		-- Every direction grades its own central columns.
+		o2[1].graded = true
+		eq(stub_rows(o2)[0], nil, "graded column stub is gone")
+		eq(stub_rows(o2)[1], 4, "ungraded column keeps its stub")
+		for z = 2, 6 do o2[z].graded = true end
+		eq(next(stub_rows(o2)), nil, "fully graded opening emits no stub")
+		-- Every direction grades its own columns.
 		for _, d in ipairs({{x = 1, z = 0}, {x = -1, z = 0}, {x = 0, z = 1}, {x = 0, z = -1}}) do
 			local o3 = {}
 			for t = 0, 5 do
@@ -1168,23 +1165,23 @@ do
 			end
 			local cr = walls.bare_crossings(o3)
 			eq(#cr, 1, "one crossing for direction " .. d.x .. "," .. d.z)
-			eq(#cr[1], 4, "four columns for direction " .. d.x .. "," .. d.z)
+			eq(#cr[1], 6, "six columns for direction " .. d.x .. "," .. d.z)
 			local t1 = d.x ~= 0 and cr[1][1].z or cr[1][1].x
-			local t4 = d.x ~= 0 and cr[1][4].z or cr[1][4].x
-			eq(t1 == 1 and t4 == 4, true, "central columns for direction " .. d.x .. "," .. d.z)
+			local t6 = d.x ~= 0 and cr[1][6].z or cr[1][6].x
+			eq(t1 == 0 and t6 == 5, true, "full width for direction " .. d.x .. "," .. d.z)
 			local region = {get = function(x, y, z)
 				return y <= 0 and "mcl_core:stone" or "air" end}
 			local ch, fail = walls.grade_openings(o3, 0, region, info, function() return false end)
 			eq(#fail, 0, "flat grading succeeds for direction " .. d.x .. "," .. d.z)
-			eq(#ch, 16, "flat ramp paves 4x4 for direction " .. d.x .. "," .. d.z)
+			eq(#ch, 24, "flat ramp paves 6x4 for direction " .. d.x .. "," .. d.z)
 		end
 		-- Two disjoint runs on the same street and wall plane.
 		local two = opening("secondary", 4)
 		for z = 10, 13 do two[#two + 1] = {x = 0, z = z, direction = {x = 1, z = 0}, street = 1, kind = "secondary"} end
 		local cr = walls.bare_crossings(two)
 		eq(#cr, 2, "disjoint runs are separate crossings")
-		eq(#cr[1] + #cr[2], 4, "each run grades two columns")
-		eq(cr[2][1].z, 11, "second run is centered independently")
+		eq(#cr[1] + #cr[2], 8, "each run grades its full width")
+		eq(cr[2][1].z, 10, "second run starts at its own first column")
 		local flat = {get = function(_, y) return y <= 0 and "mcl_core:stone" or "air" end}
 		-- Covered openings are excluded after remaining_wall.
 		local fapi = dofile("src/medieval_wall_features.lua")

@@ -930,12 +930,9 @@ function M.approach_bounds(columns, ground)
 		max = {x = r.x2, y = ground + M.RAMP_MAX + 4, z = r.z2}}
 end
 
--- Outside road widths for an opening that has no gatehouse/postern.
-M.BARE_WIDTH = {principal = 4, secondary = 2}
-
--- Group openings into contiguous crossings and return, for each, the central
--- columns (principal 4, secondary 2) that get a graded ramp. Crossings that
--- cannot be centered on that width are skipped and keep the legacy stub.
+-- Group openings into contiguous crossings (same street, direction and wall
+-- line) and return each crossing's full run of columns, which is graded as a
+-- ramp of the opening's full width.
 function M.bare_crossings(openings)
 	local groups, order = {}, {}
 	for _, o in ipairs(openings) do
@@ -950,18 +947,10 @@ function M.bare_crossings(openings)
 	for _, k in ipairs(order) do
 		local list = groups[k]
 		table.sort(list, function(a, b) return a.t < b.t end)
-		local i = 1
-		while i <= #list do
-			local j = i
-			while j < #list and list[j + 1].t == list[j].t + 1 do j = j + 1 end
-			local n = j - i + 1
-			local width = M.BARE_WIDTH[list[i].o.kind]
-			if width and n >= width and (n - width) % 2 == 0 then
-				local trim, columns = (n - width) / 2, {}
-				for m = i + trim, j - trim do columns[#columns + 1] = list[m].o end
-				out[#out + 1] = columns
-			end
-			i = j + 1
+		local columns
+		for i, item in ipairs(list) do
+			if columns and item.t == list[i - 1].t + 1 then columns[#columns + 1] = item.o
+			else columns = {item.o}; out[#out + 1] = columns end
 		end
 	end
 	return out
