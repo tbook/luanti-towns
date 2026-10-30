@@ -197,6 +197,14 @@ end
 -- stable natural support; partial placement is never attempted.
 function M.inspect(candidate, region, node_info, protected, natural)
 	local foundations = {}
+	-- Towers may clear tree-group logs throughout their complete authored
+	-- volume and foundation. Gatehouses keep the narrower wall behavior: logs
+	-- can be part of a building, so they remain an obstruction there.
+	local clear_tree = candidate.asset == "wall_tower" or candidate.asset == "wall_tower_inline"
+	local function vegetation(info)
+		return info and not info.liquid and not info.ice
+			and ((info.vegetation and (clear_tree or not info.tree)) or (clear_tree and info.tree))
+	end
 	for x = candidate.min.x, candidate.max.x do
 		for z = candidate.min.z, candidate.max.z do
 			local supported = false
@@ -215,8 +223,7 @@ function M.inspect(candidate, region, node_info, protected, natural)
 					if supported then break end
 				end
 				local water = info and info.liquid and name:find("water", 1, true)
-				if name ~= "air" and not water
-						and not (info and info.vegetation and not info.tree and not info.ice and not info.liquid) then
+				if name ~= "air" and not water and not vegetation(info) then
 					return nil, "foundation obstruction " .. tostring(name)
 				end
 				foundations[#foundations + 1] = {x = x, y = y, z = z}
@@ -229,8 +236,7 @@ function M.inspect(candidate, region, node_info, protected, natural)
 				local road = candidate.street_rect and y == candidate.min.y and name == candidate.material
 					and x >= candidate.street_rect.x1 and x <= candidate.street_rect.x2
 					and z >= candidate.street_rect.z1 and z <= candidate.street_rect.z2
-				if name ~= "air" and not road and not (item and item.vegetation and not item.tree
-						and not item.liquid and not item.ice)
+				if name ~= "air" and not road and not vegetation(item)
 					and not (y <= candidate.min.y + M.MAX_CUT_HEIGHT and natural(name)) then
 					return nil, ("obstruction %s at (%d,%d,%d)"):format(
 						tostring(name), x, y, z)
