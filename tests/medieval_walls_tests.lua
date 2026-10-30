@@ -389,11 +389,21 @@ do
 		["test:liquid_plant"] = {walkable = false, liquidtype = "source", groups = {plant = 1}},
 		["test:lava_source"] = {walkable = false, liquidtype = "source"},
 		["test:icy_plant"] = {walkable = true, groups = {plant = 1, ice = 1}},
+		-- VoxeLibre shape: a "source" whose flowing alternative is itself (not liquid).
+		["test:sweet_berry_bush"] = {walkable = false, liquidtype = "source",
+			liquid_alternative_flowing = "test:sweet_berry_bush", liquid_range = 0, groups = {plant = 1}},
+		["test:real_water_source"] = {walkable = false, liquidtype = "source",
+			liquid_alternative_flowing = "test:real_water_flowing"},
+		["test:real_water_flowing"] = {walkable = false, liquidtype = "flowing"},
 	}
 	local function wall_node_info(name)
 		if name == "mcl_core:stone" then return {walkable = true} end
 		return placement.node_info(wall_nodes, name)
 	end
+	eq(wall_node_info("test:sweet_berry_bush").liquid, false, "self-referencing VoxeLibre bush is not liquid")
+	eq(wall_node_info("test:sweet_berry_bush").vegetation, true, "sweet berry bush counts as vegetation")
+	eq(wall_node_info("test:real_water_source").liquid, true, "real water source with a flowing alternative is liquid")
+	eq(wall_node_info("test:lava_source").liquid, true, "lava source without a flowing alternative is still liquid")
 	local vegetated_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
 	local clearance_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
 	local clearance_changes = walls.inspect(clearance_wall, 0, {get = function(x, y)
@@ -634,6 +644,38 @@ do
 	eq(#log_approach_omissions, 0, "tree-group logs do not block an approach")
 	eq(paved_log, true, "approach paving replaces a ground-level log")
 	eq(cleared_overhead_log, true, "approach clears an overhead log")
+	local bush_approach_changes, bush_approach_omissions = walls.inspect(vegetated_approach, 0,
+		{get = function(x, y)
+			if y == -1 and x == 0 then return "mcl_core:stone" end
+			if y == 0 and x ~= 0 then return "mcl_core:stone" end
+			if x == 1 and y == 1 then return "test:sweet_berry_bush" end
+			return "air"
+		end}, wall_node_info, function() return false end)
+	local cleared_bush = false
+	for _, change in ipairs(bush_approach_changes) do
+		if change.x == 1 and change.y == 1 and change.name == "air" then cleared_bush = true end
+	end
+	eq(#bush_approach_omissions, 0, "sweet berry bush does not block an approach as water")
+	eq(cleared_bush, true, "approach clears an overhead sweet berry bush")
+	do
+		local features = dofile("src/medieval_wall_features.lua")
+		local bush_tower = {asset = "wall_tower", min = {x = 0, y = 10, z = 0}, max = {x = 1, y = 13, z = 1}}
+		local bush_region = {get = function(x, y, z)
+			if y == 9 then return "mcl_core:stone" end
+			if x == 0 and y == 10 and z == 0 then return "test:sweet_berry_bush" end
+			return "air"
+		end}
+		local bush_ok, _, bush_clearance = features.inspect(bush_tower, bush_region, wall_node_info,
+			function() return false end, function(name) return name == "mcl_core:stone" end)
+		eq(bush_ok, true, "wall feature inspection accepts a sweet berry bush in its footprint")
+		local bush_feature_cleared = false
+		for _, change in ipairs(bush_clearance or {}) do
+			if change.x == 0 and change.y == 10 and change.z == 0 and change.name == "air" then
+				bush_feature_cleared = true
+			end
+		end
+		eq(bush_feature_cleared, true, "wall feature clears the sweet berry bush")
+	end
 	for _, structure in ipairs({"mcl_chests:chest", "mcl_core:crafting_table", "test:buildable_structure"}) do
 	local structure_changes, structure_omissions = walls.inspect(vegetated_wall, 0,
 			{get = function(_, y)
@@ -664,7 +706,7 @@ do
 		wall_node_info, function(p) return p.x == 0 and p.y == 2 end)
 	eq(#protected_log_changes, 0, "protected log is preserved")
 	eq(protected_log_omissions[1].reason, "protected", "protected log keeps its wall column omitted")
-	for _, obstruction in ipairs({"test:liquid_plant", "test:icy_plant", "test:unknown"}) do
+	for _, obstruction in ipairs({"test:liquid_plant", "test:icy_plant", "test:unknown", "test:sweet_berry_bush"}) do
 		local unsafe_changes, unsafe_omissions = walls.inspect(vegetated_wall, 0,
 			{get = function(_, y)
 				if y == 0 then return "mcl_core:stone" end
