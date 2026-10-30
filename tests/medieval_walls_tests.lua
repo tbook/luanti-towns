@@ -22,13 +22,18 @@ do
 		local f = {min={x=0,y=0,z=0},max={x=2,y=9,z=2},direction={x=0,z=1},
 			street_rect={x1=1,x2=1,z1=0,z2=8}}
 		walls.reserve_feature_clearance(f, 0, function(p) return p.x==0 and p.z==3 and p.y==1 end)
-		local region = {get=function(x,y,z) return y==1 and (x==2 and z==3 and "water" or "dirt") or "air" end}
+		local region = {get=function(x,y,z)
+			if x==0 and y==2 and z==4 then return "test:building" end
+			return y==1 and (x==2 and z==3 and "water" or "dirt") or "air"
+		end}
 		local changes = walls.inspect({cells={},openings={},placed_features={f},
 			feature_footprints={{x1=0,x2=2,z1=0,z2=2}}},0,region,
 			function(name) return {walkable=name=="dirt", liquid=name=="water"} end, function() return false end)
 		local seen = {}
 		for _, c in ipairs(changes) do seen[c.x..":"..c.y..":"..c.z]=true end
-		eq(seen["0:1:4"],true,"feature apron clears obstructions")
+		-- Distance two from the footprint keeps terrain up to ground + 1.
+		eq(seen["0:1:4"],nil,"feature apron keeps terrain under its slope cap")
+		eq(seen["0:2:4"],true,"feature apron clears obstructions above its slope cap")
 		eq(seen["0:1:3"],nil,"pre-urban protection snapshot survives")
 		eq(seen["1:1:3"],nil,"gate road is preserved")
 		eq(seen["2:1:3"],nil,"liquid is preserved")
@@ -410,6 +415,7 @@ do
 		if x == 0 and y == 0 then return "mcl_core:stone" end
 		if x == 3 and y == 0 then return "mcl_chests:chest" end
 		if x == 3 and y == 1 then return "mcl_chests:chest" end
+		if x == 1 and y == 1 then return "mcl_chests:chest" end
 		if x == 3 and y == 8 then return "mcl_chests:chest" end
 		if x == 4 and y == 1 then return "mcl_core:dirt" end
 		if x == 3 and y == -1 then return "mcl_core:stone" end
@@ -418,20 +424,23 @@ do
 	end}, wall_node_info, function() return false end)
 	local cleared_roof, cleared_tree, cleared_raised_terrain = false, false, false
 	local preserved_subsurface, preserved_ground_level, cleared_first_clearance_level = true, true, false
+	local cleared_chest_under_cap = false
 	for _, change in ipairs(clearance_changes) do
 		if change.x == 3 and change.y == 8 and change.name == "air" then cleared_roof = true end
 		if change.x == 5 and change.y == 10 and change.name == "air" then cleared_tree = true end
 		if change.x == 4 and change.y == 1 and change.name == "air" then cleared_raised_terrain = true end
 		if change.x == 3 and change.y == -1 and change.name == "air" then preserved_subsurface = false end
 		if change.x == 3 and change.y == 0 and change.name == "air" then preserved_ground_level = false end
-		if change.x == 3 and change.y == 1 and change.name == "air" then cleared_first_clearance_level = true end
+		if change.x == 1 and change.y == 1 and change.name == "air" then cleared_first_clearance_level = true end
+		if change.x == 3 and change.y == 1 and change.name == "air" then cleared_chest_under_cap = true end
 	end
 	eq(cleared_roof, true, "clearance removes buildings five nodes outside the wall")
 	eq(cleared_tree, true, "clearance reaches five nodes above the wall top")
-	eq(cleared_raised_terrain, true, "raised natural terrain is cleared from the wall core")
+	eq(cleared_raised_terrain, false, "raised terrain at distance four stays under its slope cap")
 	eq(preserved_subsurface, true, "exterior clearance preserves terrain below the wall base")
 	eq(preserved_ground_level, true, "exterior clearance preserves town ground")
 	eq(cleared_first_clearance_level, true, "exterior clearance starts one node above town ground")
+	eq(cleared_chest_under_cap, false, "a building under the cap at distance three survives")
 	local safe_clearance = walls.inspect(clearance_wall, 0, {get = function(x, y)
 		if x == 0 and y == 0 then return "mcl_core:stone" end
 		if x == 2 and y == 7 then return "test:water_source" end
@@ -454,7 +463,152 @@ do
 	eq(cleared_falling, true, "clearance removes falling blocks inside its bounded strip")
 	local clearance_bounds = walls.bounds(clearance_wall, 0)
 	eq(clearance_bounds.max.x, 5, "wall bounds include the five-node outer strip")
-	eq(clearance_bounds.max.y, 10, "wall bounds include clearance above the profile")
+	eq(clearance_bounds.max.y, 32, "wall bounds include clearance up to the top of the read box")
+	-- Sloped exterior cut: at distance k terrain may stand up to ground + (k - 1).
+	-- Returns the clearance voxels keyed "x:y:z" for a wall and a node getter.
+	local function sloped_cut(wall, get)
+		local cut = {}
+		local changes = walls.inspect(wall, 0, {get = get}, wall_node_info, function() return false end)
+		for _, change in ipairs(changes) do
+			if change.clearance then cut[change.x .. ":" .. change.y .. ":" .. change.z] = change.name end
+		end
+		return cut
+	end
+	local function strip_wall(direction)
+		return {cells = {{x = 0, z = 0, direction = direction}}, openings = {}}
+	end
+	do
+		local cliff = sloped_cut(strip_wall({x = 1, z = 0}), function(x, y, z)
+			if y <= 0 then return "mcl_core:stone" end
+			if z == 0 and x >= 1 and x <= 5 and y <= 20 then return "mcl_core:stone" end
+			return "air"
+		end)
+		for k = 1, 5 do
+			local surface = 0
+			for y = 1, 20 do if cliff[k .. ":" .. y .. ":0"] == nil then surface = y end end
+			eq(surface, k - 1, "cliff across the strip is cut to surface height " .. (k - 1) .. " at distance " .. k)
+		end
+	end
+	do
+		local dip = sloped_cut(strip_wall({x = 1, z = 0}), function(x, y, z)
+			if y <= -3 then return "mcl_core:stone" end
+			return "air"
+		end)
+		local filled = false
+		for key, name in pairs(dip) do
+			local x, y = key:match("^(%-?%d+):(%-?%d+):")
+			if tonumber(x) >= 1 and tonumber(x) <= 5 and tonumber(y) <= 0 and name ~= "air" then filled = true end
+		end
+		eq(filled, false, "lower terrain beside the wall is never filled")
+		eq(dip["3:-1:0"], nil, "lower terrain is left untouched by the cut")
+	end
+	do
+		local stump = sloped_cut(strip_wall({x = 1, z = 0}), function(x, y, z)
+			if y <= 0 then return "mcl_core:stone" end
+			if x == 3 and y == 1 and z == 0 then return "mcl_core:tree" end
+			if x == 4 and y == 2 and z == 0 then return "mcl_core:stone" end
+			return "air"
+		end)
+		eq(stump["3:1:0"], "air", "a log below the cap is removed")
+		eq(stump["4:2:0"], nil, "solid terrain below the cap is kept")
+	end
+	do
+		local corner = {cells = {{x = 0, z = 0, direction = {x = 1, z = 1}, corner = true}}, openings = {}}
+		local block = sloped_cut(corner, function(x, y, z)
+			if y <= 0 then return "mcl_core:stone" end
+			if x >= 0 and x <= 5 and z >= 0 and z <= 5 and y <= 8 then return "mcl_core:stone" end
+			return "air"
+		end)
+		eq(block["3:3:1"], "air", "corner square cuts distance three above two")
+		eq(block["3:2:1"], nil, "corner square keeps the cap level at distance three")
+		eq(block["1:3:3"], "air", "corner ring is symmetric")
+		eq(block["2:2:2"], "air", "corner ring two cuts above one")
+		eq(block["2:1:2"], nil, "corner ring two keeps level one")
+		eq(block["5:5:5"], "air", "corner ring five cuts above four")
+		eq(block["5:4:5"], nil, "corner ring five keeps level four")
+	end
+	do
+		-- Wall A runs +x along z=0; wall B's strip crosses (3,0) at distance one.
+		local overlap = sloped_cut({cells = {{x = 0, z = 0, direction = {x = 1, z = 0}},
+			{x = 3, z = -1, direction = {x = 0, z = 1}}}, openings = {}}, function(x, y, z)
+			if y <= 0 then return "mcl_core:stone" end
+			if z == 0 and x >= 1 and x <= 5 and y <= 8 then return "mcl_core:stone" end
+			return "air"
+		end)
+		eq(overlap["3:1:0"], "air", "overlapping strips take the lowest cap")
+		eq(overlap["4:1:0"], nil, "strip outside the overlap keeps its own cap")
+	end
+	do
+		local f = {min = {x = 0, y = 0, z = 0}, max = {x = 2, y = 9, z = 2}, direction = {x = 0, z = 1}}
+		local apron = sloped_cut({cells = {}, openings = {}, placed_features = {f}}, function(x, y, z)
+			if y <= 0 then return "mcl_core:stone" end
+			if x == 1 and z >= 3 and z <= 7 and y <= 8 then return "mcl_core:stone" end
+			return "air"
+		end)
+		eq(apron["1:1:3"], "air", "feature apron cuts distance one above ground")
+		eq(apron["1:2:5"], nil, "feature apron keeps distance three up to ground plus two")
+		eq(apron["1:3:5"], "air", "feature apron cuts distance three above ground plus two")
+	end
+	do
+		local building = sloped_cut(strip_wall({x = 1, z = 0}), function(x, y, z)
+			if y <= 0 then return "mcl_core:stone" end
+			if x == 2 and y == 3 and z == 0 then return "mcl_chests:chest" end
+			return "air"
+		end)
+		eq(building["2:3:0"], "air", "a building above the cap is cleared")
+	end
+	do
+		local tall = sloped_cut(strip_wall({x = 1, z = 0}), function(x, y, z)
+			if y <= 0 then return "mcl_core:stone" end
+			if x == 3 and y >= 1 and y <= 30 and z == 0 then return "mcl_core:stone" end
+			return "air"
+		end)
+		eq(tall["3:30:0"], "air", "terrain at ground plus thirty above the strip is cleared")
+		eq(tall["3:3:0"], "air", "tall terrain is cut from the first node above the cap")
+		eq(tall["3:2:0"], nil, "tall terrain keeps the cap level at distance three")
+		eq(tall["3:1:0"], nil, "tall terrain keeps the nodes below the cap")
+	end
+	-- A protected voxel above the envelope leaves the wall built and is itself untouched.
+	do
+		local high_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+		local protected_high = function(p) return p.x == 0 and p.y == 30 and p.z == 0 end
+		walls.reserve(high_wall, 0, protected_high)
+		eq(high_wall.cells[1].protected, nil, "protection above the envelope does not omit the wall column")
+		local high_changes, high_omissions = walls.inspect(high_wall, 0, {get = function(x, y, z)
+			if y <= 0 then return "mcl_core:stone" end
+			if x == 0 and (y == 10 or y == 30) and z == 0 then return "mcl_core:stone" end
+			return "air"
+		end}, wall_node_info, protected_high)
+		local built, touched_protected, cleared_core = false, false, false
+		for _, change in ipairs(high_changes) do
+			if change.x == 0 and change.y == 4 and change.z == 0 and change.name == walls.BRICK then built = true end
+			if change.x == 0 and change.y == 30 and change.z == 0 then touched_protected = true end
+			if change.x == 0 and change.y == 10 and change.name == "air" then cleared_core = true end
+		end
+		eq(#high_omissions, 0, "protected voxel above the envelope omits nothing")
+		eq(built, true, "wall column is built beside a protected voxel at ground plus thirty")
+		eq(cleared_core, true, "unprotected terrain above the envelope in the wall column is still cleared")
+		eq(touched_protected, false, "protected voxel above the envelope is left untouched")
+	end
+	-- Protection is consulted only for voxels that would actually be cleared.
+	do
+		local probes, cut_probes = 0, 0
+		local probe_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
+		local probe_region = {get = function(x, y, z)
+			if y <= 0 then return "mcl_core:stone" end
+			if x == 3 and y == 4 and z == 0 then return "mcl_core:stone" end
+			return "air"
+		end}
+		walls.inspect(probe_wall, 0, probe_region, wall_node_info, function(p)
+			if p.x == 3 and p.z == 0 then
+				probes = probes + 1
+				if probe_region.get(p.x, p.y, p.z) ~= "air" then cut_probes = cut_probes + 1 end
+			end
+			return false
+		end)
+		eq(probes > 0, true, "probe reaches the strip")
+		eq(cut_probes, 1, "protection is checked only for non-air voxels in the strip")
+	end
 	local protected_clearance_wall = {cells = {{x = 0, z = 0, direction = {x = 1, z = 0}}}, openings = {}}
 	walls.reserve(protected_clearance_wall, 0, function(p) return p.x == 3 and (p.y == 0 or p.y == 1 or p.y == 8) end)
 	eq(protected_clearance_wall.cells[1].clearance_protected["3:0:0"], nil,

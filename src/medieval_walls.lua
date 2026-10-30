@@ -23,17 +23,23 @@ function M.clear_metadata(core, changes)
 end
 local directions = {{x = 1, z = 0}, {x = -1, z = 0}, {x = 0, z = 1}, {x = 0, z = -1}}
 local function key(x, z) return x .. ":" .. z end
+-- Each position carries k, its distance from the wall face: the straight-run
+-- index, or the Chebyshev ring for a corner square.
 local function clearance_positions(c)
 	local out, extent = {}, M.CLEARANCE
 	if c.corner then
 		for x = 0, extent do for z = 0, extent do out[#out + 1] = {
 			x = c.x + (c.direction.x < 0 and -x or x),
-			z = c.z + (c.direction.z < 0 and -z or z)} end end
+			z = c.z + (c.direction.z < 0 and -z or z), k = math.max(x, z)} end end
 	else
 		for distance = 0, extent do out[#out + 1] = {
-			x = c.x + c.direction.x * distance, z = c.z + c.direction.z * distance} end
+			x = c.x + c.direction.x * distance, z = c.z + c.direction.z * distance, k = distance} end
 	end
 	return out
+end
+-- Highest surface y a clearance column at distance k may keep (1:1 slope).
+local function clearance_cap(ground, k)
+	return ground + (k - 1) * M.CLEARANCE_RISE
 end
 local function inside(rects, x, z)
 	for _, r in ipairs(rects) do
@@ -385,9 +391,17 @@ end
 -- maximum depth instead of disappearing entirely.
 M.DEPTH = 32
 -- The wall has masonry through ground+4 and an optional parapet at +5.
--- Clear five nodes beyond that profile, starting above the support surface.
+-- The exterior cut spans five nodes out. At distance k it keeps terrain up to
+-- ground + (k-1) * CLEARANCE_RISE, so the surface slopes 1:1 up from the foot.
 M.CLEARANCE = 5
-M.CLEARANCE_TOP = 10
+M.CLEARANCE_RISE = 1
+-- Clearing reaches this high above ground. It matches M.DEPTH so the read box
+-- stays about 64 nodes tall; terrain above ground+32 is not cut.
+M.CLEARANCE_TOP = 32
+-- Protection and omission consider only the wall envelope, from the foundation
+-- up to ground+5 (masonry, parapet and stair). Higher clearance voxels are left
+-- alone one by one, as the exterior strip does, and never omit the wall.
+M.ENVELOPE_TOP = 5
 M.BRICK = "mcl_core:stonebrick"
 M.STAIR = "mcl_stairs:stair_stonebrick"
 -- Outside gate/postern roads: cobblestone ramp pieces. A ramp is at most
@@ -419,9 +433,17 @@ local function natural(name)
 end
 M.natural = natural
 
+-- Chebyshev distance from (x,z) to the footprint rectangle r (0 inside it).
+local function rect_distance(r, x, z)
+ local dx = x < r.min.x and r.min.x - x or x > r.max.x and x - r.max.x or 0
+ local dz = z < r.min.z and r.min.z - z or z > r.max.z and z - r.max.z or 0
+ return math.max(dx, dz)
+end
+
 -- Reserve protected wall and clearance voxels before town structures are
 -- written, then recheck protection during final inspection.
 -- Exterior apron follows the outside faces of each authored feature.
+-- Each position carries k, its Chebyshev distance from the feature footprint.
 function M.feature_clearance_positions(feature)
  local d = feature.direction or (feature.corner and feature.corner.direction)
   or (feature.run and feature.run.direction)
@@ -441,7 +463,7 @@ function M.feature_clearance_positions(feature)
  end
  for x = x1, x2 do for z = z1, z2 do
   if x < r.min.x or x > r.max.x or z < r.min.z or z > r.max.z then
-   out[#out + 1] = {x=x,z=z}
+   out[#out + 1] = {x=x,z=z,k=rect_distance(r,x,z)}
   end
  end end
  return out
@@ -474,7 +496,7 @@ function M.reserve(wall, ground, protected)
 		-- Preserve the existing conservative reservation for the core and all
 		-- possible foundation writes.
 		if not c.protected then
-			for y = ground - M.DEPTH, ground + M.CLEARANCE_TOP do
+			for y = ground - M.DEPTH, ground + M.ENVELOPE_TOP do
 				if protected({x = c.x, y = y, z = c.z}) then
 					c.protected = {x = c.x, y = y, z = c.z}
 					break
@@ -495,7 +517,7 @@ function M.reserve(wall, ground, protected)
 	for _, c in ipairs(wall.openings) do
 		for distance = 0, 3 do
 			local x, z = c.x + c.direction.x * distance, c.z + c.direction.z * distance
-			for y = ground - M.DEPTH, ground + M.CLEARANCE_TOP do
+			for y = ground - M.DEPTH, ground + M.ENVELOPE_TOP do
 				if protected({x = x, y = y, z = z}) then
 					if c.protected ~= true then
 						c.protected = c.protected or {}
@@ -578,7 +600,7 @@ function M.inspect(wall, ground, region, node_info, protected)
 		local is_protected = c.protected ~= nil and c.protected ~= false
 		local protected_pos
 		if not is_protected then
-			for y = ground - M.DEPTH, ground + M.CLEARANCE_TOP do
+			for y = ground - M.DEPTH, ground + M.ENVELOPE_TOP do
 				local pos = {x = c.x, y = y, z = c.z}
 				if protected(pos) then is_protected, protected_pos = true, pos; break end
 			end
@@ -594,7 +616,8 @@ function M.inspect(wall, ground, region, node_info, protected)
 				local have = region.get(c.x, y, c.z)
 				local info = node_info(have)
 				if have ~= "air" and have ~= "ignore" and not (info and info.liquid)
-					and (not info or not info.walkable or info.vegetation or y > ground) then
+					and (not info or not info.walkable or info.vegetation or y > ground)
+					and (y <= ground + M.ENVELOPE_TOP or not protected({x = c.x, y = y, z = c.z})) then
 					to_clear[#to_clear + 1] = {x = c.x, y = y, z = c.z}
 					cleared[voxel_key(c.x, y, c.z)] = true
 				end
@@ -671,8 +694,11 @@ function M.inspect(wall, ground, region, node_info, protected)
 					local info = node_info(have)
 					local reservations = c.clearance_protected
 					local reserved_cell = type(reservations) == "table" and reservations[vk]
-					if not reserved_cell and not protected({x=p.x,y=y,z=p.z}) and have ~= "air"
-							and have ~= "ignore" and not (info and info.liquid) then
+					-- Above the cap everything goes; below it only trees and vegetation are
+					-- removed so no stumps stand in the cut.
+					local cut = y > clearance_cap(ground, p.k) or (info and (info.tree or info.vegetation))
+					if cut and have ~= "air" and have ~= "ignore" and not (info and info.liquid)
+							and not reserved_cell and not protected({x=p.x,y=y,z=p.z}) then
 						staged_clear[#staged_clear + 1] = {x=p.x,y=y,z=p.z}
 						cleared[vk] = true
 					end
@@ -890,9 +916,10 @@ function M.inspect(wall, ground, region, node_info, protected)
 	    local vk = voxel_key(p.x,y,p.z)
 	    local have = region.get(p.x,y,p.z)
 	    local info = node_info(have)
-	    if not emitted_clear[vk] and not wall_written[vk] and not (feature.clearance_protected or {})[vk]
-	      and not protected({x=p.x,y=y,z=p.z}) and have ~= "air" and have ~= "ignore"
-	      and not (info and info.liquid) then
+	    local cut = y > clearance_cap(ground, p.k) or (info and (info.tree or info.vegetation))
+	    if cut and have ~= "air" and have ~= "ignore" and not (info and info.liquid)
+	      and not emitted_clear[vk] and not wall_written[vk] and not (feature.clearance_protected or {})[vk]
+	      and not protected({x=p.x,y=y,z=p.z}) then
 	     emitted_clear[vk] = true
 	     changes[#changes+1] = {x=p.x,y=y,z=p.z,name="air",param2=0,clearance=true}
 	    end
