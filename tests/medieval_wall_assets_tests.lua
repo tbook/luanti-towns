@@ -45,3 +45,30 @@ for x = 6, 9 do
 		end
 	end
 end
+
+-- The secondary-road postern keeps its one-node foundation and two-leaf
+-- passage. The catalog entrance selects the first door leaf, while both sides
+-- of the gate retain two nodes of clear approach and headroom.
+local postern_entry = catalog.get("wall_postern")
+eq(postern_entry.size.x, 3, "postern wall depth")
+eq(postern_entry.size.y, 8, "postern height with foundation")
+eq(postern_entry.size.z, 10, "postern width with shoulders")
+eq(postern_entry.ground_offset, 1, "postern retains one foundation layer below ground")
+eq(postern_entry.entrance.y - postern_entry.ground_offset, 1,
+	"postern passage is one node above finished ground")
+local postern = read_mts("schematics/templates/wall_postern.mts")
+eq(postern.at(postern_entry.entrance.x, postern_entry.entrance.y,
+	postern_entry.entrance.z):find("_door_b_", 1, true) ~= nil, true,
+	"postern catalog entrance selects a lower gate door")
+for z = 6, 7 do
+	eq(postern.at(1, 2, z):find("_door_b_", 1, true) ~= nil, true,
+		"postern keeps the two-leaf passage door at z=" .. z)
+	eq(postern.at(1, 3, z):find("_door_t_", 1, true) ~= nil, true,
+		"postern keeps the upper passage door at z=" .. z)
+	for _, x in ipairs({0, 2}) do
+		for y = 2, 3 do
+			eq(postern.at(x, y, z), "air",
+				("postern approach clear at x=%d, y=%d, z=%d"):format(x, y, z))
+		end
+	end
+end

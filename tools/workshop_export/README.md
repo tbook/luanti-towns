@@ -389,3 +389,16 @@ margin includes nearby samples; the Workshop is read only. The exporter
 verified all 833 captured nodes and all four runtime placements in a
 disposable world. As with the corner sample, this does not establish in-game
 fit with generated walls.
+
+## Medieval secondary-road postern (#280)
+
+`wall_postern` uses the small TownsWorkshop postern at source x=291..293,
+y=7..14, z=195..204. Its canonical capture is 3 x 8 x 10 and keeps one
+foundation layer below finished ground (`ground_offset` 1). The double-door
+passage is on local x=1 and spans local z=6..7; the catalog entrance selects
+the first lower door at (1,2,6). Both approaches have two clear nodes of
+headroom. The exporter checked all four schematic rotations and every catalog
+placement in a disposable world. Generation should align the door pair with
+the central two columns of a four-wide secondary road, tapering from four
+nodes inside to two through the postern and outside. In-game fit and the
+entrance's town-facing side remain to be confirmed.
