@@ -70,13 +70,95 @@ function M.corner_candidates(wall, ground, entry)
 	return out
 end
 
+-- Add the straight-run tower sample at evenly spaced points along sufficiently
+-- long uninterrupted runs. The wall centerline is three nodes from either
+-- side of its 7x7 capture, and its tie-ins occupy both ends of that line.
+function M.inline_candidates(wall, ground, entry)
+	assert(entry and entry.size.x == 7 and entry.size.z == 7,
+		"inline tower attachment contract requires a 7 by 7 template")
+	local out = {}
+	local function touches_only_run(candidate, run)
+		local function in_footprint(x, z)
+			return x >= candidate.min.x and x <= candidate.max.x
+				and z >= candidate.min.z and z <= candidate.max.z
+		end
+		for _, cell in ipairs(wall.cells or {}) do
+			if in_footprint(cell.x, cell.z) then
+				local direction = cell.direction or {}
+				local fixed = run.direction.x ~= 0 and cell.x or cell.z
+				local along = run.direction.x ~= 0 and cell.z or cell.x
+				local belongs = not cell.corner
+					and direction.x == run.direction.x and direction.z == run.direction.z
+					and fixed == run.fixed and along >= run.first and along <= run.last
+				if not belongs then return false end
+			end
+		end
+		-- Openings include their four wall-depth approach cells. Keep the whole
+		-- schematic clear of them, even when the opening split this same run.
+		for _, opening in ipairs(wall.openings or {}) do
+			for depth = 0, 3 do
+				local x = opening.x + opening.direction.x * depth
+				local z = opening.z + opening.direction.z * depth
+				if in_footprint(x, z) then return false end
+			end
+		end
+		return true
+	end
+	local runs = {}
+	for _, run in ipairs(wall.runs or {}) do runs[#runs + 1] = run end
+	-- wall.runs is sorted with string keys; sort numerically here so translated
+	-- plans keep the same candidate order across negative and positive origins.
+	table.sort(runs, function(a, b)
+			local ax, bx = a.direction.x ~= 0, b.direction.x ~= 0
+			if ax ~= bx then return ax end
+			if a.direction.x ~= b.direction.x then return a.direction.x < b.direction.x end
+			if a.direction.z ~= b.direction.z then return a.direction.z < b.direction.z end
+			if a.fixed ~= b.fixed then return a.fixed < b.fixed end
+			return a.first < b.first
+		end)
+	for _, run in ipairs(runs) do
+		local length = run.last - run.first + 1
+		local count = math.max(0, math.floor(length / 20) - 1)
+		for i = 1, count do
+			-- Distribute tower centers across the run, rounding to a stable
+			-- node coordinate. The count rule leaves enough room at each end.
+			local center = run.first + length * i / (count + 1)
+			local first = math.floor(center + 0.5) - 3
+			local rotation, minx, minz
+			if run.direction.x ~= 0 then
+				-- Local +Z follows world +Z (or -Z); local x=3 is the core.
+				-- The authored outer parapet faces canonical -X, so flip it
+				-- toward +X walls and leave it as-authored for -X walls.
+				rotation = run.direction.x > 0 and 180 or 0
+				minx, minz = run.fixed - 3, first
+			else
+				-- Rotate local +Z onto world X while keeping local x=3 on
+				-- the wall centerline at the run's fixed Z coordinate.
+				rotation = run.direction.z > 0 and 90 or 270
+				minx, minz = first, run.fixed - 3
+			end
+			local offset = entry.ground_offset or 0
+			local candidate = {
+				asset = "wall_tower_inline", rotation = rotation,
+				min = {x = minx, y = ground - offset, z = minz},
+				max = {x = minx + 6, y = ground - offset + entry.size.y - 1, z = minz + 6},
+				run = run,
+			}
+			if touches_only_run(candidate, run) then out[#out + 1] = candidate end
+		end
+	end
+	return out
+end
+
 -- Shared candidate construction for planning reservations and actual placement.
 function M.candidates(wall, ground, entries, walls, missing_join)
  local candidates = {}
- for _, spec in ipairs({{id = "wall_gatehouse", gate = true}, {id = "wall_tower"}}) do
+ for _, spec in ipairs({{id = "wall_gatehouse", gate = true}, {id = "wall_tower"},
+	{id = "wall_tower_inline", inline = true}}) do
   local entry = entries[spec.id]
   if entry then
    local found = spec.gate and walls.gatehouse_candidates(wall, ground, entry)
+    or (spec.inline and M.inline_candidates(wall, ground, entry))
     or M.corner_candidates(wall, ground, entry)
    for _, candidate in ipairs(found) do
     if spec.gate then

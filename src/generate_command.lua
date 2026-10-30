@@ -20,7 +20,7 @@ end
 -- Use the same asset validation before population and again before placement.
 local function valid_wall_entries()
  local valid_entries = {}
- for _, id in ipairs({"wall_gatehouse", "wall_tower"}) do
+ for _, id in ipairs({"wall_gatehouse", "wall_tower", "wall_tower_inline"}) do
   local entry = towns.catalog.entries[id]
   local ok, valid = pcall(function()
    local sc = assert(core.read_schematic(towns.modpath .. "/" .. entry.path, {}))
