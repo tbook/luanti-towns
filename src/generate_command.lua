@@ -385,7 +385,7 @@ local function build(result, done)
 			boxes[#boxes + 1] = {min = {x = feature.min.x,
 				y = feature.min.y - towns.medieval_wall_features.FOUNDATION_DEPTH, z = feature.min.z}, max = feature.max}
 			if feature.outside_approach then
-				boxes[#boxes + 1] = walls.bounds({cells = {}, openings = feature.outside_approach}, result.ground_y)
+				boxes[#boxes + 1] = walls.approach_bounds(feature.outside_approach, result.ground_y)
 			end
 		end
 		local bounds = bounds_union(boxes)
@@ -444,9 +444,10 @@ local function build(result, done)
 								return nil, "wall join: " .. omission.reason, r
 							end
 						end
-						local changes, omissions = walls.inspect({cells = {}, openings = feature.outside_approach},
+						local changes, omissions, length = walls.approach(feature.outside_approach,
 							result.ground_y, r, env.node_info, function(pos) return core.is_protected(pos, "") end)
 						if #omissions > 0 then return nil, "outside road: " .. omissions[1].reason, r end
+						feature.approach_length = length
 						return ok, detail, raw_region, changes, clearance
 					end
 					return ok, detail, raw_region, nil, clearance
@@ -471,6 +472,10 @@ local function build(result, done)
 						local metadata_ok, metadata_err = pcall(walls.clear_metadata, core, feature_clearance)
 						if not metadata_ok then warning(summary, "wall feature clearance metadata cleanup failed: " .. tostring(metadata_err)) end
 					end
+					if approach_changes and #approach_changes > 0 then
+						local road_metadata_ok, road_metadata_err = pcall(walls.clear_metadata, core, approach_changes)
+						if not road_metadata_ok then warning(summary, "wall approach metadata cleanup failed: " .. tostring(road_metadata_err)) end
+					end
 					local foundation_metadata_ok, foundation_metadata_err = pcall(walls.clear_metadata, core, detail)
 					if not foundation_metadata_ok then warning(summary, "wall foundation metadata cleanup failed: " .. tostring(foundation_metadata_err)) end
 					local st = towns.geometry.place(entry, feature.min, feature.rotation)
@@ -487,6 +492,9 @@ local function build(result, done)
 					placed_features[#placed_features + 1] = st
 					wall_masks[#wall_masks + 1] = st.rect
 					placed_footprints[#placed_footprints + 1] = feature.reserve_rect or st.rect
+					if feature.approach_length then
+						placed_footprints[#placed_footprints + 1] = walls.approach_rect(feature.outside_approach, feature.approach_length)
+					end
 					local apron = walls.feature_clearance_bounds(feature, result.ground_y)
 					if apron then placed_footprints[#placed_footprints + 1] = {x1=apron.min.x,z1=apron.min.z,x2=apron.max.x,z2=apron.max.z} end
 				end

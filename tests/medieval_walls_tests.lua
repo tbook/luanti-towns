@@ -917,4 +917,181 @@ do
 			end
 		end
 	end
+	-- Outside gate/postern roads slope to meet the surrounding terrain.
+	do
+		local function columns()
+			local out = {}
+			for z = 0, 3 do out[#out + 1] = {x = 0, z = z, direction = {x = 1, z = 0}} end
+			return out
+		end
+		local function info(name)
+			if name == "test:water" then return {liquid = true, walkable = false} end
+			return {walkable = name ~= "air"}
+		end
+		local function ramp(height, special, protected)
+			local region = {get = function(x, y, z)
+				if special and special(x, y, z) then return special(x, y, z) end
+				return y <= height(x) and "mcl_core:stone" or "air"
+			end}
+			local changes, omissions, length = walls.approach(columns(), 0, region, info,
+				protected or function() return false end)
+			local at = {}
+			for _, c in ipairs(changes) do at[c.x .. ":" .. c.y .. ":" .. c.z] = c end
+			return changes, omissions, length, at
+		end
+		local changes, omissions, length = ramp(function() return 0 end)
+		eq(#omissions, 0, "flat approach is accepted")
+		eq(length, 4, "flat approach keeps the minimum length")
+		eq(#changes, 16, "flat approach paves four by four")
+		local _, o, len, at = ramp(function(x) return x >= 2 and 1 or 0 end)
+		eq(#o, 0, "gentle rise is accepted")
+		eq(len, 4, "gentle rise meets terrain at the minimum length")
+		eq(at["2:1:0"].name, walls.RAMP_SLAB, "half-node rise starts with a slab")
+		eq(at["3:1:0"].name, walls.RAMP_FULL, "full block follows the slab")
+		_, o, len, at = ramp(function(x) return x >= 1 and 4 or 0 end)
+		eq(#o, 0, "steep rise is accepted")
+		eq(at["1:1:0"].name, walls.RAMP_STAIR, "large rise uses stairs")
+		eq(at["1:1:0"].param2, 1, "rising stair faces outward")
+		eq(at["3:3:0"].name, walls.RAMP_STAIR, "stairs climb one node per column")
+		eq(at["1:4:2"].name, "air", "higher terrain is trenched above the road")
+		eq(at["4:4:0"].name, walls.RAMP_SLAB, "stairs finish with a half-node slab")
+		eq(at["5:4:0"].name, walls.RAMP_FULL, "road meets terrain with a full block")
+		eq(len, 6, "ramp ends as soon as it meets terrain")
+		_, o, len, at = ramp(function(x) return x >= 1 and -2 or 0 end)
+		eq(#o, 0, "descent is accepted")
+		eq(at["1:0:0"].name, walls.RAMP_STAIR, "large drop uses stairs")
+		eq(at["1:0:0"].param2, 3, "descending stair rises toward town")
+		eq(at["1:-1:0"].name, walls.RAMP_FULL, "lower terrain gets a causeway fill")
+		eq(at["2:-1:0"].name, walls.RAMP_STAIR, "a descending stair is not followed by a slab a node lower")
+		_, o = ramp(function(x) return x >= 1 and 40 or 0 end)
+		eq(o[1].reason, "approach: terrain not met within 16 blocks", "unreachable terrain omits the approach")
+		_, o = ramp(function() return 0 end, function(x, y)
+			if x == 2 and y == 0 then return "test:water" end
+		end)
+		eq(o[1].reason, "approach: water in approach", "fluids are never replaced")
+		_, o = ramp(function() return 0 end, function(x, y)
+			if x == 2 and y == 0 then return "test:planks" end
+		end)
+		eq(o[1].reason, "approach: water or obstruction", "buildings are never replaced")
+		eq(o[1].blocker.x, 2, "obstruction diagnostic names the column")
+		_, o = ramp(function() return 0 end, nil, function(p) return p.x == 1 and p.y == 0 end)
+		eq(o[1].reason, "approach: protected", "protected nodes omit the approach")
+		local b = walls.approach_bounds(columns(), 0)
+		eq(b.max.x, walls.RAMP_MAX - 1, "approach bounds cover the maximum ramp length")
+	end
+	-- Direction, width, differing column heights, and the exact length cap.
+	do
+		local function info(name)
+			if name == "test:water" then return {liquid = true, walkable = false} end
+			return {walkable = name ~= "air"}
+		end
+		-- height(d, t): terrain surface at distance d along the road, transverse t.
+		local function ramp(dir, width, height)
+			local cols = {}
+			for t = 0, width - 1 do
+				cols[#cols + 1] = {x = 10 * dir.x + t * dir.z, z = 10 * dir.z + t * dir.x, direction = dir}
+			end
+			local region = {get = function(x, y, z)
+				local d = (x - 10 * dir.x) * dir.x + (z - 10 * dir.z) * dir.z
+				local t = dir.x ~= 0 and z or x
+				return y <= height(d, t) and "mcl_core:stone" or "air"
+			end}
+			local changes, omissions, length = walls.approach(cols, 0, region, info, function() return false end)
+			local at = {}
+			for _, c in ipairs(changes) do at[c.x .. ":" .. c.y .. ":" .. c.z] = c end
+			return at, omissions, length
+		end
+		local cases = {
+			{{x = -1, z = 0}, 3, 1}, {{x = 0, z = 1}, 0, 2}, {{x = 0, z = -1}, 2, 0}}
+		for _, case in ipairs(cases) do
+			local dir, up, down = case[1], case[2], case[3]
+			local function pos(d, y) return (10 * dir.x + d * dir.x) .. ":" .. y .. ":" .. (10 * dir.z + d * dir.z) end
+			local at, o = ramp(dir, 1, function(d) return d >= 1 and 4 or 0 end)
+			eq(#o, 0, "rise accepted in direction " .. dir.x .. "," .. dir.z)
+			eq(at[pos(1, 1)].name, walls.RAMP_STAIR, "stair offset follows direction")
+			eq(at[pos(1, 1)].param2, up, "rising stair param2 in direction " .. dir.x .. "," .. dir.z)
+			eq(at[pos(3, 3)].name, walls.RAMP_STAIR, "stair column offset follows direction")
+			at, o = ramp(dir, 1, function(d) return d >= 1 and -2 or 0 end)
+			eq(#o, 0, "drop accepted in direction " .. dir.x .. "," .. dir.z)
+			eq(at[pos(1, 0)].param2, down, "descending stair param2 in direction " .. dir.x .. "," .. dir.z)
+			eq(at[pos(1, -1)].name, walls.RAMP_FULL, "causeway fill follows direction")
+		end
+		-- Width-2 postern road: column 0 sits on a hill, column 1 in a hollow.
+		local at, o = ramp({x = 1, z = 0}, 2, function(d, t) return t == 0 and 2 or (d >= 1 and -2 or 0) end)
+		eq(#o, 0, "two-wide road with differing terrain is accepted")
+		local top = 0
+		for k, c in pairs(at) do
+			local x, y, z = k:match("(-?%d+):(-?%d+):(-?%d+)")
+			if tonumber(z) == 0 and c.name == "air" then top = math.max(top, tonumber(y)) end
+		end
+		eq(top > 0, true, "higher column is trenched")
+		local fill = false
+		for k, c in pairs(at) do
+			local x, y, z = k:match("(-?%d+):(-?%d+):(-?%d+)")
+			if tonumber(z) == 1 and tonumber(y) < 0 and c.name == walls.RAMP_FULL then fill = true end
+		end
+		eq(fill, true, "lower column gets a causeway")
+		-- Exact cap: stairs gain two levels per column, so a wall of H nodes is
+		-- first met at column H + 2.
+		local wall14 = function(d) return d >= 1 and 14 or 0 end
+		local _, o16, length = ramp({x = 1, z = 0}, 1, wall14)
+		eq(#o16, 0, "terrain first met at column 16 is accepted")
+		eq(length, walls.RAMP_MAX, "ramp meeting terrain at column 16 has length 16")
+		local _, o17 = ramp({x = 1, z = 0}, 1, function(d) return d >= 1 and 15 or 0 end)
+		eq(#o17, 1, "terrain first met at column 17 is omitted")
+	end
+	-- Regression: adjacent ramp columns are always walkable. A descending stair
+	-- followed by a slab once left a 1.5 node climb when walking back to town.
+	do
+		local function info(name) return {walkable = name ~= "air"} end
+		local dirs = {{{x = 1, z = 0}, 1}, {{x = -1, z = 0}, 3}, {{x = 0, z = 1}, 0}, {{x = 0, z = -1}, 2}}
+		local function check(dir, up, height, label)
+			local region = {get = function(x, y, z)
+				local d = x * dir.x + z * dir.z
+				return y <= height(d) and "mcl_core:stone" or "air"
+			end}
+			local changes, omissions, length = walls.approach({{x = 0, z = 0, direction = dir}}, 0, region, info,
+				function() return false end)
+			if #omissions > 0 then return end
+			local top = {}
+			for _, c in ipairs(changes) do
+				local d = c.x * dir.x + c.z * dir.z
+				if c.name ~= "air" and (not top[d] or c.y > top[d].y) then top[d] = c end
+			end
+			local prev, worst = 1, 0
+			for d = 0, length - 1 do
+				local c, inner, outer = top[d]
+				if c.name == walls.RAMP_SLAB then inner, outer = c.y + 0.5, c.y + 0.5
+				elseif c.name == walls.RAMP_STAIR and c.param2 == up then inner, outer = c.y + 0.5, c.y + 1
+				elseif c.name == walls.RAMP_STAIR then inner, outer = c.y + 1, c.y + 0.5
+				else inner, outer = c.y + 1, c.y + 1 end
+				worst = math.max(worst, math.abs(inner - prev))
+				prev = outer
+			end
+			eq(worst <= 0.5, true, label .. " has only half-node steps between columns")
+		end
+		local profiles = {
+			function(d) return d >= 1 and -3 or 0 end, -- exact failing sequence: stair, stair, slab
+			function(d) return d >= 1 and -2 or 0 end,
+			function(d) return d >= 1 and 5 or 0 end,
+			function(d) return d >= 2 and 1 or 0 end,
+			function(d) return d >= 2 and -1 or 0 end,
+			function(d) return d < 4 and 2 * d or 12 - d end, -- rise then fall
+			function(d) return d < 4 and -d or d - 8 end, -- fall then rise
+		}
+		local seed = 12345
+		for _ = 1, 40 do
+			local h, heights = 0, {}
+			for d = 0, 20 do
+				seed = (seed * 1103515245 + 12345) % 2147483648
+				h = math.max(-8, math.min(8, h + math.floor(seed / 65536) % 7 - 3))
+				heights[d] = h
+			end
+			heights[0] = 0
+			profiles[#profiles + 1] = function(d) return heights[d] or heights[20] end
+		end
+		for i, height in ipairs(profiles) do
+			for _, dd in ipairs(dirs) do check(dd[1], dd[2], height, "profile " .. i .. " direction " .. dd[1].x .. "," .. dd[1].z) end
+		end
+	end
 end
