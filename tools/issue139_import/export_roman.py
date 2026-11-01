@@ -30,10 +30,18 @@ FIXED_BOXES = {
     # row (Y=20), and with a Y=6 dirt row added so two dirt rows (Y=6..7) sit under
     # the grass datum at Y=8.
     'basilica': ({'x': 52, 'y': 6, 'z': 415}, {'x': 79, 'y': 19, 'z': 430}),
+    # Temple of Jupiter, Temple of Vesta and Hippodrome (#341): imported with
+    # tools/issue341_import at the workshop origins below, unrotated and unpadded.
+    # Jupiter is the issue's box minus its empty top row (file Y=15); its grass datum
+    # row is file Y=1 over one buried clay row. Vesta and the hippodrome keep the whole
+    # imported box; Vesta's datum is file Y=0 and the hippodrome's is file Y=7.
+    'temple_of_jupiter': ({'x': 100, 'y': 7, 'z': 500}, {'x': 119, 'y': 21, 'z': 525}),
+    'temple_of_vesta': ({'x': 140, 'y': 8, 'z': 500}, {'x': 150, 'y': 18, 'z': 510}),
+    'hippodrome': ({'x': 170, 'y': 1, 'z': 500}, {'x': 206, 'y': 22, 'z': 524}),
 }
-# Buildings recorded in the Issue 139 workshop report; insula, vespasianum and basilica are not.
+# Buildings recorded in the Issue 139 workshop report; the fixed-box buildings are not.
 RECORDED = ('domus', 'arch', 'theatre', 'villa', 'aqueduct', 'amphitheater', 'temple', 'bath')
-IDS = RECORDED + ('insula', 'vespasianum', 'basilica')
+IDS = RECORDED + ('insula', 'vespasianum', 'basilica', 'temple_of_jupiter', 'temple_of_vesta', 'hippodrome')
 
 
 def main():

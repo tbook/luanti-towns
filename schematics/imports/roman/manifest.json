@@ -876,6 +876,218 @@
         "xpanes:pane_natural_flat",
         "xpanes:pane_silver_flat"
       ]
+    },
+    {
+      "id": "temple_of_jupiter",
+      "min": {
+        "x": 100,
+        "y": 7,
+        "z": 500
+      },
+      "max": {
+        "x": 119,
+        "y": 21,
+        "z": 525
+      },
+      "building_origin": {
+        "x": 100,
+        "y": 7,
+        "z": 500
+      },
+      "building_size": {
+        "x": 20,
+        "y": 15,
+        "z": 26
+      },
+      "size": {
+        "x": 20,
+        "y": 15,
+        "z": 26
+      },
+      "snapshot_sha256": "366d5ca4c1da686e2c5a5fb02d4907f252f86f4ea6973c4f1aef0a2e8a7826fc",
+      "source_map_sha256": "1a5bd7dd678568f47bcaf135d512ebb9530e1d4a83226b9bec19cbc1d40ac21d",
+      "non_air_node_types": 19,
+      "metadata_nodes": 9,
+      "required_nodes": [
+        "mcl_chests:chest_small",
+        "mcl_colorblocks:hardened_clay",
+        "mcl_colorblocks:hardened_clay_orange",
+        "mcl_copper:waxed_block_cut",
+        "mcl_doors:spruce_door_b_1",
+        "mcl_doors:spruce_door_b_3",
+        "mcl_doors:spruce_door_t_1",
+        "mcl_doors:spruce_door_t_3",
+        "mcl_doors:spruce_trapdoor_open",
+        "mcl_nether:quartz_block",
+        "mcl_nether:quartz_chiseled",
+        "mcl_nether:quartz_pillar",
+        "mcl_stairs:slab_copper_cut",
+        "mcl_stairs:slab_waxed_copper_cut",
+        "mcl_stairs:slab_waxed_copper_cut_double",
+        "mcl_stairs:slab_waxed_copper_cut_top",
+        "mcl_stairs:stair_quartzblock",
+        "mcl_stairs:stair_quartzblock_outer",
+        "mcl_torches:torch_wall"
+      ]
+    },
+    {
+      "id": "temple_of_vesta",
+      "min": {
+        "x": 140,
+        "y": 8,
+        "z": 500
+      },
+      "max": {
+        "x": 150,
+        "y": 18,
+        "z": 510
+      },
+      "building_origin": {
+        "x": 140,
+        "y": 8,
+        "z": 500
+      },
+      "building_size": {
+        "x": 11,
+        "y": 11,
+        "z": 11
+      },
+      "size": {
+        "x": 11,
+        "y": 11,
+        "z": 11
+      },
+      "snapshot_sha256": "366d5ca4c1da686e2c5a5fb02d4907f252f86f4ea6973c4f1aef0a2e8a7826fc",
+      "source_map_sha256": "1a5bd7dd678568f47bcaf135d512ebb9530e1d4a83226b9bec19cbc1d40ac21d",
+      "non_air_node_types": 22,
+      "metadata_nodes": 0,
+      "required_nodes": [
+        "mcl_colorblocks:hardened_clay",
+        "mcl_colorblocks:hardened_clay_orange",
+        "mcl_core:dirt_with_grass",
+        "mcl_fire:eternal_fire",
+        "mcl_nether:netherrack",
+        "mcl_nether:quartz_block",
+        "mcl_nether:quartz_chiseled",
+        "mcl_nether:quartz_pillar",
+        "mcl_nether:quartz_smooth",
+        "mcl_stairs:slab_copper_exposed_cut",
+        "mcl_stairs:slab_copper_exposed_cut_double",
+        "mcl_stairs:slab_copper_exposed_cut_top",
+        "mcl_stairs:slab_copper_oxidized_cut",
+        "mcl_stairs:slab_copper_oxidized_cut_double",
+        "mcl_stairs:slab_copper_oxidized_cut_top",
+        "mcl_stairs:slab_copper_weathered_cut",
+        "mcl_stairs:slab_copper_weathered_cut_double",
+        "mcl_stairs:slab_copper_weathered_cut_top",
+        "mcl_stairs:slab_prismarine_top",
+        "mcl_stairs:slab_quartzblock",
+        "mcl_stairs:slab_waxed_copper_exposed_cut_top",
+        "mcl_stairs:slab_waxed_copper_weathered_cut"
+      ]
+    },
+    {
+      "id": "hippodrome",
+      "min": {
+        "x": 170,
+        "y": 1,
+        "z": 500
+      },
+      "max": {
+        "x": 206,
+        "y": 22,
+        "z": 524
+      },
+      "building_origin": {
+        "x": 170,
+        "y": 1,
+        "z": 500
+      },
+      "building_size": {
+        "x": 37,
+        "y": 22,
+        "z": 25
+      },
+      "size": {
+        "x": 37,
+        "y": 22,
+        "z": 25
+      },
+      "snapshot_sha256": "366d5ca4c1da686e2c5a5fb02d4907f252f86f4ea6973c4f1aef0a2e8a7826fc",
+      "source_map_sha256": "1a5bd7dd678568f47bcaf135d512ebb9530e1d4a83226b9bec19cbc1d40ac21d",
+      "non_air_node_types": 69,
+      "metadata_nodes": 38,
+      "required_nodes": [
+        "mcl_bells:bell",
+        "mcl_blackstone:quartz_brick",
+        "mcl_chests:chest_left",
+        "mcl_chests:chest_right",
+        "mcl_chests:chest_small",
+        "mcl_chests:trapped_chest_small",
+        "mcl_colorblocks:hardened_clay",
+        "mcl_colorblocks:hardened_clay_orange",
+        "mcl_colorblocks:hardened_clay_silver",
+        "mcl_core:andesite_smooth",
+        "mcl_core:coarse_dirt",
+        "mcl_core:diorite",
+        "mcl_core:diorite_smooth",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:granite_smooth",
+        "mcl_core:grass_path",
+        "mcl_core:ironblock",
+        "mcl_core:ladder",
+        "mcl_core:redsand",
+        "mcl_core:stone",
+        "mcl_core:stone_smooth",
+        "mcl_doors:dark_oak_door_b_1",
+        "mcl_doors:dark_oak_door_b_2",
+        "mcl_doors:dark_oak_door_t_1",
+        "mcl_doors:dark_oak_door_t_2",
+        "mcl_doors:dark_oak_trapdoor_open",
+        "mcl_doors:wooden_door_b_1",
+        "mcl_doors:wooden_door_t_1",
+        "mcl_fences:acacia_fence",
+        "mcl_fences:acacia_fence_gate",
+        "mcl_fences:spruce_fence",
+        "mcl_itemframes:glow_frame",
+        "mcl_itemframes:invisible_frame",
+        "mcl_lanterns:lantern_floor",
+        "mcl_mud:mud_bricks",
+        "mcl_nether:quartz_block",
+        "mcl_nether:quartz_chiseled",
+        "mcl_signs:wall_sign_oak",
+        "mcl_stairs:slab_granite",
+        "mcl_stairs:slab_granite_top",
+        "mcl_stairs:slab_sprucewood_top",
+        "mcl_stairs:stair_andesite_smooth",
+        "mcl_stairs:stair_andesite_smooth_inner",
+        "mcl_stairs:stair_andesite_smooth_outer",
+        "mcl_stairs:stair_diorite_smooth",
+        "mcl_stairs:stair_granite_smooth",
+        "mcl_stairs:stair_granite_smooth_inner",
+        "mcl_stairs:stair_granite_smooth_outer",
+        "mcl_stairs:stair_prismarine_brick",
+        "mcl_stairs:stair_prismarine_brick_inner",
+        "mcl_stairs:stair_prismarine_brick_outer",
+        "mcl_stairs:stair_quartzblock",
+        "mcl_stairs:stair_quartzblock_inner",
+        "mcl_stairs:stair_quartzblock_outer",
+        "mcl_torches:torch",
+        "mcl_torches:torch_wall",
+        "mesecons:wire_00010000_off",
+        "mesecons:wire_00100000_off",
+        "mesecons:wire_01010000_off",
+        "mesecons:wire_01100000_off",
+        "mesecons:wire_10100000_off",
+        "mesecons:wire_10100010_off",
+        "mesecons:wire_10101000_off",
+        "mesecons:wire_11000100_off",
+        "mesecons_lightstone:lightstone_off_red",
+        "mesecons_lightstone:lightstone_on_red",
+        "mesecons_pressureplates:pressure_plate_stone_off",
+        "mesecons_torch:redstoneblock"
+      ]
     }
   ],
   "generator_catalog": false

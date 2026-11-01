@@ -1,0 +1,5 @@
+[
+  {"id":"temple_of_jupiter","label":"Temple of Jupiter","source":"Creative","min":{"x":65,"y":12,"z":1128},"max":{"x":46,"y":27,"z":1103},"origin":{"x":100,"y":7,"z":500}},
+  {"id":"temple_of_vesta","label":"Temple of Vesta","source":"Creative","min":{"x":18,"y":23,"z":1136},"max":{"x":8,"y":13,"z":1146},"origin":{"x":140,"y":8,"z":500}},
+  {"id":"hippodrome","label":"Hippodrome","source":"Creative","min":{"x":-69,"y":6,"z":1234},"max":{"x":-105,"y":27,"z":1258},"origin":{"x":170,"y":1,"z":500}}
+]

@@ -58,8 +58,9 @@ support({"mcl_smithing_table:table"}, {construct = true})
 support({"mcl_itemframes:frame", "mcl_itemframes:glow_frame", "mcl_itemframes:invisible_frame",
 	"mcl_itemframes:plate"}, {construct = true, refresh = "itemframe"})
 support({"mcl_fences:fence_gate", "mcl_crimson:warped_fence_gate",
-	"mcl_fences:dark_oak_fence_gate"}, {construct = true})
-support({"mesecons_pressureplates:pressure_plate_wood_off"}, {construct = true})
+	"mcl_fences:dark_oak_fence_gate", "mcl_fences:acacia_fence_gate"}, {construct = true})
+support({"mesecons_pressureplates:pressure_plate_wood_off",
+	"mesecons_pressureplates:pressure_plate_stone_off"}, {construct = true})
 -- The constructor adds a particle spawner each call; its id is stored in meta.
 support({"mcl_campfires:campfire_lit"}, {construct = true, skip_if_field = "particle_spawner_id"})
 -- The constructor adds a chest entity each call.
