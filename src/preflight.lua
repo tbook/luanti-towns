@@ -78,6 +78,11 @@ local plan_sites = load_sibling("plan_sites.lua")
 local source = debug.getinfo(1, "S").source:sub(2)
 local modpath = source:match("^(.*)/src/preflight.lua$") or "."
 local objects = dofile(modpath .. "/schematics/objects/catalog.lua")
+-- Workshop-imported outdoor objects (exported with the building templates, #344).
+do
+	local imported = dofile(modpath .. "/schematics/templates/catalog.lua")
+	objects.town_square_fountain = imported.town_square_fountain
+end
 local outskirts_contract = dofile(modpath .. "/src/outskirts.lua")
 
 -- Outdoor assets have their own catalog; resolve them alongside buildings

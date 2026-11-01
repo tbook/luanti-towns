@@ -421,3 +421,15 @@ that depends only on the plan seed and the tower's order along the wall. It
 does not use the planner RNG, so translated plans keep the same variants.
 Corner towers always use `wall_tower`. If the alternate asset is not valid,
 every inline tower uses `wall_tower_inline`.
+
+## Medieval town square fountain (#344)
+
+`town_square_fountain` is the fixed capture x=248..252, y=7..11, z=303..307
+(5 x 5 x 5). Y=7 is the buried dirt/foundation row; finished ground is y=8
+(`ground_offset` 1), where a diorite floor carries a slab-rimmed basin with a
+central water spout. It has no role, so no random building pool uses it, and
+is not a building: the medieval planner adds it to `plan.objects` at the centre
+of the market square (`src/medieval_planner.lua`) and `src/preflight.lua`
+resolves it as an outdoor object, so it is built with the town, left unpaved
+and has no door check. The catalog still requires an entrance, so the
+`opening` entrance is the rim node (2,3,0) on the -Z edge; it is unused.
