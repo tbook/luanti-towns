@@ -37,6 +37,32 @@ local bounds = geometry.place(entry, {x = 100, y = 39, z = 100}, 0)
 eq(bounds.min.y + entry.ground_offset, 40,
 	"inline tower ground datum aligns with the generated wall's town ground")
 
+-- The alternate furnishings (#343) share the primary tower's shape, entrance
+-- and foundation, so the planner can swap one asset id for the other.
+local alt = catalog.get("wall_tower_inline_alt")
+eq(alt ~= nil, true, "alternate inline wall tower is catalogued")
+if not alt then return end
+eq(alt.size.x, entry.size.x, "alternate inline tower width matches the primary")
+eq(alt.size.y, entry.size.y, "alternate inline tower height matches the primary")
+eq(alt.size.z, entry.size.z, "alternate inline tower depth matches the primary")
+eq(alt.ground_offset, entry.ground_offset, "alternate inline tower foundation matches the primary")
+eq(alt.entrance.x, entry.entrance.x, "alternate inline tower entrance x matches the primary")
+eq(alt.entrance.y, entry.entrance.y, "alternate inline tower entrance y matches the primary")
+eq(alt.entrance.z, entry.entrance.z, "alternate inline tower entrance z matches the primary")
+local alt_schematic = read_mts("schematics/templates/wall_tower_inline_alt.mts")
+eq(alt_schematic.size.x, schematic.size.x, "alternate schematic width matches the primary")
+eq(alt_schematic.size.y, schematic.size.y, "alternate schematic height matches the primary")
+eq(alt_schematic.size.z, schematic.size.z, "alternate schematic depth matches the primary")
+eq(alt_schematic.at(alt.entrance.x, alt.entrance.y, alt.entrance.z):find("_door_b_", 1, true) ~= nil,
+	true, "alternate inline tower selected entrance is its lower door")
+for _, z in ipairs({0, alt.size.z - 1}) do
+	for dy = 1, 4 do
+		local y = alt.ground_offset + dy
+		eq(alt_schematic.at(3, y, z), "mcl_core:stonebrick",
+			("alternate inline tower wall join at x=3, ground+%d, z=%d"):format(dy, z))
+	end
+end
+
 local gate = read_mts("schematics/templates/wall_gatehouse.mts")
 for x = 6, 9 do
 	for z = 0, 8 do

@@ -191,6 +191,93 @@ do
 	eq(#features.inline_candidates(wall, 0, inline_entry), 0,
 		"narrow boundary rejects towers whose footprints touch the opposite wall")
 end
+-- Straight-run towers alternate between the primary and alternate furnishings
+-- by a seeded coin flip (#343). Corner towers always keep the primary asset.
+do
+	local ALT = "wall_tower_inline_alt"
+	local function long_run(seed)
+		return {seed = seed, cells = {}, openings = {}, corners = {}, runs = {
+			{direction = {x = 1, z = 0}, fixed = 12, first = 0, last = 399},
+		}}
+	end
+	local function assets(wall)
+		local out = {}
+		for i, c in ipairs(features.inline_candidates(wall, 50, inline_entry, true)) do out[i] = c.asset end
+		return out
+	end
+	local function join(list) return table.concat(list, ",") end
+
+	-- Same seed, same variants; without the alternate every tower is primary.
+	local first = assets(long_run(7))
+	eq(#first > 0, true, "long run yields alternating inline tower candidates")
+	eq(join(first), join(assets(long_run(7))), "inline variant choice is deterministic for a seed")
+	for _, c in ipairs(features.inline_candidates(long_run(7), 50, inline_entry)) do
+		eq(c.asset, "wall_tower_inline", "without an alternate asset every inline tower is primary")
+	end
+
+	-- Across seeds both variants occur in roughly equal numbers.
+	local alt, total, differing = 0, 0, 0
+	for seed = 1, 200 do
+		local list = assets(long_run(seed))
+		if seed > 1 and join(list) ~= join(assets(long_run(seed - 1))) then differing = differing + 1 end
+		for _, asset in ipairs(list) do
+			total = total + 1
+			if asset == ALT then alt = alt + 1 end
+		end
+	end
+	eq(alt > 0 and alt < total, true, "both inline tower variants occur across seeds")
+	local ratio = alt / total
+	eq(ratio > 0.45 and ratio < 0.55, true, "inline tower variants are roughly even")
+	eq(differing > 150, true, "variant sequences differ between seeds")
+
+	-- Corner towers never take the alternate, even when it is registered.
+	local corner_entry = {size = {x = 8, y = 17, z = 8}, ground_offset = 0}
+	local entries = {wall_tower = corner_entry, wall_tower_inline = inline_entry, [ALT] = inline_entry}
+	local bad_corner, corners_seen = 0, 0
+	for seed = 1, 50 do
+		local corner = {x = 0, z = 0, corner = true, direction = {x = -1, z = 1}}
+		local wall = long_run(seed)
+		wall.corners, wall.cells = {corner}, {corner}
+		for distance = 1, 8 do
+			wall.cells[#wall.cells + 1] = {x = 0, z = -distance}
+			wall.cells[#wall.cells + 1] = {x = distance, z = 0}
+		end
+		for _, c in ipairs(features.candidates(wall, 0, entries, walls)) do
+			if c.corner then
+				corners_seen = corners_seen + 1
+				if c.asset ~= "wall_tower" then bad_corner = bad_corner + 1 end
+			end
+		end
+	end
+	eq(corners_seen > 0, true, "corner tower candidates are exercised")
+	eq(bad_corner, 0, "corner towers never use the alternate inline asset")
+
+	-- A translated plan keeps every variant in the same order.
+	local function shifted(wall, dx, dz)
+		local out = {seed = wall.seed, cells = {}, openings = {}, corners = {}, runs = {}}
+		for _, run in ipairs(wall.runs) do
+			local r = {direction = run.direction, fixed = run.fixed, first = run.first, last = run.last}
+			local ox, oz = dz, dx
+			if run.direction.x ~= 0 then ox, oz = dx, dz end
+			r.fixed, r.first, r.last = r.fixed + ox, r.first + oz, r.last + oz
+			out.runs[#out.runs + 1] = r
+		end
+		return out
+	end
+	local base = {seed = 11, cells = {}, openings = {}, corners = {}, runs = {
+		{direction = {x = 1, z = 0}, fixed = 12, first = 0, last = 99},
+		{direction = {x = 1, z = 0}, fixed = 40, first = 0, last = 59},
+		{direction = {x = 0, z = 1}, fixed = -20, first = -30, last = 150},
+		{direction = {x = 0, z = -1}, fixed = 7, first = 10, last = 100},
+	}}
+	local moved = shifted(base, -37, 123)
+	local base_assets = assets(base)
+	eq(join(base_assets), join(assets(moved)), "translated plan keeps inline tower variants")
+	local has_alt = false
+	for _, asset in ipairs(base_assets) do if asset == ALT then has_alt = true end end
+	eq(has_alt, true, "translation check includes an alternate tower")
+end
+
 local inline_plan_candidates = features.candidates({runs = {
 	{direction = {x = 1, z = 0}, fixed = 12, first = 0, last = 39},
 }, cells = {}, openings = {}, corners = {}}, 50,
@@ -557,7 +644,9 @@ do
   eq(#selected > 0, true, "eligible wall features are reserved")
   local selected_inline = {}
   for _, feature in ipairs(selected) do
-   if feature.asset == "wall_tower_inline" then selected_inline[#selected_inline + 1] = feature end
+   if feature.asset == "wall_tower_inline" or feature.asset == "wall_tower_inline_alt" then
+    selected_inline[#selected_inline + 1] = feature
+   end
   end
   eq(#selected_inline > 0, true, "real planner reserves eligible inline tower plots before population")
   local occupants = {}
@@ -577,7 +666,9 @@ do
   eq(#actual, #selected, "actual eligible features match the planning reservations")
   local actual_inline = {}
   for _, feature in ipairs(actual) do
-   if feature.asset == "wall_tower_inline" then actual_inline[#actual_inline + 1] = feature end
+   if feature.asset == "wall_tower_inline" or feature.asset == "wall_tower_inline_alt" then
+    actual_inline[#actual_inline + 1] = feature
+   end
   end
   eq(#actual_inline, #selected_inline, "runtime selection retains prepopulation inline tower reservations")
   for i, candidate in ipairs(selected_inline) do

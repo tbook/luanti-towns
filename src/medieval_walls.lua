@@ -138,7 +138,8 @@ function M.plan(plan, force)
 		local kb = b.direction.x .. ":" .. b.direction.z .. ":" .. b.fixed .. ":" .. b.first
 		return ka < kb
 	end)
-	return {cells = list, runs = runs, corners = corners, openings = gaps}
+	-- The seed lets feature candidates make their own deterministic choices.
+	return {cells = list, runs = runs, corners = corners, openings = gaps, seed = plan.seed}
 end
 
 -- Return world placement candidates for the authored primary-road gatehouse.

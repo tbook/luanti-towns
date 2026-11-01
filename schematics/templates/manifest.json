@@ -6,7 +6,8 @@
     "townhouses",
     "banker_house",
     "castle",
-    "cathedral"
+    "cathedral",
+    "wall_tower_inline_alt"
   ],
   "buildings": [
     {
@@ -1973,12 +1974,64 @@
       "wall_count": 0,
       "wall_mismatches": 0,
       "snapshot_sha256": "dc5e09758233f543d2cdf863ac7a3c46e8c1c1e21283ba6d9652b35d252c188f"
+    },
+    {
+      "entrance": {
+        "x": 4,
+        "y": 2,
+        "z": 1
+      },
+      "entrance_kind": "door",
+      "ground_offset": 1,
+      "id": "wall_tower_inline_alt",
+      "label": "Medieval inline wall tower (alternate furnishings)",
+      "required_nodes": [
+        "mcl_core:cobble",
+        "mcl_core:dirt",
+        "mcl_core:dirt_with_grass",
+        "mcl_core:ladder",
+        "mcl_core:sprucetree_bark",
+        "mcl_core:stonebrick",
+        "mcl_decor:chair_spruce",
+        "mcl_doors:spruce_door_b_1",
+        "mcl_doors:spruce_door_t_1",
+        "mcl_fletching_table:fletching_table",
+        "mcl_stairs:slab_wood_top",
+        "mcl_stairs:stair_stonebrick",
+        "mcl_torches:torch",
+        "mcl_torches:torch_wall"
+      ],
+      "rotation": 180,
+      "size": {
+        "x": 7,
+        "y": 17,
+        "z": 7
+      },
+      "source_max": {
+        "x": 295,
+        "y": 23,
+        "z": 248
+      },
+      "source_min": {
+        "x": 289,
+        "y": 7,
+        "z": 242
+      },
+      "source_size": {
+        "x": 7,
+        "y": 17,
+        "z": 7
+      },
+      "verified_nodes": 833,
+      "wall_count": 0,
+      "wall_mismatches": 0,
+      "snapshot_sha256": "c2b0a3fcda37306056058ae472bf2bd37925c97133ccd0285faa15fe72f19bc6"
     }
   ],
   "runtime_validation": {
     "inventory_lists": 2484,
-    "metadata_nodes": 4852,
-    "non_air_nodes": 433228,
-    "placements": 144
+    "metadata_nodes": 4876,
+    "non_air_nodes": 434776,
+    "placements": 148
   }
 }

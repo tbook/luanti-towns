@@ -404,3 +404,20 @@ nodes inside to two through the postern and outside. Placement maps local +X
 outward, so the authored door facing (local -X) faces back toward town. The
 passage is otherwise symmetric across the wall plane. In-game fit remains to
 be confirmed.
+
+## Alternate inline wall tower (#343)
+
+`wall_tower_inline_alt` is the same straight-run tower with different
+furnishings (mcl_decor chair, fletching table, spruce bark). It is captured
+from TownsWorkshop at x=289..295, y=7..23, z=242..248: the same 7 x 17 x 7
+box and offsets as `wall_tower_inline` (ground_y 8, rotation 180, entrance
+(4,2,1) in file offsets). The ticket's y=7..22 box produced 16 layers because
+the primary capture's top layer is empty, so the box was widened to y=23 to
+keep the catalog size identical. The exporter verified 833 nodes, the same
+count as the primary.
+
+The planner picks the variant for each straight-run tower with a coin flip
+that depends only on the plan seed and the tower's order along the wall. It
+does not use the planner RNG, so translated plans keep the same variants.
+Corner towers always use `wall_tower`. If the alternate asset is not valid,
+every inline tower uses `wall_tower_inline`.

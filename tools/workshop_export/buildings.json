@@ -66,6 +66,19 @@
       "clip_to_capture": true
     },
     {
+      "id": "wall_tower_inline_alt",
+      "label": "Medieval inline wall tower (alternate furnishings)",
+      "scan_min": {"x": 287, "y": 7, "z": 240},
+      "scan_max": {"x": 297, "y": 25, "z": 250},
+      "floor_y": 7,
+      "capture_min": {"x": 289, "y": 7, "z": 242},
+      "capture_max": {"x": 295, "y": 23, "z": 248},
+      "ground_y": 8,
+      "rotation": 180,
+      "entrance": {"x": 291, "y": 9, "z": 247},
+      "clip_to_capture": true
+    },
+    {
       "id": "leather_worker",
       "label": "Leather worker",
       "scan_min": {

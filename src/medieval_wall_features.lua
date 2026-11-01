@@ -58,13 +58,27 @@ function M.corner_candidates(wall, ground, entry)
 	return out
 end
 
+-- Straight-run towers alternate between two furnishings of the same shape.
+-- The coin flip is a pure function of the plan seed and the tower's order
+-- along the wall, so translated plans keep their variants and the planner's
+-- RNG stream is untouched.
+local INLINE_ASSET, INLINE_ALT_ASSET = "wall_tower_inline", "wall_tower_inline_alt"
+-- Advances a Lehmer sequence started from the seed by `ordinal` steps. Unlike a
+-- single linear step, neighbouring towers do not simply alternate.
+local function inline_uses_alternate(seed, ordinal)
+	local h = (seed + 1073741824) * 48271 % 2147483647
+	for _ = 1, ordinal do h = h * 48271 % 2147483647 end
+	return h % 2 == 1
+end
+
 -- Add the straight-run tower sample at evenly spaced points along sufficiently
 -- long uninterrupted runs. The wall centerline is three nodes from either
 -- side of its 7x7 capture, and its tie-ins occupy both ends of that line.
-function M.inline_candidates(wall, ground, entry)
+-- `alternate` enables the alternate furnishings asset (wall.seed picks it).
+function M.inline_candidates(wall, ground, entry, alternate)
 	assert(entry and entry.size.x == 7 and entry.size.z == 7,
 		"inline tower attachment contract requires a 7 by 7 template")
-	local out = {}
+	local out, ordinal = {}, 0
 	local function touches_only_run(candidate, run)
 		local function in_footprint(x, z)
 			return x >= candidate.min.x and x <= candidate.max.x
@@ -108,6 +122,7 @@ function M.inline_candidates(wall, ground, entry)
 		local length = run.last - run.first + 1
 		local count = math.max(0, math.floor(length / 20) - 1)
 		for i = 1, count do
+			ordinal = ordinal + 1
 			-- Distribute tower centers across the run, rounding to a stable
 			-- node coordinate. The count rule leaves enough room at each end.
 			local center = run.first + length * i / (count + 1)
@@ -126,8 +141,10 @@ function M.inline_candidates(wall, ground, entry)
 				minx, minz = first, run.fixed - 3
 			end
 			local offset = entry.ground_offset or 0
+			local asset = alternate and inline_uses_alternate(wall.seed, ordinal)
+				and INLINE_ALT_ASSET or INLINE_ASSET
 			local candidate = {
-				asset = "wall_tower_inline", rotation = rotation,
+				asset = asset, rotation = rotation,
 				min = {x = minx, y = ground - offset, z = minz},
 				max = {x = minx + 6, y = ground - offset + entry.size.y - 1, z = minz + 6},
 				run = run,
@@ -147,7 +164,7 @@ function M.candidates(wall, ground, entries, walls, missing_join)
   if entry then
    local found = spec.gate and walls.gatehouse_candidates(wall, ground, entry)
     or (spec.postern and walls.postern_candidates(wall, ground, entry))
-    or (spec.inline and M.inline_candidates(wall, ground, entry))
+    or (spec.inline and M.inline_candidates(wall, ground, entry, entries[INLINE_ALT_ASSET] ~= nil))
     or M.corner_candidates(wall, ground, entry)
    for _, candidate in ipairs(found) do
     if spec.gate or spec.postern then
@@ -242,6 +259,7 @@ local function intruded(candidate, x, z)
 end
 local function tower_may_intrude(candidate, structure)
 	local tower = candidate.asset == "wall_tower" or candidate.asset == "wall_tower_inline"
+		or candidate.asset == INLINE_ALT_ASSET
 	-- Plan sites name landmarks in `name`; composed structures carry it in `kind`.
 	return tower and TOWER_INTRUDABLE[structure.name or structure.kind] == true
 end
