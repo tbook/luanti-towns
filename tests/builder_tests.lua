@@ -127,17 +127,17 @@ local FULL = os.getenv("TOWNS_TEST_FULL") == "1"
 
 -- Terrain around `base` (the finished ground level) in the fixture plan's
 -- own coordinates (rx, rz from its minimum corner): rx 0-2 forum, 3-4 street,
--- 5-11 temple, 12-15 plain ground. Columns 12 and 15 are cut, 13 is filled,
+-- 5-13 temple, 14-15 plain ground. Column 15 and column 14 (except rz 6) are cut, (14, 6) is filled,
 -- one forum and one street column are cut/filled under their pavement.
 local function terrain_at(base)
 	return function(x, z)
 		local rx, rz = x - CENTER.x, z - CENTER.z
-		if rx == 12 then return base + 3 end
-		if rx == 13 then return base - 3 end
+		if rx == 14 and rz == 6 then return base - 3 end
+		if rx == 14 then return base + 3 end
 		if rx == 15 then return base + 2 end
 		if rx == 1 and rz == 3 then return base + 2 end
 		if rx == 3 and rz == 2 then return base - 2 end
-		if rx >= 5 and rx <= 11 and rz % 3 == 0 then return base + 1 end
+		if rx >= 5 and rx <= 13 and rz % 3 == 0 then return base + 1 end
 		return base
 	end
 end
@@ -543,8 +543,8 @@ do
 end
 
 -- A plain cut column (112, -46): away from the pavement and the building.
-local CUTX, CUTZ = CENTER.x + 12, CENTER.z + 4
-local FILLX = CENTER.x + 13
+local CUTX, CUTZ = CENTER.x + 14, CENTER.z + 4
+local FILLX, FILLZ = CENTER.x + 14, CENTER.z + 6
 
 -- Support under every column (cut columns included).
 do
@@ -884,7 +884,7 @@ end
 do
 	local res = copy_result()
 	local g = res.ground_y
-	local fx, fz = FILLX, CUTZ
+	local fx, fz = FILLX, FILLZ
 	local h = res.heights[fx][fz]
 	eq(h < g - 1, true, "wet fixture has a fill column")
 	local function lake(x, y, z)

@@ -16,7 +16,7 @@ local plan = {
 			rect = {x1 = 0, z1 = 0, x2 = 2, z2 = 6},
 			approach = {pos = {x = 2, z = 3}}},
 		temple = {name = "temple", kind = "landmark", id = "demo_house", rotation = 90,
-			rect = {x1 = 5, z1 = 0, x2 = 11, z2 = 8}, entrance = {x = 5, z = 4},
+			rect = {x1 = 5, z1 = 0, x2 = 13, z2 = 8}, entrance = {x = 6, z = 4},
 			approach = {pos = {x = 4, z = 4}}},
 	},
 	streets = {{kind = "principal", material = "test:road",
@@ -40,9 +40,9 @@ end
 
 rejected(function(p) p.town_type = "atlantean" end, "unknown town type", "unknown type")
 rejected(function(p) p.sites.temple.rect.x2 = 12 end, "footprint", "wrong rotated catalog footprint")
-rejected(function(p) p.sites.temple.entrance.x = 6 end, "entrance", "wrong landmark entrance")
+rejected(function(p) p.sites.temple.entrance.x = 5 end, "entrance", "wrong landmark entrance")
 rejected(function(p) p.sites.forum.material = nil end, "material", "square without material")
-rejected(function(p) p.streets[1].rect.x1 = 12; p.streets[1].rect.x2 = 16 end,
+rejected(function(p) p.streets[1].rect.x1 = 14; p.streets[1].rect.x2 = 16 end,
 	"boundary", "street outside boundary")
 rejected(function(p) p.streets[1].rect.z2 = 2 end,
 	"disconnected", "disconnected landmark pavement")
