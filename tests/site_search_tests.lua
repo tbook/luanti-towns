@@ -241,6 +241,7 @@ do
         for i, feature in ipairs(original) do
             eq(translated[i].min.x - feature.min.x, result.candidate.dx, "feature translated x")
             eq(translated[i].min.z - feature.min.z, result.candidate.dz, "feature translated z")
+            eq(translated[i].asset, feature.asset, "feature furnishing variant survives translation")
         end
 	else
 		eq(type(summary), "string", "populated catalog search failure summary")
