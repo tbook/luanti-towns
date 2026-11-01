@@ -15,7 +15,7 @@ BUILDINGS = [
      "path": "schematics/outskirts/farm.mts"},
     {"id": "shepherd_hut", "min": {"x": 135, "y": 8, "z": 470}, "max": {"x": 143, "y": 16, "z": 477},
      "path": "schematics/outskirts/small_house.mts"},
-    {"id": "demo_house", "min": {"x": 170, "y": 8, "z": 470}, "max": {"x": 178, "y": 15, "z": 476},
+    {"id": "demo_house", "min": {"x": 170, "y": 8, "z": 469}, "max": {"x": 178, "y": 15, "z": 477},
      "path": "schematics/demo_house.mts"},
 ]
 

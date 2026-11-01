@@ -13,6 +13,13 @@ return function(center, seed, opts)
 	end
 	local function point(p) return {x = p.x + dx, z = p.z + dz} end
 	local placed = geometry.place(entry, {x = 5 + dx, y = 0, z = dz}, 90)
+	-- The door is recessed under the eave, so its outside node can lie inside
+	-- the footprint; the approach is the first node outside it (as authored_plan.lua).
+	local footprint = {x1 = placed.min.x, z1 = placed.min.z, x2 = placed.max.x, z2 = placed.max.z}
+	local ax, az = placed.outside.x, placed.outside.z
+	while ax >= footprint.x1 and ax <= footprint.x2 and az >= footprint.z1 and az <= footprint.z2 do
+		ax, az = ax + placed.front.x, az + placed.front.z
+	end
 	return {
 		town_type = "roman", seed = seed or 1,
 		center = {x = dx, z = dz},
@@ -27,7 +34,7 @@ return function(center, seed, opts)
 				rect = {x1 = placed.min.x, z1 = placed.min.z,
 					x2 = placed.max.x, z2 = placed.max.z},
 				entrance = {x = placed.entrance.x, z = placed.entrance.z},
-				approach = {pos = {x = placed.outside.x, z = placed.outside.z}},
+				approach = {pos = {x = ax, z = az}},
 			},
 		},
 		streets = {{kind = "principal", material = "test:road", rect = rect(3, 0, 4, 6)}},

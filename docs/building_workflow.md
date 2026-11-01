@@ -40,10 +40,10 @@ real template.
 
 | Property | Value |
 | --- | --- |
-| Size (x, y, z) | **9 x 8 x 7** nodes |
-| Entrance (door bottom node), offset from min corner | **(4, 1, 0)**, door in the -Z wall, facing -Z; door top is (4, 2, 0) |
+| Size (x, y, z) | **9 x 8 x 9** nodes (the front and back eaves extend one block past the walls) |
+| Entrance (door bottom node), offset from min corner | **(4, 1, 1)**, door recessed one block under the -Z eave, facing -Z; door top is (4, 2, 1) |
 | Ground layer | y = 0 is the cobblestone foundation / plank floor (door sits on y = 1) |
-| Rotation cue | stone-brick chimney on the +X wall, rising to y = 7 at (8, y, 3); windows on the -X, -Z and +Z walls but none on the +X wall |
+| Rotation cue | stone-brick chimney on the +X wall, rising to y = 7 at (8, y, 4); windows on the -X, -Z and +Z walls but none on the +X wall |
 | Contents | oak plank walls, oak log corners, stair roof (ridge along X), glass, a red bed at (1,1,5) and (1,1,4) (the -X/+Z corner), crafting table (6,1,5), furnace (7,1,3) |
 | Metadata | none needed (the furnace is empty) |
 
@@ -52,10 +52,10 @@ rotated schematic keeps its bounding-box minimum corner at `P`):
 
 | Rotation | Footprint x by z | Door (bottom node) offset from `P` | Chimney top offset from `P` | Entrance faces |
 | --- | --- | --- | --- | --- |
-| 0 | 9 x 7 | (4, 1, 0) | (8, 7, 3) | -Z |
-| 90 | 7 x 9 | (0, 1, 4) | (3, 7, 0) | -X |
-| 180 | 9 x 7 | (4, 1, 6) | (0, 7, 3) | +Z |
-| 270 | 7 x 9 | (6, 1, 4) | (3, 7, 8) | +X |
+| 0 | 9 x 9 | (4, 1, 1) | (8, 7, 4) | -Z |
+| 90 | 9 x 9 | (1, 1, 4) | (4, 7, 0) | -X |
+| 180 | 9 x 9 | (4, 1, 7) | (0, 7, 4) | +Z |
+| 270 | 9 x 9 | (7, 1, 4) | (4, 7, 8) | +X |
 
 ## Registering a building (exporter path)
 
@@ -231,15 +231,15 @@ local function u16(i) return h:byte(i) * 256 + h:byte(i + 1) end
 print(("version %d, size x=%d y=%d z=%d"):format(u16(5), u16(7), u16(9), u16(11)))
 ```
 
-`demo_house.mts` prints `version 4, size x=9 y=8 z=7`.
+`demo_house.mts` prints `version 4, size x=9 y=8 z=9`.
 
 ### Entrance offset
 
 Place the schematic with rotation 0 at a known position `P` and read the
 door's position: entrance offset = door position - `P`. In game, stand in the
 doorway and read the coordinates from the F5 debug screen. Read the entrance
-from the building; do not assume it is centered or flush with the edge (only
-`demo_house` and `mason_yard` have z = 0).
+from the building; do not assume it is centered or flush with the edge (`mason_yard` has
+z = 0; `demo_house` is recessed to z = 1).
 
 ### Four rotations (optional, legacy manual check)
 
@@ -266,7 +266,7 @@ rotation):
 ```
 
 or programmatically `minetest.place_schematic(P, path, "90")` for each
-rotation. Check, for each: (a) the footprint swaps x and z at 90/270, (b) the
+rotation. Check, for each: (a) the footprint swaps x and z at 90/270 (a no-op for the square `demo_house`), (b) the
 bounding-box minimum corner stays at `P`, (c) the entrance faces -X at 90, +Z at 180 and +X at 270, and (d) the
 asymmetric cue moves with it (for `demo_house` the chimney is on the +X side
 at 0, -Z at 90, -X at 180, +Z at 270).
@@ -353,6 +353,7 @@ Luanti 5.17.0, WorldEdit from `~/Library/Application Support/minetest/mods/world
   nodes outside the 9 x 8 x 7 box; the destination `(0,0,0)` is cobblestone and
   `(4,1,0)` is `mcl_doors:wooden_door_b_1`.
 - **Rotations:** placed at 0/90/180/270 and measured as in the table above.
+- **Reimport (#287):** the original capture above describes the first 9 x 8 x 7 version. The house was later reimported from TownsWorkshop (x170..178, y8..15, z469..477) with longer front/back eaves; the figures in the reference tables at the top of this section are current.
 - **Not covered:** a visual in-game inspection (the run was headless).
 
 ## Edited TownsWorkshop templates
