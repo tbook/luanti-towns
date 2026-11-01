@@ -79,6 +79,20 @@
       "clip_to_capture": true
     },
     {
+      "id": "town_square_fountain",
+      "label": "Medieval town square fountain",
+      "scan_min": {"x": 246, "y": 7, "z": 301},
+      "scan_max": {"x": 254, "y": 13, "z": 309},
+      "floor_y": 7,
+      "capture_min": {"x": 248, "y": 7, "z": 303},
+      "capture_max": {"x": 252, "y": 11, "z": 307},
+      "ground_y": 8,
+      "rotation": 0,
+      "entrance": {"x": 250, "y": 10, "z": 303},
+      "entrance_kind": "opening",
+      "clip_to_capture": true
+    },
+    {
       "id": "leather_worker",
       "label": "Leather worker",
       "scan_min": {

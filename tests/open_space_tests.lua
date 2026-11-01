@@ -49,18 +49,21 @@ for _,seed in ipairs({1,7,42,101,256,1024,2718,31415,99999,123456,777777,1000003
 		if s.kind=="object" then
 			object_count=object_count+1
 			eq(s.entrance,nil,"objects have no fabricated building entrance")
-			eq(s.min.y,40-(s.id=="garden" and 1 or 0),"object foundation aligned to ground")
+			eq(s.min.y,40-((s.id=="garden" or s.id=="town_square_fountain") and 1 or 0),"object foundation aligned to ground")
 		end
 	end
 	eq(object_count,#plan.objects,"all objects composed for bounds and construction")
-	for i,o in ipairs(plan.objects) do
+	-- The fountain (#344) is a fixed centrepiece, not open-space decoration.
+	local decor={}
+	for _,o in ipairs(plan.objects) do if o.id~="town_square_fountain" then decor[#decor+1]=o end end
+	for i,o in ipairs(decor) do
 		seen[o.id]=true
 		for _,s in ipairs(plan.streets) do eq(overlap(o.clearing,s.rect),false,"clearing avoids streets") end
 		for _,s in pairs(plan.sites) do eq(overlap(o.clearing,s.rect),false,"clearing avoids sites") end
 		for _,s in ipairs(plan.content.buildings) do eq(overlap(o.clearing,s.rect),false,"clearing avoids buildings") end
 		for _,s in ipairs(plan.reservations.services) do eq(overlap(o.clearing,s.rect),false,"clearing avoids services") end
 		if plan.reservations.jail then eq(overlap(o.clearing,plan.reservations.jail.rect),false,"clearing avoids jail") end
-		for j,other in ipairs(plan.objects) do if i~=j then
+		for j,other in ipairs(decor) do if i~=j then
 			eq(overlap(o.clearing,other.clearing),false,"object clearings do not overlap")
 			for _,p in ipairs(o.access) do eq(overlap(R(p.x,p.z,p.x,p.z),other.rect),false,"later objects preserve reserved access") end
 		end end

@@ -27,7 +27,8 @@
 -- src/medieval_planner.lua, Roman ones from src/roman_planner.lua. After the
 -- layout, planner.populate places the jail, services and ordinary content;
 -- shortages are reported on the plan, never returned as an error. Finally,
--- plan.objects holds occasional trees/gardens in reachable unused clearings.
+-- plan.objects holds the market fountain (#344), then occasional trees/gardens
+-- in reachable unused clearings.
 --
 -- Determinism
 -- -----------
@@ -363,7 +364,10 @@ function M.populate(full, profile, seed, occupied)
 		-- Private random stream: derived from the seed, never drawn from the
 		-- planner's `rng`.
 		full.content = content_planner.plan(full, profile.content, {seed = seed, occupied = occupied})
-		full.objects = open_space.plan(full, seed, occupied)
+		full.objects = full.objects or {}
+		for _, o in ipairs(open_space.plan(full, seed, occupied)) do
+			full.objects[#full.objects + 1] = o
+		end
 	end
 end
 

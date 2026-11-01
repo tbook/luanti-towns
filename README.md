@@ -25,7 +25,7 @@ entrance choices, and inventory/decoration data.
 searches near you for a site and builds a populated town there. The town
 type is optional and defaults to `medieval`, so `/towns_generate` and
 `/towns_generate 42` behave as before. The medieval town has the real
-cathedral and its parvis, a market square with the city hall, the castle, a
+cathedral and its parvis, a market square with a central fountain and the city hall, the castle, a
 jail, taverns, wells and chapels, ordinary houses, shops and workshops on the
 street frontage, initialized functional nodes (chests,
 item frames, jukebox, well), and then one villager spawned and bed-claimed

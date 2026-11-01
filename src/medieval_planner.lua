@@ -311,6 +311,12 @@ local function build(center, seed, profile, rng, variant)
 		streets = streets, blocks = blocks, frontage = {},
 	}
 	if turn ~= 0 then M.turn(plan, turn) end
+	-- The fountain stands at the centre of the market square (#344): paved,
+	-- unbuilt ground that no frontage, service, content or open-space object uses.
+	local mr = plan.sites.market.rect
+	local fx, fz = math.floor((mr.x1 + mr.x2) / 2), math.floor((mr.z1 + mr.z2) / 2)
+	plan.objects = {{id = "town_square_fountain", rotation = 0,
+		rect = R(fx - 2, fz - 2, fx + 2, fz + 2)}}
 	local ok, why = authored_plan.derive_frontage(plan)
 	if not ok then error(why, 0) end
 	return plan, ROW
