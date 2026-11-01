@@ -23,7 +23,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from common import ENGINE, ROOT, WORLDS, world_is_open
+from common import ENGINE, ROOT, WORLDS, sha256, world_is_open
 import scan
 
 IDS = scan.IDS
@@ -32,6 +32,10 @@ ROMAN = ROOT / 'schematics/imports/roman'
 
 def records():
     return {b['id']: b for b in json.loads((ROMAN / 'manifest.json').read_text())['buildings']}
+
+
+def file_hashes():
+    return {p.name: sha256(p) for p in ROMAN.iterdir() if p.is_file()}
 
 
 def main():
@@ -49,13 +53,19 @@ def main():
     if stray:
         raise SystemExit('Nodes outside the recorded boxes (no export done):\n' + json.dumps(stray, indent=1))
     before = records()
+    files_before = file_hashes()
     py = sys.executable
     subprocess.run([py, str(ROOT / 'tools/issue139_import/export_roman.py'), '--world', str(args.world),
                     '--engine', args.engine, '--only', *IDS], check=True)
     after = records()
-    changed = [i for i in before if i not in IDS and before[i] != after.get(i)]
+    changed = [i for i in set(before) | set(after) if i not in IDS and before.get(i) != after.get(i)]
     if changed:
-        raise SystemExit('Unrelated manifest records changed: ' + ', '.join(changed))
+        raise SystemExit('Unrelated manifest records changed or added: ' + ', '.join(sorted(changed)))
+    files_after = file_hashes()
+    allowed = {'manifest.json'} | {i + ext for i in IDS for ext in ('.mts', '.lua')}
+    touched = [n for n in set(files_before) | set(files_after) if files_before.get(n) != files_after.get(n) and n not in allowed]
+    if touched:
+        raise SystemExit('Unrelated Roman files changed: ' + ', '.join(sorted(touched)))
     subprocess.run([py, str(ROOT / 'tools/roman_check/run.py'), '--engine', args.engine], check=True)
     for i in IDS:
         r = after[i]
