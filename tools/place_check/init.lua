@@ -811,7 +811,7 @@ core.register_on_mods_loaded(function() core.after(0, function()
     for _, o in ipairs(result.plan.objects or {}) do
      object_counts[o.id] = (object_counts[o.id] or 0) + 1
      local reachable = true
-     for _, p in ipairs(o.access) do
+     for _, p in ipairs(o.access or {}) do
       local feet = core.get_node({x=p.x,y=result.ground_y+1,z=p.z}).name
       local head = core.get_node({x=p.x,y=result.ground_y+2,z=p.z}).name
       local floor = core.get_node({x=p.x,y=result.ground_y,z=p.z}).name
