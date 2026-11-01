@@ -21,10 +21,10 @@ local ground_samples = {
  insula = {{x=0,y=2,z=0},'mcl_core:gravel'},
  vespasianum = {{x=0,y=2,z=0},'mcl_core:dirt_with_grass'},
  basilica = {{x=0,y=2,z=0},'mcl_core:dirt_with_grass'},
- -- Imported terrain keeps the Creative mesa ground (#341), so these are not grass.
+ -- Jupiter and Vesta keep the Creative mesa clay ground (#341); the hippodrome was grassed in the workshop.
  temple_of_jupiter = {{x=0,y=1,z=0},'mcl_colorblocks:hardened_clay'},
  temple_of_vesta = {{x=0,y=0,z=0},'mcl_colorblocks:hardened_clay_orange'},
- hippodrome = {{x=0,y=7,z=0},'mcl_core:redsand'},
+ hippodrome = {{x=0,y=7,z=0},'mcl_core:dirt_with_grass'},
 }
 
 local function run()

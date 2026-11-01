@@ -27,3 +27,17 @@ Origins (file Y=0 row): Jupiter (100,7,500), Vesta (140,8,500), Hippodrome
 (170,1,500), so each building's ground datum row lands on Y=8 (offsets 1, 0, 7).
 Export with `python3 tools/issue139_import/export_roman.py --only temple_of_jupiter
 temple_of_vesta hippodrome`.
+
+## Updating after workshop edits
+
+```sh
+python3 tools/issue341_import/update.py
+```
+
+With the game closed, this snapshots the workshop read-only, scans around the
+three boxes in `FIXED_BOXES` (`export_roman.py`) and stops if anything non-natural
+lies outside a box (`scan.py` runs alone too), re-exports only these three ids,
+checks that no other manifest record changed, and runs `tools/roman_check/run.py`.
+It does not recompute `catalog.lua`: check sizes, ground offsets and entrances
+against the printed summary, then run `lua5.1 tests/run.lua`. If a building outgrew
+its box, edit `FIXED_BOXES` deliberately and re-run.

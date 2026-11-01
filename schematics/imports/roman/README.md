@@ -48,7 +48,10 @@ change keep `6eab09ff...`. The bath and domus were then re-exported again with
 temple_of_jupiter, temple_of_vesta and hippodrome records (#341) were exported
 by `tools/issue139_import/export_roman.py --only` from the TownsWorkshop map
 after `tools/issue341_import` placed them, so their `source_map_sha256` is
-`1a5bd7dd...`.
+`1a5bd7dd...` at the first import. They were re-exported after the owner edited the
+workshop copies (Vesta's copper roof weathering; the hippodrome's ground, seating and
+underground passage; Jupiter unchanged); the records now carry the newer snapshot
+hash. Re-export with `python3 tools/issue341_import/update.py` (see its README).
 
 The exporter reads a consistent, read-only SQLite snapshot and writes only to
 this directory. In a game with this mod enabled, a server-privileged player
@@ -80,7 +83,7 @@ axis **before** placement rotation; omitted facing defaults to `-Z`.
 | basilica | 28×14×16 | 23,3,7 | +X | 2 | Spruce double door at X=23 (Z=7..8) at Y=3 over a stone threshold at Y=2, with stone outside at (24,2,7). Two more single doors at Z=3 and Z=12 on the same +X face, a trapdoor above the central door, and a granite arcade on the outside. |
 | temple_of_jupiter | 20×15×26 | 9,3,8 | -Z | 1 | Spruce double door (X=9..10) into the cella at Z=8, over the quartz floor at Y=2 inside the front colonnade; a mirror door at Z=18 faces the rear porch. The clay ground rows (Y=0..1) are Creative mesa terrain. |
 | temple_of_vesta | 11×11×11 | 5,2,3 | -Z | 0 | No door. A one-node gap in the cella's north wall (Z=3) between two quartz pillars, over a quartz slab floor at Y=1 inside a ring colonnade; the other three cella walls are closed. Eternal fire on netherrack at the centre. The ground row (Y=0) is orange clay terrain. |
-| hippodrome | 37×22×25 | 2,8,7 | -X | 7 | Dark oak door in the west end wall at X=2 over redsand at Y=7, with air outside at X=0..1. A second west door is at Z=19; the east end, and a south door at (6,8,20), are not chosen. Seven buried terrain rows (clay, redsand, stone, dirt) and a small buried quartz chamber with mesecons wire and torches stay in the capture. |
+| hippodrome | 37×22×25 | 2,8,7 | -X | 7 | Dark oak door in the west end wall at X=2 over stone at Y=7, with air outside at X=0..1 (the surrounding ground row was grassed and graveled in the workshop). A second west door is at Z=19; the east end, and a south door at (6,8,20), are not chosen. Seven buried rows (clay, stone, dirt) hold the underground passage and chambers the owner wants kept, so they stay in the capture. |
 | villa | 46×20×26 | 26,2,22 | +Z | 0 | Main double wooden door at X=26..27; courtyard approach at Z=23. Dirt ground row at Y=0. Registered separately for rural Roman outskirts (#229). |
 
 The basilica capture (#211) is the issue's box 53..79 × 7..20 × 415..430,
@@ -106,7 +109,7 @@ entrances above are simple picks. Temple of Jupiter is 65,12,1128 x 46,27,1103
 without its empty top row (world box (100,7,500)-(119,21,525)); Temple of Vesta is
 18,23,1136 x 8,13,1146 (11×11×11 whole); Hippodrome is -69,6,1234 x -105,27,1258
 (37×22×25 whole). No nodes needed mapping. Metadata: Jupiter 9 (door states,
-a chest), hippodrome 38 (doors, item frames, signs, chests, fence gates), Vesta 0.
+a chest), hippodrome 50 (doors, item frames, signs, chests, fence gates), Vesta 0.
 
 The insula capture (#193) is the issue's box 213..248 × 6..25 × 399..426 with
 only the x=0 column and z=27 row of grass and dirt platform removed: world box

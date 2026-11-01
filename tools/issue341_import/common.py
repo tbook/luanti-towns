@@ -37,9 +37,15 @@ def copy_world(source, target):
     for name in ('world.mt', 'map_meta.txt'):
         shutil.copy2(source / name, target / name)
     before = sha256(source / 'map.sqlite')
-    with sqlite3.connect((source / 'map.sqlite').as_uri() + '?mode=ro', uri=True) as src:
-        with sqlite3.connect(target / 'map.sqlite') as dst:
-            src.backup(dst)
+    src = sqlite3.connect((source / 'map.sqlite').as_uri() + '?mode=ro', uri=True)
+    dst = sqlite3.connect(target / 'map.sqlite')
+    try:
+        src.backup(dst)
+    finally:
+        # Close explicitly: `with` only ends a transaction, and a leaked handle on the
+        # workshop would make later "is the world open" checks in this process fail.
+        dst.close()
+        src.close()
     after = sha256(source / 'map.sqlite')
     return before if before == after else None
 
