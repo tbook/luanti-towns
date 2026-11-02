@@ -274,7 +274,7 @@ All sites. Unchanged rows are listed so the table is complete; "new" and
 | domus_4 | domus | arm west +z at 29 | 270 | x -66..-45, z 3..40 | (-54,2) | unchanged |
 | vespasianum_east | vespasianum | arm east +z at 15 | 270 | x 30..37, z 3..12 | (34,2) | unchanged |
 | theatre | theatre | arm west -z at 10 | 180 | x -46..-26, z -17..-4 | (-36,-3) | unchanged |
-| bath | bath | arm south -x at 8 | 180 | x -91..-4, z -66..-24 | (-3,-44) | unchanged (see section 14) |
+| bath | bath | arm south -x at 7 | 180 | x -91..-4, z -66..-23 | (-3,-44) | +1 row on the forum side (#370); entrance and approach unchanged (see section 14) |
 | roman_fountain (object) | roman_fountain | planner.lua, forum centre | 0 | x -3..1, z -3..1 | - | unchanged |
 
 Non-overlap of all landmark, square, street and block rectangles was
@@ -708,6 +708,13 @@ settle it. Should a shift still be wanted, it is cheap and low-risk
 mechanically (one `at` value in the layout plus the bath rect and door-route
 pins, as with the theatre's turn in #213), but at `at = 9` the gap to
 ring_south_west would drop to one row.
+
+Update (#370): the bath capture gained one row of pediment at file Z=0 (the
+-Z side, which faces +z at rotation 180, the forum side). The catalog size is
+88x18x44 and the entrance is file (4, 4, 21), so the world formula is now
+z = -66 + 43 - file z and the entrance stays at z -44. `at` moved from 8 to 7
+so the far edge (z -66) and the two-row gap to ring_south_west are unchanged;
+the bath's forum-side edge is now z -23.
 
 ## 15. Materials
 

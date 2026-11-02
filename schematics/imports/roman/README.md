@@ -53,6 +53,11 @@ workshop copies (Vesta's copper roof weathering; the hippodrome's ground, seatin
 underground passage; Jupiter unchanged); the records now carry the newer snapshot
 hash. Re-export with `python3 tools/issue341_import/update.py` (see its README).
 
+The bath record (#370) was re-exported alone with `export_roman.py --only bath`
+after the workshop bath gained a pediment row at Z=398 (outside the old box), with
+the box's min Z lowered from 399 to 398. Its `source_map_sha256` is `10f6496d...`.
+Every other manifest record and schematic file is byte-identical.
+
 The exporter reads a consistent, read-only SQLite snapshot and writes only to
 this directory. In a game with this mod enabled, a server-privileged player
 can place one with `/towns_import_roman <id> [rotation]`. It places the capture
@@ -77,7 +82,7 @@ axis **before** placement rotation; omitted facing defaults to `-Z`.
 | domus | 38×11×22 | 1,2,9 | -X | 1 | Spruce double front door; grass/path surface at Y=1. |
 | theatre | 21×11×14 | 10,5,1 | -Z | 3 | Open central gap (X=10..11, Y=5..7) in the cavea's back row at Z=0, no door. The entrance cell sits one node in at Z=1 on full cobble (10,4,1); the half-step stair at (10,4,0) is the outside step (#213). The stage and scaenae door at Z=13 face away from the street. Perimeter grass at Y=3. |
 | amphitheater | 29×9×29 | 15,3,0 | -Z | 2 | Gravel approach at X=15, Y=2 (re-captured in #193); open entrance under outer structure. |
-| bath | 88×18×43 | 4,4,20 | -X | 2 | Central front door over quartz at Y=3 (quartz approach slab at X=0); perimeter grass at Y=2 above lower dirt layer. |
+| bath | 88×18×44 | 4,4,21 | -X | 2 | Central front door over quartz at Y=3 (quartz approach slab at X=0); perimeter grass at Y=2 above lower dirt layer. |
 | insula | 35×20×27 | 17,3,2 | -Z | 2 | Spruce door in the front wall at Y=3 over a stone threshold at Y=2; gravel approach at Y=2 (Z=0). A second front door is at X=11, and a rear spruce door at (17,3,24). |
 | vespasianum | 10×8×8 | 1,3,3 | -X | 2 | No door. A 1-wide, 2-high opening in the -X wall at Y=3 over a hardened-clay threshold at Y=2, with gravel at (0,2,3) outside; the only air route into the room. Trapdoors inside, a water channel, a flower pot and an item frame. |
 | basilica | 28×14×16 | 23,3,7 | +X | 2 | Spruce double door at X=23 (Z=7..8) at Y=3 over a stone threshold at Y=2, with stone outside at (24,2,7). Two more single doors at Z=3 and Z=12 on the same +X face, a trapdoor above the central door, and a granite arcade on the outside. |
@@ -118,9 +123,10 @@ and the eaves at Y=17 are kept. The front approach row at Z=0 stays inside the
 capture. The entrance is the front spruce door, not the wooden door at X=11,
 which is a choice for the layout work.
 
-The bath's 88×18×43 capture keeps the basement, ground rows, and all saved
-metadata (288 nodes); only the platform margin and empty top rows were
-trimmed (#171: world box (101,7,399)-(188,24,441)). Its door is recessed four
+The bath's 88×18×44 capture keeps the basement, ground rows, and all saved
+metadata (295 nodes); only the platform margin and empty top rows were
+trimmed (#171: world box (101,7,399)-(188,24,441), widened to min Z 398 by #370
+to keep the copper pediment row at file Z=0). Its door is recessed four
 nodes from the capture edge; the temple
 door is recessed three. `geometry.place().outside` remains the single node
 adjacent to the entrance, including for recessed doors. Later layout/routing

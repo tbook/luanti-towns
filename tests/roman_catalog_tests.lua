@@ -11,7 +11,7 @@ local fixtures = {
 	domus = {{38,11,22}, 2, 1, {{1,9},{9,36},{36,12},{12,1}}, 2},
 	theatre = {{21,11,14}, 5, 3, {{10,1},{1,10},{10,12},{12,10}}, 1},
 	amphitheater = {{29,9,29}, 3, 2, {{15,0},{0,13},{13,28},{28,15}}, 1},
-	bath = {{88,18,43}, 4, 2, {{4,20},{20,83},{83,22},{22,4}}, 2},
+	bath = {{88,18,44}, 4, 2, {{4,21},{21,83},{83,22},{22,4}}, 2},
 	insula = {{35,20,27}, 3, 2, {{17,2},{2,17},{17,24},{24,17}}, 1},
 	vespasianum = {{10,8,8}, 3, 2, {{1,3},{3,8},{8,4},{4,1}}, 2},
 	basilica = {{28,14,16}, 3, 2, {{23,7},{7,4},{4,8},{8,23}}, 4},
@@ -132,7 +132,10 @@ end end end
 local bath = cache["./" .. catalog.get("bath").path]
 eq(bath.at(0,1,0), "mcl_core:dirt", "bath lower plinth layer")
 eq(bath.at(0,2,0), "mcl_core:dirt_with_grass", "bath surface datum")
-eq(bath.at(40,1,33), "mcl_beds:bed_brown_bottom", "bath basement retained below datum")
+eq(bath.at(40,1,34), "mcl_beds:bed_brown_bottom", "bath basement retained below datum")
+-- Issue #370: file Z=0 is the pediment row at workshop Z=398 (copper slabs, file Y 12..16).
+eq(bath.at(18,12,0), "mcl_stairs:slab_waxed_copper_cut_top", "bath -Z pediment row outer corner")
+eq(bath.at(25,16,0), "mcl_stairs:slab_waxed_copper_cut", "bath -Z pediment row apex")
 
 -- Temple (#134): the terrain row sits below the quartz platform, so the floor
 -- is row 1, the door is on it, and row 0 (the ground datum) is dirt/grass.
