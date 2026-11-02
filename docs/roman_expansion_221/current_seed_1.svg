@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1044" height="688" viewBox="0 0 261 172" shape-rendering="crispEdges" font-family="monospace" font-size="3">
+<title>seed 1 centre (0,0)</title>
+<rect width="261" height="172" fill="#ffffff"/>
+<rect x="0" y="0" width="181" height="172" fill="#e9efe2"/>
+<rect x="110" y="74" width="15" height="9" fill="#cfe3b4"/>
+<rect x="161" y="89" width="8" height="9" fill="#cfe3b4"/>
+<rect x="98" y="101" width="9" height="26" fill="#cfe3b4"/>
+<rect x="70" y="89" width="10" height="9" fill="#cfe3b4"/>
+<rect x="21" y="89" width="28" height="9" fill="#cfe3b4"/>
+<rect x="57" y="74" width="23" height="9" fill="#cfe3b4"/>
+<rect x="21" y="74" width="8" height="9" fill="#cfe3b4"/>
+<rect x="110" y="53" width="23" height="9" fill="#cfe3b4"/>
+<rect x="101" y="5" width="38" height="9" fill="#cfe3b4"/>
+<rect x="51" y="5" width="38" height="9" fill="#cfe3b4"/>
+<rect x="42" y="14" width="9" height="30" fill="#cfe3b4"/>
+<rect x="139" y="127" width="9" height="39" fill="#cfe3b4"/>
+<rect x="51" y="47" width="88" height="6" fill="#b9a98a"/>
+<rect x="51" y="14" width="88" height="6" fill="#b9a98a"/>
+<rect x="98" y="127" width="35" height="6" fill="#b9a98a"/>
+<rect x="101" y="160" width="32" height="6" fill="#b9a98a"/>
+<rect x="133" y="14" width="6" height="152" fill="#b9a98a"/>
+<rect x="51" y="14" width="6" height="69" fill="#b9a98a"/>
+<rect x="92" y="12" width="6" height="59" fill="#8a7a5e"/>
+<rect x="92" y="101" width="6" height="59" fill="#8a7a5e"/>
+<rect x="110" y="83" width="59" height="6" fill="#8a7a5e"/>
+<rect x="21" y="83" width="59" height="6" fill="#8a7a5e"/>
+<rect x="80" y="71" width="30" height="30" fill="#f2c879"/>
+<rect x="89" y="4" width="12" height="8" fill="#6f9f3f"/>
+<rect x="89" y="160" width="12" height="8" fill="#6f9f3f"/>
+<rect x="169" y="80" width="8" height="12" fill="#6f9f3f"/>
+<rect x="13" y="80" width="8" height="12" fill="#6f9f3f"/>
+<rect x="98" y="53" width="12" height="18" fill="#6f9f3f"/>
+<rect x="80" y="53" width="12" height="18" fill="#6f9f3f"/>
+<rect x="139" y="54" width="29" height="29" fill="#6f9f3f"/>
+<rect x="98" y="20" width="35" height="27" fill="#6f9f3f"/>
+<rect x="57" y="20" width="35" height="27" fill="#6f9f3f"/>
+<rect x="98" y="133" width="35" height="27" fill="#6f9f3f"/>
+<rect x="139" y="25" width="38" height="22" fill="#6f9f3f"/>
+<rect x="110" y="89" width="16" height="28" fill="#6f9f3f"/>
+<rect x="139" y="89" width="22" height="38" fill="#6f9f3f"/>
+<rect x="29" y="45" width="22" height="38" fill="#6f9f3f"/>
+<rect x="125" y="73" width="8" height="10" fill="#6f9f3f"/>
+<rect x="49" y="89" width="21" height="14" fill="#6f9f3f"/>
+<rect x="4" y="109" width="88" height="43" fill="#6f9f3f"/>
+<rect x="139" y="155" width="7" height="11" fill="#444444"/>
+<rect x="117" y="55" width="16" height="7" fill="#d4802a"/>
+<rect x="64" y="76" width="16" height="7" fill="#d4802a"/>
+<rect x="98" y="101" width="7" height="16" fill="#d4802a"/>
+<rect x="63" y="6" width="6" height="8" fill="#2a8fd4"/>
+<rect x="139" y="149" width="8" height="6" fill="#2a8fd4"/>
+<rect x="21" y="89" width="6" height="8" fill="#2a8fd4"/>
+<rect x="110" y="76" width="9" height="7" fill="#f7f7f7" stroke="#555555" stroke-width="0.3"/>
+<rect x="71" y="90" width="9" height="8" fill="#f7f7f7" stroke="#555555" stroke-width="0.3"/>
+<rect x="161" y="89" width="7" height="9" fill="#9fd8d0" stroke="#555555" stroke-width="0.3"/>
+<rect x="98" y="118" width="7" height="9" fill="#d8c19f" stroke="#555555" stroke-width="0.3"/>
+<rect x="27" y="89" width="8" height="9" fill="#f7f7f7" stroke="#555555" stroke-width="0.3"/>
+<rect x="35" y="89" width="8" height="9" fill="#d8c19f" stroke="#555555" stroke-width="0.3"/>
+<rect x="57" y="74" width="7" height="9" fill="#d8c19f" stroke="#555555" stroke-width="0.3"/>
+<rect x="21" y="74" width="7" height="9" fill="#9fd8d0" stroke="#555555" stroke-width="0.3"/>
+<rect x="110" y="53" width="7" height="9" fill="#f7f7f7" stroke="#555555" stroke-width="0.3"/>
+<rect x="101" y="5" width="8" height="9" fill="#d8c19f" stroke="#555555" stroke-width="0.3"/>
+<rect x="109" y="5" width="7" height="9" fill="#9fd8d0" stroke="#555555" stroke-width="0.3"/>
+<rect x="116" y="5" width="9" height="9" fill="#9fd8d0" stroke="#555555" stroke-width="0.3"/>
+<rect x="125" y="5" width="8" height="9" fill="#d8c19f" stroke="#555555" stroke-width="0.3"/>
+<rect x="51" y="5" width="9" height="9" fill="#f7f7f7" stroke="#555555" stroke-width="0.3"/>
+<rect x="69" y="5" width="9" height="9" fill="#9fd8d0" stroke="#555555" stroke-width="0.3"/>
+<rect x="78" y="5" width="9" height="9" fill="#f7f7f7" stroke="#555555" stroke-width="0.3"/>
+<rect x="42" y="36" width="9" height="8" fill="#f7f7f7" stroke="#555555" stroke-width="0.3"/>
+<rect x="42" y="27" width="9" height="9" fill="#f7f7f7" stroke="#555555" stroke-width="0.3"/>
+<rect x="42" y="20" width="9" height="7" fill="#9fd8d0" stroke="#555555" stroke-width="0.3"/>
+<rect x="139" y="140" width="9" height="9" fill="#9fd8d0" stroke="#555555" stroke-width="0.3"/>
+<rect x="139" y="131" width="9" height="9" fill="#9fd8d0" stroke="#555555" stroke-width="0.3"/>
+<rect x="111" y="68" width="7" height="7" fill="none" stroke="#237b9a" stroke-width="0.7"/>
+<rect x="151" y="12" width="7" height="7" fill="none" stroke="#246b35" stroke-width="0.7"/>
+<rect x="44" y="159" width="7" height="7" fill="none" stroke="#246b35" stroke-width="0.7"/>
+<rect x="12" y="4" width="7" height="7" fill="none" stroke="#246b35" stroke-width="0.7"/>
+<rect x="92" y="84" width="5" height="5" fill="none" stroke="#387cba" stroke-width="0.7"/>
+<rect x="89" y="168" width="57" height="4" fill="#ff00ff"/>
+<rect x="101" y="166" width="45" height="2" fill="#ff00ff"/>
+<rect x="0" y="109" width="4" height="43" fill="#ff00ff"/>
+<rect x="105" y="101" width="5" height="16" fill="#ff00ff"/>
+<rect x="126" y="89" width="7" height="28" fill="#ff00ff"/>
+<rect x="49" y="103" width="21" height="6" fill="#ff00ff"/>
+<rect x="80" y="101" width="12" height="8" fill="#ff00ff"/>
+<rect x="177" y="80" width="4" height="12" fill="#ff00ff"/>
+<rect x="110" y="55" width="7" height="7" fill="#ff00ff"/>
+<rect x="110" y="53" width="23" height="2" fill="#ff00ff"/>
+<rect x="139" y="47" width="29" height="7" fill="#ff00ff"/>
+<rect x="177" y="25" width="4" height="22" fill="#ff00ff"/>
+<rect x="89" y="0" width="12" height="4" fill="#ff00ff"/>
+<text x="95.0" y="86.8" font-size="2.2" text-anchor="middle" fill="#000000">forum</text>
+<text x="95.0" y="8.8" font-size="2.2" text-anchor="middle" fill="#000000">arch_north</text>
+<text x="95.0" y="164.8" font-size="2.2" text-anchor="middle" fill="#000000">arch_south</text>
+<text x="173.0" y="86.8" font-size="2.2" text-anchor="middle" fill="#000000">arch_east</text>
+<text x="17.0" y="86.8" font-size="2.2" text-anchor="middle" fill="#000000">arch_west</text>
+<text x="104.0" y="62.8" font-size="2.2" text-anchor="middle" fill="#000000">temple_east</text>
+<text x="86.0" y="62.8" font-size="2.2" text-anchor="middle" fill="#000000">temple_west</text>
+<text x="153.5" y="69.3" font-size="2.2" text-anchor="middle" fill="#000000">amphitheater</text>
+<text x="115.5" y="34.3" font-size="2.2" text-anchor="middle" fill="#000000">insula_north_east</text>
+<text x="74.5" y="34.3" font-size="2.2" text-anchor="middle" fill="#000000">insula_north_west</text>
+<text x="115.5" y="147.3" font-size="2.2" text-anchor="middle" fill="#000000">insula_south</text>
+<text x="158.0" y="36.8" font-size="2.2" text-anchor="middle" fill="#000000">domus_1</text>
+<text x="118.0" y="103.8" font-size="2.2" text-anchor="middle" fill="#000000">basilica</text>
+<text x="150.0" y="108.8" font-size="2.2" text-anchor="middle" fill="#000000">domus_3</text>
+<text x="40.0" y="64.8" font-size="2.2" text-anchor="middle" fill="#000000">domus_4</text>
+<text x="129.0" y="78.8" font-size="2.2" text-anchor="middle" fill="#000000">vespasianum_east</text>
+<text x="59.5" y="96.8" font-size="2.2" text-anchor="middle" fill="#000000">theatre</text>
+<text x="48.0" y="131.3" font-size="2.2" text-anchor="middle" fill="#000000">bath</text>
+<text x="114.5" y="72.3" font-size="2.2" text-anchor="middle" fill="#000000">garden</text>
+<text x="154.5" y="16.3" font-size="2.2" text-anchor="middle" fill="#000000">oak_tree</text>
+<text x="47.5" y="163.3" font-size="2.2" text-anchor="middle" fill="#000000">oak_tree</text>
+<text x="15.5" y="8.3" font-size="2.2" text-anchor="middle" fill="#000000">oak_tree</text>
+<text x="94.5" y="87.3" font-size="2.2" text-anchor="middle" fill="#000000">roman_fountain</text>
+<circle cx="95.5" cy="85.5" r="1.5" fill="none" stroke="#000000" stroke-width="0.6"/>
+<rect x="184" y="2" width="3" height="3" fill="#e9efe2" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="4.6">town boundary (free ground)</text>
+<rect x="184" y="6" width="3" height="3" fill="#cfe3b4" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="8.6">block (free ground behind frontage)</text>
+<rect x="184" y="10" width="3" height="3" fill="#b9a98a" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="12.6">secondary street (4 wide)</text>
+<rect x="184" y="14" width="3" height="3" fill="#8a7a5e" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="16.6">principal street</text>
+<rect x="184" y="18" width="3" height="3" fill="#f2c879" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="20.6">square (Roman forum, all squares)</text>
+<rect x="184" y="22" width="3" height="3" fill="#6f9f3f" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="24.6">named landmark instance (labelled in SVG)</text>
+<rect x="184" y="26" width="3" height="3" fill="#444444" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="28.6">jail</text>
+<rect x="184" y="30" width="3" height="3" fill="#d4802a" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="32.6">tavern</text>
+<rect x="184" y="34" width="3" height="3" fill="#2a8fd4" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="36.6">well</text>
+<rect x="184" y="38" width="3" height="3" fill="#f7f7f7" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="40.6">ordinary house</text>
+<rect x="184" y="42" width="3" height="3" fill="#9fd8d0" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="44.6">ordinary shop</text>
+<rect x="184" y="46" width="3" height="3" fill="#d8c19f" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="48.6">ordinary workshop</text>
+<rect x="184" y="50" width="3" height="3" fill="#ffffff" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="52.6">oak tree (decoration)</text>
+<rect x="184" y="54" width="3" height="3" fill="#ffffff" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="56.6">garden (decoration)</text>
+<rect x="184" y="58" width="3" height="3" fill="#ffffff" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="60.6">Roman bell fountain</text>
+<rect x="184" y="62" width="3" height="3" fill="#ff8c00" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="64.6">town core (HOOK: plan.core, not yet planned)</text>
+<rect x="184" y="66" width="3" height="3" fill="#ffffff" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="68.6">construction footprint (HOOK: plan.footprint)</text>
+<rect x="184" y="70" width="3" height="3" fill="#00a000" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="72.6">designated exit (HOOK: plan.exits)</text>
+<rect x="184" y="74" width="3" height="3" fill="#ff00ff" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="76.6">narrow strip cells (metric)</text>
+<rect x="184" y="78" width="3" height="3" fill="#000000" stroke="#000000" stroke-width="0.2"/>
+<text x="188" y="80.6">town centre (circle)</text>
+</svg>
