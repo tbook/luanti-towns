@@ -13,6 +13,8 @@ towns.planner = dofile(modpath .. "/src/planner.lua")
 
 -- Pure composition + preflight of a complete town build (no writes).
 towns.preflight = dofile(modpath .. "/src/preflight.lua")
+-- Outside-road and ramp helpers shared by Roman and medieval towns (#357).
+towns.town_roads = dofile(modpath .. "/src/town_roads.lua")
 towns.medieval_walls = dofile(modpath .. "/src/medieval_walls.lua")
 towns.medieval_wall_features = dofile(modpath .. "/src/medieval_wall_features.lua")
 
