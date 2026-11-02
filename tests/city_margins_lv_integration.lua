@@ -38,9 +38,18 @@ engine.get_voxel_manip = function()
 				data[va:index(x,y,z)] = ids[get({x=x,y=y,z=z})]
 			end end end
 			return data
-		end}
+		end,
+			-- clear_trees writes its removals back through set_data and write_to_map.
+			set_data = function(_, data)
+				for z=minp.z,maxp.z do for y=minp.y,maxp.y do for x=minp.x,maxp.x do
+					local name = names[data[va:index(x,y,z)]]
+					if name ~= get({x=x,y=y,z=z}) then world[key(x,y,z)] = name end
+				end end end
+			end,
+			write_to_map = function() end}
 end
 world[key(9,10,2)] = "test:building"
+world[key(9,12,2)] = "mcl_core:tree"
 world[key(14,10,3)] = "test:foreign"
 world[key(12,10,-3)] = "mcl_core:tree"
 local terrain = {boundary_structure_protection=1, boundary_volume=boundary.volume,
@@ -56,11 +65,12 @@ eq(summary.status, "smoothed", "actual LV writer succeeds through Towns adapter"
 eq(get({x=10,y=8,z=2}) ~= "mcl_core:dirt_with_grass", true, "ground beside known edge building is graded")
 eq(get({x=11,y=8,z=2}), "mcl_core:dirt_with_grass", "protected column stays unchanged")
 eq(get({x=13,y=8,z=3}), "mcl_core:dirt_with_grass", "foreign structure buffer stays unchanged")
-eq(get({x=12,y=10,z=-3}), "mcl_core:tree", "ambiguous tree or log remains")
-eq(get({x=11,y=8,z=-3}), "mcl_core:dirt_with_grass", "ambiguous tree or log buffer stays unchanged")
+eq(get({x=12,y=10,z=-3}), "air", "tree outside the structure boxes is cleared")
+eq(get({x=11,y=8,z=-3}) ~= "mcl_core:dirt_with_grass", true, "column beside the cleared tree is graded, not buffered")
 eq(get({x=10,y=8,z=-3}) ~= "mcl_core:dirt_with_grass", true, "nearby column beyond both buffers is graded")
 eq(get({x=9,y=10,z=2}), "test:building", "known building remains")
-eq(summary.stats.tree_removed, 0, "safe contract does not clear trees")
+eq(get({x=9,y=12,z=2}), "mcl_core:tree", "log on the top edge of a structure box survives")
+eq(summary.stats.tree_removed, 1, "cleared tree is counted in tree_removed")
 local protected_writes = 0
 for _, p in ipairs(writes) do if p.x == 11 and p.z == 2 then protected_writes = protected_writes + 1 end end
 eq(protected_writes, 0, "no mutation enters the protected column")
