@@ -113,8 +113,9 @@ return {
 		{name = "bath", id = "bath", arm = "south", side = "-x", at = 8, rotation = 180},
 		-- Hippodrome (issue #353) in the north-west interior; its long-side portico
 		-- (rotation 180) opens +z onto ring_north_outer. Its door court east of it
-		-- (x -54..-45) is deliberately unbuilt.
-		{name = "hippodrome", id = "hippodrome", ring = "north_outer", side = "inner", at = -91, rotation = 180},
+		-- (x -50..-45) is deliberately unbuilt. Moved 4 nodes east (from -91) after
+		-- playtest (#365) so its entrance meets the west_outer road.
+		{name = "hippodrome", id = "hippodrome", ring = "north_outer", side = "inner", at = -87, rotation = 180},
 	},
 
 	-- Buildable blocks for ordinary buildings: explicit rectangles in the

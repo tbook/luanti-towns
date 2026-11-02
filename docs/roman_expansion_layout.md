@@ -12,6 +12,20 @@ planner, authored validation, frontage packer, service/jail reservation,
 `preflight.compose`, `town_layout`, `site_search.boundary_columns`, the
 builder's door-route check and `tools/layout_compare`.
 
+**Amendment, 2026-11-02 (#365, PM playtest): the hippodrome moved 4 nodes
+east.** Its landmark `at` is now -87 (was -91), so the footprint is
+x -87..-51, z 41..65; the main entrance is (-69, 62) and the approach
+(-69, 66) on ring_north_outer, which lies on the west_outer road axis
+(x -72..-67). The door court is now x -50..-45, z 41..65 (6 x 25), still
+unbuilt. The former west strip x -91..-88 (z 41..65) is open ground inside
+`main_rect`. Where this document gives the hippodrome at x -91..-55, the
+door-court numbers x -54..-45, or the approach (-73, 66) / entrance (-73, 62),
+that is the pre-#365 position. The rows of sections 4, 5, 5.1, 6 and 9 are
+updated to the new position, the section 2 drawing and the
+`docs/roman_expansion_221/` figures (SVG, text, metrics and map) are not
+redrawn and show the previous position, and section 16's ticket texts are
+the historical proposals. The source of truth is `src/roman_civic_plan.lua`.
+
 Files in `docs/roman_expansion_221/`:
 
 - `proposed_roman_civic_plan.lua.txt`: the complete proposed
@@ -46,6 +60,9 @@ Files in `docs/roman_expansion_221/`:
   nine nodes deep, as today.
 
 ## 2. Overhead drawing
+
+Pre-#365 figure: the hippodrome `T` in the drawing below is at x -91..-55
+(the current footprint is x -87..-51, 4 nodes further east).
 
 Lettered plan map, 1 character = 2x2 nodes. Row label `z` covers rows z and
 z+1; columns start at x = -95, and `|` marks the column containing x = -80,
@@ -219,12 +236,12 @@ Principal streets keep their cobble and slab lane.
 | decumanus_east | x 15..73, z -3..2 | unchanged |
 | decumanus_west | x -74..-16, z -3..2 | unchanged |
 | ring_north (band north, 18..23) | x -44..81, z 33..38 | span -44..43 -> -44..81: east past ring_east, between the amphitheater (z <= 31) and domus_1 (z >= 39) |
-| ring_north_outer (north_outer, 51..56) | x -91..81, z 66..71 | span -44..43 -> -91..81: west to the hippodrome's west edge, east to x 81 north of domus_1 |
+| ring_north_outer (north_outer, 51..56) | x -91..81, z 66..71 | span -44..43 -> -91..81: west to x -91 (since #365 the hippodrome's west edge is x -87, so this runs 4 nodes past it), east to x 81 north of domus_1 |
 | ring_south (south, 26..31) | x 3..81, z -47..-42 | span 3..37 -> 3..81: crosses ring_east |
 | ring_south_outer (south_outer, 59..64) | x 6..81, z -80..-75 | span 6..37 -> 6..81 |
 | ring_east (east, 23..28) | x 38..43, z -80..71 | unchanged |
 | ring_west (west, 23..28) | x -44..-39, z 3..71 | unchanged |
-| ring_west_outer (new band west_outer: arm west, 51..56, span 3..40) | x -72..-67, z 3..40 | new: T off the western decumanus, ends against the hippodrome's south side |
+| ring_west_outer (new band west_outer: arm west, 51..56, span 3..40) | x -72..-67, z 3..40 | new: T off the western decumanus, ends against the hippodrome's south side. It stops at z 40 and does not reach ring_north_outer (z 66..71); the hippodrome footprint (z 41..65) lies between them. Since #365 its x range contains the hippodrome entrance (-69, 62) and approach (-69, 66) |
 | ring_south_west (new band south_west: arm south, 53..58, span -91..-4) | x -91..-4, z -74..-69 | new: T off the southern cardo's west side, under the bath (2 rows of grass, z -68..-67, between road and bath) |
 | ring_east_outer (new band east_outer: arm east, 51..56, span -41..-4) | x 66..71, z -41..-4 | new: links the eastern decumanus to ring_south beside domus_3 (replaces block east_end_south) |
 
@@ -248,7 +265,7 @@ All sites. Unchanged rows are listed so the table is complete; "new" and
 | arch_south / arch_east / arch_west | arch | arm arch | 180 / 90 / 270 | x -6..5, z -82..-75 / x 74..81, z -6..5 / x -82..-75, z -6..5 | (0,-74) / (73,0) / (-74,-1) | unchanged |
 | temple_east, temple_west | temple | arm north, +x / -x, at 0, faces forum | 270 | x 3..14 / -15..-4, z 15..32 | (9,14) / (-9,14) | unchanged |
 | temple_of_vesta | temple_of_vesta | existing arm landmark: arm south, side +x, at 0, faces forum | 180 | x 3..13, z -26..-16 (11 x 11) | (8,-15) on forum | new (#352) |
-| hippodrome | hippodrome | existing ring landmark: ring north_outer, side inner, at -91 | 180 | x -91..-55, z 41..65 (37 x 25) | (-73,66) on ring_north_outer | new (#353) |
+| hippodrome | hippodrome | existing ring landmark: ring north_outer, side inner, at -87 (was -91 before #365) | 180 | x -87..-51, z 41..65 (37 x 25) | (-69,66) on ring_north_outer | new (#353); moved 4 east (#365) |
 | amphitheater | amphitheater | arm east +z at 29 | 0 | x 44..72, z 3..31 | (59,2) | unchanged |
 | insula_north_east / _north_west / _south | insula | ring north outer at 3 / -38; ring south outer at 3 | 0 / 0 / 180 | x 3..37 / -38..-4, z 39..65; x 3..37, z -74..-48 | (20,38) / (-21,38) / (20,-47) | unchanged |
 | domus_1 | domus | ring east outer at 39 | 0 | x 44..81, z 39..60 | (43,48) | unchanged |
@@ -273,10 +290,10 @@ and over the seed sweep.
 | main entrance, file-local (x, y, z), facing | (9, 3, 8), -Z: the cella's south double door (spruce, x 9..10) | (5, 2, 3), -Z: the one-node gap in the cella wall at file z 3 (the -Z side, which the import notes call the north wall), the only opening into the cella | (18, 8, 3), -Z: the central gap of the arcade on the long file -Z side (north-facing once rotated), behind the projecting portico (catalog correction, section 6) |
 | entrance kind | door | opening | opening |
 | rotation | 0 (front -z, toward the forum) | 180 (front +z, toward the forum) | 180 (front +z, toward ring_north_outer) |
-| rotated footprint | x -10..9, z 80..106 | x 3..13, z -26..-16 | x -91..-55, z 41..65 |
-| rotated entrance (plan) | (-1, 88); door spans x -1..0, centred on the cardo axis | (8, -19) | (-73, 62) |
+| rotated footprint | x -10..9, z 80..106 | x 3..13, z -26..-16 | x -87..-51, z 41..65 (pre-#365: x -91..-55) |
+| rotated entrance (plan) | (-1, 88); door spans x -1..0, centred on the cardo axis | (8, -19) | (-69, 62) (pre-#365: (-73, 62)) |
 | recess (entrance to box edge) | 8 nodes (front colonnade) | 3 nodes (step ring + colonnade) | 3 nodes (portico) |
-| first approach node outside footprint | (-1, 79), forecourt | (8, -15), forum | (-73, 66), ring_north_outer |
+| first approach node outside footprint | (-1, 79), forecourt | (8, -15), forum | (-69, 66), ring_north_outer |
 | walkable route, entrance to approach | podium stair row (file z 0, y 2) then quartz podium floor z 1..7 at y 2, door at z 8: 9 steps, one half-step up | quartz slab step ring (file z 0..1, y 1), quartz floor z 2, opening z 3: 4 steps | stone portico floor at site-ground level (file x 14..22, z 0..2, y 7) between the diorite columns at x 17 and 19, through the central gap of the z 3 arcade: 4 level steps |
 
 Route evidence (verified, not just a 2D approach check):
@@ -303,18 +320,23 @@ obstructs them):
   (x 2); east side keeps a one-node strip (x 14) to the basilica's blank
   west wall; south side abuts block south_east_inner (z -27). Vesta has no
   other opening, so nothing is enclosed.
-- Hippodrome: the two short-end doors (file (2,8,7) and (2,8,19), facing -X)
-  turn to +x at rotation 180: world (-57,58) and (-57,46). They open into a
-  deliberately unbuilt court x -54..-45, z 41..65 (10 x 25) that reaches
-  ring_west at x -44; the former block ring_west_outer_north is removed for
-  this. The file +Z side faces south at world z 41: its entrance-hall arcade
-  (gaps at file x 15, 16, 18, 20, 21 on z 23; world x -70..-76) faces the
-  head of the new ring_west_outer road (x -72..-67, ends z 40), and the
-  paddock gate (acacia fence gates at file (32..33, 8, 24) between fence
-  posts at x 31 and 34, with a sign and glow frame at x 25; world
-  x -89..-86 and x -80) opens onto the open strip x -91..-82 between the
-  hippodrome and block p. The file east end (world west end, x -91, doors
-  at file x 35) faces the four-node western apron.
+- Hippodrome (world x values since #365, when the footprint moved from
+  x -91..-55 to x -87..-51; the pre-#365 value is in brackets): the two
+  short-end doors (file (2,8,7) and (2,8,19), facing -X) turn to +x at
+  rotation 180: world (-53,58) and (-53,46) [(-57,58), (-57,46)]. They open
+  into a deliberately unbuilt court x -50..-45, z 41..65 (6 x 25) [x -54..-45,
+  10 x 25] that reaches ring_west at x -44; the former block
+  ring_west_outer_north is removed for this. The file +Z side faces south at
+  world z 41: its entrance-hall arcade (gaps at file x 15, 16, 18, 20, 21 on
+  z 23; world x -66..-72 [-70..-76]) faces the head of the new ring_west_outer
+  road (x -72..-67, ends z 40), and the paddock gate (acacia fence gates at
+  file (32..33, 8, 24) between fence posts at x 31 and 34, with a sign and
+  glow frame at x 25; world x -85..-82 and -76 [-89..-86 and -80]) opens onto
+  the open strip x -91..-82 between the hippodrome and block p. The file east
+  end (world west end, x -87 [-91], doors at file x 35) faces the western
+  apron; the former west strip x -91..-88 is now open (see section 9).
+  The entrance-hall gaps at world x -67, -69, -71 and -72 now sit over the
+  road head; the gap at x -66 is just east of it.
 
 ## 6. Hippodrome catalog correction (prerequisite ticket before #353)
 
@@ -453,7 +475,7 @@ Corners and outer areas:
 
 | area | disposition |
 | --- | --- |
-| north-west interior (x -91..-45, z 41..65) | hippodrome, plus its door court x -54..-45 |
+| north-west interior (x -91..-45, z 41..65) | hippodrome at x -87..-51 (since #365; was -91..-55), plus its door court x -50..-45 (was -54..-45). Former west strip x -91..-88, z 41..65 (4 x 25) is open ground inside `main_rect`: it joins the existing open x -95..-92, so x -95..-88 is one 8-wide open strip, left unbuilt (no road or block was planned there; packing and eligibility are unchanged). `layout_compare` counts these cells as narrow strip cells. The 6-wide court is narrow too, and stays unbuilt by design |
 | north-west pocket west of domus_4 (x -91..-67, z 6..40) | new road ring_west_outer + block p x -81..-73, z 6..40; x -91..-82 (10 wide incl. apron) open |
 | north strip beyond ring_north_outer (z 72..80) | blocks h and g across the whole width, broken only by the forecourt |
 | south-west under the bath (x -91..-7, z -86..-67) | new road ring_south_west + block q x -91..-7, z -83..-75 |
@@ -598,6 +620,14 @@ a reviewer can tell expected dips from regressions: origin/main 91
 76 (18..21; Vesta takes b's forum end); after #353 52 (11..15; roads and
 the hippodrome remove three blocks and trim i; new plots come in #354);
 after #354 224 (55..61). Shortages stay 0 at every stage.
+
+After #365 (hippodrome 4 nodes east; no packing, clearance or eligibility
+change): measured `tools/layout_compare` roman, seeds 1/2/3/7, 56 per seed and
+224 in total, the same as before the move. The per-district counts of the
+real planner are unchanged for every block (the prototype per-district list
+above is the pre-#365 prototype figure and is not re-measured). The
+narrow-strip metric rises by one strip and 250 cells per seed: the freed
+west strip (100 cells) and the narrower court (150 cells).
 
 Proposed minimum for #354: at least 50 ordinary buildings at each of seeds
 1, 2, 3 and 7, at least 210 in total, and at least one building or
