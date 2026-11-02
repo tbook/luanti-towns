@@ -47,6 +47,21 @@ local entries = {
 		entrance = {x = 23, y = 3, z = 7, facing = "+X"},
 		entrance_kind = "door", ground_offset = 2,
 	},
+	temple_of_jupiter = {
+		size = {x = 20, y = 15, z = 27},
+		entrance = {x = 9, y = 3, z = 8},
+		entrance_kind = "door", ground_offset = 1,
+	},
+	temple_of_vesta = {
+		size = {x = 11, y = 11, z = 11},
+		entrance = {x = 5, y = 2, z = 3},
+		entrance_kind = "opening", ground_offset = 0,
+	},
+	hippodrome = {
+		size = {x = 37, y = 22, z = 25},
+		entrance = {x = 2, y = 8, z = 7, facing = "-X"},
+		entrance_kind = "door", ground_offset = 7,
+	},
 }
 for id, entry in pairs(entries) do
 	entry.path = "schematics/imports/roman/" .. id .. ".mts"
