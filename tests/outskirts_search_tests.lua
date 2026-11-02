@@ -51,9 +51,16 @@ end
 C.FARM_COUNT, C.ATTEMPTS_PER_BUILDING = 2, 1
 local terrain, env, calls = world()
 local completed, out, message, kind = 0
+-- Record (don't throw) any read of an undeclared global during the search, so
+-- plot re-validation cannot silently reference one (issue #366: `C`).
+local undeclared = {}
+local saved_globals_mt = getmetatable(_G)
+setmetatable(_G, {__index = function(_, key) undeclared[#undeclared + 1] = tostring(key) end})
 outskirts.search(result, {assets = urban_catalog.entries, terrain = terrain}, function(a, b, c)
 	completed, out, message, kind = completed + 1, a, b, c
 end, env)
+setmetatable(_G, saved_globals_mt)
+eq(#undeclared, 0, "search reads no undeclared globals: " .. table.concat(undeclared, ", "))
 eq(completed, 1, "synchronous callbacks complete once")
 eq(message, nil, "flat site succeeds")
 eq(kind, nil, "success has no failure kind")

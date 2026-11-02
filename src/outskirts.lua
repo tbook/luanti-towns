@@ -450,7 +450,7 @@ function M.search(result, opts, done, env)
 				{x = plot.rect.x1, y = plot.ground_y, z = plot.rect.z1}, plot.rotation)
 			assert(placed.max.x == plot.rect.x2 and placed.max.z == plot.rect.z2,
 				"outskirts plot rectangle differs from its rotated footprint")
-			local fits, code = M.fits(plot.rect, prior, out.protected, opts.player_pos, C)
+			local fits, code = M.fits(plot.rect, prior, out.protected, opts.player_pos, M.CONSTANTS)
 			assert(fits, "outskirts plot violates " .. tostring(code))
 			prior[#prior + 1] = plot
 		end
