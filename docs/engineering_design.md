@@ -23,7 +23,7 @@ internal APIs.
 | --- | --- |
 | `mcl_villages/init.lua` chooses candidate mapchunks with `blockseed % 77 == 17`, then calls `settlements.create_site_plan`, `terraform`, `paths`, and `place_schematics`. `build_a_settlement` is local to that file. | Towns should have its own planner and builder. Replacing the village planner would entangle two very different layouts; the existing call chain is not a public entry point for a second settlement type. |
 | `mcl_villages/buildings.lua` places 10–25 buildings in widening rings. Its schematic list and terrain functions are global `settlements` state. | We can learn from its node handling, but dense blocks, streets, and landmarks need a different plan. Avoid adding Towns buildings to `settlements.schematic_table`. |
-| `mcl_mapgen_core/api.lua` provides `register_generator(id, voxel_fn, node_fn, priority)`. `mcl_villages` uses a node generator and later `emerge_area` through a marker/LBM flow. | Use a separate generator for natural Towns. Large builds extend beyond one mapchunk, so the phase must explicitly load the full build area and prevent duplicate attempts. |
+| `mcl_mapgen_core/api.lua` provides `register_generator(id, voxel_fn, node_fn, priority)`. `mcl_villages` uses a node generator and later `emerge_area` through a marker/LBM flow. | Large builds extend beyond one mapchunk, requiring explicit loading and duplicate prevention. The [#355 proposal](automatic_towns_design.md) replaces selected village opportunities through a scheduler hook rather than adding an independent town trigger. |
 | `mcl_structures/api.lua` offers `place_schematic`, which calls `emerge_area` and then places one schematic asynchronously. The engine also provides `minetest.place_schematic`. | Use the helper where convenient for early prototypes. For a full town, emerge the whole area once and place components in a controlled sequence; measure before optimizing further. |
 | `mcl_villages/buildings.lua` privately initializes certain placed nodes and spawns villagers at red beds after schematic placement. | Towns needs a small, explicit post-placement pass for the nodes it actually uses and for resident spawning. Copying that entire function would couple Towns to village internals. |
 | Living Villages looks for a tavern jukebox within 48 nodes of a villager's bed (`tavern.lua`), and a recognizable well within 42 (`well.lua`). VoxeLibre sends villagers back if they wander over 50 nodes from their bed (`mobs_mc/villager.lua`). | Put services within neighborhood walking distance; do not expect every resident to cross the entire town for dinner or water. Test actual walking routes, doors, and crowding. |
@@ -358,21 +358,21 @@ and are explicitly excluded from Phase 3 completion.
 **Result:** new worlds occasionally generate towns without a command, in
 places where they look intentional and do not damage nearby structures.
 
-- Add a separate `mcl_mapgen_core` generator for Towns with a low candidate
-  frequency distinct from VoxeLibre's village trigger. Check nearby village
-  attempts and structures rather than assuming a different modulus alone
-  prevents overlap.
-- Sample the whole proposed site for slope, water, unsuitable biomes or
-  surfaces, and existing structures. Reject bad sites. Limit terraforming to
-  the accepted bounds and smooth the edge enough to avoid a floating slab or
-  severe cut wall. Start with one terrain profile; expand only after seeing
-  real failures.
-- Emerge the full town footprint before construction. Reserve and record
-  accepted sites, make repeated callbacks harmless, and log a town
-  ID/seed/center/bounds. Record pending and completed states; after an
-  interrupted build, log it for inspection instead of blindly building a
-  second town over the partial one. An automatic repair system can wait.
-- Provide a way to find the nearest generated town during testing.
+The [automatic towns design for #355](automatic_towns_design.md) proposes
+replacing a small fraction of village opportunities, with ordinary village
+fallback if a bounded local search fails. It supersedes the earlier independent
+town-trigger proposal in this section, subject to design review.
+
+- Inspect five nearby candidate positions coarsely and at most one exactly.
+  Reuse existing terrain rules; do not seek water or add new terrain profiles.
+- Require first-generation coverage of the complete possible write envelope,
+  including margins, walls, approaches, and outskirts. Reject old neighboring
+  terrain and coordinate reservations with pending villages.
+- Share the existing populated build pipeline and a single command/automatic
+  build lock. Persist outcomes and interrupted builds; do not replay them.
+- Survey acceptance rates, resource use, and pauses before enabling construction.
+  Prove callback coverage and writer bounds in the supported engine first.
+- Provide a way to find the nearest recorded town during testing.
 
 **Exit check:** on fresh worlds, several known seeds produce towns in
 different suitable sites, with no duplicate builds, obvious overlaps, or
