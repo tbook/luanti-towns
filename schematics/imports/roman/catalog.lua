@@ -59,8 +59,8 @@ local entries = {
 	},
 	hippodrome = {
 		size = {x = 37, y = 22, z = 25},
-		entrance = {x = 2, y = 8, z = 7, facing = "-X"},
-		entrance_kind = "door", ground_offset = 7,
+		entrance = {x = 18, y = 8, z = 3},
+		entrance_kind = "opening", ground_offset = 7,
 	},
 }
 for id, entry in pairs(entries) do
