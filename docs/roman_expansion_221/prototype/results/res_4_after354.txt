@@ -1,0 +1,36 @@
+seed 1 centre 0,0: ordinary 56 (house 28 shop 13 workshop 15) ordinary-beds 75 landmark-beds 99 jail south_west_outer shortages 0
+   services: tavern@ring_south_inner_east tavern@ring_north_inner_west tavern@ring_north_inner_east well@ring_south_outer_east well@outer_north_west well@south_west_outer
+   bounds 181x198 boundary rects 2
+seed 2 centre 1500,-2500: ordinary 56 (house 19 shop 19 workshop 18) ordinary-beds 55 landmark-beds 99 jail south_west_outer shortages 0
+   services: tavern@east_outer_east tavern@ring_north_inner_west tavern@ring_north_inner_east well@south_west_outer well@outer_north_east well@outer_north_west
+   bounds 181x198 boundary rects 2
+seed 3 centre -4200,3100: ordinary 56 (house 29 shop 12 workshop 15) ordinary-beds 55 landmark-beds 99 jail south_west_outer shortages 0
+   services: tavern@ring_east_outer_south tavern@ring_north_inner_west tavern@ring_north_inner_east well@west_forum_north well@ring_south_outer_inner_east well@outer_north_east
+   bounds 181x198 boundary rects 2
+seed 7 centre 0,0: ordinary 56 (house 23 shop 13 workshop 20) ordinary-beds 72 landmark-beds 99 jail south_west_outer shortages 0
+   services: tavern@ring_east_outer_south tavern@ring_north_inner_west tavern@ring_north_inner_east well@outer_north_east well@south_west_outer well@ring_south_outer_inner_east
+   bounds 181x198 boundary rects 2
+TOTAL ordinary 224 (house 99 shop 57 workshop 68) ordinary-beds 257 landmark-beds 396
+per block (seeds 1/2/3/7):
+  east_amph_north                1 1 1 1
+  east_forum_north               1 1 1 1
+  east_outer_east                4 2 4 4
+  outer_north_east               9 8 8 8
+  outer_north_west               9 9 10 10
+  ring_east_inner_north          1 1 1 1
+  ring_east_outer_south          3 3 1 1
+  ring_north_inner_east          1 1 1 1
+  ring_north_inner_west          1 1 1 1
+  ring_south_inner_east          1 3 3 3
+  ring_south_outer_east          2 3 3 3
+  ring_south_outer_inner_east    3 3 2 2
+  ring_west_inner_north          1 1 1 1
+  south_east_inner               1 1 1 1
+  south_west_outer               8 8 9 8
+  west_end_south                 3 3 3 3
+  west_forum_north               2 2 1 2
+  west_forum_south               1 1 1 1
+  west_outer_west                4 4 4 4
+seeds 1..100: failures 0, ordinary min 55 max 61 mean 56.88, shortages 0, plans without jail 0
+inset main rect cells 28545, block cells 5292, unused (not street/square/landmark/block) 3483 (12.2%)
+TOTAL ordinary 224 (house 99 shop 57 workshop 68) ordinary-beds 257 landmark-beds 396

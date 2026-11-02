@@ -26,6 +26,9 @@ Files in `docs/roman_expansion_221/`:
   and jail. `current_seed_1.svg` is the same render of `origin/main`.
 - `proposed_metrics.tsv`, `current_metrics.tsv`: layout-compare metrics,
   seeds 1, 2, 3, 7, after and before.
+- `prototype/`: the scratch-prototype scripts, the per-stage layouts and
+  their raw outputs (`prototype/results/`), with a README on how to rerun
+  them. Figures quoted from there are marked "prototype" below.
 
 ## 1. Conventions
 
@@ -267,14 +270,14 @@ and over the seed sweep.
 | --- | --- | --- | --- |
 | catalog size (x, y, z) | 20 x 15 x 27 | 11 x 11 x 11 | 37 x 22 x 25 |
 | ground_offset (file y of the site-ground row) | 1 (clay row; podium at y 2) | 0 (orange clay row) | 7 (grass/stone row; 7 buried rows below) |
-| main entrance, file-local (x, y, z), facing | (9, 3, 8), -Z: the cella's south double door (spruce, x 9..10) | (5, 2, 3), -Z: the one-node gap in the cella wall at file z 3 (the -Z side, which the import notes call the north wall), the only opening into the cella | (18, 8, 3), -Z: the central opening in the long file -Z wall (north-facing once rotated), behind the projecting portico (catalog correction, section 6) |
+| main entrance, file-local (x, y, z), facing | (9, 3, 8), -Z: the cella's south double door (spruce, x 9..10) | (5, 2, 3), -Z: the one-node gap in the cella wall at file z 3 (the -Z side, which the import notes call the north wall), the only opening into the cella | (18, 8, 3), -Z: the central gap of the arcade on the long file -Z side (north-facing once rotated), behind the projecting portico (catalog correction, section 6) |
 | entrance kind | door | opening | opening |
 | rotation | 0 (front -z, toward the forum) | 180 (front +z, toward the forum) | 180 (front +z, toward ring_north_outer) |
 | rotated footprint | x -10..9, z 80..106 | x 3..13, z -26..-16 | x -91..-55, z 41..65 |
 | rotated entrance (plan) | (-1, 88); door spans x -1..0, centred on the cardo axis | (8, -19) | (-73, 62) |
 | recess (entrance to box edge) | 8 nodes (front colonnade) | 3 nodes (step ring + colonnade) | 3 nodes (portico) |
 | first approach node outside footprint | (-1, 79), forecourt | (8, -15), forum | (-73, 66), ring_north_outer |
-| walkable route, entrance to approach | podium stair row (file z 0, y 2) then quartz podium floor z 1..7 at y 2, door at z 8: 9 steps, one half-step up | quartz slab step ring (file z 0..1, y 1), quartz floor z 2, opening z 3: 4 steps | stone portico floor at site-ground level (file x 14..22, z 0..2, y 7) between the diorite columns at x 17 and 19, through the wall opening at z 3: 4 level steps |
+| walkable route, entrance to approach | podium stair row (file z 0, y 2) then quartz podium floor z 1..7 at y 2, door at z 8: 9 steps, one half-step up | quartz slab step ring (file z 0..1, y 1), quartz floor z 2, opening z 3: 4 steps | stone portico floor at site-ground level (file x 14..22, z 0..2, y 7) between the diorite columns at x 17 and 19, through the central gap of the z 3 arcade: 4 level steps |
 
 Route evidence (verified, not just a 2D approach check):
 
@@ -304,23 +307,32 @@ obstructs them):
   turn to +x at rotation 180: world (-57,58) and (-57,46). They open into a
   deliberately unbuilt court x -54..-45, z 41..65 (10 x 25) that reaches
   ring_west at x -44; the former block ring_west_outer_north is removed for
-  this. The file +Z side (entrance hall and single-row colonnade, world
-  x -76..-70, z 41) faces south onto the head of the new ring_west_outer
-  road (x -72..-67, ends z 40). The file east end (world west end, x -91,
-  doors at file x 35) faces the four-node western apron.
+  this. The file +Z side faces south at world z 41: its entrance-hall arcade
+  (gaps at file x 15, 16, 18, 20, 21 on z 23; world x -70..-76) faces the
+  head of the new ring_west_outer road (x -72..-67, ends z 40), and the
+  paddock gate (acacia fence gates at file (32..33, 8, 24) between fence
+  posts at x 31 and 34, with a sign and glow frame at x 25; world
+  x -89..-86 and x -80) opens onto the open strip x -91..-82 between the
+  hippodrome and block p. The file east end (world west end, x -91, doors
+  at file x 35) faces the four-node western apron.
 
 ## 6. Hippodrome catalog correction (prerequisite ticket before #353)
 
-Finding from the model (not from the import notes): the main building is
-the walled block file z 3..23 over the full x 0..36. The only part that
-extends outward is on the long -Z side: a portico at x 14..22, z 0..2,
-stone floor at site-ground level (y 7), four diorite columns at
-(15|17|19|21, 8..10, 1) under a diorite lintel at y 11 and a pediment to
-y 13. Its wall line at z 3 has five openings (x 15, 16, 18, 20, 21); the
-central one, x 18, lines up with the stair at (18,8,5)-(18,9,6) up into the
-stands. The long +Z side has only a one-row colonnade at z 24 (x 15..21),
-no projection. So the main entrance is (18, 8, 3), facing -Z, an opening
-(air at (18,8,3) and (18,9,3), stone floor at (18,7,3)).
+Finding from the model (not from the import notes): on the long -Z side
+the real wall is the clay wall at file z 6 behind the stands (at y 8 it is
+open only at x 0, 1, 3, 34, 35). In front of it, the z 3 line is an open
+pillar-and-parapet arcade, not a wall: at y 8..9 it has gaps at x 1, 3, 4,
+6, 7, 15, 16, 18, 20, 21, 29, 30, 32, 33, 35. The only part that extends
+outward beyond that arcade is the portico at x 14..22, z 0..2: stone floor
+at site-ground level (y 7), four diorite columns at (15|17|19|21, 8..10, 1)
+under a diorite lintel at y 11 and a pediment to y 13. Within the portico
+span the arcade gaps are x 15, 16, 18, 20, 21; the central one, x 18, lines
+up with the stair (18,8,5)-(18,9,6), which rises through the z 6 wall into
+the stands. The long +Z side has only a one-row colonnade at z 24
+(x 15..21) and the paddock gate (section 5.1), no projecting portico. So
+the main entrance is (18, 8, 3), facing -Z: the central arcade gap behind
+the portico, an opening (air at (18,8,3) and (18,9,3), stone floor at
+(18,7,3)), aligned with the stair.
 
 Change (catalog/test only; the model is not edited):
 
@@ -407,7 +419,7 @@ the reservations move elsewhere with no shortage (section 12).
 
 Road objective (PM, #353): roads should make essentially the whole graded
 plot buildable and reachable; they need not follow a pattern. Measured
-inside the main rectangle less its 4-node apron: ground that is neither
+(prototype, `unused.lua`) inside the main rectangle less its 4-node apron: ground that is neither
 street, square, landmark nor block falls from 9 344 of 28 372 cells
 (32.9 %) on `origin/main` to 3 483 of 28 545 (12.2 %). What remains is
 listed here with the reason.
@@ -541,38 +553,58 @@ translation invariant; a fifth centre (777,-333) gave identical counts.
 (Roman plans have no chapel, cathedral or city hall; the service targets
 are the shared tavern/well ones.)
 
-Seeds 1..100 over four centres: before min 20, max 24, mean 22.7; after
-min 55, max 61, mean 56.9; no planning failure, no shortage, a jail in
-every plan, and every block receives at least one building or reservation
-in every plan.
+Where each number comes from. The per-seed table and the frontage, street,
+boundary and bounds figures are in the committed `layout_compare` output
+(`roman_expansion_221/proposed_metrics.tsv`, `current_metrics.tsv`). The
+seeds 1..100 statistics, the per-district and per-stage counts, the bed
+estimate and the unused-ground figures of section 9 are prototype results:
+they come from the scripts and stage layouts in
+`roman_expansion_221/prototype/` (see its README), and their raw outputs
+are committed in `prototype/results/` (`res_0_current.txt` on `origin/main`,
+`res_1`..`res_4` after #351..#354). They are reproducible from those files
+but are not produced by any tool in `tools/`.
 
-Other metrics (after vs before): frontage 660 vs 313 nodes, used 389..402
-vs 152..168; street length 1019 vs 658 (layout_compare convention);
-boundary columns 32 013 vs 31 132; `plan.bounds` 181 x 198 vs 181 x 172;
-site-search reach (max_radius = 320 + edge - 48, edge = farthest bounds
-edge from the centre) 382 vs 367. Bed estimate (bed-bottom nodes in the
-placed ordinary templates, an upper bound on resident beds): 257 vs 92
-over the four seeds; landmark beds unchanged at 99 per town (Jupiter, Vesta
-and the hippodrome have none).
+Seeds 1..100 over four centres (prototype): before min 20, max 24, mean
+22.7; after min 55, max 61, mean 56.9; no planning failure, no shortage, a
+jail in every plan, and every block receives at least one building or
+reservation in every plan.
 
-Per district, buildings per seed 1/2/3/7 (after): a 1/1/1/1, b 1/1/1/1,
-c 1/1/1/1, d 3/3/3/3, e 2/2/1/2, f 1/1/1/1, g 9/8/8/8, h 9/9/10/10,
-i 3/3/1/1, j 1/3/3/3, k 1/1/1/1, l 1/1/1/1, m 1/1/1/1, n 2/3/3/3,
-o 3/3/2/2, p 4/4/4/4, q 8/8/9/8, r 1/1/1/1, s 4/2/4/4. Blocks f, j, k
-often hold a tavern instead of houses.
+Other metrics (after vs before, `layout_compare`): frontage 660 vs 313
+nodes, used 389..402 vs 152..168; boundary columns 32 013 vs 31 132;
+`plan.bounds` 181 x 198 vs 181 x 172; site-search reach (max_radius =
+320 + edge - 48, edge = farthest bounds edge from the centre) 382 vs 367.
+Street length 1019 vs 658 (secondary 785 vs 422, principal 234 vs 236).
+That is `layout_compare`'s convention: unique paved cells of each street
+class divided by the street width (6), so a junction cell counts once and
+a cell under both a principal and a secondary street counts as principal.
+The sum of the long sides of the street rectangles (`street_rect_run_sum`,
+which double-counts every crossing) is larger: 839 vs 464 for the
+secondary roads alone, 1073 vs 700 for all streets.
 
-Per stage (seeds 1/2/3/7 total), so a reviewer can tell expected dips
-from regressions: origin/main 91; after #351 81 (forecourt trims g and h);
-after #352 76 (Vesta takes b's forum end); after #353 52 (roads and the
-hippodrome remove three blocks and trim i; new plots come in #354); after
-#354 224. Shortages stay 0 at every stage.
+Bed estimate (prototype): bed-bottom nodes in the placed ordinary
+templates, an upper bound on resident beds: 257 vs 92 over the four seeds;
+landmark beds unchanged at 99 per town (Jupiter, Vesta and the hippodrome
+have none).
+
+Per district, buildings per seed 1/2/3/7 (prototype, after): a 1/1/1/1,
+b 1/1/1/1, c 1/1/1/1, d 3/3/3/3, e 2/2/1/2, f 1/1/1/1, g 9/8/8/8,
+h 9/9/10/10, i 3/3/1/1, j 1/3/3/3, k 1/1/1/1, l 1/1/1/1, m 1/1/1/1,
+n 2/3/3/3, o 3/3/2/2, p 4/4/4/4, q 8/8/9/8, r 1/1/1/1, s 4/2/4/4. Blocks
+f, j, k often hold a tavern instead of houses.
+
+Per stage (prototype; seeds 1/2/3/7 total, then seeds 1..100 min..max), so
+a reviewer can tell expected dips from regressions: origin/main 91
+(20..24); after #351 81 (19..23; the forecourt trims g and h); after #352
+76 (18..21; Vesta takes b's forum end); after #353 52 (11..15; roads and
+the hippodrome remove three blocks and trim i; new plots come in #354);
+after #354 224 (55..61). Shortages stay 0 at every stage.
 
 Proposed minimum for #354: at least 50 ordinary buildings at each of seeds
 1, 2, 3 and 7, at least 210 in total, and at least one building or
 reservation in every block listed in section 10 at each of those seeds.
 That is 2.3 times today, leaves about 10 % slack below the measured 56 per
-seed for ordering differences in the real implementation, and is above the
-worst of 100 seeds (55).
+seed for ordering differences in the real implementation, and is below the
+worst of 100 prototype seeds (55).
 
 Limits of the estimates: planner-level only (no engine build); the packer
 is seeded per frontage run id, so a different street or block order changes
@@ -597,21 +629,47 @@ through it where it is pure Lua.
 | `open_space` | free ground painted from the union, indexed by `bounds` | none |
 | generation/reporting (`generate.lua`, `generate_command.lua`) | bounds strings; wall code is medieval-only | none |
 | `tools/layout_compare` | paints the union, width/depth from `bounds` | none |
-| `tests/roman_plan_tests.lua` | uses `boundary.rects[1]` for "inside the construction boundary", pins 181 x 172 and reach edge 95 | #351: test containment against the union; pin main rect 181 x 173, compound x -14..13, z 80..110, bounds 181 x 198, reach edge 110 |
-| `tests/roman_plan_tests.lua` ring/bath clearance ("keeps 3 nodes clear of the bath") | grown bath rect | #353: ring_south_west is deliberately 2 rows from the bath; change the pin to that |
-| `tests/outskirts_contract_tests.lua`, `tests/outskirts_fixture.lua` | pinned Roman `plan.bounds` at one centre | #351 (and #353 is unaffected since main_rect is final in #351): update the fixture |
+| `tests/outskirts_contract_tests.lua`, `tests/outskirts_fixture.lua` | pinned Roman `plan.bounds` and accepted outskirts plots at one centre | see 13.1 |
+| `tests/roman_plan_tests.lua`, `tests/roman_population_tests.lua` | many literal pins of the current layout | see 13.1 |
+
+### 13.1 Test pins that must change, by ticket
+
+Line numbers re-checked against `origin/main` 0dc6495. Each ticket updates
+the pins its own change breaks; the values are the ones of this document.
+
+| file:line | pin today | ticket and new expectation |
+| --- | --- | --- |
+| `tests/roman_plan_tests.lua:43`, `:48` | template census `arch = 4`, nine templates (`n == 9`) | #351 arch 3, add temple_of_jupiter 1, ten templates; #352 add temple_of_vesta, eleven; #353 add hippodrome, twelve |
+| `tests/roman_plan_tests.lua:49` | `#plan.site_order == 18` | #351 19 (forecourt square + Jupiter replace arch_north); #352 20; #353 21 |
+| `tests/roman_population_tests.lua:94` | `#plan.site_order == 18` per seed | same as the line above, in #351/#352/#353 |
+| `tests/roman_plan_tests.lua:86-91` | every site inside `boundary.rects[1]` | #351: inside the union of `boundary.rects` (Jupiter is only in rect 2); optionally every non-terminal site inside rect 1 (main) |
+| `tests/roman_plan_tests.lua:97` | `#plan.streets == 10` | #353: 13 (four arms, nine bands) |
+| `tests/roman_plan_tests.lua:121-130` | `crossings` / `abutments` tables | #353, computed on the prototype with the test's own `overlap`/`abuts`: crossings = the seven of today plus ring_south/ring_east and ring_south_outer/ring_east (both move out of `abutments`); abutments = cardo_south/ring_south, decumanus_west/ring_west (today) plus cardo_south/ring_south_west, decumanus_west/ring_west_outer, decumanus_east/ring_east_outer, ring_south/ring_east_outer. No other pair touches |
+| `tests/roman_plan_tests.lua:149-163` | literal band pins, e.g. north_outer -44..43 | #353: north -44,33,81,38; north_outer -91,66,81,71; south 3,-47,81,-42; south_outer 6,-80,81,-75; east and west unchanged; add west_outer -72,3,-67,40, south_west -91,-74,-4,-69, east_outer 66,-41,71,-4 |
+| `tests/roman_plan_tests.lua:188-196` | bath loop: every ring street 3 nodes clear of the bath, and "outside the south-west quadrant" | #353: rewrite, not just renumber. ring_south_west (x2 -4, z2 -69) is deliberately in the south-west quadrant, 2 rows south of the bath. Keep the quadrant and clearance checks for the other bands; for ring_south_west assert no overlap with the bath, a gap of exactly 2 rows (z2 = bath.z1 - 3), and that it does not reach the bath's east (door) face |
+| `tests/roman_plan_tests.lua:219-222` | every arm street is 59 long | #351: cardo_north 57, the other three 59 |
+| `tests/roman_plan_tests.lua:249-266` | per-arm arch test via `plan.sites[layout.arms[arm].arch]` | #351: skip arms with a terminal (nil arch) and add the terminal checks: street ends at the forecourt, forecourt then Jupiter centred on the street axis, Jupiter approach on the forecourt, entrance faces the forum |
+| `tests/roman_plan_tests.lua:294-316` | lane runs up to the arch approach (`:314` reads the arch approach) | #351: for the north arm the lane rule is the same length-2 rule (lane z 15..70) but there is no arch approach; skip or replace `:314` for terminal arms |
+| `tests/roman_plan_tests.lua:731-737` | no monument overlaps `arch_north` / `arch_south` | #351: `arch_north` no longer exists; check `arch_south` (and Jupiter) only |
+| `tests/roman_plan_tests.lua:739-745` | `boundary.rects[1]` 181 x 172; reach edge 95 | #351: rect 1 (main) 181 x 173; rect 2 x -14..13, z 80..110; reach edge from `plan.bounds` = 110 (reach 382) |
+| `tests/roman_plan_tests.lua:747-760` | origin site rect pins | unchanged values; #351/#352/#353 may add pins for Jupiter, the forecourt, Vesta and the hippodrome |
+| `tests/roman_plan_tests.lua:766-779` | 12 block pins and the block count | #351 outer_north_east 10,72,43,80 and outer_north_west -44,72,-11,80; #352 south_east_inner 3,-41,11,-27; #353 remove east_end_south, west_end_north, ring_west_outer_north, ring_east_outer_south 44,-74,52,-48 (9 blocks); #354 outer_north_east 10..81, outer_north_west -91..-11 and the ten new blocks (19) |
+| `tests/outskirts_fixture.lua:71-72` (used by `tests/outskirts_contract_tests.lua:71-76`) | Roman `plan.bounds` 905..1085, -2086..-1915 and the protected rectangle at that centre | #351: bounds become z -2087..-1890 at that centre (z1 moves with `main_rect`, z2 with the compound); the fixture's accepted plots (`F.plots`, `:76` on) were found against the old bounds and at least the first (x 1000..1012, z -1895..-1879) now overlaps the new bounds, so regenerate the plots and distances rather than editing only the rectangle |
 
 ## 14. Bath alignment (PM request on #353)
 
 Measured: the bath's main entrance is a triple door at file (4, 4, 19..21)
-facing -X; at the bath's rotation 180 it is at x -8, z -45..-43 (centre
--44), behind the four-node quartz porch whose pillars span z -49..-40
-(centre -44.5). The secondary road that ends opposite it across the
-southern cardo is ring_south, z -47..-42 (centre -44.5). So the porch is
-exactly on the road's axis, and the door is half a node off it, which is
-the best possible: a three-wide door cannot be centred on a six-wide road.
-Moving the bath one node (`at` 7 or 9) puts the door centre at -45 or -43,
-no better, and moves the porch off the axis.
+facing -X. At the bath's rotation 180 (world z = -66 + 42 - file z) it is at
+x -8, z -45..-43, centre -44. The porch in front of it is centred on the
+same line: its pillars at file x 2, z 16, 18, 22, 24 are at world z -40,
+-42, -46, -48 (centre -44), and its quartz slab edge at file x 0, z 14..26,
+spans world z -50..-38 (centre -44). The secondary road that ends opposite
+it across the southern cardo is ring_south, z -47..-42, centre -44.5. So
+the whole entrance, door and porch, is half a node off the road's axis.
+That is the closest possible: the entrance is an odd number of nodes wide
+and the road is six, so their centres cannot coincide. Moving the bath one
+node puts the entrance centre at -45 (`at` 9: half a node off on the other
+side, no better) or -43 (`at` 7: one and a half nodes off, worse).
 
 Recommendation: do not shift the bath. If the PM saw a visible offset in a
 built town, it was probably a world built before the bath trim (#171) or
@@ -643,12 +701,13 @@ can land any time before #353.
    Jupiter and `jupiter_forecourt` (section 5); trim outer_north_east to
    ring north_outer outer 10..43 and outer_north_west to -44..-11 (the
    forecourt runs between them). Boundary = main + compound x -14..13,
-   z 80..110; bounds x -95..85, z -87..110. Update the pins of section 13.
+   z 80..110; bounds x -95..85, z -87..110. Update the #351 test pins of
+   section 13.1, including the outskirts fixture.
    Expected ordinary total over seeds 1/2/3/7: 81.
 3. #352 Vesta. Landmark `temple_of_vesta`: arm south, side +x, at 0,
    rotation 180, faces forum (existing mechanism, no extension); block
    south_east_inner becomes arm south +x 11..25. Approach (8,-15) on the
-   forum. Expected total: 76.
+   forum. Update the #352 test pins of section 13.1. Expected total: 76.
 4. New small ticket, "Hippodrome catalog: long-side main entrance":
    section 6 exactly (catalog entrance (18,8,3), -Z, opening; fixture;
    README row). No model edit, no layout change.
@@ -656,10 +715,13 @@ can land any time before #353.
    three appended); hippodrome ring landmark (ring north_outer, inner,
    at -91, rotation 180); remove blocks west_end_north, east_end_south,
    ring_west_outer_north; ring_east_outer_south becomes ring east outer
-   -74..-48. Update the bath-clearance pin. Expected total: 52 (temporary).
+   -74..-48. Update the #353 test pins of section 13.1 (including the
+   rewrite of the bath/south-west-quadrant loop). Expected total: 52
+   (temporary).
 6. #354 Population. Extend outer_north_east to 10..81 and outer_north_west
    to -91..-11; append blocks j..s of section 10 in that order. Meet the
-   minimum of section 12. Expected total: 224.
+   minimum of section 12 and update the #354 block pins of section 13.1.
+   Expected total: 224.
 
 Proposed text to add to each ticket (the coordinator edits GitHub):
 
@@ -670,14 +732,18 @@ Proposed text to add to each ticket (the coordinator edits GitHub):
   (-1,88), approach (-1,79); compound x -14..13, z 80..110; bounds
   x -95..85, z -87..110. Trim outer_north_east to 10..43 and
   outer_north_west to -44..-11. Schema: arm `terminal` with `forecourt`,
-  and `main_rect`, as specified in section 11. Expected ordinary total
+  and `main_rect`, as specified in section 11. Test pins: section 13.1
+  rows marked #351 (census, site count, boundary containment, arm length,
+  arch-per-arm and lane tests, arch_north overlap test, boundary/reach,
+  block pins, outskirts fixture and plots). Expected ordinary total
   81 over seeds 1/2/3/7."
 - #352: "Geometry: docs/roman_expansion_layout.md section 8. Vesta is an
   existing arm landmark (arm south, side +x, at 0, rotation 180, faces
   forum): x 3..13, z -26..-16, entrance (8,-19), approach (8,-15) on the
   forum. No forum-edge extension is needed. Neighbouring change: block
   south_east_inner from 0..25 to 11..25 (loses its forum run and 11 cardo
-  nodes). Expected ordinary total 76." (Delete the 'minimal forum-edge
+  nodes). Test pins: section 13.1 rows marked #352. Expected ordinary
+  total 76." (Delete the 'minimal forum-edge
   extension' allowance.)
 - New prerequisite ticket: "Correct the hippodrome catalog entrance to the
   long-side portico opening, per docs/roman_expansion_layout.md section 6:
@@ -696,8 +762,9 @@ Proposed text to add to each ticket (the coordinator edits GitHub):
   z 41..65 stays unbuilt. Remove blocks west_end_north, east_end_south,
   ring_west_outer_north; ring_east_outer_south becomes -74..-48. Bath not
   moved (see section 14 unless the PM decides otherwise). The ordinary
-  total falls to 52 here by design; #354 restores it. Do one in-game build
-  and check the hippodrome passage."
+  total falls to 52 here by design; #354 restores it. Test pins: section 13.1 rows
+  marked #353, including rewriting the bath/south-west-quadrant loop for
+  ring_south_west. Do one in-game build and check the hippodrome passage."
 - #354: "Geometry: docs/roman_expansion_layout.md sections 9, 10 and 12.
   Extend outer_north_east to 10..81 and outer_north_west to -91..-11; add
   blocks ring_south_inner_east, ring_north_inner_west, ring_west_inner_north,
@@ -705,13 +772,15 @@ Proposed text to add to each ticket (the coordinator edits GitHub):
   west_outer_west, south_west_outer, east_amph_north, east_outer_east in
   that order. Gap dispositions: section 9. Minimum: 50 ordinary buildings
   at each of seeds 1, 2, 3, 7, 210 in total, and every listed block used at
-  each of those seeds (measured 56 per seed, 224)."
+  each of those seeds (measured 56 per seed, 224). Test pins: the #354
+  block pins of section 13.1."
 
 ## 17. Decisions for the PM
 
-1. Bath shift (#353 request): recommend no shift; the porch is already on
-   the road axis and the door is as close as a three-wide door can be
-   (section 14). Alternative: shift anyway (cheap, no visual gain).
+1. Bath shift (#353 request): recommend no shift; door and porch are
+   centred half a node off the road axis, the closest an odd-width
+   entrance can be to a six-wide road, and a one-node shift only moves the
+   offset to the other side (section 14). Alternative: shift anyway (cheap, no visual gain).
 2. Hippodrome door court: the existing 30-node block ring_west_outer_north
    is removed so the two short-end doors open onto open ground leading to
    ring_west (about 3 buildings per town; already netted out of the counts).
@@ -736,6 +805,10 @@ Verified (prototype in a scratch copy of the mod; not committed):
   `site_search.boundary_columns`, `open_space` (via planner),
   `tools/layout_compare`.
 - Counts: section 12, from the planner and layout_compare.
+
+Reproducibility: everything above except the `layout_compare` metrics
+was produced by the scripts in `roman_expansion_221/prototype/scripts/`
+on a scratch copy of the mod; outputs are in `prototype/results/`.
 
 Not verified: an in-engine town build (hippodrome excavation at
 ground - 7 in real terrain, Living Villages boundary smoothing on the
