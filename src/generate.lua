@@ -54,7 +54,7 @@ M.HELP = "WARNING: builds a town on the chosen site immediately, OVERWRITING it 
 	.. "only. Builds a populated medieval town (the default), or a Roman town "
 	.. "with 'roman': the medieval town has cathedral, castle, city hall, jail, "
 	.. "services and houses/shops/workshops from the catalog; the Roman town "
-	.. "(first version) has the forum, four arches, temple, amphitheatre, "
+	.. "(first version) has the forum, three arches, the Temple of Jupiter, temple, amphitheatre, "
 	.. "theatre, bath, domus and basilica monuments on authored streets, with blocks and "
 	.. "frontage, and the catalog's ordinary content where it fits (no "
 	.. "cathedral, castle or city hall). Both get initialized nodes and one "

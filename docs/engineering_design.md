@@ -426,7 +426,11 @@ landmark approach without requiring medieval civic sites. Authored frontage
 runs use the shared run schema from `planner.lua` (the one-node block edge row,
 facing the street or square it borders). The Roman planner derives its blocks
 from explicit rectangles in `roman_civic_plan.lua`, one catalog row depth
-deep, and its runs from the pavement along their edges. A ring of six
+deep, and its runs from the pavement along their edges. The north arm ends in a terminal landmark (issue #351), Temple of
+Jupiter behind a cobble forecourt, instead of an arch. The Roman boundary is the
+authored `main_rect` plus one compound rectangle around each terminal landmark
+(the box grown by `margin` on the three sides away from the forum); `plan.bounds`
+is their enclosing rectangle. A ring of six
 secondary bands (issue #164; the outer north and south bands were added in
 issue #202) surrounds the forum: the north and north-outer bands cross the cardo
 and the east and west bands, the east arm crosses the east band, the south and

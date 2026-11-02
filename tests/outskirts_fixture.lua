@@ -68,14 +68,14 @@ F.assets = {
 }
 
 -- Living Villages protected rectangle spelling: inclusive x0..z1 plus margin.
-F.protected = {x0 = 905, z0 = -2086, x1 = 1085, z1 = -1915, margin = 6}   -- plan.bounds
-F.bounds = {x1 = 905, z1 = -2086, x2 = 1085, z2 = -1915}      -- Roman plan.bounds at this centre
+F.protected = {x0 = 905, z0 = -2087, x1 = 1085, z1 = -1890, margin = 6}   -- plan.bounds
+F.bounds = {x1 = 905, z1 = -2087, x2 = 1085, z2 = -1890}      -- Roman plan.bounds at this centre
 
 -- Accepted plots. distance = Chebyshev gap between rect and plan.bounds.
 -- heights = min/max natural height under the footprint; ground_y = lower median.
 F.plots = {
 	{id = "f01", class = "farm", asset = "farm", rotation = 90, band = "near",
-		rect = {x1 = 1000, z1 = -1895, x2 = 1012, z2 = -1879}, distance = 20,
+		rect = {x1 = 1000, z1 = -1870, x2 = 1012, z2 = -1854}, distance = 20,
 		heights = {min = 60, max = 62}, ground_y = 61},
 	{id = "h01", class = "hut", asset = "shepherd_hut", rotation = 0, band = "far",
 		rect = {x1 = 1135, z1 = -2010, x2 = 1143, z2 = -2003}, distance = 50,
@@ -85,8 +85,8 @@ F.plots = {
 -- Composed structures (preflight.compose shape; the farm has no entrance).
 F.structures = {
 	{id = "farm", kind = "object", role = "farm", plot = "f01", rotation = 90,
-		rect = {x1 = 1000, z1 = -1895, x2 = 1012, z2 = -1879},
-		min = {x = 1000, y = 61, z = -1895}, max = {x = 1012, y = 62, z = -1879},
+		rect = {x1 = 1000, z1 = -1870, x2 = 1012, z2 = -1854},
+		min = {x = 1000, y = 61, z = -1870}, max = {x = 1012, y = 62, z = -1854},
 		size = {x = 13, y = 2, z = 17}, ground_offset = 0, site_ground_y = 61},
 	{id = "shepherd_hut", kind = "outskirts", role = "hut", plot = "h01", rotation = 0,
 		rect = {x1 = 1135, z1 = -2010, x2 = 1143, z2 = -2003},
@@ -99,7 +99,7 @@ F.structures = {
 -- one call per plot, with a settlement-style plan entry and protected rectangle.
 F.lv_calls = {
 	{plot_id = "f01",
-		plan = {{name = "farm", pos = {x = 1000, y = 61, z = -1895}, rotat = "90"}},
+		plan = {{name = "farm", pos = {x = 1000, y = 61, z = -1870}, rotat = "90"}},
 		opts = {schematic_table = {{name = "farm", hwidth = 17, hdepth = 13, hheight = 2}},
 			protected = {F.protected}}},
 	{plot_id = "h01",
@@ -113,7 +113,7 @@ F.lv_calls = {
 F.lv_result = {
 	ok = true,
 	stats = {changed = 152, cut = 40, filled = 112, steepest = 2, violations = 0, unloaded_blocks = 0,
-		written = {minp = {x = 988, y = 41, z = -1905}, maxp = {x = 1018, y = 85, z = -1877}}},
+		written = {minp = {x = 988, y = 41, z = -1880}, maxp = {x = 1018, y = 85, z = -1852}}},
 }
 
 -- Result counts of the example town (shortfalls are normal).

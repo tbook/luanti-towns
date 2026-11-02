@@ -4,7 +4,7 @@
 --
 -- Frame: the planner centre is the middle of the forum. Each arm is a straight
 -- street leaving one forum edge, running outward until the near face of its
--- terminal arch. Positions along an arm are measured outward in nodes ("at"),
+-- terminal arch (or terminal landmark). Positions along an arm are measured outward in nodes ("at"),
 -- starting at 0 on the first street node beside the forum, so retuning a
 -- street length or the forum size never requires editing other coordinates.
 --
@@ -19,15 +19,20 @@ return {
 	forum_material = "mcl_core:cobble",
 	-- Even edge length; the forum is centred on the planner centre.
 	forum_size = 30,
-	-- Flat construction boundary: bounding box of the plan plus this margin.
+	-- Margin of a terminal landmark's compound (its box grown by this on the
+	-- three sides away from the forum).
 	margin = 4,
+	-- Main city rectangle (issue #351), authored, offsets from the forum centre.
+	-- The boundary is this plus each terminal compound; no other site, street or
+	-- block may leave it.
+	main_rect = {x1 = -95, z1 = -87, x2 = 85, z2 = 85},
 
 	-- Street profiles (issue #172), by name; an arm picks one with `profile`.
 	-- A lane is `width` nodes across, centred on the street, paved with
 	-- `material` (a bottom slab, so the lane sits half a node below the full
 	-- blocks at the edges). width must be even, and at least one node of the
 	-- street's width must remain on each side. Lanes run from the forum edge
-	-- to the node before the arch (see roman_planner.lua).
+	-- to the node before the arch or forecourt (see roman_planner.lua).
 	profiles = {
 		lane = {material = "mcl_stairs:slab_cobble", width = 4},
 	},
@@ -36,7 +41,15 @@ return {
 	-- arch_rotation: turns the arch opening toward the forum.
 	-- profile: optional street profile from `profiles` (principal arms only).
 	arms = {
-		north = {street = "cardo_north", length = 59, arch = "arch_north", arch_rotation = 0, profile = "lane"},
+		-- The north arm ends in a terminal landmark (issue #351) instead of an arch:
+		-- a forecourt square `depth` nodes deep, then the landmark, both as wide as
+		-- the landmark and centred on the street. Its rotation must turn the
+		-- entrance toward the forum. The boundary gains a compound around it.
+		north = {
+			street = "cardo_north", length = 57, profile = "lane",
+			terminal = {name = "temple_of_jupiter", id = "temple_of_jupiter", rotation = 0,
+				forecourt = {name = "jupiter_forecourt", depth = 8}},
+		},
 		south = {street = "cardo_south", length = 59, arch = "arch_south", arch_rotation = 180, profile = "lane"},
 		east = {street = "decumanus_east", length = 59, arch = "arch_east", arch_rotation = 90, profile = "lane"},
 		west = {street = "decumanus_west", length = 59, arch = "arch_west", arch_rotation = 270, profile = "lane"},
@@ -114,8 +127,8 @@ return {
 		{name = "west_forum_north", arm = "west", side = "+z", from = 0, to = 22},
 		{name = "west_end_north", arm = "west", side = "+z", from = 51, to = 58},
 		{name = "ring_north_inner_east", ring = "north", side = "inner", from = 15, to = 37},
-		{name = "outer_north_east", ring = "north_outer", side = "outer", from = 6, to = 43},
-		{name = "outer_north_west", ring = "north_outer", side = "outer", from = -44, to = -7},
+		{name = "outer_north_east", ring = "north_outer", side = "outer", from = 10, to = 43},
+		{name = "outer_north_west", ring = "north_outer", side = "outer", from = -44, to = -11},
 		{name = "ring_west_outer_north", ring = "west", side = "outer", from = 42, to = 71},
 		{name = "ring_east_outer_south", ring = "east", side = "outer", from = -80, to = -42},
 	},

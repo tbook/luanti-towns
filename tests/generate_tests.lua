@@ -792,7 +792,7 @@ do -- report names the Roman sites, no medieval sites, repeat includes the type
 	local te = rplan.sites.temple_east
 	eq(has(t, ("Temple east: x %d..%d, z %d..%d; entrance at (%d,"):format(te.rect.x1, te.rect.x2,
 		te.rect.z1, te.rect.z2, te.entrance.x)), true, "roman: named monument with entrance")
-	eq(has(t, "Arch north: "), true, "roman: arch listed")
+	eq(has(t, "Arch south: "), true, "roman: arch listed")
 	eq(has(t, "Amphitheater: "), true, "roman: amphitheater listed")
 	eq(has(t, "Domus 1: "), true, "roman: domus listed")
 	eq(has(t, "Cathedral:"), false, "roman: no cathedral")

@@ -339,11 +339,11 @@ terraforming to verify that invariant.
 
 ### 6.4 The plot-to-call mapping (worked example, section 9)
 
-Farm `f01`: rect `x 1000..1006, z -1895..-1887` (rotation 90 of a 9 x 7
+Farm `f01`: rect `x 1000..1006, z -1870..-1862` (rotation 90 of a 9 x 7
 footprint), ground 61: `plan = {{name = "farm", pos = {x = 1000, y = 61, z =
--1895}, rotat = "90"}}`, `opts = {schematic_table = {{name = "farm", hwidth = 9,
-hdepth = 7, hheight = 8}}, protected = {{x0 = 905, z0 = -2086, x1 = 1085, z1 =
--1915, margin = 6}}}`.
+-1870}, rotat = "90"}}`, `opts = {schematic_table = {{name = "farm", hwidth = 9,
+hdepth = 7, hheight = 8}}, protected = {{x0 = 905, z0 = -2087, x1 = 1085, z1 =
+-1890, margin = 6}}}`.
 
 ## 7. Integration
 
@@ -490,15 +490,15 @@ omissions and never fail the command.
 ## 9. Worked example
 
 Fixture: `tests/outskirts_fixture.lua`. Roman town, seed 8, centre `(1000,
--2000)`, urban ground 62, `plan.bounds x 905..1085, z -2086..-1915`; protected
-rectangle `{x0 = 905, z0 = -2086, x1 = 1085, z1 = -1915, margin = 6}`, i.e.
-`x 901..1089, z -2090..-1911`.
+-2000)`, urban ground 62, `plan.bounds x 905..1085, z -2087..-1890`; protected
+rectangle `{x0 = 905, z0 = -2087, x1 = 1085, z1 = -1890, margin = 6}`, i.e.
+`x 901..1089, z -2091..-1884`.
 
 | | `f01` farm | `h01` hut |
 | --- | --- | --- |
 | band, gap to bounds | near, 20 (10..23) | far, 50 (24..57) |
 | rotation | 90 (first stream draw: 22928725 % 4 = 1) | 0 |
-| rect | x 1000..1006, z -1895..-1887 (7 x 9) | x 1135..1143, z -2010..-2003 (9 x 8) |
+| rect | x 1000..1006, z -1870..-1862 (7 x 9) | x 1135..1143, z -2010..-2003 (9 x 8) |
 | footprint heights | 60..62 (spread 2), ground 61 | 63..65 (spread 2), ground 64 |
 | schematic origin Y / box | 61 (`ground_offset` 0), y 61..68 | 64, y 64..72 |
 | entrance | none (object) | file (4,2,2): world `(1139, 66, -2008)`, front -Z, feet Y 66 |
@@ -508,7 +508,7 @@ The hut's canonical entrance front (-Z) is an assumption until #227 measures the
 import; the door position, loom and bed are measured. The Living Villages call for
 the farm is the one in 6.4. An illustrative result is `true, {changed = 152, cut
 = 40, filled = 112, steepest = 2, violations = 0, unloaded = 0, written = {minp =
-(988, 41, -1905), maxp = (1018, 85, -1877)}}`. This example envelope does not
+(988, 41, -1880), maxp = (1018, 85, -1852)}}`. This example envelope does not
 overlap protection, but the box alone is not evidence about individual writes.
 The example town ends
 with 16 of 18 farms, 6 huts and 1 of 2 villas; the 9 recorded rejections

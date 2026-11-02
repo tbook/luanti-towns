@@ -206,6 +206,7 @@ function M.build(layout, center, seed, row_depth)
 		if sites[site.name] then layout_error("duplicate site name " .. tostring(site.name)) end
 		sites[site.name] = site; order[#order + 1] = site.name
 	end
+	local compounds = {}
 	local arm_names = {"north", "south", "east", "west"}
 	for _, arm in ipairs(arm_names) do
 		local spec = layout.arms[arm]
@@ -235,15 +236,48 @@ function M.build(layout, center, seed, row_depth)
 				rect = translate(arm_rect(layout, arm, 0, spec.length - 2, -half + inset, half - 1 - inset), dx, dz),
 			}
 		end
-		-- The arch's opening is mid-street, so the box is centred on the street.
-		local sx, sz = footprint(layout.arch_id, spec.arch_rotation)
+		-- The arch's (or terminal landmark's) opening is mid-street, so the box is
+		-- centred on the street.
+		local toward = {-ARMS[arm].x, -ARMS[arm].z}
+		local t = spec.terminal
+		local id, rotation = layout.arch_id, spec.arch_rotation
+		local depth = 0
+		if t then
+			-- Terminal landmark (issue #351): an optional paved forecourt square,
+			-- then the landmark, instead of an arch.
+			id, rotation = t.id, t.rotation
+			depth = t.forecourt and t.forecourt.depth or 0
+		end
+		local sx, sz = footprint(id, rotation)
 		local along, across = sz, sx
 		if not vertical then along, across = sx, sz end
-		if across % 2 ~= 0 then layout_error("arch width must be even to centre on the street") end
-		local rect = translate(arm_rect(layout, arm, spec.length, spec.length + along - 1,
-			-math.floor(across / 2), math.floor(across / 2) - 1), dx, dz)
-		local toward = {-ARMS[arm].x, -ARMS[arm].z}
-		add(landmark(spec.arch, layout.arch_id, spec.arch_rotation, rect, toward, {arm = arm}))
+		if across % 2 ~= 0 then layout_error("landmark width must be even to centre on the street") end
+		local l1, l2 = -math.floor(across / 2), math.floor(across / 2) - 1
+		if t then
+			if t.forecourt then
+				local fr = translate(arm_rect(layout, arm, spec.length, spec.length + depth - 1, l1, l2), dx, dz)
+				-- Approach: the street-side node just left of the axis.
+				local ax, az = dx - 1, ARMS[arm].z > 0 and fr.z1 or fr.z2
+				if not vertical then ax, az = ARMS[arm].x > 0 and fr.x1 or fr.x2, dz - 1 end
+				add({
+					name = t.forecourt.name, kind = "square", rect = fr,
+					size = {x = fr.x2 - fr.x1 + 1, z = fr.z2 - fr.z1 + 1},
+					material = layout.forum_material, approach = {pos = {x = ax, z = az}},
+				})
+			end
+			local rect = translate(arm_rect(layout, arm, spec.length + depth,
+				spec.length + depth + along - 1, l1, l2), dx, dz)
+			add(landmark(t.name, t.id, t.rotation, rect, toward, {arm = arm, terminal = true}))
+			-- Compound: the box grown by the margin on the three sides away from the forum.
+			local m, d = layout.margin, ARMS[arm]
+			local c = {x1 = rect.x1 - m, z1 = rect.z1 - m, x2 = rect.x2 + m, z2 = rect.z2 + m}
+			if d.z > 0 then c.z1 = rect.z1 elseif d.z < 0 then c.z2 = rect.z2
+			elseif d.x > 0 then c.x1 = rect.x1 else c.x2 = rect.x2 end
+			compounds[#compounds + 1] = c
+		else
+			local rect = translate(arm_rect(layout, arm, spec.length, spec.length + along - 1, l1, l2), dx, dz)
+			add(landmark(spec.arch, layout.arch_id, spec.arch_rotation, rect, toward, {arm = arm}))
+		end
 	end
 
 	-- Ring bands (issue #164): see the layout for each band's extent.
@@ -297,19 +331,45 @@ function M.build(layout, center, seed, row_depth)
 		end
 	end
 
-	local bounds
-	for _, name in ipairs(order) do
-		local r = sites[name].rect
-		bounds = bounds or {x1 = r.x1, z1 = r.z1, x2 = r.x2, z2 = r.z2}
+	-- Boundary (issue #351): the authored main rectangle plus one compound per
+	-- terminal landmark; bounds is their enclosing rectangle. Without a
+	-- main_rect, the bounding box of the sites plus the margin.
+	local rects
+	if layout.main_rect then
+		rects = {translate(layout.main_rect, dx, dz)}
+		for _, c in ipairs(compounds) do rects[#rects + 1] = c end
+		local main = rects[1]
+		local function inside(r)
+			return r.x1 >= main.x1 and r.x2 <= main.x2 and r.z1 >= main.z1 and r.z2 <= main.z2
+		end
+		for _, name in ipairs(order) do
+			if not sites[name].terminal and not inside(sites[name].rect) then
+				layout_error("site " .. name .. " leaves the main rectangle")
+			end
+		end
+		for _, st in ipairs(streets) do
+			if not inside(st.rect) then layout_error("street " .. st.name .. " leaves the main rectangle") end
+		end
+	else
+		local b
+		for _, name in ipairs(order) do
+			local r = sites[name].rect
+			b = b or {x1 = r.x1, z1 = r.z1, x2 = r.x2, z2 = r.z2}
+			b.x1, b.z1 = math.min(b.x1, r.x1), math.min(b.z1, r.z1)
+			b.x2, b.z2 = math.max(b.x2, r.x2), math.max(b.z2, r.z2)
+		end
+		local m = layout.margin
+		rects = {{x1 = b.x1 - m, z1 = b.z1 - m, x2 = b.x2 + m, z2 = b.z2 + m}}
+	end
+	local bounds = {x1 = rects[1].x1, z1 = rects[1].z1, x2 = rects[1].x2, z2 = rects[1].z2}
+	for _, r in ipairs(rects) do
 		bounds.x1, bounds.z1 = math.min(bounds.x1, r.x1), math.min(bounds.z1, r.z1)
 		bounds.x2, bounds.z2 = math.max(bounds.x2, r.x2), math.max(bounds.z2, r.z2)
 	end
-	local m = layout.margin
-	bounds = {x1 = bounds.x1 - m, z1 = bounds.z1 - m, x2 = bounds.x2 + m, z2 = bounds.z2 + m}
 	local plan = {
 		town_type = "roman", seed = seed, center = {x = dx, z = dz},
 		bounds = bounds,
-		boundary = {rects = {{x1 = bounds.x1, z1 = bounds.z1, x2 = bounds.x2, z2 = bounds.z2}}},
+		boundary = {rects = rects},
 		sites = sites, site_order = order,
 		streets = streets, blocks = {}, frontage = {},
 	}
