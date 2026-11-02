@@ -208,6 +208,11 @@ function M.format_report(summary, command)
 			s.wall.placed or 0, s.wall.clearance or 0, #(s.wall.omissions or {}), bounds_str(s.wall.attempted_bounds))
 		if s.wall.features then add("Wall towers placed: %d.", #s.wall.features) end
 	end
+	if s.roads then
+		add("Outside roads: %d of %d road exits graded, %d left ungraded; possible write envelope %s.",
+			s.roads.graded or 0, (s.roads.graded or 0) + (s.roads.failed or 0), s.roads.failed or 0,
+			bounds_str(s.roads.attempted_bounds))
+	end
 	if type(s.write_bounds) == "table" and not same_bounds(s.write_bounds, urban_write_bounds) then
 		add("Possible overall write envelope %s; bounds include attempted volumes and do not mean every node changed.",
 			bounds_str(s.write_bounds))

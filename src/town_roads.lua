@@ -62,9 +62,13 @@ function M.approach_bounds(columns, ground)
 		max = {x = r.x2, y = ground + M.RAMP_MAX + 4, z = r.z2}}
 end
 
+-- Width of every outside road, whatever the street width inside the town:
+-- 4 for principal streets, 2 for secondary ones (the gate and postern widths).
+M.OUTSIDE_WIDTH = {principal = 4, secondary = 2}
+
 -- Group openings into contiguous crossings (same street, direction and wall
--- line) and return each crossing's full run of columns, which is graded as a
--- ramp of the opening's full width.
+-- line) and return each crossing's columns, narrowed to the outside road
+-- width and centred on the street's centreline, which is graded as a ramp.
 function M.crossings(openings)
 	local groups, order = {}, {}
 	for _, o in ipairs(openings) do
@@ -85,23 +89,33 @@ function M.crossings(openings)
 			else columns = {item.o}; out[#out + 1] = columns end
 		end
 	end
+	for i, run in ipairs(out) do
+		local width = M.OUTSIDE_WIDTH[run[1].kind]
+		if width and #run > width then
+			local skip, narrowed = math.floor((#run - width) / 2), {}
+			for j = 1, width do narrowed[j] = run[skip + j] end
+			out[i] = narrowed
+		end
+	end
 	return out
 end
 
--- Grade each bare crossing with the outside-road ramp. Returns the ramp
--- changes and a list of failed omissions; graded openings are flagged so
--- inspect skips the flat stub. A failed crossing keeps the legacy behavior.
+-- Grade each crossing with the outside-road ramp. Returns the ramp changes
+-- and a list of failed omissions; graded columns are flagged. A failed
+-- crossing is left as it is (the street just ends at the boundary). The third
+-- result lists the footprint of each graded ramp.
 function M.grade(openings, ground, region, node_info, protected)
-	local changes, failures = {}, {}
+	local changes, failures, footprints = {}, {}, {}
 	for _, columns in ipairs(M.crossings(openings)) do
-		local ramp, omissions = M.approach(columns, ground, region, node_info, protected)
+		local ramp, omissions, length = M.approach(columns, ground, region, node_info, protected)
 		if #omissions > 0 then failures[#failures + 1] = omissions[1]
 		else
 			for _, c in ipairs(ramp) do changes[#changes + 1] = c end
 			for _, c in ipairs(columns) do c.graded = true end
+			footprints[#footprints + 1] = M.approach_rect(columns, length)
 		end
 	end
-	return changes, failures
+	return changes, failures, footprints
 end
 
 

@@ -912,9 +912,11 @@ function M.inspect(wall, ground, region, node_info, protected)
 end
 
 -- Grade bare openings, then inspect the wall. Ramp changes come last so they
--- win over wall clearance. Returns changes, omissions, ramp failures.
+-- win over wall clearance. A failed grade leaves the street ending at the wall
+-- (no flat stub). Returns changes, omissions, ramp failures.
 function M.inspect_graded(wall, ground, region, node_info, protected)
 	local ramp, failures = M.grade_openings(wall.openings, ground, region, node_info, protected)
+	for _, c in ipairs(wall.openings) do c.graded = true end
 	local changes, omissions = M.inspect(wall, ground, region, node_info, protected)
 	for _, c in ipairs(ramp) do changes[#changes + 1] = c end
 	return changes, omissions, failures

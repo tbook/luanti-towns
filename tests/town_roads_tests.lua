@@ -21,8 +21,8 @@ local function widths(exits)
 	return out
 end
 
--- Unwalled-style medieval towns: six road crossings, two six-wide and four
--- four-wide, for 28 exit columns in all.
+-- Unwalled-style medieval towns: six road crossings, two principal and four
+-- secondary (graded 4 and 2 wide), for 28 exit columns in all.
 for _, seed in ipairs({1, 101}) do
 	local plan = assert(planner.plan({x = 0, z = 0}, seed, {landmarks = profile}))
 	eq(plan.town_type, "medieval", "seed " .. seed .. " is a medieval plan")
@@ -31,7 +31,7 @@ for _, seed in ipairs({1, 101}) do
 	local crossings = roads.crossings(exits)
 	eq(#crossings, 6, "seed " .. seed .. " exits form six crossings")
 	local w = widths(exits)
-	eq(table.concat(w, ","), "4,4,4,4,6,6", "seed " .. seed .. " crossing widths")
+	eq(table.concat(w, ","), "2,2,2,2,4,4", "seed " .. seed .. " outside crossing widths")
 	local rects = plan.boundary.rects
 	for _, e in ipairs(exits) do
 		local label = "seed " .. seed .. " exit " .. e.x .. "," .. e.z
