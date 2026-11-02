@@ -262,8 +262,11 @@ def compare_one(i, info, repo_old, repo_new):
     return entry
 
 
-def run_scan(snap, boxes, engine, margin, port=39499):
-    """Run reimport_scan.lua on a copy of the snapshot. boxes: {id: (min, max)}."""
+def run_scan(snap, boxes, engine, margin, port=39499, only=None):
+    """Run reimport_scan.lua on a copy of the snapshot. boxes: {id: (min, max)}.
+
+    Pass the boxes of ALL registered buildings so the "inside another registered box" noise
+    filter sees every neighbour; `only` limits the returned report to those ids."""
     work = snap.parent / 'scan-world'
     if copy_world(snap, work) is None:
         raise SystemExit('Snapshot changed unexpectedly.')
@@ -278,7 +281,8 @@ def run_scan(snap, boxes, engine, margin, port=39499):
     out = work / 'reimport-scan.json'
     if not out.exists():
         raise SystemExit('Outside-box scan failed; inspect ' + str(work / 'engine.log'))
-    return json.loads(out.read_text())
+    report = json.loads(out.read_text())
+    return [r for r in report if only is None or r['id'] in only]
 
 
 def compare(world, engine, allow_open, ids=None, margin=SCAN_MARGIN, keep=False, scan=True):
@@ -313,9 +317,10 @@ def compare(world, engine, allow_open, ids=None, margin=SCAN_MARGIN, keep=False,
                 entries.append(compare_one(i, reg[i], ROOT, repo))
         scan_report = []
         if scan:
-            boxes = {i: reg[i]['box'] for i in selected if reg[i]['box']}
-            print('Scanning around %d capture boxes' % len(boxes), flush=True)
-            scan_report = run_scan(snap, boxes, engine, margin)
+            boxes = {i: r['box'] for i, r in reg.items() if r['box']}
+            only = {i for i in selected if reg[i]['box']}
+            print('Scanning around %d capture boxes' % len(only), flush=True)
+            scan_report = run_scan(snap, boxes, engine, margin, only=only)
         by_id = {r['id']: r for r in scan_report}
         for e in entries:
             e['outside_scan'] = by_id.get(e['id'])
@@ -434,11 +439,23 @@ def read_manifest(repo, kind):
     return json.loads(path.read_text()) if path.exists() else {}
 
 
+def filter_status(lines):
+    """Porcelain lines outside schematics/, ignoring Python bytecode noise (__pycache__, *.pyc)."""
+    return {l for l in lines if 'schematics/' not in l and '__pycache__' not in l and not l.endswith('.pyc')}
+
+
 def git_status_outside(repo):
-    proc = subprocess.run(['git', '-C', str(repo), 'status', '--porcelain'], capture_output=True, text=True)
+    proc = subprocess.run(['git', '-C', str(repo), 'status', '--porcelain', '-uall'], capture_output=True, text=True)
     if proc.returncode:
         return None
-    return {l for l in proc.stdout.splitlines() if 'schematics/' not in l}
+    return filter_status(proc.stdout.splitlines())
+
+
+def new_schematics_files(repo):
+    """Untracked files under schematics/ (for the recovery message after a failed gate)."""
+    proc = subprocess.run(['git', '-C', str(repo), 'ls-files', '--others', '--exclude-standard', 'schematics'],
+                          capture_output=True, text=True)
+    return proc.stdout.split() if not proc.returncode else []
 
 
 def pin_hints(repo, before_geom, after_geom, reg, ids):
@@ -480,10 +497,10 @@ def apply(ids, world, engine, repo=ROOT, validate=True, allow_clipped=False, mar
         if i not in reg:
             raise SystemExit('Unknown or excluded id %s%s' % (i, ' (%s)' % EXCLUDED[i] if i in EXCLUDED else ''))
     if not allow_clipped:
-        boxes = {i: reg[i]['box'] for i in ids if reg[i]['box']}
+        boxes = {i: r['box'] for i, r in reg.items() if r['box']}
         scratch = Path(tempfile.mkdtemp(prefix='towns-reimport-scan-'))
         try:
-            clipped = [r for r in run_scan(snapshot_world(world, scratch), boxes, engine, margin)
+            clipped = [r for r in run_scan(snapshot_world(world, scratch), boxes, engine, margin, only=set(ids))
                        if r['touching'] and not reg[r['id']].get('clip')]
         finally:
             shutil.rmtree(scratch, ignore_errors=True)
@@ -524,8 +541,10 @@ def apply(ids, world, engine, repo=ROOT, validate=True, allow_clipped=False, mar
         if rec['id'] in ids and rec.get('source_map_sha256') != sha:
             problems.append('roman record %s source_map_sha256 does not match %s' % (rec['id'], world.name))
     if problems:
-        raise SystemExit('Reimport gate FAILED (inspect and `git checkout -- schematics` to discard):\n  '
-                         + '\n  '.join(problems))
+        new = new_schematics_files(repo)
+        raise SystemExit('Reimport gate FAILED. After review, discard with `git checkout -- schematics`'
+                         + (' and remove the new files (`git clean -fd schematics`): ' + ', '.join(new) if new else '')
+                         + ':\n  ' + '\n  '.join(problems))
     changed_ids = [i for i in ids if any(before.get(f) != after.get(f) for f in reg[i]['files'])]
     if any(reg[i]['kind'] == 'roman' for i in changed_ids):
         print('Roman landmark changed: running roman_check', flush=True)
@@ -535,7 +554,7 @@ def apply(ids, world, engine, repo=ROOT, validate=True, allow_clipped=False, mar
     print('\nChanged: %s' % (', '.join(changed_ids) or 'nothing'))
     for hint in pin_hints(repo, geom_before, geom_after, reg, ids):
         print('Size/entrance moved, update pins: ' + hint)
-    print('Gate passed. Run `/Users/tad/.local/bin/lua5.1 tests/run.lua` (or lua5.1 tests/run.lua) and review `git diff --stat`.')
+    print('Gate passed. Run `lua5.1 tests/run.lua` and review `git diff --stat`.')
     return changed_ids
 
 

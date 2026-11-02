@@ -88,6 +88,13 @@ class GateTests(unittest.TestCase):
         self.assertEqual(reimport.manifest_violations('template', before, rv, ['a'], ('runtime_validation',)), [])
 
 
+class StatusFilterTests(unittest.TestCase):
+    def test_bytecode_and_schematics_ignored(self):
+        lines = ['?? tools/issue341_import/__pycache__/common.cpython-313.pyc', '?? tools/x/y.pyc',
+                 ' M schematics/templates/chapel.mts', ' M tests/run.lua', '?? notes.txt']
+        self.assertEqual(reimport.filter_status(lines), {' M tests/run.lua', '?? notes.txt'})
+
+
 class RegistryTests(unittest.TestCase):
     def test_excluded_ids_never_registered(self):
         reg = reimport.registry(ROOT)
