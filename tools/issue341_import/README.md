@@ -34,10 +34,13 @@ temple_of_vesta hippodrome`.
 python3 tools/issue341_import/update.py
 ```
 
-With the game closed, this snapshots the workshop read-only, scans around the
-three boxes in `FIXED_BOXES` (`export_roman.py`) and stops if anything non-natural
-lies outside a box (`scan.py` runs alone too), re-exports only these three ids,
-checks that no other manifest record changed, and runs `tools/roman_check/run.py`.
-It does not recompute `catalog.lua`: check sizes, ground offsets and entrances
-against the printed summary, then run `lua5.1 tests/run.lua`. If a building outgrew
-its box, edit `FIXED_BOXES` deliberately and re-run.
+This is a thin wrapper over the general reimport tool (see "Reimport workflow" in
+`tools/workshop_export/README.md`): it is
+`python3 tools/reimport.py apply --ids temple_of_jupiter,temple_of_vesta,hippodrome`.
+With the game closed it scans around the three boxes in `FIXED_BOXES`
+(`export_roman.py`) and stops on possible clipped architecture, re-exports only
+these ids, checks that no other schematic or manifest record changed, and runs
+`tools/roman_check/run.py`. It does not recompute `schematics/imports/roman/catalog.lua`:
+check sizes, ground offsets and entrances against its printed hints, then run
+`lua5.1 tests/run.lua`. If a building outgrew its box, edit `FIXED_BOXES`
+deliberately and re-run. `scan.py` still runs alone (it is the older, unfiltered scan).

@@ -13,12 +13,22 @@ local placement = dofile("src/placement.lua")
 local only_group = os.getenv("TOWNS_TEST_ONLY")
 local only_group_ran = false
 local failures, count = 0, 0
+local failed_groups = {}
 local function run_group(path, ...)
 	if only_group and only_group ~= path then return end
 	only_group_ran = true
 	local started, started_count = os.clock(), count
 	print("RUN " .. path)
-	loadfile(path)(...)
+	-- A group that errors is recorded and the run continues, so one broken group
+	-- cannot hide the others; the summary and exit status are at the end.
+	local chunk, load_err = loadfile(path)
+	local ok, err = false, load_err
+	if chunk then ok, err = pcall(chunk, ...) end
+	if not ok then
+		failures = failures + 1
+		failed_groups[#failed_groups + 1] = path
+		print(("FAIL %s: group error: %s"):format(path, tostring(err)))
+	end
 	print(("DONE %s (%.2fs, %d checks)"):format(path, os.clock() - started, count - started_count))
 end
 local function eq(actual, expected, label)
@@ -463,6 +473,9 @@ run_group("tests/layout_compare_tests.lua", eq, fails, dofile("src/planner.lua")
 if only_group and not only_group_ran then
 	print("TOWNS_TEST_ONLY matched no group: " .. only_group)
 	os.exit(2)
+end
+if #failed_groups > 0 then
+	print("Groups that errored: " .. table.concat(failed_groups, ", "))
 end
 print(("%d checks, %d failures"):format(count, failures))
 os.exit(failures == 0 and 0 or 1)
