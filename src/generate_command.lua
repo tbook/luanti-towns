@@ -256,6 +256,7 @@ local function build(result, done)
 	local function update_write_bounds(rural)
 		local boxes = {urban_bounds}
 		if summary.wall and summary.wall.attempted_bounds then boxes[#boxes + 1] = summary.wall.attempted_bounds end
+		if summary.roads and summary.roads.attempted_bounds then boxes[#boxes + 1] = summary.roads.attempted_bounds end
 		local margins = summary.margins
 		if margins then
 			if margins.attempted_bounds then boxes[#boxes + 1] = margins.attempted_bounds end
@@ -303,6 +304,10 @@ local function build(result, done)
 		if summary.wall and summary.wall.attempted_bounds then
 			extra.wall_bounds = summary.wall.attempted_bounds
 			combined[#combined + 1] = extra.wall_bounds
+		end
+		if summary.roads and summary.roads.attempted_bounds then
+			extra.road_bounds = summary.roads.attempted_bounds
+			combined[#combined + 1] = extra.road_bounds
 		end
 		extra.bounds = bounds_union(combined) or urban_bounds
 		finish(nil, reason, "write_failed", extra)
@@ -385,6 +390,75 @@ local function build(result, done)
 		end
 		local walls = towns.medieval_walls
 		local wall = result.wall
+		-- Unwalled towns (and Roman towns) grade their road exits down to natural
+		-- terrain before the outskirts search, reserving the ramps.
+		local roads = towns.town_roads
+		result.exits = result.exits or (roads and result.plan and roads.exits(result.plan)) or {}
+		if not wall and #result.exits > 0 then
+			local boxes = {}
+			for _, columns in ipairs(roads.crossings(result.exits)) do
+				boxes[#boxes + 1] = roads.approach_bounds(columns, result.ground_y)
+			end
+			local bounds = bounds_union(boxes)
+			local settled = false
+			local function graded_inner(success)
+				if settled or completed then return end
+				settled = true
+				if not success then
+					warning(summary, "road exit emerge failed or timed out")
+					start_outskirts(); return
+				end
+				local report = {attempted_bounds = bounds, graded = 0, failed = 0}
+				summary.roads = report
+				local read_ok, changes, failures, footprints, region = pcall(function()
+					local r = assert(env.open_region(bounds.min, bounds.max))
+					local c, f, fp = roads.grade(result.exits, result.ground_y, r, env.node_info,
+						function(pos) return core.is_protected(pos, "") end)
+					return c, f, fp, r
+				end)
+				if not read_ok then
+					warning(summary, "road exit inspection failed: " .. tostring(changes))
+					start_outskirts(); return
+				end
+				report.graded, report.failed = #footprints, #failures
+				for _, f in ipairs(failures) do
+					warning(summary, ("road exit at (%d,%d) left ungraded: %s%s"):format(
+						f.x, f.z, f.reason, blocker_text(f.blocker)))
+				end
+				local wrote, err = pcall(function()
+					for _, c in ipairs(changes) do region.set(c.x, c.y, c.z, c.name, c.param2) end
+					if #changes > 0 then region.commit() end
+				end)
+				if not wrote then
+					return fail_writer("road exit write failed: " .. tostring(err), nil,
+						{bounds = bounds, reason = "road_write"})
+				end
+				local meta_ok, meta_err = pcall(towns.medieval_walls.clear_metadata, core, changes)
+				if not meta_ok then warning(summary, "road exit metadata cleanup failed: " .. tostring(meta_err)) end
+				result.wall_feature_footprints = result.wall_feature_footprints or {}
+				for _, rect in ipairs(footprints) do
+					result.wall_feature_footprints[#result.wall_feature_footprints + 1] = rect
+				end
+				start_outskirts()
+			end
+			local function graded(success)
+				local ok, err = pcall(graded_inner, success)
+				if not ok and not completed then
+					if not summary.roads then summary.roads = {attempted_bounds = bounds, graded = 0, failed = 0} end
+					fail_writer("road exit callback failed: " .. tostring(err), nil,
+						{bounds = bounds, reason = "road_callback"})
+				end
+			end
+			local road_env = towns.site_search.core_env(core)
+			local started, emerge_err = pcall(road_env.emerge, bounds.min, bounds.max, graded)
+			if not started then warning(summary, "road exit emerge failed: " .. tostring(emerge_err)); graded(false)
+			elseif not settled then
+				-- `settled` makes a late emerge callback or a timer after completion a no-op.
+				local timer_ok = pcall(road_env.after, 30, function() graded(false) end)
+				if not timer_ok then graded(false) end
+			end
+			return
+		end
 		-- Wall columns inspect the actual post-margin terrain and independently
 		-- reject protected, obstructed, or unsupported stretches. A partial
 		-- boundary-smoothing result must not suppress the whole wall.
@@ -531,17 +605,17 @@ local function build(result, done)
 			remaining.placed_features = placed_candidates
 			remaining.road_openings = wall.openings
 			remaining.streets = result.plan.streets
-			local read_ok, changes, omissions, region = pcall(function()
+			local read_ok, changes, omissions, region, ramp_footprints = pcall(function()
 				local r = assert(env.open_region(bounds.min, bounds.max))
 				local is_protected = function(pos) return core.is_protected(pos, "") end
 				-- Openings left without a gatehouse/postern get the graded ramp.
-				local c, o, ramp_failures = walls.inspect_graded(remaining,
+				local c, o, ramp_failures, graded_footprints = walls.inspect_graded(remaining,
 					result.ground_y, r, env.node_info, is_protected)
 				for _, f in ipairs(ramp_failures) do
 					warning(summary, ("wall opening at (%d,%d) left ungraded: %s%s"):format(
 						f.x, f.z, f.reason, blocker_text(f.blocker)))
 				end
-				return c, o, r
+				return c, o, r, graded_footprints
 			end)
 			if not read_ok then
 				warning(summary, "wall inspection failed: " .. tostring(changes))
@@ -575,6 +649,10 @@ local function build(result, done)
 			end)
 			if not wrote then
 				return fail_writer("wall write failed: " .. tostring(err), nil, {bounds = bounds, reason = "wall_write"})
+			end
+			-- Graded bare openings keep their ramps reserved from outskirts terraforming.
+			for _, rect in ipairs(ramp_footprints or {}) do
+				result.wall_feature_footprints[#result.wall_feature_footprints + 1] = rect
 			end
 			-- VoxelManip writes bypass node destruction callbacks. Remove metadata
 			-- and timers only after the map write succeeds, so cleared chests and

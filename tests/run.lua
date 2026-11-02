@@ -460,6 +460,8 @@ run_group("tests/outskirts_assets_tests.lua", eq, geometry, catalog, placement,
 -- Rotated walls (#166): wall connections in the node name follow the rotation.
 run_group("tests/wall_rotation_tests.lua", eq, dofile("src/schematic.lua"))
 run_group("tests/medieval_walls_tests.lua", eq, dofile("src/planner.lua"), catalog)
+-- Outside-road exits shared by Roman and medieval towns (#357).
+run_group("tests/town_roads_tests.lua", eq, dofile("src/planner.lua"), catalog)
 run_group("tests/medieval_wall_assets_tests.lua", eq, catalog, geometry)
 run_group("tests/town_square_fountain_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
 run_group("tests/medieval_wall_features_tests.lua", eq)

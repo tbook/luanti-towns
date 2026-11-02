@@ -1,0 +1,69 @@
+-- Outside-road exits (issue #357, ticket T1): src/town_roads.lua. Loaded by
+-- tests/run.lua with the shared check helpers, the planner and the catalog:
+--   loadfile("tests/town_roads_tests.lua")(eq, planner, catalog)
+local eq, planner, catalog = ...
+local roads = dofile("src/town_roads.lua")
+local profile = assert(planner.landmark_profile(catalog.snapshot()))
+
+-- Each exit is the first column outside the boundary, with the boundary
+-- directly on its inner side.
+local function inside(rects, x, z)
+	for _, r in ipairs(rects) do
+		if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return true end
+	end
+	return false
+end
+
+local function widths(exits)
+	local out = {}
+	for _, columns in ipairs(roads.crossings(exits)) do out[#out + 1] = #columns end
+	table.sort(out)
+	return out
+end
+
+-- Unwalled-style medieval towns: six road crossings, two principal and four
+-- secondary (graded 4 and 2 wide), for 28 exit columns in all.
+for _, seed in ipairs({1, 101}) do
+	local plan = assert(planner.plan({x = 0, z = 0}, seed, {landmarks = profile}))
+	eq(plan.town_type, "medieval", "seed " .. seed .. " is a medieval plan")
+	local exits = roads.exits(plan)
+	eq(#exits, 28, "seed " .. seed .. " exit columns")
+	local crossings = roads.crossings(exits)
+	eq(#crossings, 6, "seed " .. seed .. " exits form six crossings")
+	local w = widths(exits)
+	eq(table.concat(w, ","), "2,2,2,2,4,4", "seed " .. seed .. " outside crossing widths")
+	local rects = plan.boundary.rects
+	for _, e in ipairs(exits) do
+		local label = "seed " .. seed .. " exit " .. e.x .. "," .. e.z
+		eq(inside(rects, e.x, e.z), false, label .. " lies outside the town")
+		eq(inside(rects, e.x - e.direction.x, e.z - e.direction.z), true,
+			label .. " is on the first column outside the town")
+	end
+end
+
+-- Roman plans (issue #385): each arch's street continues out as a four-wide
+-- exit strip, so the south, east and west arms give three crossings.
+do
+	local plan = assert(planner.plan({x = 0, z = 0}, 1, {town_type = "roman"}))
+	eq(plan.town_type, "roman", "Roman plan type")
+	local exits = roads.exits(plan)
+	eq(#exits, 12, "Roman exit columns")
+	eq(#roads.crossings(exits), 3, "Roman exits form three crossings")
+	eq(table.concat(widths(exits), ","), "4,4,4", "Roman crossing widths")
+	local dirs = {}
+	for _, e in ipairs(exits) do
+		dirs[e.direction.x .. "," .. e.direction.z] = true
+		eq(inside(plan.boundary.rects, e.x, e.z), false, "Roman exit " .. e.x .. "," .. e.z .. " lies outside the town")
+		eq(roads.street_at(plan, e.x - e.direction.x, e.z - e.direction.z, e.direction).exit, true,
+			"Roman exit " .. e.x .. "," .. e.z .. " opens onto an exit street")
+	end
+	eq(dirs["0,-1"] and dirs["1,0"] and dirs["-1,0"], true, "Roman exits face south, east and west")
+	eq(dirs["0,1"], nil, "no north exit")
+	-- The east exit is a 4x4 square; street_at ties go to the first street.
+	local east = roads.street_at(plan, 85, plan.center.z - 1, {x = 1, z = 0})
+	eq(east and east.name, "decumanus_east_exit", "east 4x4 exit street_at")
+end
+
+-- Missing boundary or streets yields an empty list rather than an error.
+eq(#roads.exits({streets = {}}), 0, "exits without a boundary is empty")
+eq(#roads.exits({boundary = {rects = {}}}), 0, "exits without streets is empty")

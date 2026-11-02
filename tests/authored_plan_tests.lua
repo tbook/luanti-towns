@@ -329,4 +329,52 @@ end
 fails(function() planner.plan({x = 0, z = 0}, 1, {town_type = "unknown"}) end,
 	"unknown town type", "planner rejects unknown explicit type")
 
+-- Landmark passages (issue #385). The fixture's temple spans x 5..13, z 0..8
+-- with its approach on the street at x 4. passage_plan adds a far-side strip
+-- at x 14..15 that is reachable only through a passage across the temple.
+local make_authored_plan = dofile("tests/authored_plan_fixture.lua")
+local function passage_plan(passage)
+	local p = make_authored_plan({x = 0, z = 0}, 1)
+	p.streets[2] = {kind = "secondary", material = "test:road", rect = {x1 = 14, z1 = 0, x2 = 15, z2 = 8}}
+	p.sites.temple.passage = passage
+	return p
+end
+local through = {x1 = 5, z1 = 4, x2 = 13, z2 = 4}
+
+-- (1) Malformed passages are rejected by the landmark check.
+for _, case in ipairs({
+	{"non-table passage", 42},
+	{"inverted passage", {x1 = 13, z1 = 4, x2 = 5, z2 = 4}},
+	{"passage outside the landmark", {x1 = 5, z1 = 4, x2 = 14, z2 = 4}},
+}) do
+	local ok, why = planner.validate(passage_plan(case[2]))
+	eq(ok, nil, case[1] .. " rejected")
+	eq(type(why) == "string" and why:find("invalid passage", 1, true) ~= nil, true, case[1] .. " reason")
+end
+
+-- (2) A valid passage joins the far-side strip to the street, so it validates.
+eq(planner.validate(passage_plan(through)), true, "passage lets the far-side strip connect")
+
+-- (3) The same plan without the passage leaves the strip disconnected.
+do
+	local ok, why = planner.validate(passage_plan(nil))
+	eq(ok, nil, "far-side strip without passage rejected")
+	eq(type(why) == "string" and why:find("disconnected section", 1, true) ~= nil, true,
+		"far-side strip without passage reason")
+end
+
+-- (4) Passage cells are walkable but not pavement. This passage is enclosed by
+-- the temple and touches no pavement, so the plan validates only if its cells
+-- are not treated as pavement that must be reached.
+do
+	local p = make_authored_plan({x = 0, z = 0}, 1)
+	p.sites.temple.passage = {x1 = 7, z1 = 2, x2 = 8, z2 = 3}
+	eq(planner.validate(p), true, "unreached passage cells are not pavement")
+	-- The same enclosed passage cannot connect the far-side strip either.
+	local ok, why = planner.validate(passage_plan({x1 = 7, z1 = 2, x2 = 8, z2 = 3}))
+	eq(ok, nil, "enclosed passage does not connect the far-side strip")
+	eq(type(why) == "string" and why:find("disconnected section", 1, true) ~= nil, true,
+		"enclosed passage reason")
+end
+
 return true

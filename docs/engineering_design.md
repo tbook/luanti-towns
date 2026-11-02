@@ -388,6 +388,19 @@ countryside.
 - Add a simple optional wall kit with straight sections, gatehouses where
   roads cross, and towers at selected corners or long runs. Skip a wall on a
   plan if the fit is poor; an unwalled town with good streets is preferable.
+- Outside roads (issues #357, #386): `src/town_roads.lua` finds each town's
+  road exits (`roads.exits(plan)`, the first column outside the boundary on
+  every street that meets an edge) and grades them with a cobblestone ramp down
+  to natural terrain. One width rule applies everywhere: 4 for principal
+  streets, 2 for secondary streets, centred on the street (the gate and postern
+  widths), whatever the street width inside the town. Walled towns grade bare
+  openings (those without a gatehouse or postern) after the wall stage; towns
+  without a wall (unwalled medieval, and Roman, which has three arch exit
+  strips) grade all exits in a stage between city margins and the outskirts
+  search. A crossing that cannot be graded (water, a building, a protected
+  node, terrain not met within 16 columns) is reported and left alone: the
+  street just ends at the boundary, with no flat stub. Unwalled graded ramps
+  are added to the outskirts reservation footprints.
 - Add a sparse fringe related to roads leaving the gates or town edge. Use a
   small set of rural structures and avoid spreading development everywhere.
 - Tune building mix, block interiors, lighting, pacing,
@@ -465,3 +478,6 @@ opened (`docs/roman_expansion_layout.md` sections 9 and 10), and extends
 selected through `/towns_generate roman [seed]`, which passes `town_type =
 "roman"` to the shared search and build (issue #151). Any other explicit type
 is rejected with a reason.
+Roman towns have no wall; their three arch exit streets (issue #385, four wide,
+principal) are graded to natural terrain by the shared outside-road stage
+described under "Defining silhouette and outskirts" (issue #386).

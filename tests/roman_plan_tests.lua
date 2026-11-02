@@ -99,13 +99,14 @@ for i = 1, #solids do
 		eq(overlap(r, solids[j].rect), false, solids[i].name .. " / " .. solids[j].name .. " disjoint")
 	end
 end
--- Streets: four principal arms, then the nine ring bands (issues #164, #202,
--- #353).
-eq(#plan.streets, 13, "four arms and nine ring bands")
+-- Streets: four principal arms, the nine ring bands (issues #164, #202,
+-- #353), then one exit strip beyond each arch (issue #385).
+eq(#plan.streets, 16, "four arms, nine ring bands and three arch exits")
 local arm_streets, ring_streets = {}, {}
 for i, st in ipairs(plan.streets) do
-	eq(st.kind, i <= 4 and "principal" or "secondary", st.name .. " kind")
-	if i <= 4 then arm_streets[st.arm] = st else ring_streets[st.ring] = st end
+	eq(st.kind, (i <= 4 or st.exit) and "principal" or "secondary", st.name .. " kind")
+	if st.exit then eq(i > 13, true, st.name .. " follows the ring bands")
+	elseif i <= 4 then arm_streets[st.arm] = st else ring_streets[st.ring] = st end
 end
 for _, st in ipairs(plan.streets) do
 	for _, s in ipairs(list) do
@@ -278,7 +279,7 @@ end
 -- Each street ends at its arch's near face with the opening on the centreline.
 local cx, cz = plan.center.x, plan.center.z
 local by_arm = {}
-for _, st in ipairs(plan.streets) do if st.arm then by_arm[st.arm] = st end end
+for _, st in ipairs(plan.streets) do if st.arm and not st.exit then by_arm[st.arm] = st end end
 for arm, st in pairs(by_arm) do
 	local arch = plan.sites[roman.layout.arms[arm].arch or ""]
 	if arch then
@@ -612,7 +613,7 @@ do
 	for _, st in ipairs(p.streets) do if st.ring then ring_of[st.ring] = st end end
 	for _, arm in ipairs({"north", "east"}) do
 		local st = nil
-		for _, s in ipairs(p.streets) do if s.arm == arm then st = s end end
+		for _, s in ipairs(p.streets) do if s.arm == arm and not s.exit then st = s end end
 		local lane, band = st.lane.rect, ring_of[arm].rect
 		-- along: the arm's axis, the band's thin axis; across: the other one.
 		local along = (arm == "north" or arm == "south") and "z" or "x"
@@ -1014,15 +1015,24 @@ for _, c in ipairs({{0, 0}, {777, -333}}) do for _, seed in ipairs({1, 2}) do
 	for _, name in ipairs(p.site_order) do
 		if p.sites[name].kind == "square" then pave(p.sites[name].rect) end
 	end
+	-- Arch through-passages are walkable but unpaved (issue #385).
+	local passage = {}
+	for _, name in ipairs(p.site_order) do
+		local r = p.sites[name].passage
+		if r then
+			for z = r.z1, r.z2 do for x = r.x1, r.x2 do passage[x .. "," .. z] = true end end
+		end
+	end
 	local seen, queue, n_seen = {}, {{p.sites.forum.approach.pos.x, p.sites.forum.approach.pos.z}}, 0
 	seen[queue[1][1] .. "," .. queue[1][2]] = true
 	local head = 1
 	while head <= #queue do
 		local x, z = queue[head][1], queue[head][2]
-		head = head + 1; n_seen = n_seen + 1
+		head = head + 1
+		if paved[x .. "," .. z] then n_seen = n_seen + 1 end
 		for _, d in ipairs({{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) do
 			local k = (x + d[1]) .. "," .. (z + d[2])
-			if paved[k] and not seen[k] then seen[k] = true; queue[#queue + 1] = {x + d[1], z + d[2]} end
+			if (paved[k] or passage[k]) and not seen[k] then seen[k] = true; queue[#queue + 1] = {x + d[1], z + d[2]} end
 		end
 	end
 	eq(n_seen, n_paved, "all pavement is one connected network" .. at)

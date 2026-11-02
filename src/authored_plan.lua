@@ -100,6 +100,11 @@ function M.validate(plan, opts)
 			if s.approach.pos.x ~= ax or s.approach.pos.z ~= az then
 				return bad("landmark " .. name .. " approach does not match its entrance")
 			end
+			-- An arch's through-passage (issue #385) is walkable but unpaved; it
+			-- joins the street to its exit during the reachability fill only.
+			if s.passage ~= nil and (not rect(s.passage) or not inside(s.passage, s.rect)) then
+				return bad("landmark " .. name .. " has an invalid passage")
+			end
 			landmarks[#landmarks + 1] = s
 		else return bad("site " .. name .. " has unknown kind") end
 		if s.kind == "square" then
@@ -237,11 +242,17 @@ function M.validate(plan, opts)
 	if not pavement[key(start.x, start.z)] then return bad("square approach is not paved") end
 	seen[key(start.x, start.z)] = true
 	local dirs = {{1,0},{-1,0},{0,1},{0,-1}}
+	local passage = {}
+	for _, s in ipairs(landmarks) do
+		if s.passage then
+			for z = s.passage.z1, s.passage.z2 do for x = s.passage.x1, s.passage.x2 do passage[key(x, z)] = true end end
+		end
+	end
 	local qi = 1
 	while qi <= #queue do
 		local p = queue[qi]; qi = qi + 1
 		for _, d in ipairs(dirs) do local x, z = p.x + d[1], p.z + d[2]; local k = key(x,z)
-			if pavement[k] and not seen[k] then seen[k] = true; queue[#queue + 1] = {x=x,z=z} end
+			if (pavement[k] or passage[k]) and not seen[k] then seen[k] = true; queue[#queue + 1] = {x=x,z=z} end
 		end
 	end
 	for _, s in ipairs(squares) do

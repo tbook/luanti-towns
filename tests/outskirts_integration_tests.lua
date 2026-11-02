@@ -865,4 +865,232 @@ do
 	towns.builder.core_env = previous_env
 end
 
+
+-- Unwalled medieval and Roman towns grade their road exits between margins
+-- and the outskirts search, and reserve the ramps for the outskirts layout.
+do
+	towns.town_roads = dofile("src/town_roads.lua")
+	towns.medieval_walls = dofile("src/medieval_walls.lua")
+	margin_mode, rural_search_mode = "success", "success"
+	local previous_env, previous_core_env = towns.builder.core_env, towns.site_search.core_env
+	local sets, emerged, search_footprints, solid
+	local emerge_mode, commit_mode, pending_emerge, timer = "ok", "ok", nil, nil
+	towns.site_search.core_env = function() return {
+		emerge = function(a, b, done)
+			emerged = {a, b}; stage_order[#stage_order + 1] = "road_emerge"
+			if emerge_mode == "throw" then error("emerge boom") end
+			if emerge_mode == "hang" then pending_emerge = done; return end
+			done(emerge_mode == "ok")
+		end,
+		after = function(_, f) timer = f end,
+	} end
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function()
+			stage_order[#stage_order + 1] = "road_read"
+			return {get = function(_, y) return y <= solid and "mcl_core:stone" or "air" end,
+				set = function(x, y, z, name) sets[#sets + 1] = {x = x, y = y, z = z, name = name} end,
+				commit = function()
+					if commit_mode == "throw" then error("commit boom") end
+					stage_order[#stage_order + 1] = "road_write"
+				end}
+		end
+		return env
+	end
+	local real_search = towns.outskirts.search
+	towns.outskirts.search = function(urban, opts, done)
+		search_footprints = opts.feature_footprints
+		return real_search(urban, opts, done)
+	end
+	local function fixture(town_type, streets)
+		return {plan = {seed = 9, town_type = town_type, bounds = urban_bounds,
+			boundary = {rects = {{x1 = 0, z1 = 0, x2 = 19, z2 = 19}}}, streets = streets},
+			ground_y = 10, build_bounds = result.build_bounds, build_volume = result.build_volume,
+			player_pos = result.player_pos, force_walls = false}
+	end
+	local function run(test_result)
+		sets, emerged, search_footprints, stage_order, solid = {}, nil, nil, {}, 10
+		local s, m
+		towns.populated.build(test_result, function(a, b) s, m = a, b end)
+		eq(s ~= nil, true, "unwalled road build succeeds: " .. tostring(m))
+		return s
+	end
+	-- Medieval: a six-wide principal street and a four-wide secondary street.
+	local medieval = fixture("medieval", {
+		{id = 1, kind = "principal", rect = {x1 = 0, z1 = 7, x2 = 19, z2 = 12}},
+		{id = 2, kind = "secondary", rect = {x1 = 8, z1 = 0, x2 = 11, z2 = 19}}})
+	local s = run(medieval)
+	eq(medieval.wall, nil, "unwalled medieval fixture has no wall")
+	eq(table.concat(stage_order, ","):find("^margin,road_emerge,road_read,road_write,rural_search") ~= nil, true,
+		"roads are graded between margins and outskirts: " .. table.concat(stage_order, ","))
+	eq(#medieval.exits, 20, "exits are recorded on the result")
+	eq(s.roads.graded, 4, "the four exit crossings are graded")
+	eq(s.roads.failed, 0, "no exit fails on flat ground")
+	local zs, xs = {}, {}
+	for _, c in ipairs(sets) do
+		if c.x >= 20 then zs[c.z] = true end
+		if c.z >= 20 then xs[c.x] = true end
+	end
+	eq(zs[7] == nil and zs[8] == true and zs[11] == true and zs[12] == nil, true,
+		"principal exit is graded four wide, centred")
+	eq(xs[8] == nil and xs[9] == true and xs[10] == true and xs[11] == nil, true,
+		"secondary exit is graded two wide, centred")
+	eq(#search_footprints, 4, "outskirts reserves each graded ramp")
+	eq(s.write_bounds.max.x >= 20 + towns.town_roads.RAMP_MAX - 1, true, "write envelope includes the road region")
+	eq(report_text(s, towns.generate):find("Outside roads: 4 of 4 road exits graded", 1, true) ~= nil, true,
+		"report mentions the graded roads")
+	-- A failed grade warns, writes nothing for that exit and leaves no stub.
+	local failing = fixture("medieval", {{id = 1, kind = "principal", rect = {x1 = 0, z1 = 7, x2 = 19, z2 = 12}}})
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function()
+			return {get = function(_, y) return y <= 10 and "mcl_core:stone" or y == 11 and "test:building" or "air" end,
+				set = function(x, y, z, name) sets[#sets + 1] = {x = x, y = y, z = z, name = name} end,
+				commit = function() end}
+		end
+		return env
+	end
+	defs["test:building"] = {walkable = true}
+	s = run(failing)
+	eq(s.roads.failed, 2, "both obstructed exits fail")
+	eq(#sets, 0, "failed exit leaves no stub")
+	eq(#search_footprints, 0, "failed exit reserves nothing")
+	local joined = table.concat(s.warnings or {}, "\n")
+	eq(joined:find("road exit at (20,", 1, true) ~= nil and joined:find("left ungraded", 1, true) ~= nil, true,
+		"failed exit is warned about")
+	-- Roman: three arch exits.
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function()
+			return {get = function(_, y) return y <= 10 and "mcl_core:stone" or "air" end,
+				set = function(x, y, z, name) sets[#sets + 1] = {x = x, y = y, z = z, name = name} end,
+				commit = function() end}
+		end
+		return env
+	end
+	local roman = fixture("roman", {
+		{id = 1, kind = "principal", exit = true, rect = {x1 = 0, z1 = 8, x2 = 19, z2 = 11}},
+		{id = 2, kind = "principal", exit = true, rect = {x1 = 8, z1 = 0, x2 = 11, z2 = 19}}})
+	s = run(roman)
+	eq(s.roads.graded, 4, "Roman exits are graded")
+	-- No boundary: nothing to grade and the outskirts still run.
+	local plain = fixture("medieval", {})
+	plain.plan.boundary = nil
+	s = run(plain)
+	eq(s.roads, nil, "a plan without a boundary has no road stage")
+	eq(table.concat(stage_order, ","), "margin,rural_search", "no road stage without exits")
+	-- Emerge and write failures: the build completes exactly once.
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function()
+			return {get = function(_, y) return y <= 10 and "mcl_core:stone" or "air" end,
+				set = function() end,
+				commit = function()
+					if commit_mode == "throw" then error("commit boom") end
+				end}
+		end
+		return env
+	end
+	local function once(label, expect_summary)
+		local done_calls, got, code, extra = 0
+		stage_order, timer, pending_emerge = {}, nil, nil
+		towns.populated.build(fixture("medieval", {{id = 1, kind = "principal",
+			rect = {x1 = 0, z1 = 7, x2 = 19, z2 = 12}}}),
+			function(a, _, c, e) done_calls, got, code, extra = done_calls + 1, a, c, e end)
+		return function() eq(done_calls, 1, label .. " completes exactly once")
+			eq(got ~= nil, expect_summary, label .. (expect_summary and " returns the town" or " reports a write failure"))
+			return got, code, extra end
+	end
+	emerge_mode = "fail"
+	local check = once("emerge failure", true)
+	local got = check()
+	eq(table.concat(stage_order, ","), "margin,road_emerge,rural_search", "emerge failure still runs the outskirts")
+	eq(table.concat(got.warnings or {}, "\n"):find("road exit emerge failed or timed out", 1, true) ~= nil, true,
+		"emerge failure is warned about")
+	emerge_mode = "throw"
+	check = once("emerge throw", true)
+	got = check()
+	eq(table.concat(got.warnings or {}, "\n"):find("emerge boom", 1, true) ~= nil, true, "emerge error is warned about")
+	emerge_mode = "hang"
+	check = once("emerge timeout", true)
+	eq(type(timer), "function", "a 30 second timeout is scheduled")
+	timer()
+	check()
+	pending_emerge(true) -- a late emerge callback is ignored
+	eq(select(2, table.concat(stage_order, ","):gsub("rural_search", "")), 1, "late emerge callback does not rerun the build")
+	timer() -- a late timer is ignored
+	emerge_mode = "hang"
+	check = once("emerge success before the timer", true)
+	pending_emerge(true)
+	check()
+	timer()
+	eq(select(2, table.concat(stage_order, ","):gsub("rural_search", "")), 1, "timer after success is ignored")
+	emerge_mode, commit_mode = "ok", "throw"
+	check = once("road write failure", false)
+	local _, code, extra = check()
+	eq(code, "write_failed", "road write failure is a write failure")
+	eq(extra.road_bounds ~= nil, true, "failure reports the road envelope")
+	commit_mode = "ok"
+	towns.builder.core_env, towns.site_search.core_env, towns.outskirts.search = previous_env, previous_core_env, real_search
+end
+
+-- Walled towns: a bare opening graded by the wall stage reserves its ramp from
+-- outskirts terraforming. A failed grade reserves nothing.
+do
+	local walls = dofile("src/medieval_walls.lua")
+	local features = dofile("src/medieval_wall_features.lua")
+	local previous_env, previous_core_env = towns.builder.core_env, towns.site_search.core_env
+	local previous_walls, previous_features = towns.medieval_walls, towns.medieval_wall_features
+	-- No towers or gatehouses: both principal openings stay bare.
+	features.candidates = function() return {} end
+	towns.medieval_walls, towns.medieval_wall_features = walls, features
+	towns.site_search.core_env = function() return {
+		emerge = function(_, _, done) done(true) end, after = function() end,
+	} end
+	local obstructed = false
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function()
+			return {get = function(_, y)
+				if obstructed and y == 11 then return "test:building" end
+				return y <= 10 and "mcl_core:stone" or "air"
+			end, set = function() end, commit = function() end}
+		end
+		return env
+	end
+	defs["test:building"] = {walkable = true}
+	local function fresh()
+		return {plan = {seed = 8, town_type = "medieval", bounds = urban_bounds,
+			boundary = {rects = {{x1 = 0, z1 = 0, x2 = 19, z2 = 19}}},
+			streets = {{id = 1, kind = "principal", rect = {x1 = 0, z1 = 7, x2 = 19, z2 = 12}}}},
+			ground_y = 10, build_bounds = result.build_bounds, build_volume = result.build_volume,
+			player_pos = result.player_pos, force_walls = true}
+	end
+	local function reserved(footprints, x, z)
+		for _, r in ipairs(footprints) do
+			if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return true end
+		end
+		return false
+	end
+	local graded_test = fresh()
+	local graded_summary, graded_error
+	towns.populated.build(graded_test, function(s, m) graded_summary, graded_error = s, m end)
+	eq(graded_summary ~= nil, true, "walled build with bare openings completes: " .. tostring(graded_error))
+	local footprints = graded_test.wall_feature_footprints or {}
+	eq(#footprints, 2, "each graded bare opening reserves one footprint")
+	eq(reserved(footprints, 21, 9) and reserved(footprints, -2, 9), true,
+		"graded bare openings are reserved from outskirts terraforming")
+	obstructed = true
+	local failed_test = fresh()
+	local failed_summary
+	towns.populated.build(failed_test, function(s) failed_summary = s end)
+	eq(failed_summary ~= nil, true, "walled build with obstructed openings completes")
+	eq(#(failed_test.wall_feature_footprints or {}), 0, "failed bare-opening grades reserve nothing")
+	eq(table.concat(failed_summary.warnings or {}, "\n"):find("left ungraded", 1, true) ~= nil, true,
+		"failed bare-opening grade is warned about")
+	obstructed = false
+	towns.builder.core_env, towns.site_search.core_env = previous_env, previous_core_env
+	towns.medieval_walls, towns.medieval_wall_features = previous_walls, previous_features
+end
+
 _G.core, _G.towns, _G.living_villages = nil, nil, nil
