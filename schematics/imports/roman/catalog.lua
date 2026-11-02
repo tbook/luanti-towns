@@ -48,7 +48,7 @@ local entries = {
 		entrance_kind = "door", ground_offset = 2,
 	},
 	temple_of_jupiter = {
-		size = {x = 20, y = 15, z = 26},
+		size = {x = 20, y = 15, z = 27},
 		entrance = {x = 9, y = 3, z = 8},
 		entrance_kind = "door", ground_offset = 1,
 	},
