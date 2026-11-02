@@ -21,33 +21,15 @@ For a typical ticket:
 
 ## Choosing a developer
 
-Prefer the `junior-developer` for work that is well specified, localized,
-and follows an existing pattern. Examples include:
-
-- Small bug fixes with a reasonably clear cause.
-- Localized UI or behavior changes.
-- Adding or adjusting tests around existing behavior.
-- Mechanical or repetitive changes.
-- Straightforward refactors with an obvious existing pattern.
-- Small changes whose likely implementation can be identified quickly.
+Prefer the `junior-developer` for most work.  Tickets should generally be targeted
+at the junior developer (haiku level agent.)
 
 Use the `senior-developer` when the work requires substantially more judgment
-or investigation. Examples include:
-
-- Ambiguous or difficult bugs.
-- Changes spanning multiple components or subsystems.
-- Concurrency, lifecycle, persistence, synchronization, or migration issues.
-- Work where the correct implementation approach is not obvious from nearby code.
-- Changes requiring careful reasoning about existing behavior or invariants.
-- Work escalated by the `junior-developer`.
+or investigation or when the junior developer is unable to handle it successfully. 
 
 Complexity and uncertainty matter more than expected diff size. A tiny but
 subtle change may belong with the senior developer, while a large mechanical
 change may be appropriate for the junior developer.
-
-When uncertain, it is reasonable to let the junior developer investigate a
-seemingly straightforward ticket first. The junior developer is expected to
-escalate rather than guess or struggle indefinitely.
 
 When a junior developer escalates:
 
@@ -58,13 +40,14 @@ When a junior developer escalates:
 4. Do not send the junior developer back repeatedly to solve a problem it has
    already identified as beyond its scope.
 
-Do not use the senior developer merely because a ticket is important. Use it
-when the implementation itself requires greater reasoning, investigation, or
-judgment.
-
 ## Product and architecture boundaries
 
-Do not turn ordinary implementation decisions into architecture exercises.
+We are building a fun mod for a video game.  The goal is to produce something
+that is good to play, not perfectly realistic or slavishly following specific
+requirements.  When building and designing, favor simplicity that produces an
+appropriate visual effect over precise following of requirements.  This includes
+using judgement when a change might simplify code or improve the game experience.
+Ask the human PM before making substantial deviations from requirements.
 
 Where tickets are overly vague or have important product questions, ask the
 human product manager for decisions before starting work.
