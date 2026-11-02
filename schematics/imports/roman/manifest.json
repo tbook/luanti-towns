@@ -788,8 +788,8 @@
         "y": 8,
         "z": 8
       },
-      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
-      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
+      "snapshot_sha256": "56f2d1cd687e4f7118d56310524a68029edffc55f79f43f0e8ea09c1530655f2",
+      "source_map_sha256": "10f6496d7b35276007dd0b731fe35f89fb359b6d1aaf74ef65fda27982d82320",
       "non_air_node_types": 18,
       "metadata_nodes": 1,
       "required_nodes": [
@@ -904,9 +904,9 @@
         "y": 15,
         "z": 27
       },
-      "snapshot_sha256": "e8dc93ef5dddb01839efb6419831b3fb4eb86a91fd9e643023ec165dde2f6ad8",
-      "source_map_sha256": "aec093f924bf17feac0dd0f6a5f39f230e7092c5352a4a3b859255a949fc38f0",
-      "non_air_node_types": 21,
+      "snapshot_sha256": "56f2d1cd687e4f7118d56310524a68029edffc55f79f43f0e8ea09c1530655f2",
+      "source_map_sha256": "10f6496d7b35276007dd0b731fe35f89fb359b6d1aaf74ef65fda27982d82320",
+      "non_air_node_types": 25,
       "metadata_nodes": 9,
       "required_nodes": [
         "mcl_chests:chest_small",
@@ -923,7 +923,11 @@
         "mcl_nether:quartz_block",
         "mcl_nether:quartz_chiseled",
         "mcl_nether:quartz_pillar",
-        "mcl_stairs:slab_copper_cut",
+        "mcl_nether:quartz_smooth",
+        "mcl_stairs:slab_copper_exposed_cut",
+        "mcl_stairs:slab_quartz_smooth",
+        "mcl_stairs:slab_quartz_smooth_top",
+        "mcl_stairs:slab_sprucewood_top",
         "mcl_stairs:slab_waxed_copper_cut",
         "mcl_stairs:slab_waxed_copper_cut_double",
         "mcl_stairs:slab_waxed_copper_cut_top",
@@ -1010,8 +1014,8 @@
         "y": 22,
         "z": 25
       },
-      "snapshot_sha256": "e8dc93ef5dddb01839efb6419831b3fb4eb86a91fd9e643023ec165dde2f6ad8",
-      "source_map_sha256": "aec093f924bf17feac0dd0f6a5f39f230e7092c5352a4a3b859255a949fc38f0",
+      "snapshot_sha256": "56f2d1cd687e4f7118d56310524a68029edffc55f79f43f0e8ea09c1530655f2",
+      "source_map_sha256": "10f6496d7b35276007dd0b731fe35f89fb359b6d1aaf74ef65fda27982d82320",
       "non_air_node_types": 71,
       "metadata_nodes": 50,
       "required_nodes": [
