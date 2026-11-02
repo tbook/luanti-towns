@@ -556,3 +556,25 @@ do
 		eq(r.summary, "Residents: 1 spawned, 1 skipped, 0 failed (1 already claimed)", "claimed line")
 	end
 end
+
+------------------------------------------------------------------------
+-- Templates (#374): the corner wall tower's two beds are valid resident beds
+-- when its schematic stands alone in the fake world (air above y=0, stone
+-- below it, as elsewhere in this file).
+------------------------------------------------------------------------
+do
+	local s = dofile("tests/mts_reader.lua")("schematics/templates/wall_tower.mts")
+	local W = new_world()
+	for y = 0, s.size.y - 1 do
+		for z = 0, s.size.z - 1 do
+			for x = 0, s.size.x - 1 do
+				local name, p2 = s.at(x, y, z)
+				W.set({x = x, y = y, z = z}, name, p2)
+			end
+		end
+	end
+	local r = residents.enumerate({box("wall_tower", 0, 0, 0, s.size.x - 1, s.size.y - 1, s.size.z - 1)}, W.env)
+	eq(r.count, 2, "wall tower: both template beds are resident beds: " .. reasons(r))
+	eq(r.by_color["mcl_beds:bed_brown"], 2, "wall tower: beds are brown")
+	eq(#r.skipped, 0, "wall tower: no skipped beds")
+end
