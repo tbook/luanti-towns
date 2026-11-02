@@ -371,10 +371,12 @@ village planning.
 - Share the existing populated build pipeline and a single command/automatic
   build lock. Persist only accepted towns, including interrupted builds.
 - Start with a frontier/freshness experiment. Survey acceptance rates, player
-  terrain-loading delays, resource use, and construction pauses before enabling
-  automatic construction. Verify stage bounds and generated-chunk recording.
-  Allow a rare generation pause of about five seconds and measure completion
-  before players reach the write envelope plus 16 nodes.
+  terrain-loading delays, resource use, and construction pauses. Record fresh
+  chunks from first contact at any height; activate inspection only at the
+  surface. Enable automatic construction once freshness, containment, and
+  village-coordination engine checks pass, then tune numerical targets in play.
+  A rare pause of about five seconds is a starting tuning value; log completion
+  time without special handling for players arriving after building starts.
 - Use exploration-only discovery in v1, provisionally targeting a town encounter
   within 30 minutes on at least half of representative walking routes. Provide
   a developer lookup for testing.

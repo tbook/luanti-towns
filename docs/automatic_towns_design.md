@@ -29,8 +29,8 @@ is for testing. Maps, directions, and new town layouts are outside this issue.
 First-touch sites replace overlapping village plans; they do not require a
 village opportunity. The provisional discovery target is at least half of
 ordinary walking routes encountering a town within 30 minutes. Review the other
-numerical targets against the engine experiment before creating implementation
-tickets.
+numerical targets during playtesting; they are starting values, not release
+gates.
 
 ## 2. Cheap site lookup
 
@@ -49,10 +49,10 @@ enlarge the cell or decline unsupported oversized plans if necessary. This
 separates sites even after mapchunk rounding and extra reads.
 
 A generation callback examines only its intersecting cells, a bounded arithmetic
-lookup, and starts a site when an eligible overworld surface chunk first touches
-the activation envelope. Underground-only and sky-only chunks do not trigger
-new sites, but still enter the freshness record for an active site. Ignore
-other dimensions and singlenode generation.
+lookup. First contact with a site's envelope at any height starts its freshness
+record; only an eligible overworld surface chunk touching the activation
+envelope starts inspection. Underground-only and sky-only chunks are recorded
+even before surface activation. Ignore other dimensions and singlenode generation.
 
 Request the center surface chunk first. Copy its valid heightmap values within
 the urban footprint during generation and use their median as the reference
@@ -90,15 +90,14 @@ once, then build or decline.
 Reuse `towns.populated.build` for urban terrain, margins, walls, outside roads,
 outskirts, node setup, and residents. Outskirts already accepts a nil player
 position and can omit unsuitable plots. Keep a shared lock with command
-generation, allowing one job at a time. If busy on a site's first touch, mark
+generation, allowing one job at a time. If busy when a site would activate, mark
 that site declined for this session; do not queue a town to appear later.
 Do not start nested jobs from terrain generated for an active job.
 
 Before loading and immediately before first town writes, require every online
-player to be outside the write envelope plus 16 horizontal nodes. Record the
-clearance and elapsed approach time: first-touch makes early completion possible,
-but does not guarantee it. Spawn, teleport, fast travel, and simultaneous
-exploration can still cause rejection.
+player to be outside the write envelope plus 16 horizontal nodes. Spawn,
+teleport, fast travel, and simultaneous exploration can still cause rejection.
+Once building starts, a player arriving later needs no special handling.
 
 Site identity and layout are deterministic. Acceptance can depend on load,
 existing structures, freshness, and player arrival. Do not promise identical
@@ -165,19 +164,22 @@ visible smoothing radius bounds tree cleanup or support writes. Whichever
 change merges second, #355 or #357, must update this calculation and its tests.
 
 Use the existing first-touch generation callback to record exact generated
-mapchunk bounds in a small in-memory set per active site. Record the activating
-chunk immediately, and every later chunk intersecting the site's maximum
-read/write envelope, regardless of whether exploration, Towns, or another
-request generated it. Record sky and underground chunks before applying the
-surface-only filter for new site activation. Do not mark overgenerated padding
-outside the callback's actual generated bounds as fresh.
+mapchunk bounds in a small in-memory set per contacted site. Start the set on
+first contact with its envelope at any height, before applying the surface-only
+activation filter. Record that chunk and every later chunk intersecting the
+site's maximum read/write envelope, regardless of whether exploration, Towns,
+or another request generated it. Sky and underground chunks generated before
+surface activation remain recorded. Recording alone does not reserve the site,
+load terrain, or start inspection. Discard the set when the site finishes or is
+declined. Do not mark overgenerated padding outside the callback's actual
+generated bounds as fresh.
 
 After each bounded load, require the covered possible-write chunks to be present
 in that set. Read-only chunks do not authorize writes outside the approved bound.
 A `FROM_MEMORY`/`FROM_DISK` action alone proves neither freshness nor age: player
 exploration may have just generated the chunk and the callback record supplies
-the evidence. Old terrain and chunks generated before this operation have no
-record and reject the site. Restart discards the sets, so earlier terrain cannot
+the evidence. Chunks predating first recorded contact have no record and reject
+the site. Restart discards the sets, so earlier terrain cannot
 be authorized by a new session. `EMERGE_CANCELLED` still requires proof that
 terrain is available and recorded; if that cannot be established, decline
 without retry. Errors decline.
@@ -231,7 +233,7 @@ not a release target. Measure both the work and the delay introduced by yielding
 Yield timing must not change site identity or terrain acceptance.
 
 The main risks are CPU pauses, memory growth, emerge-queue contention that
-stalls player terrain, and a player reaching the site before completion.
+stalls player terrain, and losing player clearance before the first write.
 Measure each separately. A rare pause of a few seconds is acceptable; use about
 5 seconds as the provisional maximum single pause. Synchronous build stages run
 on the server's main thread, so distance from the town does not shorten that pause.
@@ -278,7 +280,9 @@ fresh world or well-separated area. Label terrain generated by the survey,
 ordinary exploration, and other structures separately so the survey does not
 quietly count its own extra generation as natural rejection.
 
-Provisional v1 acceptance targets, subject to product review and survey evidence:
+Starting values for playtest tuning, not numerical release gates. Enable natural
+generation once the freshness, containment, and village-coordination engine
+checks pass, then tune these numbers in play:
 
 | Measure | Starting target |
 | --- | --- |
@@ -286,7 +290,6 @@ Provisional v1 acceptance targets, subject to product review and survey evidence
 | Discovery through exploration | At least half of representative ordinary walking routes encounter a town within 30 minutes |
 | Player terrain loading | Added p95 request-to-ready delay <=1 second versus the matched baseline; report worst stalls too |
 | Main-thread pause | A rare generation pause of about 5 seconds at most; measure the longest single pause across all stages |
-| Time from first touch to ready town | Finish before a player reaches the write envelope plus 16 horizontal nodes; measure clearance rejections and deadline misses |
 
 For discovery, count entering within 128 horizontal nodes of the urban footprint
 as an encounter proxy; validate actual visibility and access in playtests.
@@ -300,17 +303,10 @@ discovery and the basic rarity requirement still conflict, bring the measured
 tradeoff back for review rather than silently dropping either. Never relax
 freshness or terrain rules to manufacture the target.
 
-Measure elapsed completion time relative to player trajectories. Decline if a
-player breaches clearance before first writes. If a player arrives after
-construction has begun, record the deadline
-miss; do not claim that the initial clearance check prevents it or roll back a
-partly built town. Such misses must inform the release decision. Count entire
-jobs that lose clearance as failures in the encounter survey.
-
 Record declined sites by reason, actual successful villages, villages suppressed
 during unsuccessful inspections, total generated chunks, peak snapshot size,
 batch pauses, longest single pipeline pause, full inspection/build time,
-player approach/clearance, and player terrain request latency.
+pre-build clearance rejections, and player terrain request latency.
 Include defaults and busy-server/multiplayer trials. Instrument request-to-ready
 latency directly; time to the next generated chunk is only a proxy if demand is
 known. Visual checks cover plains, hills, forests, and water edges.
@@ -320,9 +316,10 @@ vertical boundaries, pending villages, outside roads, tree cleanup, concurrent
 emergence, cancellation/late callbacks, player approach, and shutdown before/
 after first writes. Pure tests cover seed/cell lookup, one-candidate limits,
 fresh-chunk recording, village bounds/activation halo, reservations, and records.
-Include exploration generating chunks during the staged requests, and villages
-whose planning emerges into the site. Passing unit tests alone does not establish
-first-touch viability or acceptable loading.
+Include sky/underground generation before surface activation, exploration
+generating chunks during staged requests, and villages whose planning emerges
+into the site. Passing unit tests alone does not establish first-touch viability;
+loading performance is measured and tuned in play.
 
 ## 9. Implementation slices after review
 
@@ -336,12 +333,14 @@ first-touch viability or acceptable loading.
 2. **Village coordination and lifecycle:** guarded planner wrapper, shared lock,
    temporary reservations, accepted records, and developer lookup.
 3. **Construction integration:** reuse the populated pipeline, include #357
-   roads, verify containment, measure the longest single pause and completion
-   versus player arrival, then enable natural generation only when the release
-   targets are met. No advance build-splitting work is required.
+   roads, and enable natural generation once the freshness, containment, and
+   village-coordination engine checks pass. Measure the longest single pause
+   and overall completion time, then tune numerical targets in play. No advance
+   build-splitting work is required.
 
-Keep #355 as the player-facing parent. Create child tickets after design review
-and slice 0's evidence settle the architecture. This PR does not create them.
+Keep #355 as the player-facing parent. After design review, create the slice 0
+ticket first; use its evidence to scope the remaining implementation tickets.
+This PR does not create them.
 
 ## References
 
