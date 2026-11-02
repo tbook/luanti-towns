@@ -47,7 +47,7 @@ the same round-robin centres. A narrower run takes a seed list as usual:
 What a Roman run shows, in `seed_N.svg` and `seed_N.txt`: the forum square
 (`Q`, labelled `forum`), every landmark instance (`L`, labelled by its unique
 site name, such as `temple_east`, `temple_west`, `domus_1`, `domus_3`, `domus_4`,
-`basilica`, the four arches, `amphitheater`, `theatre`, `bath`), the streets
+`basilica`, the three arches, `temple_of_jupiter` with its `jupiter_forecourt`, `amphitheater`, `theatre`, `bath`), the streets
 and ring, ordinary buildings, the tavern, well and jail. The ASCII header lists
 each site instance with its kind, catalog id and extent. Medieval-only classes
 (market, parvis, cathedral, castle, city hall, chapel, approach window) are not

@@ -30,7 +30,7 @@ local plan = plan_at(100, -50, 7)
 eq(plan.town_type, "roman", "Roman plan carries its town type")
 eq(planner.validate(plan), true, "selected Roman plan passes authored validation")
 
--- Exact monument census: 17 placements from nine templates (vespasianum, #218).
+-- Exact monument census: 17 placements from ten templates (vespasianum, #218).
 local list = landmarks(plan)
 eq(#list, 17, "17 monument placements")
 local counts, names, n = {}, {}, 0
@@ -40,13 +40,13 @@ for _, s in ipairs(list) do
 	names[s.name] = true
 	eq(plan.sites[s.name], s, s.name .. " is keyed by its own name")
 end
-for id, want in pairs({arch = 4, temple = 2, domus = 3, basilica = 1, theatre = 1, amphitheater = 1, bath = 1, insula = 3, vespasianum = 1}) do
+for id, want in pairs({arch = 3, temple_of_jupiter = 1, temple = 2, domus = 3, basilica = 1, theatre = 1, amphitheater = 1, bath = 1, insula = 3, vespasianum = 1}) do
 	eq(counts[id], want, id .. " count")
 	n = n + 1
 end
 eq(counts.villa, nil, "villa remains absent from the Roman authored plan")
-eq(n, 9, "nine templates")
-eq(#plan.site_order, 18, "forum plus 17 monuments in site order")
+eq(n, 10, "ten templates")
+eq(#plan.site_order, 19, "forum, forecourt and 17 monuments in site order")
 
 -- Vespasianum (#218): one latrine at the far end of the east arm's north
 -- frontage. Its -X opening turns to -z (rotation 270), toward the decumanus,
@@ -86,9 +86,14 @@ local solids = {}
 for _, name in ipairs(plan.site_order) do solids[#solids + 1] = plan.sites[name] end
 for i = 1, #solids do
 	local r = solids[i].rect
-	local b = plan.boundary.rects[1]
-	eq(r.x1 >= b.x1 and r.z1 >= b.z1 and r.x2 <= b.x2 and r.z2 <= b.z2, true,
-		solids[i].name .. " inside the construction boundary")
+	local inside, inside_main = false, false
+	for k, b in ipairs(plan.boundary.rects) do
+		local ok = r.x1 >= b.x1 and r.z1 >= b.z1 and r.x2 <= b.x2 and r.z2 <= b.z2
+		inside = inside or ok
+		if k == 1 then inside_main = ok end
+	end
+	eq(inside, true, solids[i].name .. " inside the construction boundary")
+	eq(inside_main, not solids[i].terminal, solids[i].name .. " in the main rectangle unless terminal")
 	for j = i + 1, #solids do
 		eq(overlap(r, solids[j].rect), false, solids[i].name .. " / " .. solids[j].name .. " disjoint")
 	end
@@ -216,10 +221,11 @@ eq(plan.sites.domus_4.arm, "west", "domus_4 on the west arm")
 -- The amphitheater stands in the north-east, beyond the ring's east band.
 local amph = plan.sites.amphitheater.rect
 eq(amph.x1 > R.e.x2 and amph.z1 > cz0, true, "amphitheater is in the north-east outside the ring")
--- Arms are 59 nodes from the forum edge to the arch's near face.
+-- Arms are 59 nodes from the forum edge to the arch's near face; the north
+-- arm ends 57 nodes out at its forecourt (#351).
 for arm, st in pairs(arm_streets) do
 	local r = st.rect
-	eq(math.max(r.x2 - r.x1 + 1, r.z2 - r.z1 + 1), 59, arm .. " arm is 59 nodes long")
+	eq(math.max(r.x2 - r.x1 + 1, r.z2 - r.z1 + 1), arm == "north" and 57 or 59, arm .. " arm length")
 end
 
 -- Pavement: every approach node is paved and connected to the forum.
@@ -228,6 +234,7 @@ local function pave(r)
 	for z = r.z1, r.z2 do for x = r.x1, r.x2 do paved[x .. "," .. z] = true end end
 end
 pave(plan.sites.forum.rect)
+pave(plan.sites.jupiter_forecourt.rect)
 for _, st in ipairs(plan.streets) do pave(st.rect) end
 local seen, queue = {}, {{plan.sites.forum.approach.pos.x, plan.sites.forum.approach.pos.z}}
 seen[queue[1][1] .. "," .. queue[1][2]] = true
@@ -251,18 +258,20 @@ local cx, cz = plan.center.x, plan.center.z
 local by_arm = {}
 for _, st in ipairs(plan.streets) do if st.arm then by_arm[st.arm] = st end end
 for arm, st in pairs(by_arm) do
-	local arch = plan.sites[roman.layout.arms[arm].arch]
-	local a = arch.approach.pos
-	eq(st.rect.x1 <= a.x and a.x <= st.rect.x2 and st.rect.z1 <= a.z and a.z <= st.rect.z2, true,
-		arm .. " arch approach lies on its street")
-	local step = ({north = {0, 1}, south = {0, -1}, east = {1, 0}, west = {-1, 0}})[arm]
-	eq(paved[(a.x + step[1]) .. "," .. (a.z + step[2])], nil, arm .. " street stops at the arch")
-	eq(arch.facing.x, -step[1], arm .. " arch faces the forum x")
-	eq(arch.facing.z, -step[2], arm .. " arch faces the forum z")
-	local lateral = step[1] == 0 and a.x - cx or a.z - cz
-	eq(lateral == -1 or lateral == 0, true, arm .. " arch opening sits mid-street")
-	local entry = dofile("src/catalog.lua").entries.arch
-	eq(arch.size.x * arch.size.z, entry.size.x * entry.size.z, arm .. " arch uses the full catalog box")
+	local arch = plan.sites[roman.layout.arms[arm].arch or ""]
+	if arch then
+		local a = arch.approach.pos
+		eq(st.rect.x1 <= a.x and a.x <= st.rect.x2 and st.rect.z1 <= a.z and a.z <= st.rect.z2, true,
+			arm .. " arch approach lies on its street")
+		local step = ({north = {0, 1}, south = {0, -1}, east = {1, 0}, west = {-1, 0}})[arm]
+		eq(paved[(a.x + step[1]) .. "," .. (a.z + step[2])], nil, arm .. " street stops at the arch")
+		eq(arch.facing.x, -step[1], arm .. " arch faces the forum x")
+		eq(arch.facing.z, -step[2], arm .. " arch faces the forum z")
+		local lateral = step[1] == 0 and a.x - cx or a.z - cz
+		eq(lateral == -1 or lateral == 0, true, arm .. " arch opening sits mid-street")
+		local entry = dofile("src/catalog.lua").entries.arch
+		eq(arch.size.x * arch.size.z, entry.size.x * entry.size.z, arm .. " arch uses the full catalog box")
+	end
 end
 
 -- Doors face their streets, including the recessed bath and basilica doors.
@@ -311,8 +320,10 @@ for _, arm in ipairs({"north", "south", "east", "west"}) do
 		eq(overlap(lane.rect, s.rect), false, arm .. " lane stays off " .. s.name)
 	end
 	eq(lane.rect[across .. "2"] - lane.rect[across .. "1"] + 1, 4, arm .. " lane is four nodes across")
-	local ap = plan.sites[roman.layout.arms[arm].arch].approach.pos
-	eq(overlap(lane.rect, {x1 = ap.x, z1 = ap.z, x2 = ap.x, z2 = ap.z}), false, arm .. " arch approach is not laned")
+	local end_site = plan.sites[roman.layout.arms[arm].arch or "jupiter_forecourt"]
+	local ap = end_site.approach.pos
+	eq(overlap(lane.rect, {x1 = ap.x, z1 = ap.z, x2 = ap.x, z2 = ap.z}), false,
+		arm .. " end approach is not laned")
 end
 for _, st in ipairs(plan.streets) do
 	if st.kind == "secondary" then eq(st.lane, nil, st.name .. " (ring) has no lane") end
@@ -375,8 +386,8 @@ for i, f in ipairs(plan.frontage) do
 			"frontage " .. i .. " is on the block edge")
 	end end
 	if f.square then
-		eq(f.square, "forum", "square frontage names the forum")
-		forum_runs = forum_runs + 1
+		eq(f.square == "forum" or f.square == "jupiter_forecourt", true, "square frontage names the forum or forecourt")
+		if f.square == "forum" then forum_runs = forum_runs + 1 end
 	else
 		local st = plan.streets[f.street]
 		if st.arm then arms_faced[st.arm] = true else ring_faced[st.ring] = true end
@@ -628,7 +639,8 @@ do
 		end
 		if edit then edit(specs) end
 		local l = copy(roman.layout)
-		l.blocks, l.landmarks = {}, specs
+		l.blocks, l.landmarks, l.main_rect = {}, specs, nil -- derived boundary: the fixture rings may leave main_rect
+		l.arms.north = {street = "cardo_north", length = 59, profile = "lane", arch = "arch_north", arch_rotation = 0}
 		l.bands = {
 			{name = "north", arm = "north", from = 40, to = 45, span = {-54, 54}},
 			{name = "south", arm = "south", from = 40, to = 45, span = {-54, 54}},
@@ -728,22 +740,30 @@ do
 		end
 	end
 
-	-- No monument overlaps an arch: the north and south arches stand clear.
+	-- No monument overlaps the southern arch or Jupiter (the northern arch is gone).
+	eq(plan.sites.arch_north, nil, "no northern arch")
 	for _, s in ipairs(list) do
 		if s.id ~= "arch" then
-			for _, arch in ipairs({"arch_north", "arch_south"}) do
-				eq(overlap(s.rect, plan.sites[arch].rect), false, s.name .. " clear of " .. arch)
+			for _, other in ipairs({"arch_south", "temple_of_jupiter"}) do
+				if s.name ~= other then
+					eq(overlap(s.rect, plan.sites[other].rect), false, s.name .. " clear of " .. other)
+				end
 			end
 		end
 	end
 
-	-- Boundary: 181 by 172 nodes.
+	-- Boundary (#351): the 181 by 173 main rectangle plus Jupiter's compound.
 	local b = plan.boundary.rects[1]
-	eq(b.x2 - b.x1 + 1, 181, "construction boundary is 181 nodes across")
-	eq(b.z2 - b.z1 + 1, 172, "construction boundary is 172 nodes deep")
-	-- Site-search reach: 320 + (edge - REACH_EDGE 48) = 367, so the edge is 95.
+	eq(b.x2 - b.x1 + 1, 181, "main rectangle is 181 nodes across")
+	eq(b.z2 - b.z1 + 1, 173, "main rectangle is 173 nodes deep")
+	eq(#plan.boundary.rects, 2, "main rectangle and one compound")
+	local k = plan.boundary.rects[2]
+	eq(k.x2 - k.x1 + 1, 28, "compound is 28 nodes across")
+	eq(k.z2 - k.z1 + 1, 31, "compound is 31 nodes deep")
+	-- Site-search reach: 320 + (edge - REACH_EDGE 48) = 382, so the edge is 110.
 	local c = plan.center
-	eq(math.max(c.x - b.x1, b.x2 - c.x, c.z - b.z1, b.z2 - c.z), 95, "boundary edge is 95 from the centre (reach 367)")
+	local pb = plan.bounds
+	eq(math.max(c.x - pb.x1, pb.x2 - c.x, c.z - pb.z1, pb.z2 - c.z), 110, "bounds edge is 110 from the centre (reach 382)")
 
 	-- Literal rects at the origin (seed 1): a one-node slip in any of these fails.
 	local origin = assert(planner.plan({x = 0, z = 0}, 1, {town_type = "roman"}))
@@ -753,6 +773,7 @@ do
 		{"amphitheater", 44, 3, 72, 31}, {"vespasianum_east", 30, 3, 37, 12},
 		{"insula_north_east", 3, 39, 37, 65}, {"insula_north_west", -38, 39, -4, 65},
 		{"insula_south", 3, -74, 37, -48},
+		{"jupiter_forecourt", -10, 72, 9, 79}, {"temple_of_jupiter", -10, 80, 9, 106},
 	}
 	local function rect_pin(r, pin, label)
 		eq(r.x1, pin[2], label .. " x1")
@@ -768,7 +789,7 @@ do
 		{"south_east_inner", 3, -41, 11, -16}, {"west_forum_south", -25, -12, -16, -4},
 		{"west_end_south", -74, -12, -47, -4}, {"west_forum_north", -38, 3, -16, 11},
 		{"west_end_north", -74, 3, -67, 11}, {"ring_north_inner_east", 15, 24, 37, 32},
-		{"outer_north_east", 6, 72, 43, 80}, {"outer_north_west", -44, 72, -7, 80},
+		{"outer_north_east", 10, 72, 43, 80}, {"outer_north_west", -44, 72, -11, 80},
 		{"ring_west_outer_north", -53, 42, -45, 71}, {"ring_east_outer_south", 44, -80, 52, -42},
 	}
 	eq(#origin.blocks, #block_pins, "block count matches the authored list")
@@ -786,5 +807,70 @@ do
 			eq(p ~= nil and planner.validate(p) == true, true,
 				("seed %d at (%d,%d) validates"):format(seed, c[1], c[2]))
 		end
+	end
+end
+
+-- Terminal landmark (issue #351): Jupiter ends the north arm behind a cobble
+-- forecourt and projects out of the main rectangle in its own compound.
+for _, c in ipairs({{0, 0}, {777, -333}, {-4200, 3100}}) do
+	local p = plan_at(c[1], c[2], 1)
+	local cx, cz = c[1], c[2]
+	local function pin(r, x1, z1, x2, z2, label)
+		eq(r.x1 == cx + x1 and r.z1 == cz + z1 and r.x2 == cx + x2 and r.z2 == cz + z2, true,
+			label .. " at centre " .. cx .. "," .. cz)
+	end
+	local fore, jup, street = p.sites.jupiter_forecourt, p.sites.temple_of_jupiter, p.streets[1]
+	eq(p.sites.arch_north, nil, "no northern arch")
+	eq(jup.terminal, true, "Jupiter is the terminal landmark")
+	eq(jup.rotation, 0, "Jupiter rotation")
+	eq(fore.kind, "square", "the forecourt is a square")
+	eq(fore.material, "mcl_core:cobble", "the forecourt is cobble")
+	pin(fore.rect, -10, 72, 9, 79, "forecourt")
+	pin(jup.rect, -10, 80, 9, 106, "Jupiter")
+	pin(street.rect, -3, 15, 2, 71, "cardo_north")
+	eq(fore.approach.pos.x == cx - 1 and fore.approach.pos.z == cz + 72, true, "forecourt approach")
+	eq(jup.approach.pos.x == cx - 1 and jup.approach.pos.z == cz + 79, true, "Jupiter approach is on the forecourt")
+	eq(jup.entrance.x == cx - 1 and jup.entrance.z == cz + 88, true, "Jupiter entrance")
+	eq(jup.facing.x == 0 and jup.facing.z == -1, true, "Jupiter faces the forum")
+	-- The street ends where the forecourt starts, and the forecourt abuts Jupiter.
+	eq(street.rect.z2 + 1, fore.rect.z1, "street meets the forecourt")
+	eq(fore.rect.z2 + 1, jup.rect.z1, "forecourt meets Jupiter")
+	-- Pavement: forum -> cardo -> forecourt -> Jupiter's approach, node by node.
+	local paved = {}
+	for _, r in ipairs({p.sites.forum.rect, street.rect, fore.rect}) do
+		for z = r.z1, r.z2 do for x = r.x1, r.x2 do paved[x .. "," .. z] = true end end
+	end
+	for z = cz, jup.approach.pos.z do
+		eq(paved[(cx - 1) .. "," .. z], true, "pavement along the axis at z " .. (z - cz))
+	end
+	-- Boundary: main rectangle plus the compound, bounds their enclosure.
+	eq(#p.boundary.rects, 2, "main rectangle plus one compound")
+	pin(p.boundary.rects[1], -95, -87, 85, 85, "main rectangle")
+	pin(p.boundary.rects[2], -14, 80, 13, 110, "Jupiter compound")
+	pin(p.bounds, -95, -87, 85, 110, "bounds")
+	local m = p.boundary.rects
+	local function member(x, z)
+		for _, r in ipairs(m) do
+			if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return true end
+		end
+		return false
+	end
+	eq(member(cx + 13, cz + 110), true, "compound corner is in the boundary")
+	eq(member(cx - 14, cz + 100), true, "compound west apron is in the boundary")
+	eq(member(cx - 15, cz + 100), false, "north of the main rectangle beside the compound is outside")
+	eq(member(cx + 14, cz + 90), false, "east of the compound is outside")
+	eq(member(cx + 60, cz + 100), false, "the north-east corner of the bounds is not graded")
+end
+do
+	-- A site other than a terminal landmark may not leave the main rectangle.
+	local l = copy(roman.layout)
+	l.main_rect.z2 = 70
+	local p, why = roman.plan({x = 0, z = 0}, 1, l, row_depth)
+	eq(p, nil, "a layout leaving its main rectangle is rejected")
+	eq(tostring(why):find("main rectangle", 1, true) ~= nil, true, "the reason names the main rectangle")
+	-- Other arms keep their arches.
+	local q = plan_at(0, 0, 1)
+	for _, name in ipairs({"arch_south", "arch_east", "arch_west"}) do
+		eq(q.sites[name] ~= nil and q.sites[name].id == "arch", true, name .. " remains")
 	end
 end
