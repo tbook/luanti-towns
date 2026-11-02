@@ -37,6 +37,10 @@ def main():
     parser.add_argument('--validate', action='store_true', help='Also check runtime placement, entrances and inventories at all four rotations')
     args = parser.parse_args()
     source = args.world.resolve()
+    opened = subprocess.run(['lsof', '-F', 'n', str(source / 'map.sqlite')], capture_output=True, text=True)
+    # lsof exits 1 with no output when nothing has the file open (same check as export_roman.py).
+    if opened.returncode != 1 or opened.stdout:
+        raise SystemExit(source.name + ' is open; return to the menu before exporting.')
     work = Path(tempfile.mkdtemp(prefix='towns-workshop-export-'))
     for name in ('world.mt', 'map_meta.txt'):
         shutil.copy2(source / name, work / name)

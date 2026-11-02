@@ -101,6 +101,61 @@ The exporter reads the selected world from a consistent, read-only snapshot.
 It never overwrites workshop edits. The templates are registered for the
 building catalog and placed by the town generator.
 
+## Reimport workflow (all TownsWorkshop buildings)
+
+`tools/reimport.py` is the one entry point for re-importing buildings you edited
+in TownsWorkshop. It orchestrates the exporters below (template path
+`workshop_export/export.py`, Roman path `issue139_import/export_roman.py`,
+outskirts path `issue196_import/export.py`) and picks the right one per id, so
+you do not need to remember which is which. Close the game and return to the
+menu first so your edits are saved; the tool refuses to run on an open world.
+
+```sh
+python3 tools/reimport.py                       # compare: what changed? (repo untouched)
+python3 tools/reimport.py compare --json /tmp/report.json
+python3 tools/reimport.py apply --ids chapel,hippodrome
+python3 tools/reimport.py apply --all-changed
+lua5.1 tests/run.lua                            # then review the repo diff
+```
+
+Reading `compare` (about 15 s; it exports into a scratch copy of `tools/` and
+`schematics/` and discards it, so nothing is written to the repo):
+
+- `UNCHANGED`: the re-export is node-for-node and sidecar-identical.
+- `CHANGED`: node names, param2, metadata/inventories or other manifest fields
+  differ; the node diff is listed by `old -> new` name with counts. After a size
+  change only per-name count deltas are shown.
+- `GEOMETRY`: size, entrance, ground offset, entrance kind or rotation moved
+  (old -> new shown). Test pins and hand-maintained catalogs need attention.
+- `FAILS`: the exporter rejected the building (for example a structure reaching
+  its survey edge or "extends beyond fixed capture"); the reason is shown.
+- "Possible clipped architecture": non-natural nodes above ground level that
+  touch a fixed capture box from outside, i.e. something may have grown past the
+  box (change `capture_min/max` or `FIXED_BOXES`). Everything at or below ground
+  level (platform gravel, paving, terrain), natural terrain and plants, other
+  registered buildings' boxes and structures separated by a gap are filtered
+  out. The wall tower/gatehouse/postern assets (`clip_to_capture`) always show
+  their wall arms leaving the box; they are listed separately as expected.
+  Auto-captured template buildings (no fixed box) are not scanned: the exporter
+  itself fails if they reach the survey edge.
+
+`apply` re-exports exactly the ids you name (or all changed ones) with the
+exporters' own `--only` paths against the real workshop, then fails unless only
+those ids' `.mts`/`.lua` files and manifest records changed (plus the generated
+template `catalog.lua`), the manifest provenance still names the real workshop,
+and nothing outside `schematics/` changed. Template ids are re-validated at all
+rotations (`--no-validate` skips it); Roman changes run `tools/roman_check/run.py`.
+It prints the tests and catalogs that likely pin a size/entrance that moved but
+never edits them. If the gate fails, discard the partial result by checking out
+`schematics/` again.
+
+Not exported, by an explicit table in the script: `farm` (authored in code, #282)
+and the stock-village ids `tavern`, `well`, `library`, `blacksmith`. `--world`
+points at another world, for example a scratch copy when testing the tool.
+`compare --allow-open-world` reads the last saved state of an open world.
+`tests/run.lua` keeps going after a group that errors and lists the failed
+groups at the end, so unrelated failures do not hide the rest.
+
 ## Cleaned landmarks
 
 Re-export only the current cleaned castle and cathedral/monastery:
