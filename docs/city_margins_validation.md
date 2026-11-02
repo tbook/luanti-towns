@@ -5,8 +5,13 @@
 Install the Living Villages version advertising `boundary_structure_protection`
 version 1 before updating Towns. Until that capability is available, Towns
 skips city-margin grading and reports the reason. In this mode, Living Villages
-keeps trees and ambiguous logs intact and leaves their surrounding columns
-ungraded; it also preserves known building columns and protected positions.
+clears trees in the margin, counting them in `tree_removed`, and grades the
+columns around them. Building logs stay intact: the full footprint of each
+structure box (all heights), the town rectangles, and protected positions are
+never cleared. Trees and logs that remain are still treated as obstacles, so
+their surrounding columns stay ungraded. The capability version does not
+change, so Towns cannot detect this behaviour from `boundary_structure_protection`
+alone.
 
 For the cross-repository regression, set `TOWNS_LIVING_VILLAGES` to a Living
 Villages source checkout when running `lua5.1 tests/run.lua`. The fixture uses
