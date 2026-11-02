@@ -57,22 +57,28 @@ return {
 	arch_id = "arch",
 
 	-- Ring street (issue #164): a loop behind the main streets, as secondary
-	-- bands one street wide (six since issue #202). Each band is the node range
+	-- bands one street wide (six since issue #202, nine since issue #353). Each band is the node range
 	-- from..to outward from the forum edge (as arm positions) along the axis
 	-- of its arm, and span = {lo, hi}, the compass extent across it (x for
 	-- north and south bands, z for east and west). The north bands cross the
 	-- cardo; the north and north_outer bands cross the east and west bands; the
-	-- south and south_outer bands abut the east band; the south and west bands
-	-- start beside the south and west arms (T-junctions) and the south-west
-	-- quadrant, where the bath stands, is left out. Listed in street order.
+	-- south and south_outer bands run across the east band; the south and west
+	-- bands start beside the south and west arms (T-junctions), as do west_outer,
+	-- south_west and east_outer. south_west runs through the south-west quadrant
+	-- two rows south of the bath, which no other band enters. Listed in street order.
 	band_material = "mcl_core:gravel",
 	bands = {
-		{name = "north", arm = "north", from = 18, to = 23, span = {-44, 43}},
-		{name = "north_outer", arm = "north", from = 51, to = 56, span = {-44, 43}},
-		{name = "south", arm = "south", from = 26, to = 31, span = {3, 37}},
-		{name = "south_outer", arm = "south", from = 59, to = 64, span = {6, 37}},
+		{name = "north", arm = "north", from = 18, to = 23, span = {-44, 81}},
+		{name = "north_outer", arm = "north", from = 51, to = 56, span = {-91, 81}},
+		{name = "south", arm = "south", from = 26, to = 31, span = {3, 81}},
+		{name = "south_outer", arm = "south", from = 59, to = 64, span = {6, 81}},
 		{name = "east", arm = "east", from = 23, to = 28, span = {-80, 71}},
 		{name = "west", arm = "west", from = 23, to = 28, span = {3, 71}},
+		-- Issue #353: T off the western decumanus ending at the hippodrome's south
+		-- side; T off the southern cardo under the bath; link east of domus_3.
+		{name = "west_outer", arm = "west", from = 51, to = 56, span = {3, 40}},
+		{name = "south_west", arm = "south", from = 53, to = 58, span = {-91, -4}},
+		{name = "east_outer", arm = "east", from = 51, to = 56, span = {-41, -4}},
 	},
 
 	-- arm/side: street arm and which side of it the building stands on.
@@ -105,6 +111,10 @@ return {
 		{name = "vespasianum_east", id = "vespasianum", arm = "east", side = "+z", at = 15, rotation = 270},
 		{name = "theatre", id = "theatre", arm = "west", side = "-z", at = 10, rotation = 180},
 		{name = "bath", id = "bath", arm = "south", side = "-x", at = 8, rotation = 180},
+		-- Hippodrome (issue #353) in the north-west interior; its long-side portico
+		-- (rotation 180) opens +z onto ring_north_outer. Its door court east of it
+		-- (x -54..-45) is deliberately unbuilt.
+		{name = "hippodrome", id = "hippodrome", ring = "north_outer", side = "inner", at = -91, rotation = 180},
 	},
 
 	-- Buildable blocks for ordinary buildings: explicit rectangles in the
@@ -123,16 +133,13 @@ return {
 	-- the forum centre (x for north and south bands, z for east and west).
 	blocks = {
 		{name = "east_forum_north", arm = "east", side = "+z", from = 0, to = 14},
-		{name = "east_end_south", arm = "east", side = "-z", from = 51, to = 58},
 		{name = "south_east_inner", arm = "south", side = "+x", from = 11, to = 25},
 		{name = "west_forum_south", arm = "west", side = "-z", from = 0, to = 9},
 		{name = "west_end_south", arm = "west", side = "-z", from = 31, to = 58},
 		{name = "west_forum_north", arm = "west", side = "+z", from = 0, to = 22},
-		{name = "west_end_north", arm = "west", side = "+z", from = 51, to = 58},
 		{name = "ring_north_inner_east", ring = "north", side = "inner", from = 15, to = 37},
 		{name = "outer_north_east", ring = "north_outer", side = "outer", from = 10, to = 43},
 		{name = "outer_north_west", ring = "north_outer", side = "outer", from = -44, to = -11},
-		{name = "ring_west_outer_north", ring = "west", side = "outer", from = 42, to = 71},
-		{name = "ring_east_outer_south", ring = "east", side = "outer", from = -80, to = -42},
+		{name = "ring_east_outer_south", ring = "east", side = "outer", from = -74, to = -48},
 	},
 }
