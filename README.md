@@ -35,7 +35,8 @@ per valid bed.
 the same search, build, node setup and resident stages. Its civic layout is
 authored in `src/roman_civic_plan.lua`: a forum square with a central bell fountain, arches at the
 ends of the southern cardo and the two decumanus streets, the Temple of Jupiter
-at the north end of the cardo behind a paved forecourt, a temple on each side of the north
+at the north end of the cardo behind a paved forecourt, the Temple of Vesta on the forum's
+south edge, east of the cardo, opening onto the square, a temple on each side of the north
 street, an amphitheatre, a theatre, a bath, three domus monuments and a
 basilica, with paved blocks and street frontage. Ordinary houses, shops, workshops,
 services and the jail come from the shared catalog where they fit,

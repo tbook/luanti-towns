@@ -30,9 +30,10 @@ local plan = plan_at(100, -50, 7)
 eq(plan.town_type, "roman", "Roman plan carries its town type")
 eq(planner.validate(plan), true, "selected Roman plan passes authored validation")
 
--- Exact monument census: 17 placements from ten templates (vespasianum, #218).
+-- Exact monument census: 18 placements from eleven templates (vespasianum, #218;
+-- temple_of_vesta, #352).
 local list = landmarks(plan)
-eq(#list, 17, "17 monument placements")
+eq(#list, 18, "18 monument placements")
 local counts, names, n = {}, {}, 0
 for _, s in ipairs(list) do
 	counts[s.id] = (counts[s.id] or 0) + 1
@@ -40,13 +41,13 @@ for _, s in ipairs(list) do
 	names[s.name] = true
 	eq(plan.sites[s.name], s, s.name .. " is keyed by its own name")
 end
-for id, want in pairs({arch = 3, temple_of_jupiter = 1, temple = 2, domus = 3, basilica = 1, theatre = 1, amphitheater = 1, bath = 1, insula = 3, vespasianum = 1}) do
+for id, want in pairs({arch = 3, temple_of_jupiter = 1, temple_of_vesta = 1, temple = 2, domus = 3, basilica = 1, theatre = 1, amphitheater = 1, bath = 1, insula = 3, vespasianum = 1}) do
 	eq(counts[id], want, id .. " count")
 	n = n + 1
 end
 eq(counts.villa, nil, "villa remains absent from the Roman authored plan")
-eq(n, 10, "ten templates")
-eq(#plan.site_order, 19, "forum, forecourt and 17 monuments in site order")
+eq(n, 11, "eleven templates")
+eq(#plan.site_order, 20, "forum, forecourt and 18 monuments in site order")
 
 -- Vespasianum (#218): one latrine at the far end of the east arm's north
 -- frontage. Its -X opening turns to -z (rotation 270), toward the decumanus,
@@ -423,11 +424,13 @@ local ring_sides = {"-z", "+z", "+z", "-x", "+x"}
 for i, want in ipairs(ring_sides) do
 	eq(ring_blocks[i] and ring_blocks[i].side, want, "ring block " .. i .. " uses the expected side")
 end
-eq(forum_runs >= 4, true, "forum edges carry frontage")
+-- Issue #352: Vesta takes the south forum edge, so block south_east_inner's
+-- forum run is gone and the forum keeps three runs (east and west edges).
+eq(forum_runs >= 3, true, "forum edges carry frontage")
 local forum_sides = {}
 for _, f in ipairs(plan.frontage) do if f.square then forum_sides[f.side] = true end end
-eq(forum_sides["-x"] and forum_sides["+x"] and forum_sides["+z"], true,
-	"east, west and south forum edges carry frontage")
+eq(forum_sides["-x"] and forum_sides["+x"], true, "east and west forum edges carry frontage")
+eq(forum_sides["+z"], nil, "the south forum edge carries no frontage (Vesta, #352)")
 eq(plan_at(5, 5, 1).blocks[1].rect.x1 - 5, plan.blocks[1].rect.x1 - 100, "blocks translate with the centre")
 local none0, why0 = roman.plan({x = 0, z = 0}, 1)
 eq(none0, nil, "blocks need a catalog row depth")
@@ -774,6 +777,7 @@ do
 		{"insula_north_east", 3, 39, 37, 65}, {"insula_north_west", -38, 39, -4, 65},
 		{"insula_south", 3, -74, 37, -48},
 		{"jupiter_forecourt", -10, 72, 9, 79}, {"temple_of_jupiter", -10, 80, 9, 106},
+		{"temple_of_vesta", 3, -26, 13, -16},
 	}
 	local function rect_pin(r, pin, label)
 		eq(r.x1, pin[2], label .. " x1")
@@ -786,7 +790,7 @@ do
 	end
 	local block_pins = {
 		{"east_forum_north", 15, 3, 29, 11}, {"east_end_south", 66, -12, 73, -4},
-		{"south_east_inner", 3, -41, 11, -16}, {"west_forum_south", -25, -12, -16, -4},
+		{"south_east_inner", 3, -41, 11, -27}, {"west_forum_south", -25, -12, -16, -4},
 		{"west_end_south", -74, -12, -47, -4}, {"west_forum_north", -38, 3, -16, 11},
 		{"west_end_north", -74, 3, -67, 11}, {"ring_north_inner_east", 15, 24, 37, 32},
 		{"outer_north_east", 10, 72, 43, 80}, {"outer_north_west", -44, 72, -11, 80},
@@ -872,5 +876,86 @@ do
 	local q = plan_at(0, 0, 1)
 	for _, name in ipairs({"arch_south", "arch_east", "arch_west"}) do
 		eq(q.sites[name] ~= nil and q.sites[name].id == "arch", true, name .. " remains")
+	end
+end
+
+-- Temple of Vesta (issue #352): an arm landmark on the south edge, east of the
+-- cardo. Its footprint stays off forum pavement, its entrance opens onto the
+-- forum, and the fountain, principal street connections and the northern vista
+-- toward Jupiter are untouched. Checked at the origin and translated centres.
+local function point_in(r, x, z)
+	return x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2
+end
+for _, c in ipairs({{0, 0}, {777, -333}, {-4200, 3100}}) do
+	local p = plan_at(c[1], c[2], 1)
+	local cx, cz = c[1], c[2]
+	local v = p.sites.temple_of_vesta
+	local f = p.sites.forum.rect
+	local at = " at centre " .. cx .. "," .. cz
+	local function pin(r, x1, z1, x2, z2, label)
+		eq(r.x1 == cx + x1 and r.z1 == cz + z1 and r.x2 == cx + x2 and r.z2 == cz + z2, true, label .. at)
+	end
+
+	-- Placement: the existing arm mechanism, flush with the cardo and the forum.
+	eq(v.id, "temple_of_vesta", "Vesta is the temple_of_vesta template" .. at)
+	eq(v.arm, "south", "Vesta is on the south arm" .. at)
+	eq(v.rotation, 180, "Vesta rotation 180" .. at)
+	eq(v.facing.x == 0 and v.facing.z == 1, true, "Vesta faces the forum (+z)" .. at)
+	pin(v.rect, 3, -26, 13, -16, "Vesta footprint")
+
+	-- Footprint outside forum pavement and every other square.
+	eq(overlap(v.rect, f), false, "Vesta footprint is outside the forum" .. at)
+	for _, name in ipairs(p.site_order) do
+		local s = p.sites[name]
+		if s.kind == "square" then
+			eq(overlap(v.rect, s.rect), false, "Vesta footprint is outside " .. name .. at)
+		end
+	end
+
+	-- Entrance and approach: the cella opening (5,2,3) rotated to (8,-19); the
+	-- approach is the forum node it faces, and the route between them is inside
+	-- the footprint.
+	local e, a = v.entrance, v.approach.pos
+	eq(e.x == cx + 8 and e.z == cz - 19, true, "Vesta entrance" .. at)
+	eq(a.x == cx + 8 and a.z == cz - 15, true, "Vesta approach" .. at)
+	eq(point_in(f, a.x, a.z), true, "Vesta approach is on the forum pavement" .. at)
+	eq(a.z == v.rect.z2 + 1 and a.x == e.x, true, "Vesta approach is the node past the north face" .. at)
+	eq(point_in(v.rect, e.x, e.z), true, "Vesta entrance is inside its footprint" .. at)
+	for z = e.z, a.z - 1 do
+		eq(point_in(v.rect, e.x, z), true, "Vesta route node inside footprint at z " .. (z - cz) .. at)
+	end
+
+	-- Fountain: still on the forum centre, clear of Vesta.
+	local fountain
+	for _, o in ipairs(p.objects) do if o.id == "roman_fountain" then fountain = o end end
+	eq(fountain ~= nil, true, "fountain is planned" .. at)
+	if fountain then
+		eq(overlap(fountain.rect, v.rect), false, "fountain is clear of Vesta" .. at)
+		eq(overlap(fountain.rect, f), true, "fountain stays on the forum" .. at)
+	end
+
+	-- Principal street connections: the cardo still meets the forum's south
+	-- edge and runs beside Vesta's west face, unobstructed.
+	local cardo
+	for _, st in ipairs(p.streets) do if st.name == "cardo_south" then cardo = st end end
+	pin(cardo.rect, -3, -74, 2, -16, "cardo_south rect")
+	eq(cardo.rect.z2 + 1 == f.z1, true, "cardo_south meets the forum edge" .. at)
+	eq(v.rect.x1 == cardo.rect.x2 + 1, true, "Vesta stands beside the cardo" .. at)
+	eq(overlap(cardo.rect, v.rect), false, "cardo_south is clear of Vesta" .. at)
+
+	-- The strip east of Vesta to the basilica keeps one node free (x 14).
+	local basilica = p.sites.basilica
+	eq(basilica.rect.x1 - v.rect.x2 - 1 == 1, true, "one-node strip between Vesta and the basilica" .. at)
+
+	-- Northern vista: the corridor from the forum to Jupiter's forecourt holds
+	-- no site or block except Jupiter and its forecourt.
+	local vista = {x1 = cx - 3, z1 = cz + 15, x2 = cx + 2, z2 = cz + 110}
+	for _, name in ipairs(p.site_order) do
+		if name ~= "temple_of_jupiter" and name ~= "jupiter_forecourt" and name ~= "forum" then
+			eq(overlap(p.sites[name].rect, vista), false, name .. " keeps the vista toward Jupiter" .. at)
+		end
+	end
+	for _, b in ipairs(p.blocks) do
+		eq(overlap(b.rect, vista), false, b.name .. " keeps the vista toward Jupiter" .. at)
 	end
 end

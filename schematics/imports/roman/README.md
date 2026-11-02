@@ -5,8 +5,8 @@ temple, domus, theatre, amphitheater, bath, insula, vespasianum, basilica,
 temple_of_jupiter, temple_of_vesta and hippodrome with the shared generator as
 fixed `landmark` entries. They do not enter medieval random building pools; domus,
 insula, vespasianum, basilica and the two temples and the hippodrome (#341) are
-not random houses. The Roman civic plan does not place temple_of_jupiter,
-temple_of_vesta or hippodrome yet; a follow-up ticket handles that. The villa is also registered separately as a rural outskirts building;
+not random houses. The Roman civic plan places temple_of_jupiter (#351) and
+temple_of_vesta (#352) but not the hippodrome yet; a follow-up ticket handles that. The villa is also registered separately as a rural outskirts building;
 it remains outside the shared urban catalog. Aqueduct remains a standalone import.
 Each `.mts` is a native Luanti schematic in the orientation and dimensions
 recorded in `manifest.json`; the matching `.lua` stores node metadata,

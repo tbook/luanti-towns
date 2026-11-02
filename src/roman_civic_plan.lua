@@ -83,6 +83,9 @@ return {
 		-- puts the approach on the forum's north edge.
 		{name = "temple_east", id = "temple", arm = "north", side = "+x", at = 0, rotation = 270, faces = "forum"},
 		{name = "temple_west", id = "temple", arm = "north", side = "-x", at = 0, rotation = 270, faces = "forum"},
+		-- Temple of Vesta (issue #352) on the south edge, east of the cardo: its
+		-- cella-facing side (rotation 180) opens north onto the forum.
+		{name = "temple_of_vesta", id = "temple_of_vesta", arm = "south", side = "+x", at = 0, rotation = 180, faces = "forum"},
 		-- Outside the ring, east arm, north side: the north-east outer corner.
 		{name = "amphitheater", id = "amphitheater", arm = "east", side = "+z", at = 29, rotation = 0},
 		-- Insulae stand flush against the inner north and south bands, on their
@@ -121,7 +124,7 @@ return {
 	blocks = {
 		{name = "east_forum_north", arm = "east", side = "+z", from = 0, to = 14},
 		{name = "east_end_south", arm = "east", side = "-z", from = 51, to = 58},
-		{name = "south_east_inner", arm = "south", side = "+x", from = 0, to = 25},
+		{name = "south_east_inner", arm = "south", side = "+x", from = 11, to = 25},
 		{name = "west_forum_south", arm = "west", side = "-z", from = 0, to = 9},
 		{name = "west_end_south", arm = "west", side = "-z", from = 31, to = 58},
 		{name = "west_forum_north", arm = "west", side = "+z", from = 0, to = 22},
