@@ -16,14 +16,14 @@
       },
       "floor_y": 8,
       "capture_min": {
-        "x": 93,
+        "x": 92,
         "y": 8,
         "z": 200
       },
       "capture_max": {
         "x": 113,
         "y": 57,
-        "z": 217
+        "z": 218
       },
       "ground_y": 8,
       "rotation": 90,
