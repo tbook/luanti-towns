@@ -605,17 +605,17 @@ local function build(result, done)
 			remaining.placed_features = placed_candidates
 			remaining.road_openings = wall.openings
 			remaining.streets = result.plan.streets
-			local read_ok, changes, omissions, region = pcall(function()
+			local read_ok, changes, omissions, region, ramp_footprints = pcall(function()
 				local r = assert(env.open_region(bounds.min, bounds.max))
 				local is_protected = function(pos) return core.is_protected(pos, "") end
 				-- Openings left without a gatehouse/postern get the graded ramp.
-				local c, o, ramp_failures = walls.inspect_graded(remaining,
+				local c, o, ramp_failures, graded_footprints = walls.inspect_graded(remaining,
 					result.ground_y, r, env.node_info, is_protected)
 				for _, f in ipairs(ramp_failures) do
 					warning(summary, ("wall opening at (%d,%d) left ungraded: %s%s"):format(
 						f.x, f.z, f.reason, blocker_text(f.blocker)))
 				end
-				return c, o, r
+				return c, o, r, graded_footprints
 			end)
 			if not read_ok then
 				warning(summary, "wall inspection failed: " .. tostring(changes))
@@ -649,6 +649,10 @@ local function build(result, done)
 			end)
 			if not wrote then
 				return fail_writer("wall write failed: " .. tostring(err), nil, {bounds = bounds, reason = "wall_write"})
+			end
+			-- Graded bare openings keep their ramps reserved from outskirts terraforming.
+			for _, rect in ipairs(ramp_footprints or {}) do
+				result.wall_feature_footprints[#result.wall_feature_footprints + 1] = rect
 			end
 			-- VoxelManip writes bypass node destruction callbacks. Remove metadata
 			-- and timers only after the map write succeeds, so cleared chests and

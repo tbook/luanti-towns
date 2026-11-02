@@ -1354,11 +1354,21 @@ do
 		-- A failed grade leaves no flat stub either.
 do
 		local blocked = {get = function(x, y) return y <= -1 and "mcl_core:stone" or (x == 2 and y == 1 and "test:water" or "air") end}
-			local failed_changes, _, failed_ramp = walls.inspect_graded(
+			local failed_changes, _, failed_ramp, failed_rects = walls.inspect_graded(
 				{cells = {}, openings = opening("principal", 6)}, 0, blocked, info, function() return false end)
 			eq(#failed_ramp, 1, "blocked grade is reported")
 			eq(#failed_changes, 0, "failed grade leaves no stub")
+			eq(#failed_rects, 0, "failed grade reserves no footprint")
 end
+		do
+			local _, _, graded_failures, graded_rects = walls.inspect_graded(
+				{cells = {}, openings = opening("principal", 6)}, 0, flat, info, function() return false end)
+			eq(#graded_failures, 0, "flat bare opening grades without failure")
+			eq(#graded_rects, 1, "graded bare opening returns one footprint")
+			local rect = graded_rects[1]
+			eq(rect.x1 == 0 and rect.z1 == 1 and rect.z2 == 4, true,
+				"graded footprint covers the centred four-wide ramp")
+		end
 		eq(graded[#graded].name ~= nil and graded[#plain + 1].name, walls.RAMP_FULL, "ramp changes follow wall changes")
 		for i = 1, #plain do eq(graded[i].x, plain[i].x, "wall changes keep their order") end
 	end

@@ -1034,4 +1034,63 @@ do
 	towns.builder.core_env, towns.site_search.core_env, towns.outskirts.search = previous_env, previous_core_env, real_search
 end
 
+-- Walled towns: a bare opening graded by the wall stage reserves its ramp from
+-- outskirts terraforming. A failed grade reserves nothing.
+do
+	local walls = dofile("src/medieval_walls.lua")
+	local features = dofile("src/medieval_wall_features.lua")
+	local previous_env, previous_core_env = towns.builder.core_env, towns.site_search.core_env
+	local previous_walls, previous_features = towns.medieval_walls, towns.medieval_wall_features
+	-- No towers or gatehouses: both principal openings stay bare.
+	features.candidates = function() return {} end
+	towns.medieval_walls, towns.medieval_wall_features = walls, features
+	towns.site_search.core_env = function() return {
+		emerge = function(_, _, done) done(true) end, after = function() end,
+	} end
+	local obstructed = false
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function()
+			return {get = function(_, y)
+				if obstructed and y == 11 then return "test:building" end
+				return y <= 10 and "mcl_core:stone" or "air"
+			end, set = function() end, commit = function() end}
+		end
+		return env
+	end
+	defs["test:building"] = {walkable = true}
+	local function fresh()
+		return {plan = {seed = 8, town_type = "medieval", bounds = urban_bounds,
+			boundary = {rects = {{x1 = 0, z1 = 0, x2 = 19, z2 = 19}}},
+			streets = {{id = 1, kind = "principal", rect = {x1 = 0, z1 = 7, x2 = 19, z2 = 12}}}},
+			ground_y = 10, build_bounds = result.build_bounds, build_volume = result.build_volume,
+			player_pos = result.player_pos, force_walls = true}
+	end
+	local function reserved(footprints, x, z)
+		for _, r in ipairs(footprints) do
+			if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then return true end
+		end
+		return false
+	end
+	local graded_test = fresh()
+	local graded_summary, graded_error
+	towns.populated.build(graded_test, function(s, m) graded_summary, graded_error = s, m end)
+	eq(graded_summary ~= nil, true, "walled build with bare openings completes: " .. tostring(graded_error))
+	local footprints = graded_test.wall_feature_footprints or {}
+	eq(#footprints, 2, "each graded bare opening reserves one footprint")
+	eq(reserved(footprints, 21, 9) and reserved(footprints, -2, 9), true,
+		"graded bare openings are reserved from outskirts terraforming")
+	obstructed = true
+	local failed_test = fresh()
+	local failed_summary
+	towns.populated.build(failed_test, function(s) failed_summary = s end)
+	eq(failed_summary ~= nil, true, "walled build with obstructed openings completes")
+	eq(#(failed_test.wall_feature_footprints or {}), 0, "failed bare-opening grades reserve nothing")
+	eq(table.concat(failed_summary.warnings or {}, "\n"):find("left ungraded", 1, true) ~= nil, true,
+		"failed bare-opening grade is warned about")
+	obstructed = false
+	towns.builder.core_env, towns.site_search.core_env = previous_env, previous_core_env
+	towns.medieval_walls, towns.medieval_wall_features = previous_walls, previous_features
+end
+
 _G.core, _G.towns, _G.living_villages = nil, nil, nil
