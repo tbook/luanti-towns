@@ -141,6 +141,34 @@ be reached by ladder are excluded from Towns' resident spawning. The
 `excluded_resident_beds` building field stores canonical schematic offsets;
 placement rotates those offsets with the building before bed enumeration.
 
+## Reimports from issue #374
+
+Six catalog buildings had changed in TownsWorkshop since their last export.
+They were re-exported with `--only ... --validate`. Sizes, entrances and source
+boxes are unchanged. The counts below are node-name differences from the
+previously committed `.mts` files.
+
+- `wall_tower` (30 nodes): two bed pairs, two chests, a crafting table and three
+  wall torches are added, and stonebrick is removed in 12 places and replaced by
+  stairs in 8. The beds are valid resident beds when the schematic is placed on
+  its own (`tests/residents_tests.lua`), so they house residents and no
+  `excluded_resident_beds` entry is set. `required_nodes` grows from 10 to 15.
+  The corner tower's entrance and wall stubs are unchanged.
+- `wall_tower_inline` (12 nodes): four hay bales, three wall torches, a spruce
+  chair, a spruce table and a crafting table are added, and two
+  grass-topped dirt nodes become dirt. It has no beds.
+- `castle` (24 nodes): a spruce door pair at file (35,7..8,45) is an interior
+  door with no special handling. Four barrels and a smoker become spruce tables.
+  Battlement stonebrick and stairs are added, and three deepslate bricks become
+  wooden stairs. The metadata gains six door records: two for the new pair and
+  four for existing doors at x=10.
+- `cathedral` (54 nodes): the birch sapling at (18,5,54) has grown into a tree
+  (50 leaves and four trunk nodes). This is intentional garden texture and is
+  kept. `required_nodes` now lists the leaves and trunk instead of the sapling.
+- `gaboo_house` (11 nodes): nine stonebrick become cobble, and one air and one
+  wood node become slabs.
+- `soup_shop` (1 node): one barrel becomes spruce wood (see its section below).
+
 ## Stock village templates (tavern, well, library, blacksmith)
 
 `tavern` (role `tavern`) and `well` (role `well`) are the stock VoxeLibre
@@ -241,57 +269,54 @@ unlikely but not excluded). `tavern_2` is placed in towns: as one of the
 medieval tavern variants drawn for the service slots, and in all three Roman
 tavern slots.
 
-## soup_shop (Home world, #110)
+## soup_shop (TownsWorkshop, #110)
 
-`soup_shop` (role `shop`) is a build in the **Home** world, not TownsWorkshop.
-Any world can be the source: the exporter takes it from `--world`, and
-`buildings.json` only holds coordinates, so the entry is exported with
-`--only` against that world:
+`soup_shop` (role `shop`) is a build in **TownsWorkshop**, like the other
+shops. It is exported with the usual selective command:
 
 ```sh
 python3 tools/workshop_export/export.py \
-  --world "$HOME/Library/Application Support/minetest/worlds/Home" --only soup_shop
+  --world "$HOME/Library/Application Support/minetest/worlds/TownsWorkshop" \
+  --only soup_shop --validate
 ```
 
-Home is a normal-mapgen world, so `--validate` against it fails for every
-template containing `dirt_with_grass` (the runtime constructor paints the
-grass colour from the biome at the test site, not from the saved node). Run the
-validation from TownsWorkshop instead; it checks the whole catalog, soup shop
-included: `--world <TownsWorkshop> --only office_building --validate`
-(an idempotent re-export of an unchanged build). Set `last_export_buildings`
-in the manifest by hand afterwards.
+The coordinates below are TownsWorkshop positions. The first survey recorded
+the same build in an older Home world at x 240..246, y 7..16, z 233..241; those
+positions are shifted by (-35, +1, +237) to reach the current workshop box.
 
-Source box x 240..246, y 7..16, z 233..241 (the ticket's "246,6,233 x
-240,17,241"; y 6 is natural stone below the cellar and y 17 is air). The
+Source box x 205..211, y 8..17, z 470..478 (`capture_min`/`capture_max` in
+`buildings.json`; the survey box is x 201..215, y 6..20, z 466..482). Y 7 is
+natural stone below the cellar and y 18 is air. The
 build has no door node anywhere: it is a serving-counter shop with open
 storefronts. The chosen entrance is the walk-in gap in the south wall at
-(244,12,234) (`entrance_kind = "opening"`, front -Z, `rotation` 0), reached by
-four cobble steps at z 233. The same stairs wrap round the +X side, where a
-second gap at (246,12,235) is a counter window with its own stair run.
+(209,13,471) (`entrance_kind = "opening"`, front -Z, `rotation` 0), reached by
+four cobble steps at z 470. The same stairs wrap round the +X side, where a
+second gap at (211,13,472) is a counter window with its own stair run.
 
-Floor and ground: the floor row (cobble/granite, y 11) stands one block above
-the street (path/grass at y 10), exactly like the #87 buildings, so the ground
-row y 10 is kept (`ground_y` 10) together with the cellar below it:
-`capture_min.y` 7, `ground_offset` 3, entrance (4, 5, 1), 7 x 10 x 9.
+Floor and ground: the floor row (cobble/granite, y 12) stands one block above
+the street (path/grass at y 11), exactly like the #87 buildings, so the ground
+row y 11 is kept (`ground_y` 11) together with the cellar below it:
+`capture_min.y` 8, `ground_offset` 3, entrance (4, 5, 1), 7 x 10 x 9.
 
-Cellar (3 x 3 interior at x 242..244, z 237..239, y 8..10): mycelium at y 7
-with brown/red mushrooms at y 8, a ladder up to a spruce trapdoor in the floor
-at (242,11,239), one wall torch. It is enclosed on every side by the
+Cellar (3 x 3 interior at x 207..209, z 474..476, y 9..11): mycelium at y 8
+with brown/red mushrooms at y 9, a ladder up to a spruce trapdoor in the floor
+at (207,12,476), one wall torch. It is enclosed on every side by the
 template's own dirt walls, the mycelium floor and the floor row, so nothing
-opens to the terrain below. Row y 7 outside the cellar is natural stone,
-granite and some dirt that the fixed box captured; row y 6 (natural stone) is
+opens to the terrain below. Row y 8 outside the cellar is natural stone,
+granite and some dirt that the fixed box captured; row y 7 (natural stone) is
 omitted. No bedrock or void is involved at this depth.
 
 `clip_to_capture` (new optional entry field): the building to the north has
-eave slabs at z 242 (y 16) that fall inside the survey margin the exporter
+eave slabs at z 479 (y 17) that fall inside the survey margin the exporter
 requires around the structure, so the whole-survey bounds check would either
 fail or capture them. With `clip_to_capture: true` and a fixed capture box,
 only the box is surveyed and anything outside it is ignored (the check that a
 build does not escape its box is skipped for such entries).
 
-Contents: one bed, two barrels, a crafting table, six item frames, three wall
-torches, a ladder, a trapdoor, two bark-slab roof corners. The back strip at
-floor height (grass and path at z 241 and along x 246) is terrain that sits
+Contents: one bed, one barrel (the second barrel became spruce wood in #374), a
+crafting table, six item frames, three wall torches, a ladder, a trapdoor, two
+bark-slab roof corners. The back strip at
+floor height (grass and path at z 478 and along x 211) is terrain that sits
 inside the box and is captured with it. The planner has no corner-lot concept: the soup shop is
 placed like any other shop and has no preferred position.
 

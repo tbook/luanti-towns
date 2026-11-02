@@ -2,7 +2,12 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "tower"
+    "wall_tower",
+    "wall_tower_inline",
+    "gaboo_house",
+    "castle",
+    "cathedral",
+    "soup_shop"
   ],
   "buildings": [
     {
@@ -578,7 +583,9 @@
         "z": 13
       },
       "verified_nodes": 1430,
-      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
+      "wall_count": 0,
+      "wall_mismatches": 0,
+      "snapshot_sha256": "56f2d1cd687e4f7118d56310524a68029edffc55f79f43f0e8ea09c1530655f2"
     },
     {
       "entrance": {
@@ -1117,7 +1124,7 @@
       "verified_nodes": 105300,
       "wall_count": 128,
       "wall_mismatches": 0,
-      "snapshot_sha256": "9ec8b1daa0eba62d54449ac0fc09dcc93e699409207a9349c9510dc68eaab65c"
+      "snapshot_sha256": "56f2d1cd687e4f7118d56310524a68029edffc55f79f43f0e8ea09c1530655f2"
     },
     {
       "entrance": {
@@ -1150,7 +1157,8 @@
         "mcl_copper:block_oxidized",
         "mcl_core:andesite",
         "mcl_core:andesite_smooth",
-        "mcl_core:birchsapling",
+        "mcl_core:birchleaves",
+        "mcl_core:birchtree",
         "mcl_core:cobble",
         "mcl_core:diorite",
         "mcl_core:diorite_smooth",
@@ -1336,7 +1344,7 @@
       "verified_nodes": 116820,
       "wall_count": 137,
       "wall_mismatches": 0,
-      "snapshot_sha256": "9ec8b1daa0eba62d54449ac0fc09dcc93e699409207a9349c9510dc68eaab65c"
+      "snapshot_sha256": "56f2d1cd687e4f7118d56310524a68029edffc55f79f43f0e8ea09c1530655f2"
     },
     {
       "entrance": {
@@ -1552,6 +1560,7 @@
         "mcl_core:granite_smooth",
         "mcl_core:ladder",
         "mcl_core:mycelium",
+        "mcl_core:sprucewood",
         "mcl_core:stone",
         "mcl_core:stone_smooth",
         "mcl_core:tree",
@@ -1596,7 +1605,9 @@
         "z": 9
       },
       "verified_nodes": 630,
-      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
+      "wall_count": 1,
+      "wall_mismatches": 0,
+      "snapshot_sha256": "56f2d1cd687e4f7118d56310524a68029edffc55f79f43f0e8ea09c1530655f2"
     },
     {
       "entrance": {
@@ -1786,16 +1797,21 @@
       "id": "wall_tower",
       "label": "Medieval wall tower",
       "required_nodes": [
+        "mcl_beds:bed_brown_bottom",
+        "mcl_beds:bed_brown_top",
+        "mcl_chests:chest_small",
         "mcl_core:cobble",
         "mcl_core:dirt",
         "mcl_core:dirt_with_grass",
         "mcl_core:ladder",
         "mcl_core:stonebrick",
+        "mcl_crafting_table:crafting_table",
         "mcl_doors:spruce_door_b_1",
         "mcl_doors:spruce_door_t_1",
         "mcl_stairs:slab_wood_top",
         "mcl_stairs:stair_stonebrick",
-        "mcl_torches:torch"
+        "mcl_torches:torch",
+        "mcl_torches:torch_wall"
       ],
       "rotation": 180,
       "size": {
@@ -1821,7 +1837,7 @@
       "verified_nodes": 1088,
       "wall_count": 0,
       "wall_mismatches": 0,
-      "snapshot_sha256": "9ec8b1daa0eba62d54449ac0fc09dcc93e699409207a9349c9510dc68eaab65c"
+      "snapshot_sha256": "56f2d1cd687e4f7118d56310524a68029edffc55f79f43f0e8ea09c1530655f2"
     },
     {
       "entrance": {
@@ -1894,11 +1910,16 @@
         "mcl_core:dirt_with_grass",
         "mcl_core:ladder",
         "mcl_core:stonebrick",
+        "mcl_crafting_table:crafting_table",
+        "mcl_decor:chair_spruce",
+        "mcl_decor:table_spruce",
         "mcl_doors:spruce_door_b_1",
         "mcl_doors:spruce_door_t_1",
+        "mcl_farming:hay_block",
         "mcl_stairs:slab_wood_top",
         "mcl_stairs:stair_stonebrick",
-        "mcl_torches:torch"
+        "mcl_torches:torch",
+        "mcl_torches:torch_wall"
       ],
       "rotation": 180,
       "size": {
@@ -1924,7 +1945,7 @@
       "verified_nodes": 833,
       "wall_count": 0,
       "wall_mismatches": 0,
-      "snapshot_sha256": "7edfe3e0b2bff79f64df0b2332ef25d98f549e85d3639d0b57c459f9fd6bcfcf"
+      "snapshot_sha256": "56f2d1cd687e4f7118d56310524a68029edffc55f79f43f0e8ea09c1530655f2"
     },
     {
       "entrance": {
@@ -2073,9 +2094,9 @@
     }
   ],
   "runtime_validation": {
-    "inventory_lists": 2608,
-    "metadata_nodes": 5112,
-    "non_air_nodes": 489820,
+    "inventory_lists": 2624,
+    "metadata_nodes": 5144,
+    "non_air_nodes": 490116,
     "placements": 164
   }
 }
