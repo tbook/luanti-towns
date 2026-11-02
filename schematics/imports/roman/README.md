@@ -53,6 +53,17 @@ workshop copies (Vesta's copper roof weathering; the hippodrome's ground, seatin
 underground passage; Jupiter unchanged); the records now carry the newer snapshot
 hash. Re-export with `python3 tools/issue341_import/update.py` (see its README).
 
+The #375 re-export ran `tools/issue139_import/export_roman.py --only
+temple_of_jupiter hippodrome vespasianum` against the real TownsWorkshop map
+(after a box scan that found no non-natural node outside any of the three boxes).
+`update.py` was not used because it also re-exports temple_of_vesta, which was out
+of scope. The three records now carry `source_map_sha256` `10f6496d...` (the same
+workshop map as the bath, #370) and `snapshot_sha256` `56f2d1cd...`. Jupiter's
+restyle changed 352 nodes and its required node names from 21 to 25; its size,
+entrance and metadata are unchanged. The hippodrome changed two `dirt_with_grass`
+cells to `dirt` and vespasianum one. Sizes, entrances and `catalog.lua` are
+unchanged. Every other schematic and manifest record is byte-identical.
+
 The bath record (#370) was re-exported alone with `export_roman.py --only bath`
 after the workshop bath gained a pediment row at Z=398 (outside the old box), with
 the box's min Z lowered from 399 to 398. Its `source_map_sha256` is `10f6496d...`.
@@ -84,11 +95,11 @@ axis **before** placement rotation; omitted facing defaults to `-Z`.
 | amphitheater | 29×9×29 | 15,3,0 | -Z | 2 | Gravel approach at X=15, Y=2 (re-captured in #193); open entrance under outer structure. |
 | bath | 88×18×44 | 4,4,21 | -X | 2 | Central front door over quartz at Y=3 (quartz approach slab at X=0); perimeter grass at Y=2 above lower dirt layer. |
 | insula | 35×20×27 | 17,3,2 | -Z | 2 | Spruce door in the front wall at Y=3 over a stone threshold at Y=2; gravel approach at Y=2 (Z=0). A second front door is at X=11, and a rear spruce door at (17,3,24). |
-| vespasianum | 10×8×8 | 1,3,3 | -X | 2 | No door. A 1-wide, 2-high opening in the -X wall at Y=3 over a hardened-clay threshold at Y=2, with gravel at (0,2,3) outside; the only air route into the room. Trapdoors inside, a water channel, a flower pot and an item frame. |
+| vespasianum | 10×8×8 | 1,3,3 | -X | 2 | No door. A 1-wide, 2-high opening in the -X wall at Y=3 over a hardened-clay threshold at Y=2, with gravel at (0,2,3) outside; the only air route into the room. Trapdoors inside, a water channel, a flower pot and an item frame. The ground cell at (7,2,1) became dirt in #375 (18 required node names, 1 metadata node, unchanged otherwise). |
 | basilica | 28×14×16 | 23,3,7 | +X | 2 | Spruce double door at X=23 (Z=7..8) at Y=3 over a stone threshold at Y=2, with stone outside at (24,2,7). Two more single doors at Z=3 and Z=12 on the same +X face, a trapdoor above the central door, and a granite arcade on the outside. |
-| temple_of_jupiter | 20×15×27 | 9,3,8 | -Z | 1 | Spruce double door (X=9..10) into the cella at Z=8, over the quartz floor at Y=2 inside the front colonnade; a mirror door at Z=18 faces the rear porch. The clay ground rows (Y=0..1) are Creative mesa terrain. |
+| temple_of_jupiter | 20×15×27 | 9,3,8 | -Z | 1 | Spruce double door (X=9..10) into the cella at Z=8, over the quartz floor at Y=2 inside the front colonnade; a mirror door at Z=18 faces the rear porch. The clay ground rows (Y=0..1) are Creative mesa terrain. The #375 restyle (quartz and slab cladding, four trapdoors, a stair row on the rear porch) is captured: 25 required node names (was 21), 9 metadata nodes (unchanged). |
 | temple_of_vesta | 11×11×11 | 5,2,3 | -Z | 0 | No door. A one-node gap in the cella's north wall (Z=3) between two quartz pillars, over a quartz slab floor at Y=1 inside a ring colonnade; the other three cella walls are closed. Eternal fire on netherrack at the centre. The ground row (Y=0) is orange clay terrain. |
-| hippodrome | 37×22×25 | 18,8,3 | -Z | 7 | Opening in the long -Z side's portico: the central arcade gap at X=18, Z=3 (air at Y=8..9) over stone at (18,7,3), aligned with the stair at (18,8,5)-(18,9,6). The west short-end doors at (2,8,7) and (2,8,19), the east end and a south door at (6,8,20) are secondary and not chosen (docs/roman_expansion_layout.md section 6). The surrounding ground row was grassed and graveled in the workshop. Seven buried rows (clay, stone, dirt) hold the underground passage and chambers the owner wants kept, so they stay in the capture. |
+| hippodrome | 37×22×25 | 18,8,3 | -Z | 7 | Opening in the long -Z side's portico: the central arcade gap at X=18, Z=3 (air at Y=8..9) over stone at (18,7,3), aligned with the stair at (18,8,5)-(18,9,6). The west short-end doors at (2,8,7) and (2,8,19), the east end and a south door at (6,8,20) are secondary and not chosen (docs/roman_expansion_layout.md section 6). The surrounding ground row was grassed and graveled in the workshop; two of its cells, (12,7,3) and (13,7,3), are dirt since #375. Seven buried rows (clay, stone, dirt) hold the underground passage and chambers the owner wants kept, so they stay in the capture. |
 | villa | 46×20×26 | 26,2,22 | +Z | 0 | Main double wooden door at X=26..27; courtyard approach at Z=23. Dirt ground row at Y=0. Registered separately for rural Roman outskirts (#229). |
 
 The basilica capture (#211) is the issue's box 53..79 × 7..20 × 415..430,
