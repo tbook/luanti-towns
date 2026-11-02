@@ -440,8 +440,9 @@ for _, b in ipairs(plan.blocks) do
 		eq(faces, true, b.name .. " has frontage facing the ring")
 	end
 end
-eq(#ring_blocks, 4, "four ring-relative blocks")
-local ring_sides = {"-z", "+z", "+z", "+x"}
+eq(#ring_blocks, 14, "fourteen ring-relative blocks")
+-- Issue #354: the ten new ring blocks follow the four of #164..#202 in list order.
+local ring_sides = {"-z", "+z", "+z", "+x", "+z", "-z", "+x", "-x", "-z", "+z", "-x", "-z", "-z", "+x"}
 for i, want in ipairs(ring_sides) do
 	eq(ring_blocks[i] and ring_blocks[i].side, want, "ring block " .. i .. " uses the expected side")
 end
@@ -814,8 +815,14 @@ do
 		{"south_east_inner", 3, -41, 11, -27}, {"west_forum_south", -25, -12, -16, -4},
 		{"west_end_south", -74, -12, -47, -4}, {"west_forum_north", -38, 3, -16, 11},
 		{"ring_north_inner_east", 15, 24, 37, 32},
-		{"outer_north_east", 10, 72, 43, 80}, {"outer_north_west", -44, 72, -11, 80},
+		{"outer_north_east", 10, 72, 81, 80}, {"outer_north_west", -91, 72, -11, 80},
 		{"ring_east_outer_south", 44, -74, 52, -48},
+		-- Issue #354: the ten new blocks, in the authored order.
+		{"ring_south_inner_east", 12, -41, 37, -33}, {"ring_north_inner_west", -38, 24, -16, 32},
+		{"ring_west_inner_north", -38, 12, -30, 23}, {"ring_east_inner_north", 29, 13, 37, 23},
+		{"ring_south_outer_east", 53, -56, 81, -48}, {"ring_south_outer_inner_east", 53, -74, 81, -66},
+		{"west_outer_west", -81, 6, -73, 40}, {"south_west_outer", -91, -83, -7, -75},
+		{"east_amph_north", 73, 24, 81, 32}, {"east_outer_east", 72, -41, 80, -7},
 	}
 	eq(#origin.blocks, #block_pins, "block count matches the authored list")
 	local by_name = {}
