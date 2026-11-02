@@ -874,9 +874,15 @@ do
 	margin_mode, rural_search_mode = "success", "success"
 	local previous_env, previous_core_env = towns.builder.core_env, towns.site_search.core_env
 	local sets, emerged, search_footprints, solid
+	local emerge_mode, commit_mode, pending_emerge, timer = "ok", "ok", nil, nil
 	towns.site_search.core_env = function() return {
-		emerge = function(a, b, done) emerged = {a, b}; stage_order[#stage_order + 1] = "road_emerge"; done(true) end,
-		after = function() end,
+		emerge = function(a, b, done)
+			emerged = {a, b}; stage_order[#stage_order + 1] = "road_emerge"
+			if emerge_mode == "throw" then error("emerge boom") end
+			if emerge_mode == "hang" then pending_emerge = done; return end
+			done(emerge_mode == "ok")
+		end,
+		after = function(_, f) timer = f end,
 	} end
 	towns.builder.core_env = function(...)
 		local env = previous_env(...)
@@ -884,7 +890,10 @@ do
 			stage_order[#stage_order + 1] = "road_read"
 			return {get = function(_, y) return y <= solid and "mcl_core:stone" or "air" end,
 				set = function(x, y, z, name) sets[#sets + 1] = {x = x, y = y, z = z, name = name} end,
-				commit = function() stage_order[#stage_order + 1] = "road_write" end}
+				commit = function()
+					if commit_mode == "throw" then error("commit boom") end
+					stage_order[#stage_order + 1] = "road_write"
+				end}
 		end
 		return env
 	end
@@ -970,6 +979,58 @@ do
 	s = run(plain)
 	eq(s.roads, nil, "a plan without a boundary has no road stage")
 	eq(table.concat(stage_order, ","), "margin,rural_search", "no road stage without exits")
+	-- Emerge and write failures: the build completes exactly once.
+	towns.builder.core_env = function(...)
+		local env = previous_env(...)
+		env.open_region = function()
+			return {get = function(_, y) return y <= 10 and "mcl_core:stone" or "air" end,
+				set = function() end,
+				commit = function()
+					if commit_mode == "throw" then error("commit boom") end
+				end}
+		end
+		return env
+	end
+	local function once(label, expect_summary)
+		local done_calls, got, code, extra = 0
+		stage_order, timer, pending_emerge = {}, nil, nil
+		towns.populated.build(fixture("medieval", {{id = 1, kind = "principal",
+			rect = {x1 = 0, z1 = 7, x2 = 19, z2 = 12}}}),
+			function(a, _, c, e) done_calls, got, code, extra = done_calls + 1, a, c, e end)
+		return function() eq(done_calls, 1, label .. " completes exactly once")
+			eq(got ~= nil, expect_summary, label .. (expect_summary and " returns the town" or " reports a write failure"))
+			return got, code, extra end
+	end
+	emerge_mode = "fail"
+	local check = once("emerge failure", true)
+	local got = check()
+	eq(table.concat(stage_order, ","), "margin,road_emerge,rural_search", "emerge failure still runs the outskirts")
+	eq(table.concat(got.warnings or {}, "\n"):find("road exit emerge failed or timed out", 1, true) ~= nil, true,
+		"emerge failure is warned about")
+	emerge_mode = "throw"
+	check = once("emerge throw", true)
+	got = check()
+	eq(table.concat(got.warnings or {}, "\n"):find("emerge boom", 1, true) ~= nil, true, "emerge error is warned about")
+	emerge_mode = "hang"
+	check = once("emerge timeout", true)
+	eq(type(timer), "function", "a 30 second timeout is scheduled")
+	timer()
+	check()
+	pending_emerge(true) -- a late emerge callback is ignored
+	eq(select(2, table.concat(stage_order, ","):gsub("rural_search", "")), 1, "late emerge callback does not rerun the build")
+	timer() -- a late timer is ignored
+	emerge_mode = "hang"
+	check = once("emerge success before the timer", true)
+	pending_emerge(true)
+	check()
+	timer()
+	eq(select(2, table.concat(stage_order, ","):gsub("rural_search", "")), 1, "timer after success is ignored")
+	emerge_mode, commit_mode = "ok", "throw"
+	check = once("road write failure", false)
+	local _, code, extra = check()
+	eq(code, "write_failed", "road write failure is a write failure")
+	eq(extra.road_bounds ~= nil, true, "failure reports the road envelope")
+	commit_mode = "ok"
 	towns.builder.core_env, towns.site_search.core_env, towns.outskirts.search = previous_env, previous_core_env, real_search
 end
 

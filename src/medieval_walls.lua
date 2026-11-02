@@ -85,12 +85,19 @@ function M.plan(plan, force)
 	if not M.selected(plan, force) then return nil end
 	local rects, cells = plan.boundary.rects, {}
 	local openings = roads.exits(plan)
+	-- Wall is left out only where the outside road runs (the narrowed crossing
+	-- columns); the outer columns of a wider street opening keep their wall.
+	-- Gatehouse and postern footprints still mask those cells when placed.
+	local road = {}
+	for _, columns in ipairs(roads.crossings(openings)) do
+		for _, o in ipairs(columns) do road[key(o.x, o.z) .. ":" .. o.direction.x .. ":" .. o.direction.z] = true end
+	end
 	for _, r in ipairs(rects) do
 		for x = r.x1, r.x2 do
 			for z = r.z1, r.z2 do
 				for _, d in ipairs(directions) do
 					local ox, oz = x + d.x, z + d.z
-					if not inside(rects, ox, oz) and not roads.street_at(plan, x, z, d) then
+					if not inside(rects, ox, oz) and not road[key(ox, oz) .. ":" .. d.x .. ":" .. d.z] then
 						local k = key(ox, oz)
 						cells[k] = cells[k] or {x = ox, z = oz, direction = d}
 					end
@@ -110,9 +117,11 @@ function M.plan(plan, force)
 			end
 		end
 	end
-	for _, gap in ipairs(openings) do
-		for distance = 0, 3 do
-			cells[key(gap.x + gap.direction.x * distance, gap.z + gap.direction.z * distance)] = nil
+	for _, columns in ipairs(roads.crossings(openings)) do
+		for _, gap in ipairs(columns) do
+			for distance = 0, 3 do
+				cells[key(gap.x + gap.direction.x * distance, gap.z + gap.direction.z * distance)] = nil
+			end
 		end
 	end
 	local list, gaps = {}, openings

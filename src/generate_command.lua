@@ -449,8 +449,14 @@ local function build(result, done)
 						{bounds = bounds, reason = "road_callback"})
 				end
 			end
-			local started, emerge_err = pcall(towns.site_search.core_env(core).emerge, bounds.min, bounds.max, graded)
-			if not started then warning(summary, "road exit emerge failed: " .. tostring(emerge_err)); graded(false) end
+			local road_env = towns.site_search.core_env(core)
+			local started, emerge_err = pcall(road_env.emerge, bounds.min, bounds.max, graded)
+			if not started then warning(summary, "road exit emerge failed: " .. tostring(emerge_err)); graded(false)
+			elseif not settled then
+				-- `settled` makes a late emerge callback or a timer after completion a no-op.
+				local timer_ok = pcall(road_env.after, 30, function() graded(false) end)
+				if not timer_ok then graded(false) end
+			end
 			return
 		end
 		-- Wall columns inspect the actual post-margin terrain and independently

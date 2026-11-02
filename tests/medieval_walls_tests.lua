@@ -1417,3 +1417,45 @@ end
 		end
 	end
 end
+
+-- A bare opening keeps wall on both sides of its ramp: only the narrowed
+-- outside-road columns are left open (issue #386); the gatehouse and postern
+-- candidates still see the full street-width openings.
+do
+	local walls = dofile("src/medieval_walls.lua")
+	local roads = dofile("src/town_roads.lua")
+	local features = dofile("src/medieval_wall_features.lua")
+	local profile = assert(planner.landmark_profile(catalog.snapshot()))
+	for _, seed in ipairs({1, 101}) do
+		local plan = assert(planner.plan({x = 0, z = 0}, seed, {landmarks = profile}))
+		local wall = assert(walls.plan(plan, true))
+		local exits = roads.exits(plan)
+		eq(#wall.openings, #exits, "seed " .. seed .. " openings keep the full street width")
+		local cell = {}
+		for _, c in ipairs(wall.cells) do cell[c.x .. ":" .. c.z] = true end
+		local road = {}
+		for _, columns in ipairs(roads.crossings(exits)) do
+			for _, o in ipairs(columns) do road[o.x .. ":" .. o.z] = true end
+		end
+		local outer = 0
+		for _, o in ipairs(exits) do
+			local k = o.x .. ":" .. o.z
+			eq(cell[k] == nil, road[k] == true, "seed " .. seed .. " opening " .. k .. " is open only on the road")
+			if not road[k] then outer = outer + 1 end
+		end
+		eq(outer > 0, true, "seed " .. seed .. " has outer opening columns that keep wall")
+		-- Gatehouse and postern footprints still cover the whole opening.
+		local gates = walls.gatehouse_candidates(wall, 12, {id = "wall_gatehouse", size = {x = 16, y = 15, z = 9}})
+		eq(#gates > 0, true, "seed " .. seed .. " still has gatehouse candidates")
+		for _, g in ipairs(gates) do
+			g.min, g.max = g.bounds.min, g.bounds.max
+			eq(features.gate_joins(g, wall), true, "seed " .. seed .. " gatehouse still joins the wall")
+			local rest = features.remaining_wall(wall, {features.footprint({min = g.min, max = g.max})})
+			local remaining = {}
+			for _, c in ipairs(rest.cells) do remaining[c.x .. ":" .. c.z] = true end
+			for _, o in ipairs(g.openings) do
+				eq(remaining[o.x .. ":" .. o.z], nil, "gatehouse footprint masks its opening's wall cell")
+			end
+		end
+	end
+end
