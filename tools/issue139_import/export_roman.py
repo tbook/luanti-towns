@@ -16,8 +16,9 @@ WORKSHOP = Path.home() / 'Library/Application Support/minetest/worlds/TownsWorks
 # report's building box. Each is recorded per building in the manifest.
 FIXED_BOXES = {
     # Tight bath box (#171): the architecture plus the two ground rows and the
-    # approach, without the dirt/grass/gravel platform margin around it.
-    'bath': ({'x': 101, 'y': 7, 'z': 399}, {'x': 188, 'y': 24, 'z': 441}),
+    # approach, without the dirt/grass/gravel platform margin around it. The min z
+    # is 398 (#370) so the copper pediment row at Z=398 is kept (file Z=0).
+    'bath': ({'x': 101, 'y': 7, 'z': 398}, {'x': 188, 'y': 24, 'z': 441}),
     # Insula (#193): the issue's box (213..248, 6..25, 399..426) minus the x=0 and
     # z=27 grass/dirt platform margin; the eaves at x=1..35 and z=0..26 are kept.
     'insula': ({'x': 214, 'y': 6, 'z': 399}, {'x': 248, 'y': 25, 'z': 425}),

@@ -110,7 +110,7 @@ return {
 		-- 270 turns its -X opening toward -z, the decumanus; the approach is paved.
 		{name = "vespasianum_east", id = "vespasianum", arm = "east", side = "+z", at = 15, rotation = 270},
 		{name = "theatre", id = "theatre", arm = "west", side = "-z", at = 10, rotation = 180},
-		{name = "bath", id = "bath", arm = "south", side = "-x", at = 8, rotation = 180},
+		{name = "bath", id = "bath", arm = "south", side = "-x", at = 7, rotation = 180},
 		-- Hippodrome (issue #353) in the north-west interior; its long-side portico
 		-- (rotation 180) opens +z onto ring_north_outer. Its door court east of it
 		-- (x -50..-45) is deliberately unbuilt. Moved 4 nodes east (from -91) after

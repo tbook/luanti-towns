@@ -492,7 +492,7 @@
       "min": {
         "x": 101,
         "y": 7,
-        "z": 399
+        "z": 398
       },
       "max": {
         "x": 188,
@@ -512,12 +512,12 @@
       "size": {
         "x": 88,
         "y": 18,
-        "z": 43
+        "z": 44
       },
-      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c",
-      "source_map_sha256": "ad0e465c3e614be3fba2209ba46917d1548118ebbd1e2efd771dd73befd05b0c",
+      "snapshot_sha256": "56f2d1cd687e4f7118d56310524a68029edffc55f79f43f0e8ea09c1530655f2",
+      "source_map_sha256": "10f6496d7b35276007dd0b731fe35f89fb359b6d1aaf74ef65fda27982d82320",
       "non_air_node_types": 130,
-      "metadata_nodes": 287,
+      "metadata_nodes": 295,
       "required_nodes": [
         "living_villages:pulpit",
         "mcl_armor_stand:armor_stand",
