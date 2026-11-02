@@ -799,7 +799,7 @@ do
 		{"insula_north_east", 3, 39, 37, 65}, {"insula_north_west", -38, 39, -4, 65},
 		{"insula_south", 3, -74, 37, -48},
 		{"jupiter_forecourt", -10, 72, 9, 79}, {"temple_of_jupiter", -10, 80, 9, 106},
-		{"temple_of_vesta", 3, -26, 13, -16}, {"hippodrome", -91, 41, -55, 65},
+		{"temple_of_vesta", 3, -26, 13, -16}, {"hippodrome", -87, 41, -51, 65},
 	}
 	local function rect_pin(r, pin, label)
 		eq(r.x1, pin[2], label .. " x1")
@@ -1068,10 +1068,12 @@ for _, c in ipairs({{0, 0}, {777, -333}}) do for _, seed in ipairs({1, 2}) do
 	-- Hippodrome: footprint, approach and entrance.
 	local h = p.sites.hippodrome
 	eq(h ~= nil and h.id == "hippodrome" and h.rotation == 180, true, "hippodrome placed at rotation 180" .. at)
-	pin(h.rect, -91, 41, -55, 65, "hippodrome footprint")
+	pin(h.rect, -87, 41, -51, 65, "hippodrome footprint")
 	eq(inside(h.rect, main), true, "hippodrome inside the main rectangle" .. at)
-	eq(h.entrance.x == cx - 73 and h.entrance.z == cz + 62, true, "hippodrome entrance" .. at)
-	eq(h.approach.pos.x == cx - 73 and h.approach.pos.z == cz + 66, true, "hippodrome approach" .. at)
+	eq(h.entrance.x == cx - 69 and h.entrance.z == cz + 62, true, "hippodrome entrance" .. at)
+	eq(h.approach.pos.x == cx - 69 and h.approach.pos.z == cz + 66, true, "hippodrome approach" .. at)
+	-- Issue #365: the entrance and approach sit on the west_outer road (x -72..-67).
+	eq(h.approach.pos.x >= cx - 72 and h.approach.pos.x <= cx - 67, true, "hippodrome approach on the west_outer road" .. at)
 	eq(seen[h.approach.pos.x .. "," .. h.approach.pos.z], true, "hippodrome approach is connected pavement" .. at)
 	eq(h.rect.z2 + 1, street.ring_north_outer.rect.z1, "hippodrome meets ring_north_outer" .. at)
 	for x = h.approach.pos.x - 2, h.approach.pos.x + 2 do
@@ -1085,7 +1087,7 @@ for _, c in ipairs({{0, 0}, {777, -333}}) do for _, seed in ipairs({1, 2}) do
 
 	-- Removed blocks stay gone; nothing planned overlaps a road or landmark;
 	-- the hippodrome's door court is left unbuilt.
-	local court = {x1 = cx - 54, z1 = cz + 41, x2 = cx - 45, z2 = cz + 65}
+	local court = {x1 = cx - 50, z1 = cz + 41, x2 = cx - 45, z2 = cz + 65}
 	for _, gone in ipairs({"west_end_north", "east_end_south", "ring_west_outer_north"}) do
 		for _, b in ipairs(p.blocks) do eq(b.name ~= gone, true, gone .. " block removed" .. at) end
 	end
