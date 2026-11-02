@@ -458,7 +458,10 @@ and `at` (the compass coordinate of the building's low edge along the band, as
 for ring blocks) replace `arm` and compass `side`. Its footprint comes from the
 catalog entry and rotation, it stands flush against the band on that side, and
 its door must face the band: a rotation that turns it away is rejected. A ring
-landmark may not set `arm` or `faces` (issue #201). Roman generation is
+landmark may not set `arm` or `faces` (issue #201). Issue #354 adds ten
+ordinary blocks in the gaps and corners that the new roads and the hippodrome
+opened (`docs/roman_expansion_layout.md` sections 9 and 10), and extends
+`outer_north_east` to x 81 and `outer_north_west` to x -91. Roman generation is
 selected through `/towns_generate roman [seed]`, which passes `town_type =
 "roman"` to the shared search and build (issue #151). Any other explicit type
 is rejected with a reason.

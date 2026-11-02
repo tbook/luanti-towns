@@ -151,3 +151,75 @@ end
 -- Ordinary placements vary with the seed while the civic geometry does not.
 eq(signature(by_seed[1]) ~= signature(by_seed[2]), true, "seeds 1 and 2 differ in ordinary placement")
 eq(monuments(by_seed[1]), monuments(by_seed[2]), "seeds 1 and 2 share civic geometry")
+
+-- Issue #354: the neighbourhoods opened by #351..#353 (the outer northern and
+-- south-eastern corners, the gaps beside the basilica and the western temple,
+-- and the outer west, south-west and east blocks) each receive ordinary
+-- buildings. Counts are per district, so a total cannot hide an empty one.
+local NEW_DISTRICTS = {"outer_north_east", "outer_north_west", "ring_south_inner_east",
+	"ring_north_inner_west", "ring_west_inner_north", "ring_east_inner_north",
+	"ring_south_outer_east", "ring_south_outer_inner_east", "west_outer_west",
+	"south_west_outer", "east_amph_north", "east_outer_east"}
+local function per_district(plan)
+	local counts = {}
+	for _, b in ipairs(plan.content.buildings) do
+		local name = plan.blocks[b.block].name
+		counts[name] = (counts[name] or 0) + 1
+	end
+	return counts
+end
+local function on_pavement(plan, a)
+	local node = {x1 = a.x, z1 = a.z, x2 = a.x, z2 = a.z}
+	for _, st in ipairs(plan.streets) do
+		if overlap(node, st.rect) then return true end
+	end
+	for _, name in ipairs(plan.site_order) do
+		local s = plan.sites[name]
+		if s.kind == "square" and overlap(node, s.rect) then return true end
+	end
+	return false
+end
+local function check_population(plan, tag)
+	local counts = per_district(plan)
+	local total = #plan.content.buildings
+	eq(total >= 50, true, tag .. " at least 50 ordinary buildings (" .. total .. ")")
+	for _, name in ipairs(NEW_DISTRICTS) do
+		eq((counts[name] or 0) >= 1, true, tag .. " district " .. name .. " has buildings")
+	end
+	for _, b in ipairs(plan.blocks) do
+		eq((counts[b.name] or 0) >= 1, true, tag .. " block " .. b.name .. " is used")
+	end
+	-- Every new district's door approaches are connected pavement.
+	for _, b in ipairs(plan.content.buildings) do
+		local name = plan.blocks[b.block].name
+		for _, new in ipairs(NEW_DISTRICTS) do
+			if name == new then
+				eq(b.approach ~= nil and on_pavement(plan, b.approach), true,
+					tag .. " " .. name .. " approach is connected pavement")
+			end
+		end
+	end
+	-- Services and jail stay valid: the fixed reservations, no shortage.
+	eq(plan.reservations.jail.building_id, "jail", tag .. " jail reserved")
+	eq(#plan.reservations.services, 6, tag .. " three taverns and three wells reserved")
+	eq(#plan.shortages, 0, tag .. " no service or jail shortage")
+	eq(planner.validate(plan), true, tag .. " validates")
+	eq(content.validate(plan, plan.content, snapshot), true, tag .. " content validates")
+	return counts, total
+end
+local total_buildings = 0
+for _, seed in ipairs(SEEDS) do
+	local tag = "seed " .. seed .. " (#354)"
+	local plan = by_seed[seed]
+	local _, total = check_population(plan, tag)
+	total_buildings = total_buildings + total
+	-- A translated centre reproduces the same per-district counts.
+	local moved = plan_at(777, -333, seed)
+	local moved_counts, moved_total = check_population(moved, tag .. " at (777,-333)")
+	eq(moved_total, total, tag .. " translated total")
+	for _, name in ipairs(NEW_DISTRICTS) do
+		eq(moved_counts[name] or 0, (per_district(plan))[name] or 0,
+			tag .. " translated district " .. name)
+	end
+end
+eq(total_buildings >= 210, true, "at least 210 ordinary buildings over seeds 1, 2, 3 and 7 (" .. total_buildings .. ")")

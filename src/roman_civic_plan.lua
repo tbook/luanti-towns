@@ -138,8 +138,20 @@ return {
 		{name = "west_end_south", arm = "west", side = "-z", from = 31, to = 58},
 		{name = "west_forum_north", arm = "west", side = "+z", from = 0, to = 22},
 		{name = "ring_north_inner_east", ring = "north", side = "inner", from = 15, to = 37},
-		{name = "outer_north_east", ring = "north_outer", side = "outer", from = 10, to = 43},
-		{name = "outer_north_west", ring = "north_outer", side = "outer", from = -44, to = -11},
+		{name = "outer_north_east", ring = "north_outer", side = "outer", from = 10, to = 81},
+		{name = "outer_north_west", ring = "north_outer", side = "outer", from = -91, to = -11},
 		{name = "ring_east_outer_south", ring = "east", side = "outer", from = -74, to = -48},
+		-- Issue #354: ordinary blocks in the gaps and corners opened by #351..#353
+		-- (docs/roman_expansion_layout.md sections 9 and 10).
+		{name = "ring_south_inner_east", ring = "south", side = "inner", from = 12, to = 37},
+		{name = "ring_north_inner_west", ring = "north", side = "inner", from = -38, to = -16},
+		{name = "ring_west_inner_north", ring = "west", side = "inner", from = 12, to = 23},
+		{name = "ring_east_inner_north", ring = "east", side = "inner", from = 13, to = 23},
+		{name = "ring_south_outer_east", ring = "south", side = "outer", from = 53, to = 81},
+		{name = "ring_south_outer_inner_east", ring = "south_outer", side = "inner", from = 53, to = 81},
+		{name = "west_outer_west", ring = "west_outer", side = "outer", from = 6, to = 40},
+		{name = "south_west_outer", ring = "south_west", side = "outer", from = -91, to = -7},
+		{name = "east_amph_north", ring = "north", side = "inner", from = 73, to = 81},
+		{name = "east_outer_east", ring = "east_outer", side = "outer", from = -41, to = -7},
 	},
 }
