@@ -360,8 +360,8 @@ places where they look intentional and do not damage nearby structures.
 
 The [automatic towns design for #355](automatic_towns_design.md) proposes
 seed-derived sites triggered when generation first touches their outer envelope.
-It supersedes the earlier village-opportunity proposal: village-centered triggers
-are likely to reach old terrain before a whole town can be inspected.
+The activation envelope includes village reach so reservations precede nearby
+village planning.
 
 - Inspect one position with the existing site search and an explicit reference.
   Reuse existing terrain rules; do not seek water or add new terrain profiles.
@@ -372,7 +372,9 @@ are likely to reach old terrain before a whole town can be inspected.
   build lock. Persist only accepted towns, including interrupted builds.
 - Start with a frontier/freshness experiment. Survey acceptance rates, player
   terrain-loading delays, resource use, and construction pauses before enabling
-  automatic construction. Verify stage bounds and emerge-action accounting.
+  automatic construction. Verify stage bounds and generated-chunk recording.
+  Allow a rare generation pause of about five seconds and measure completion
+  before players reach the write envelope plus 16 nodes.
 - Use exploration-only discovery in v1, provisionally targeting a town encounter
   within 30 minutes on at least half of representative walking routes. Provide
   a developer lookup for testing.

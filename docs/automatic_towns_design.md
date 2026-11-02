@@ -1,6 +1,6 @@
 # Automatic towns — issue 355
 
-Revised proposal for review, 2026-11-02. Parent:
+Design proposal for review, 2026-11-02. Parent:
 [Towns #355](https://github.com/tbook/luanti-towns/issues/355).
 Source baseline: Towns `3618e34`, installed Living Villages `668c5fc`, and
 the installed VoxeLibre village generator. Also account for outside roads from
@@ -8,23 +8,13 @@ the installed VoxeLibre village generator. Also account for outside roads from
 baseline. This document adds no runtime code. The engine experiments below
 have not been run.
 
-## 1. Direction and review decisions
+## 1. Direction
 
 Generate a sparse set of seed-derived town sites. Begin inspection when terrain
-generation first reaches a site's outer envelope, rather than its center.
+generation first reaches a site's activation envelope.
 Inspect one position; if it fails, that site has no town.
 
-This changes the initial village-opportunity proposal. The
-[review](https://github.com/tbook/luanti-towns/pull/390#pullrequestreview-5744264574)
-identified that a large town centered on a normal generation trigger is likely
-to overlap older terrain. The installed defaults generate within 10 mapblocks
-(160 nodes) of players, while current town footprints plus outskirts and terrain
-work extend a comparable distance from their center. Five positions offset by
-32 nodes enlarge that envelope without buying another exact inspection.
-These are reasons to test first-touch placement, not measured acceptance rates
-or proof that every village-centered proposal fails.
-
-Keep the agreed product constraints:
+Product constraints:
 
 - Modify only terrain from this initial-generation operation, including
   neighboring chunks freshly generated to complete it. Never retrofit old land.
@@ -33,8 +23,8 @@ Keep the agreed product constraints:
   water outside the town is acceptable.
 - Reuse the populated town pipeline. Keep selection and generation bounded.
 
-**Confirmed direction after review:** use first-touch sites, and make ordinary
-exploration the only player-facing discovery method in v1. A developer lookup
+Use first-touch sites, and make ordinary exploration the only player-facing
+discovery method in v1. A developer lookup
 is for testing. Maps, directions, and new town layouts are outside this issue.
 First-touch sites replace overlapping village plans; they do not require a
 village opportunity. The provisional discovery target is at least half of
@@ -51,24 +41,32 @@ Roman equal weights initially. Reduce only the planner seed to its supported
 range; do not round a 64-bit world seed through a Lua number or consume village
 randomness.
 
-Keep a site's maximum read/write envelope inside its cell with at least one
-mapchunk of clearance from cell edges. Derive the allowed center jitter from
-that bound, not a second tunable distance. Reject unsupported oversized plans.
-This separates neighboring sites even after mapchunk rounding and extra reads.
+Keep a site's activation envelope (the maximum horizontal read/write envelope
+padded by village reach, section 4) inside its cell with at least one mapchunk
+of clearance from cell edges. Derive allowed center jitter from that bound.
+Verify the fit using actual supported layouts and village configuration;
+enlarge the cell or decline unsupported oversized plans if necessary. This
+separates sites even after mapchunk rounding and extra reads.
 
 A generation callback examines only its intersecting cells, a bounded arithmetic
 lookup, and starts a site when an eligible overworld surface chunk first touches
-the fixed envelope. Ignore underground-only, sky-only, other-dimension, and
-singlenode generation. Copy valid ground-height samples from the intersecting
-surface while the heightmap exists. Use their median as the reference for the
-existing +/-48-node surface window; reject unavailable or implausible references.
-An edge reference need not represent the center, so measure these rejections.
+the activation envelope. Underground-only and sky-only chunks do not trigger
+new sites, but still enter the freshness record for an active site. Ignore
+other dimensions and singlenode generation.
 
-The trigger envelope must be computable before inspecting or planning a full
-town. Use one conservative horizontal maximum derived from supported layouts,
-asset dimensions, and every stage's maximum reach. Verify it against all
-supported layout variants and reject future plans that exceed it. Build the
-actual plan only for a triggered site. A small in-memory terminal set prevents
+Request the center surface chunk first. Copy its valid heightmap values within
+the urban footprint during generation and use their median as the reference
+for the existing +/-48-node exact scan. The trigger surface layer is only a
+bounded hint for requesting the center, never the reference height. If that
+request supplies no valid center ground, decline without a vertical search.
+Retain center data if ordinary exploration generates that chunk before the job
+requests it. No callback-local heightmap may be read after its callback returns.
+
+The activation envelope must be computable before inspecting or planning a full
+town. Derive its horizontal maximum from supported layouts, asset dimensions,
+every stage's reach, and village reach. Verify all supported layout variants
+and reject future plans that exceed it. Build the actual plan only for a
+triggered site. A small in-memory terminal set prevents
 later callbacks from repeatedly inspecting the same declined site.
 
 No candidate lattice, coarse sampling/ranking pass, separate spatial index, or
@@ -122,19 +120,27 @@ rotated schematic, and terrain/tree/hole reach. The ring radius alone is not
 a complete write bound. Validate the wrapper's assumptions against the installed
 Living Villages version; disable automatic towns if integration is unsupported.
 
-The first-touch callback must reserve its envelope before any village planner
-can write within it. Use explicit `mcl_mapgen_core` priority and verify ordering
-in the engine experiment. Completed existing structures still reject the town.
-There is no need to inspect private pending-village tables or retain their plans.
+Activate and reserve the town when a surface chunk touches the maximum
+horizontal read/write envelope padded by that village reach. A village capable
+of reaching the town then has its trigger chunk inside this larger activation
+envelope, so the reservation exists before its LBM-driven planner runs. Numeric
+generator priority does not protect an asynchronous village build; verify this
+activation-to-planner ordering directly in slice 0.
+
+If the wrapper encounters a potentially overlapping candidate site that never
+activated (for example, its surrounding trigger terrain predates Towns), mark
+that site declined for this session before calling the original village planner.
+It must not activate midway through that planner's own terrain requests.
+Completed existing structures still reject towns. There is no need to inspect
+private pending-village tables or retain their plans.
 
 On a town rejection, release the temporary reservation; subsequent villages
 proceed normally. A village rejected during that inspection may be lost even
 if the town later fails. Count that loss in the survey rather than promising
 that failed town attempts leave every village unaffected.
 
-There is no deferred village continuation: no late heightmap access, delayed
-marker placement, or replay through an LBM. This removes the fallback bugs in
-the original proposal and the need for an upstream scheduler hook.
+There is no deferred village continuation, late marker placement, or village
+replay. Normal villages keep the existing game/Living Villages build chain.
 
 Use cell lookup for nearby reservations/accepted records. Keep completed and
 interrupted envelopes; do not introduce mapchunk buckets or a global list scan
@@ -142,9 +148,10 @@ on every generation callback.
 
 ## 5. Freshness and one envelope calculation
 
-Provide one envelope function listing all build stages. Distinguish its fixed
-horizontal trigger bound, the conservative XYZ write bound relative to reference
-ground, and the larger read/request bounds. Account for:
+Provide one envelope function listing all build stages. Distinguish the maximum
+horizontal read/write envelope, the larger activation envelope including village
+reach, the XYZ write bound relative to center ground, and read/request bounds.
+The activation halo itself is not requested or required to be fresh. Account for:
 
 - Urban cut/fill, clearing, foundations, and tallest structures.
 - Margin smoothing and its tree-cleanup/inspection reach.
@@ -157,20 +164,30 @@ Use existing volume queries and shared configuration. Do not assume that the
 visible smoothing radius bounds tree cleanup or support writes. Whichever
 change merges second, #355 or #357, must update this calculation and its tests.
 
-Prefer per-mapchunk accounting from `emerge_area` actions over a generation
-observer. The just-generated trigger chunk is explicitly fresh. For other
-chunks, the proposed rule is that at least one requested mapblock must report
-`EMERGE_GENERATED`; later blocks in that chunk may report `FROM_MEMORY`.
-A chunk with only memory/disk actions rejects the site. Cancellation/error
-rejects, even if it could be concurrent emergence.
+Use the existing first-touch generation callback to record exact generated
+mapchunk bounds in a small in-memory set per active site. Record the activating
+chunk immediately, and every later chunk intersecting the site's maximum
+read/write envelope, regardless of whether exploration, Towns, or another
+request generated it. Record sky and underground chunks before applying the
+surface-only filter for new site activation. Do not mark overgenerated padding
+outside the callback's actual generated bounds as fresh.
 
-**This accounting is an experiment, not a proved engine guarantee.** Check
-mixed old/new regions, request ordering, chunk overgeneration, and concurrency:
-a generated block must not wrongly authorize old player-modified blocks in the
-same chunk. If actions cannot establish freshness conservatively, keep the
-feature disabled while resolving the evidence gap. First-touch does not itself
-prove freshness when Towns is added to an old world or terrain is generated by
-other requests.
+After each bounded load, require the covered possible-write chunks to be present
+in that set. Read-only chunks do not authorize writes outside the approved bound.
+A `FROM_MEMORY`/`FROM_DISK` action alone proves neither freshness nor age: player
+exploration may have just generated the chunk and the callback record supplies
+the evidence. Old terrain and chunks generated before this operation have no
+record and reject the site. Restart discards the sets, so earlier terrain cannot
+be authorized by a new session. `EMERGE_CANCELLED` still requires proof that
+terrain is available and recorded; if that cannot be established, decline
+without retry. Errors decline.
+
+**Engine experiment required:** confirm that generated-chunk recording runs
+before the corresponding emerge completion is consumed, including concurrent
+player requests and requests whose blocks subsequently report `FROM_MEMORY`.
+Test partial old/new coverage and padding explicitly. Until that evidence
+holds, keep automatic construction disabled. No separate observer or persistent
+world-wide freshness ledger is needed.
 
 Require fresh coverage for every possible write, after all bounded requests
 finish and before construction. Never infer freshness from air, unloaded nodes,
@@ -187,10 +204,20 @@ specific writer cannot otherwise honor its declared volume.
 
 ## 6. Work limits and player-visible loading
 
-One candidate avoids duplicate scans and the extra 64-node span of the earlier
-five-position proposal. Read terrain through bounded VoxelManip snapshots,
+Read the single candidate through bounded VoxelManip snapshots,
 cache classifications, and release buffers promptly. Selection remains roughly
 `O(footprint_area * scan_height)`, plus bounded terrain generation.
+
+Load in two stages:
+
+1. Request urban footprint chunks center outward, taking the height reference
+   from the center. Stop as soon as reliable heightmap evidence proves failure.
+   For example, a height range above 48 across required urban columns cannot
+   meet the exact +/-24 cut/fill limit. Use only valid terrain heights with
+   semantics matching the exact test; ambiguous or clipped data goes to exact
+   inspection, not an approximate rejection. Run the exact urban test once.
+2. Only after that passes, request remaining chunks for margins, walls, outside
+   roads, and outskirts. Require full fresh write coverage before any town write.
 
 Do not submit the entire envelope as one large emerge queue entry. Start with
 one mapchunk-sized request in flight, then issue the next after completion.
@@ -199,16 +226,19 @@ and snapshot voxels against hard caps; measure current maximum plans and freeze
 numerical caps before construction is enabled. No retry, expanding search, or
 unbounded queue.
 
-Budget inspection by elapsed CPU work, initially about 5 ms before yielding.
-Remove the fixed 256-columns-per-step rule: for a 35,000-column footprint it
-would consume roughly 140 server steps even with cheap reads. Yield timing
-must not change site identity or terrain acceptance.
+An inspection budget around 5 ms before yielding is a starting tuning value,
+not a release target. Measure both the work and the delay introduced by yielding.
+Yield timing must not change site identity or terrain acceptance.
 
 The main risks are CPU pauses, memory growth, emerge-queue contention that
 stalls player terrain, and a player reaching the site before completion.
-Measure each separately. The urban builder is synchronous; `after` does not
-make its terrain commit or schematic placement nonblocking. Split a measured
-hot stage only if needed, rather than redesigning construction in advance.
+Measure each separately. A rare pause of a few seconds is acceptable; use about
+5 seconds as the provisional maximum single pause. Synchronous build stages run
+on the server's main thread, so distance from the town does not shorten that pause.
+The existing [margin validation](city_margins_validation.md#timing-observations)
+already measured `smooth_boundary` alone at about 1.07–1.77 seconds. Measure the
+longest single pause across the full pipeline; do not add a build-splitting
+implementation slice up front.
 
 ## 7. Minimal records
 
@@ -234,8 +264,10 @@ walking and flying routes before implementing a selector or village wrapper.
 Record chunk bounds, nearest-player distance, valid surface heights, and known
 generation history within roughly +/-200 nodes. A session callback log can
 establish history on a fresh disposable world; `ignore` cannot prove it.
-Compare village-centered and first-touch trigger geometry using the actual
-plan/envelope dimensions. Then probe per-chunk emerge actions and queue behavior.
+Measure first-touch geometry using the actual activation and write dimensions,
+including village reach. Count natural village opportunities and successful
+builds to establish the village success rate before tuning town density. Check
+fresh-chunk recording versus emerge completion, and probe queue behavior.
 Do not generate around every logged chunk just to measure it: that changes the
 frontier being measured.
 
@@ -250,22 +282,35 @@ Provisional v1 acceptance targets, subject to product review and survey evidence
 
 | Measure | Starting target |
 | --- | --- |
-| Successful town rarity | At least four successful villages per town across representative explored areas |
+| Successful town rarity | Towns less frequent than successful villages; four villages per town is a tuning preference |
 | Discovery through exploration | At least half of representative ordinary walking routes encounter a town within 30 minutes |
 | Player terrain loading | Added p95 request-to-ready delay <=1 second versus the matched baseline; report worst stalls too |
-| Main-thread work | Cooperative slices near 5 ms; no added construction pause >100 ms |
-| Time from first touch to ready town | p95 <=10 seconds, also reporting player-clearance rejections |
+| Main-thread pause | A rare generation pause of about 5 seconds at most; measure the longest single pause across all stages |
+| Time from first touch to ready town | Finish before a player reaches the write envelope plus 16 horizontal nodes; measure clearance rejections and deadline misses |
 
 For discovery, count entering within 128 horizontal nodes of the urban footprint
 as an encounter proxy; validate actual visibility and access in playtests.
 Nearest-town distance and density alone do not imply a route encounter time.
 Fix route speed, seeds, settings, and hardware, and report sample sizes and both
 types. Adjust the 1,024-node cell size first if density/discovery misses targets.
-Do not relax freshness or terrain rules to manufacture the target.
+If the four-villages preference conflicts with discovery, retain the 30-minute
+discovery target and relax that preference while keeping towns rarer than
+villages. Cell size alone cannot make incompatible targets achievable. If
+discovery and the basic rarity requirement still conflict, bring the measured
+tradeoff back for review rather than silently dropping either. Never relax
+freshness or terrain rules to manufacture the target.
+
+Measure elapsed completion time relative to player trajectories. Decline if a
+player breaches clearance before first writes. If a player arrives after
+construction has begun, record the deadline
+miss; do not claim that the initial clearance check prevents it or roll back a
+partly built town. Such misses must inform the release decision. Count entire
+jobs that lose clearance as failures in the encounter survey.
 
 Record declined sites by reason, actual successful villages, villages suppressed
 during unsuccessful inspections, total generated chunks, peak snapshot size,
-batch pauses, full inspection/build time, and player terrain request latency.
+batch pauses, longest single pipeline pause, full inspection/build time,
+player approach/clearance, and player terrain request latency.
 Include defaults and busy-server/multiplayer trials. Instrument request-to-ready
 latency directly; time to the next generated chunk is only a proxy if demand is
 known. Visual checks cover plains, hills, forests, and water edges.
@@ -274,32 +319,36 @@ Before release, engine tests must cover old neighbors in memory/on disk,
 vertical boundaries, pending villages, outside roads, tree cleanup, concurrent
 emergence, cancellation/late callbacks, player approach, and shutdown before/
 after first writes. Pure tests cover seed/cell lookup, one-candidate limits,
-freshness aggregation, village bounds, reservations, and records. Passing unit
-tests alone does not establish first-touch viability or acceptable loading.
+fresh-chunk recording, village bounds/activation halo, reservations, and records.
+Include exploration generating chunks during the staged requests, and villages
+whose planning emerges into the site. Passing unit tests alone does not establish
+first-touch viability or acceptable loading.
 
 ## 9. Implementation slices after review
 
-0. **Frontier and freshness experiment:** establish trigger geometry, emerge
-   action semantics, and player-loading impact. No town writes.
+0. **Frontier and freshness experiment:** establish activation geometry including
+   village reach, generated-callback recording before emerge completion, natural
+   village success rate, and player-loading impact. No town writes.
 1. **One-site selector and survey:** deterministic cells, first-touch lookup,
-   explicit-reference single-site inspection, shared envelopes, and measured
-   caps. Evaluate the numerical targets against the confirmed placement and
-   exploration-only discovery direction.
+   center-reference single-site inspection, footprint-first loading with early
+   rejection, shared envelopes, and measured caps. Evaluate the numerical targets
+   against the confirmed placement and exploration-only discovery direction.
 2. **Village coordination and lifecycle:** guarded planner wrapper, shared lock,
    temporary reservations, accepted records, and developer lookup.
 3. **Construction integration:** reuse the populated pipeline, include #357
-   roads, verify containment, measure pauses and discovery, then enable natural
-   generation only when the release targets are met.
+   roads, verify containment, measure the longest single pause and completion
+   versus player arrival, then enable natural generation only when the release
+   targets are met. No advance build-splitting work is required.
 
 Keep #355 as the player-facing parent. Create child tickets after design review
 and slice 0's evidence settle the architecture. This PR does not create them.
 
 ## References
 
-- [PR review and supporting calculations](https://github.com/tbook/luanti-towns/pull/390#pullrequestreview-5744264574)
 - [Existing engineering design](engineering_design.md#4-natural-generation-and-world-safety)
 - [Outskirts design](outskirts_design.md)
 - [City margins design](city_margins_design.md)
+- [City margins validation and timings](city_margins_validation.md#timing-observations)
 - [Luanti core API](https://api.luanti.org/core-namespace-reference/): emerge actions,
   generation callbacks, and their main-thread limitations.
 - [Luanti mapgen objects](https://api.luanti.org/mapgen-objects/): callback-local data.
