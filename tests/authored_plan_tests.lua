@@ -168,8 +168,8 @@ check_site("cathedral_east", "cathedral", 90, {x1 = 100, z1 = 200, x2 = 158, z2 
 	{59, 55}, {108, 219}, {-1, 0}, {99, 219})
 check_site("castle_east", "castle", 270, {x1 = 100, z1 = 200, x2 = 153, z2 = 249},
 	{54, 50}, {150, 224}, {1, 0}, {154, 224})
-check_site("tower_south", "tower", 180, {x1 = 100, z1 = 200, x2 = 117, z2 = 220},
-	{18, 21}, {108, 212}, {0, 1}, {108, 221})
+check_site("tower_south", "tower", 180, {x1 = 100, z1 = 200, x2 = 118, z2 = 221},
+	{19, 22}, {109, 213}, {0, 1}, {109, 222})
 fails(function() authored.landmark_site("ghost", "no_such_building", 0,
 	{x1 = 0, z1 = 0, x2 = 1, z2 = 1}) end, "unknown catalog id", "landmark_site rejects unknown id")
 fails(function() authored.landmark_site("small", "cathedral", 0,

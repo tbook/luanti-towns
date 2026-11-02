@@ -2,7 +2,7 @@
   "world": "/Users/tad/Library/Application Support/minetest/worlds/TownsWorkshop",
   "snapshot_sha256": "89004666a537699f5ee3f4ed3a22d51559b79c06e40e42c17f849ae2087ad3f8",
   "last_export_buildings": [
-    "town_square_fountain"
+    "tower"
   ],
   "buildings": [
     {
@@ -40,6 +40,7 @@
         "mcl_stairs:slab_andesite_top",
         "mcl_stairs:slab_diorite",
         "mcl_stairs:slab_diorite_smooth",
+        "mcl_stairs:slab_granite_smooth_top",
         "mcl_stairs:slab_granite_top",
         "mcl_stairs:slab_junglewood",
         "mcl_stairs:stair_acaciawood",
@@ -51,44 +52,48 @@
         "mcl_stairs:stair_diorite_smooth_inner",
         "mcl_stairs:stair_diorite_smooth_outer",
         "mcl_stairs:stair_granite",
+        "mcl_stairs:stair_granite_smooth",
         "mcl_stairs:stair_junglewood",
         "mcl_stairs:stair_junglewood_inner",
         "mcl_torches:torch",
         "mcl_torches:torch_wall",
         "mcl_walls:andesite_0",
-        "mcl_walls:andesite_12",
+        "mcl_walls:andesite_3",
         "mcl_walls:andesite_6",
         "mcl_walls:diorite_0",
-        "mcl_walls:granite_12",
-        "mcl_walls:granite_4",
+        "mcl_walls:granite_2",
+        "mcl_walls:granite_3",
         "mcl_walls:granite_6",
         "mcl_wool:cyan_carpet",
-        "mcl_wool:white_carpet"
+        "mcl_wool:white_carpet",
+        "xpanes:pane_natural_flat"
       ],
       "role": "city_hall",
       "rotation": 90,
       "size": {
-        "x": 18,
+        "x": 19,
         "y": 50,
-        "z": 21
+        "z": 22
       },
       "source_max": {
         "x": 113,
         "y": 57,
-        "z": 217
+        "z": 218
       },
       "source_min": {
-        "x": 93,
+        "x": 92,
         "y": 8,
         "z": 200
       },
       "source_size": {
-        "x": 21,
+        "x": 22,
         "y": 50,
-        "z": 18
+        "z": 19
       },
-      "verified_nodes": 18900,
-      "snapshot_sha256": "f49aa63f63a1d0809a752296867dca9df78a1b77b8a91fcf6d6b2cea3642de7c"
+      "verified_nodes": 20900,
+      "wall_count": 54,
+      "wall_mismatches": 0,
+      "snapshot_sha256": "25bb85249666da381f7ba9ae10ad5a7aa48ee5fc8996224e90bb3ddedae4228f"
     },
     {
       "entrance": {
@@ -2068,9 +2073,9 @@
     }
   ],
   "runtime_validation": {
-    "inventory_lists": 2484,
-    "metadata_nodes": 4876,
-    "non_air_nodes": 435096,
-    "placements": 152
+    "inventory_lists": 2608,
+    "metadata_nodes": 5112,
+    "non_air_nodes": 489820,
+    "placements": 164
   }
 }
