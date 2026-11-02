@@ -30,10 +30,10 @@ local plan = plan_at(100, -50, 7)
 eq(plan.town_type, "roman", "Roman plan carries its town type")
 eq(planner.validate(plan), true, "selected Roman plan passes authored validation")
 
--- Exact monument census: 18 placements from eleven templates (vespasianum, #218;
--- temple_of_vesta, #352).
+-- Exact monument census: 19 placements from twelve templates (vespasianum, #218;
+-- temple_of_vesta, #352; hippodrome, #353).
 local list = landmarks(plan)
-eq(#list, 18, "18 monument placements")
+eq(#list, 19, "19 monument placements")
 local counts, names, n = {}, {}, 0
 for _, s in ipairs(list) do
 	counts[s.id] = (counts[s.id] or 0) + 1
@@ -41,13 +41,13 @@ for _, s in ipairs(list) do
 	names[s.name] = true
 	eq(plan.sites[s.name], s, s.name .. " is keyed by its own name")
 end
-for id, want in pairs({arch = 3, temple_of_jupiter = 1, temple_of_vesta = 1, temple = 2, domus = 3, basilica = 1, theatre = 1, amphitheater = 1, bath = 1, insula = 3, vespasianum = 1}) do
+for id, want in pairs({arch = 3, temple_of_jupiter = 1, temple_of_vesta = 1, temple = 2, domus = 3, basilica = 1, theatre = 1, amphitheater = 1, bath = 1, insula = 3, vespasianum = 1, hippodrome = 1}) do
 	eq(counts[id], want, id .. " count")
 	n = n + 1
 end
 eq(counts.villa, nil, "villa remains absent from the Roman authored plan")
-eq(n, 11, "eleven templates")
-eq(#plan.site_order, 20, "forum, forecourt and 18 monuments in site order")
+eq(n, 12, "twelve templates")
+eq(#plan.site_order, 21, "forum, forecourt and 19 monuments in site order")
 
 -- Vespasianum (#218): one latrine at the far end of the east arm's north
 -- frontage. Its -X opening turns to -z (rotation 270), toward the decumanus,
@@ -99,8 +99,9 @@ for i = 1, #solids do
 		eq(overlap(r, solids[j].rect), false, solids[i].name .. " / " .. solids[j].name .. " disjoint")
 	end
 end
--- Streets: four principal arms, then the six ring bands (issues #164, #202).
-eq(#plan.streets, 10, "four arms and six ring bands")
+-- Streets: four principal arms, then the nine ring bands (issues #164, #202,
+-- #353).
+eq(#plan.streets, 13, "four arms and nine ring bands")
 local arm_streets, ring_streets = {}, {}
 for i, st in ipairs(plan.streets) do
 	eq(st.kind, i <= 4 and "principal" or "secondary", st.name .. " kind")
@@ -113,9 +114,11 @@ for _, st in ipairs(plan.streets) do
 end
 -- Streets meet only at designed junctions. Crossings (overlap): the north
 -- bands cross the cardo, the north and north_outer bands cross the east and
--- west bands, and the east arm crosses the east band. Abutments (touching, no
--- overlap): the south and south_outer bands end against the east band, and the
--- south and west bands end beside their arms (T-junctions).
+-- west bands, the east arm crosses the east band, and (#353) the south and
+-- south_outer bands run on across the east band. Abutments (touching, no
+-- overlap): the south and west bands end beside their arms (T-junctions), as
+-- do the new west_outer, south_west and east_outer bands, and east_outer ends
+-- against the south band.
 local function abuts(a, b)
 	if overlap(a, b) then return false end
 	local side_x = a.x2 + 1 == b.x1 or b.x2 + 1 == a.x1
@@ -129,10 +132,12 @@ local crossings = {
 	["decumanus_east/ring_east"] = true,
 	["ring_north/ring_east"] = true, ["ring_north/ring_west"] = true,
 	["ring_north_outer/ring_east"] = true, ["ring_north_outer/ring_west"] = true,
+	["ring_south/ring_east"] = true, ["ring_south_outer/ring_east"] = true,
 }
 local abutments = {
-	["ring_south/ring_east"] = true, ["ring_south_outer/ring_east"] = true,
 	["cardo_south/ring_south"] = true, ["decumanus_west/ring_west"] = true,
+	["cardo_south/ring_south_west"] = true, ["decumanus_west/ring_west_outer"] = true,
+	["decumanus_east/ring_east_outer"] = true, ["ring_south/ring_east_outer"] = true,
 }
 for i = 1, #plan.streets do for j = i + 1, #plan.streets do
 	local a, b = plan.streets[i], plan.streets[j]
@@ -154,13 +159,17 @@ end
 -- Literal pins (issues #200, #202): the ring at the origin, as x1, z1, x2, z2.
 -- The depth is the arm axis: north z 33..38 (from 18..23), north_outer z 66..71
 -- (51..56), south z -47..-42 (26..31), south_outer z -80..-75 (59..64), east
--- x 38..43 (23..28), west x -44..-39 (23..28).
+-- x 38..43 (23..28), west x -44..-39 (23..28). Issue #353 widens the north,
+-- north_outer, south and south_outer spans and adds west_outer, south_west and
+-- east_outer.
 do
 	local p0 = assert(planner.plan({x = 0, z = 0}, 1, {town_type = "roman"}))
 	local pins = {
-		north = {-44, 33, 43, 38}, north_outer = {-44, 66, 43, 71},
-		south = {3, -47, 37, -42}, south_outer = {6, -80, 37, -75},
+		north = {-44, 33, 81, 38}, north_outer = {-91, 66, 81, 71},
+		south = {3, -47, 81, -42}, south_outer = {6, -80, 81, -75},
 		east = {38, -80, 43, 71}, west = {-44, 3, -39, 71},
+		west_outer = {-72, 3, -67, 40}, south_west = {-91, -74, -4, -69},
+		east_outer = {66, -41, 71, -4},
 	}
 	for name, want in pairs(pins) do
 		local r
@@ -191,13 +200,25 @@ eq(overlap(R.s, sa), false, "south band does not cross the south arm")
 eq(R.w.z1, wa.z2 + 1, "west band starts beside the west arm")
 eq(R.w.x1 >= wa.x1 and R.w.x2 <= wa.x2, true, "west band meets the west arm")
 eq(overlap(R.w, wa), false, "west band does not cross the west arm")
--- The bath quadrant (south-west) is left out: no ring street, and clearance.
+-- The bath quadrant (south-west): every band but south_west keeps 3 nodes
+-- clear of the bath and stays out of the quadrant. ring_south_west (#353) runs
+-- deliberately under the bath, exactly two rows of grass south of it, and stops
+-- short of the bath's east (door) face.
 local bath = plan.sites.bath.rect
 local cx0, cz0 = plan.center.x, plan.center.z
 for name, st in pairs(ring_streets) do
-	eq(overlap(st.rect, {x1 = bath.x1 - 3, z1 = bath.z1 - 3, x2 = bath.x2 + 3, z2 = bath.z2 + 3}), false,
-		"ring " .. name .. " keeps 3 nodes clear of the bath")
-	eq(st.rect.x2 >= cx0 - 3 or st.rect.z2 >= cz0 - 3, true, "ring " .. name .. " is outside the south-west quadrant")
+	if name ~= "south_west" then
+		eq(overlap(st.rect, {x1 = bath.x1 - 3, z1 = bath.z1 - 3, x2 = bath.x2 + 3, z2 = bath.z2 + 3}), false,
+			"ring " .. name .. " keeps 3 nodes clear of the bath")
+		eq(st.rect.x2 >= cx0 - 3 or st.rect.z2 >= cz0 - 3, true, "ring " .. name .. " is outside the south-west quadrant")
+	end
+end
+do
+	local sw = ring_streets.south_west.rect
+	eq(overlap(sw, bath), false, "ring south_west does not touch the bath")
+	eq(sw.z2, bath.z1 - 3, "ring south_west leaves exactly two rows below the bath")
+	eq(sw.x2 <= bath.x2, true, "ring south_west does not reach past the bath's east (door) face")
+	eq(sw.x1, bath.x1, "ring south_west starts at the bath's west edge")
 end
 
 -- Monuments: the basilica inside the ring, the domus and the amphitheater outside.
@@ -419,8 +440,8 @@ for _, b in ipairs(plan.blocks) do
 		eq(faces, true, b.name .. " has frontage facing the ring")
 	end
 end
-eq(#ring_blocks, 5, "five ring-relative blocks")
-local ring_sides = {"-z", "+z", "+z", "-x", "+x"}
+eq(#ring_blocks, 4, "four ring-relative blocks")
+local ring_sides = {"-z", "+z", "+z", "+x"}
 for i, want in ipairs(ring_sides) do
 	eq(ring_blocks[i] and ring_blocks[i].side, want, "ring block " .. i .. " uses the expected side")
 end
@@ -777,7 +798,7 @@ do
 		{"insula_north_east", 3, 39, 37, 65}, {"insula_north_west", -38, 39, -4, 65},
 		{"insula_south", 3, -74, 37, -48},
 		{"jupiter_forecourt", -10, 72, 9, 79}, {"temple_of_jupiter", -10, 80, 9, 106},
-		{"temple_of_vesta", 3, -26, 13, -16},
+		{"temple_of_vesta", 3, -26, 13, -16}, {"hippodrome", -91, 41, -55, 65},
 	}
 	local function rect_pin(r, pin, label)
 		eq(r.x1, pin[2], label .. " x1")
@@ -789,12 +810,12 @@ do
 		rect_pin(origin.sites[pin[1]].rect, pin, pin[1] .. " rect at the origin")
 	end
 	local block_pins = {
-		{"east_forum_north", 15, 3, 29, 11}, {"east_end_south", 66, -12, 73, -4},
+		{"east_forum_north", 15, 3, 29, 11},
 		{"south_east_inner", 3, -41, 11, -27}, {"west_forum_south", -25, -12, -16, -4},
 		{"west_end_south", -74, -12, -47, -4}, {"west_forum_north", -38, 3, -16, 11},
-		{"west_end_north", -74, 3, -67, 11}, {"ring_north_inner_east", 15, 24, 37, 32},
+		{"ring_north_inner_east", 15, 24, 37, 32},
 		{"outer_north_east", 10, 72, 43, 80}, {"outer_north_west", -44, 72, -11, 80},
-		{"ring_west_outer_north", -53, 42, -45, 71}, {"ring_east_outer_south", 44, -80, 52, -42},
+		{"ring_east_outer_south", 44, -74, 52, -48},
 	}
 	eq(#origin.blocks, #block_pins, "block count matches the authored list")
 	local by_name = {}
@@ -959,3 +980,117 @@ for _, c in ipairs({{0, 0}, {777, -333}, {-4200, 3100}}) do
 		eq(overlap(b.rect, vista), false, b.name .. " keeps the vista toward Jupiter" .. at)
 	end
 end
+
+-- Secondary road extensions and the hippodrome (issue #353): geometry from
+-- docs/roman_expansion_layout.md sections 4, 5.1 and 9, at the origin and at
+-- a translated centre, over two seeds.
+for _, c in ipairs({{0, 0}, {777, -333}}) do for _, seed in ipairs({1, 2}) do
+	local p = plan_at(c[1], c[2], seed)
+	local cx, cz = c[1], c[2]
+	local at = " at centre " .. cx .. "," .. cz .. " seed " .. seed
+	local function pin(r, x1, z1, x2, z2, label)
+		eq(r.x1 == cx + x1 and r.z1 == cz + z1 and r.x2 == cx + x2 and r.z2 == cz + z2, true, label .. at)
+	end
+	local street = {}
+	for _, st in ipairs(p.streets) do street[st.name] = st end
+	local main = p.boundary.rects[1]
+	local function inside(r, b) return r.x1 >= b.x1 and r.z1 >= b.z1 and r.x2 <= b.x2 and r.z2 <= b.z2 end
+
+	-- Paved set: streets and the squares; flood fill from the forum approach.
+	local paved, n_paved = {}, 0
+	local function pave(r)
+		for z = r.z1, r.z2 do for x = r.x1, r.x2 do
+			if not paved[x .. "," .. z] then paved[x .. "," .. z] = true; n_paved = n_paved + 1 end
+		end end
+	end
+	for _, st in ipairs(p.streets) do pave(st.rect) end
+	for _, name in ipairs(p.site_order) do
+		if p.sites[name].kind == "square" then pave(p.sites[name].rect) end
+	end
+	local seen, queue, n_seen = {}, {{p.sites.forum.approach.pos.x, p.sites.forum.approach.pos.z}}, 0
+	seen[queue[1][1] .. "," .. queue[1][2]] = true
+	local head = 1
+	while head <= #queue do
+		local x, z = queue[head][1], queue[head][2]
+		head = head + 1; n_seen = n_seen + 1
+		for _, d in ipairs({{1, 0}, {-1, 0}, {0, 1}, {0, -1}}) do
+			local k = (x + d[1]) .. "," .. (z + d[2])
+			if paved[k] and not seen[k] then seen[k] = true; queue[#queue + 1] = {x + d[1], z + d[2]} end
+		end
+	end
+	eq(n_seen, n_paved, "all pavement is one connected network" .. at)
+
+	-- Band extensions and additions.
+	pin(street.ring_north.rect, -44, 33, 81, 38, "ring_north spans to x 81")
+	pin(street.ring_north_outer.rect, -91, 66, 81, 71, "ring_north_outer spans -91..81")
+	pin(street.ring_south.rect, 3, -47, 81, -42, "ring_south spans to x 81")
+	pin(street.ring_south_outer.rect, 6, -80, 81, -75, "ring_south_outer spans to x 81")
+	pin(street.ring_west_outer.rect, -72, 3, -67, 40, "ring_west_outer")
+	pin(street.ring_south_west.rect, -91, -74, -4, -69, "ring_south_west")
+	pin(street.ring_east_outer.rect, 66, -41, 71, -4, "ring_east_outer")
+	local order = {}
+	for i, st in ipairs(p.streets) do order[st.name] = i end
+	eq(order.ring_west_outer == 11 and order.ring_south_west == 12 and order.ring_east_outer == 13, true,
+		"new bands are appended in order" .. at)
+
+	-- Every added road meets existing public pavement (another street) and
+	-- stays inside the main rectangle, clear of every site.
+	for _, name in ipairs({"ring_west_outer", "ring_south_west", "ring_east_outer"}) do
+		local r, touches = street[name].rect, 0
+		local grown = {x1 = r.x1 - 1, z1 = r.z1 - 1, x2 = r.x2 + 1, z2 = r.z2 + 1}
+		for _, st in ipairs(p.streets) do
+			if st.name ~= name and overlap(grown, st.rect) then touches = touches + 1 end
+		end
+		eq(touches >= 1, true, name .. " touches existing pavement" .. at)
+		eq(seen[r.x1 .. "," .. r.z1], true, name .. " is on the connected network" .. at)
+	end
+	for _, st in ipairs(p.streets) do
+		eq(inside(st.rect, main), true, st.name .. " inside the main rectangle" .. at)
+		for _, name in ipairs(p.site_order) do
+			if p.sites[name].kind ~= "square" then
+				eq(overlap(st.rect, p.sites[name].rect), false, st.name .. " clear of " .. name .. at)
+			end
+		end
+	end
+	local bath = p.sites.bath.rect
+	for _, name in ipairs({"ring_north", "ring_north_outer", "ring_south", "ring_south_outer",
+			"ring_west_outer", "ring_south_west", "ring_east_outer"}) do
+		eq(overlap(street[name].rect, bath), false, name .. " does not cross the bath" .. at)
+	end
+
+	-- Hippodrome: footprint, approach and entrance.
+	local h = p.sites.hippodrome
+	eq(h ~= nil and h.id == "hippodrome" and h.rotation == 180, true, "hippodrome placed at rotation 180" .. at)
+	pin(h.rect, -91, 41, -55, 65, "hippodrome footprint")
+	eq(inside(h.rect, main), true, "hippodrome inside the main rectangle" .. at)
+	eq(h.entrance.x == cx - 73 and h.entrance.z == cz + 62, true, "hippodrome entrance" .. at)
+	eq(h.approach.pos.x == cx - 73 and h.approach.pos.z == cz + 66, true, "hippodrome approach" .. at)
+	eq(seen[h.approach.pos.x .. "," .. h.approach.pos.z], true, "hippodrome approach is connected pavement" .. at)
+	eq(h.rect.z2 + 1, street.ring_north_outer.rect.z1, "hippodrome meets ring_north_outer" .. at)
+	for x = h.approach.pos.x - 2, h.approach.pos.x + 2 do
+		eq(paved[x .. "," .. h.approach.pos.z], true, "paved frontage beside the approach at x " .. (x - cx) .. at)
+	end
+	for _, name in ipairs(p.site_order) do
+		if name ~= "hippodrome" then
+			eq(overlap(p.sites[name].rect, h.rect), false, name .. " clear of the hippodrome" .. at)
+		end
+	end
+
+	-- Removed blocks stay gone; nothing planned overlaps a road or landmark;
+	-- the hippodrome's door court is left unbuilt.
+	local court = {x1 = cx - 54, z1 = cz + 41, x2 = cx - 45, z2 = cz + 65}
+	for _, gone in ipairs({"west_end_north", "east_end_south", "ring_west_outer_north"}) do
+		for _, b in ipairs(p.blocks) do eq(b.name ~= gone, true, gone .. " block removed" .. at) end
+	end
+	local function check_clear(r, label)
+		for _, st in ipairs(p.streets) do eq(overlap(r, st.rect), false, label .. " clear of " .. st.name .. at) end
+		for _, name in ipairs(p.site_order) do
+			eq(overlap(r, p.sites[name].rect), false, label .. " clear of " .. name .. at)
+		end
+		eq(overlap(r, court), false, label .. " clear of the hippodrome door court" .. at)
+	end
+	for _, b in ipairs(p.blocks) do check_clear(b.rect, "block " .. b.name) end
+	for i, b in ipairs(p.content.buildings) do check_clear(b.rect, "building " .. i) end
+	for _, r in ipairs(p.reservations.services) do check_clear(r.rect, "service " .. r.building_id) end
+	check_clear(p.reservations.jail.rect, "jail")
+end end
