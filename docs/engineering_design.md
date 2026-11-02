@@ -430,12 +430,13 @@ deep, and its runs from the pavement along their edges. The north arm ends in a 
 Jupiter behind a cobble forecourt, instead of an arch. The Roman boundary is the
 authored `main_rect` plus one compound rectangle around each terminal landmark
 (the box grown by `margin` on the three sides away from the forum); `plan.bounds`
-is their enclosing rectangle. A ring of six
+is their enclosing rectangle. A ring of nine
 secondary bands (issue #164; the outer north and south bands were added in
-issue #202) surrounds the forum: the north and north-outer bands cross the cardo
+issue #202; west_outer, south_west and east_outer in issue #353) surrounds the forum: the north and north-outer bands cross the cardo
 and the east and west bands, the east arm crosses the east band, the south and
-south-outer bands abut the east band, its south and west bands end beside their
-arms, and the south-west bath quadrant is left out. Three insulae (issue #202)
+south-outer bands run across the east band, its south and west bands end beside
+their arms (as do west_outer, south_west and east_outer), and only south_west
+enters the south-west bath quadrant, two rows south of the bath. Three insulae (issue #202)
 stand flush against the inner north and south bands on their outer side.
 The imported basilica (issue #217) replaces the domus nearest the forum: it
 stands on the south side of the east arm, inside the ring, rotated so its

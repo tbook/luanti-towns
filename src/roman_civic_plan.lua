@@ -57,14 +57,15 @@ return {
 	arch_id = "arch",
 
 	-- Ring street (issue #164): a loop behind the main streets, as secondary
-	-- bands one street wide (six since issue #202). Each band is the node range
+	-- bands one street wide (six since issue #202, nine since issue #353). Each band is the node range
 	-- from..to outward from the forum edge (as arm positions) along the axis
 	-- of its arm, and span = {lo, hi}, the compass extent across it (x for
 	-- north and south bands, z for east and west). The north bands cross the
 	-- cardo; the north and north_outer bands cross the east and west bands; the
-	-- south and south_outer bands abut the east band; the south and west bands
-	-- start beside the south and west arms (T-junctions) and the south-west
-	-- quadrant, where the bath stands, is left out. Listed in street order.
+	-- south and south_outer bands run across the east band; the south and west
+	-- bands start beside the south and west arms (T-junctions), as do west_outer,
+	-- south_west and east_outer. south_west runs through the south-west quadrant
+	-- two rows south of the bath, which no other band enters. Listed in street order.
 	band_material = "mcl_core:gravel",
 	bands = {
 		{name = "north", arm = "north", from = 18, to = 23, span = {-44, 81}},
