@@ -206,7 +206,7 @@ function M.build(layout, center, seed, row_depth)
 		if sites[site.name] then layout_error("duplicate site name " .. tostring(site.name)) end
 		sites[site.name] = site; order[#order + 1] = site.name
 	end
-	local compounds = {}
+	local compounds, arch_exits = {}, {}
 	local arm_names = {"north", "south", "east", "west"}
 	for _, arm in ipairs(arm_names) do
 		local spec = layout.arms[arm]
@@ -276,7 +276,25 @@ function M.build(layout, center, seed, row_depth)
 			compounds[#compounds + 1] = c
 		else
 			local rect = translate(arm_rect(layout, arm, spec.length, spec.length + along - 1, l1, l2), dx, dz)
-			add(landmark(spec.arch, layout.arch_id, spec.arch_rotation, rect, toward, {arm = arm}))
+			-- The arch's through-passage is the four middle street columns; it is
+			-- not pavement but joins the street to its exit (issue #385).
+			local d = ARMS[arm]
+			local pass = {x1 = rect.x1, x2 = rect.x2, z1 = rect.z1, z2 = rect.z2}
+			if d.x ~= 0 then pass.z1, pass.z2 = dz - half + 1, dz + half - 2
+			else pass.x1, pass.x2 = dx - half + 1, dx + half - 2 end
+			add(landmark(spec.arch, layout.arch_id, spec.arch_rotation, rect, toward, {arm = arm, passage = pass}))
+			-- Exit: the street continues from the arch's outer face to the main
+			-- rectangle's edge over the passage columns.
+			local main = layout.main_rect and translate(layout.main_rect, dx, dz)
+			if main then
+				local ex = {x1 = pass.x1, x2 = pass.x2, z1 = pass.z1, z2 = pass.z2}
+				if d.x ~= 0 then
+					if d.x > 0 then ex.x1, ex.x2 = rect.x2 + 1, main.x2 else ex.x1, ex.x2 = main.x1, rect.x1 - 1 end
+				else
+					if d.z > 0 then ex.z1, ex.z2 = rect.z2 + 1, main.z2 else ex.z1, ex.z2 = main.z1, rect.z1 - 1 end
+				end
+				arch_exits[#arch_exits + 1] = {arm = arm, rect = ex, name = spec.street .. "_exit"}
+			end
 		end
 	end
 
@@ -305,6 +323,14 @@ function M.build(layout, center, seed, row_depth)
 			width = W,
 			material = layout.band_material or layout.street_material,
 			rect = translate(arm_rect(layout, band.arm, band.from, band.to, span[1], span[2]), dx, dz),
+		}
+	end
+
+	-- Arch exits (issue #385) follow the ring bands in street order.
+	for _, ex in ipairs(arch_exits) do
+		streets[#streets + 1] = {
+			id = #streets + 1, name = ex.name, arm = ex.arm, kind = "principal", exit = true,
+			width = 4, material = layout.street_material, rect = ex.rect,
 		}
 	end
 
