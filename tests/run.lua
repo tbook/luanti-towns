@@ -475,6 +475,9 @@ run_group("tests/layout_compare_tests.lua", eq, fails, dofile("src/planner.lua")
 -- Automatic town envelopes (#393): chunk alignment, reaches, containment, caps.
 run_group("tests/auto_bounds_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
 
+-- Automatic town sites (#394): deterministic descriptors, cell lookup, golden values.
+run_group("tests/auto_sites_tests.lua", eq)
+
 if only_group and not only_group_ran then
 	print("TOWNS_TEST_ONLY matched no group: " .. only_group)
 	os.exit(2)
