@@ -36,8 +36,9 @@
 --
 --   session:covers(id, box) -> boolean, reason
 --     box = {min = {x,y,z}, max = {x,y,z}} inclusive. True only when the box lies inside the
---       site's maximum horizontal envelope and every engine chunk it touches was recorded for
---       this site. Partial coverage, padding, unrecorded chunks and inactive sites are false.
+--       site's maximum horizontal envelope, inside the engine map limit vertically (M.MAP_LIMIT),
+--       and every engine chunk it touches was recorded for this site. Partial coverage, padding,
+--       unrecorded chunks and inactive sites are false.
 --   session:decline(id) -> state          idempotent; terminal ("declined"), frees the set.
 --   session:finish(id)  -> state | nil, reason, code
 --       idempotent for "complete"; only an inspecting site can finish. Frees the set.
@@ -45,8 +46,10 @@
 --   session:center(id)     -> copy { chunk = {minp, maxp}, values, valid, clipped, ambiguous,
 --                             sentinel } | nil. values are the valid centre-chunk heights in the
 --                             footprint, for the loader's median. Retained once, from the first
---                             event with valid centre ground; a sky or underground event does not
---                             retain it.
+--                             event whose footprint columns are all valid ground (clipped,
+--                             ambiguous and sentinel all zero). A partly clipped, ambiguous or
+--                             sentinel centre is not retained, and a later clean event may still
+--                             provide it. Sky and underground events retain nothing.
 --   session:descriptor(id) -> copy of the site descriptor while contacted or inspecting | nil
 --
 --   auto_state.classify(h, minp_y, maxp_y) -> "valid" | "clipped" | "ambiguous" | "sentinel"
@@ -57,6 +60,7 @@
 local M = {}
 
 M.SENTINEL = 30000   -- |height| at or above this is an invalid sentinel (A8)
+M.MAP_LIMIT = 31000  -- engine map limit in nodes per axis (same value as auto_bounds.MAP_LIMIT)
 
 local Session = {}
 Session.__index = Session
@@ -214,11 +218,16 @@ function Session:on_generated(event)
 	local found, lwhy, lcode = self.lookup(chunk)
 	if not found then return nil, lwhy, lcode end
 
+	-- Validate every descriptor before any state changes, so a malformed one cannot leave an
+	-- earlier site inspecting without its activation action.
+	for _, d in ipairs(found) do
+		if not valid_site(d) then return nil, "invalid site descriptor", "invalid_site" end
+	end
+
 	local k = chunk_key(event.minp, self.origin, self.size)
 	local surface   -- does this chunk hold valid ground? Scanned at most once per event.
 	local actions = {}
 	for _, d in ipairs(found) do
-		if not valid_site(d) then return nil, "invalid site descriptor", "invalid_site" end
 		if touches(d.activation_rect, chunk) then
 			local rec = self.records[d.id]
 			if rec == nil then
@@ -237,7 +246,9 @@ function Session:on_generated(event)
 					local fp = {x1 = c.x + self.footprint.x1, z1 = c.z + self.footprint.z1,
 						x2 = c.x + self.footprint.x2, z2 = c.z + self.footprint.z2}
 					local counts, values = scan(event, intersect(chunk, fp), true)
-					if counts.valid > 0 then
+					-- Retain only a fully clean footprint: any clipped, ambiguous or sentinel column
+					-- leaves the centre unretained, so a later clean event can still provide it.
+					if counts.valid > 0 and counts.clipped + counts.ambiguous + counts.sentinel == 0 then
 						rec.center = {
 							chunk = {minp = copy(event.minp), maxp = copy(event.maxp)},
 							values = values,
@@ -268,6 +279,7 @@ function Session:covers(id, box)
 	local rec = self.records[id]
 	if not active(rec) then return false, "not_active" end
 	if not valid_box(box) then return false, "invalid_box" end
+	if box.min.y < -M.MAP_LIMIT or box.max.y > M.MAP_LIMIT then return false, "outside_world" end
 	local m = rec.desc.max_rect
 	if box.min.x < m.x1 or box.max.x > m.x2 or box.min.z < m.z1 or box.max.z > m.z2 then
 		return false, "outside_envelope"
