@@ -472,6 +472,9 @@ run_group("tests/roman_check_expect_tests.lua", eq, dofile("src/schematic.lua"))
 -- Layout comparison tool (ticket #109): deterministic artifacts and metrics.
 run_group("tests/layout_compare_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
 
+-- Automatic town envelopes (#393): chunk alignment, reaches, containment, caps.
+run_group("tests/auto_bounds_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
+
 if only_group and not only_group_ran then
 	print("TOWNS_TEST_ONLY matched no group: " .. only_group)
 	os.exit(2)
