@@ -1,0 +1,5266 @@
+{
+ "generated": "2026-11-03 (rerun with the stricter status and reflow rules)",
+ "source": "tools/auto_towns_containment/run.py + summarize.py; scratch worlds are not kept in the repo",
+ "env_stage_reach": {
+  "city_margins": 63,
+  "outside_roads": 16,
+  "outskirts": 113,
+  "urban_build": 8,
+  "wall_approaches": 22,
+  "wall_features": 34,
+  "walls": 6
+ },
+ "samples": [
+  {
+   "run": "flat-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 1,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": -24,
+    "z": 40
+   },
+   "ground_y": 8,
+   "terrain_height_range": {
+    "max": 8,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": -128,
+    "x2": 22,
+    "z1": -92,
+    "z2": 117
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 210,
+   "envelope_snapshot_voxels": 107520000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    0,
+    0
+   ],
+   "changed_nodes": 117086,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 0,
+   "stage_overhang": {
+    "city_margins": 52,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 0,
+    "outskirts": 55,
+    "walls": 2,
+    "walls_or_roads (any node)": 10
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -156,
+    "x2": 101,
+    "z1": -184,
+    "z2": 118
+   },
+   "read_side_requests": 38,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 79653,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 79653
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 31798,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 10,
+     "outside": 0,
+     "reflow": 0,
+     "total": 31798
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 5898,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 55,
+     "outside": 0,
+     "reflow": 0,
+     "total": 5898
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 0,
+     "cut": 0,
+     "filled": 0,
+     "max_movement": 0,
+     "steepest": 0
+    }
+   }
+  },
+  {
+   "run": "flat-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 2,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 2540,
+    "z": 104
+   },
+   "ground_y": 8,
+   "terrain_height_range": {
+    "max": 8,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": 2408,
+    "x2": 2617,
+    "z1": 58,
+    "z2": 208
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    40,
+    0,
+    0
+   ],
+   "changed_nodes": 114937,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 0,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 0,
+    "outskirts": 56,
+    "walls": 2,
+    "walls_or_roads (any node)": 10
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -173,
+    "x2": 101,
+    "z1": -102,
+    "z2": 160
+   },
+   "read_side_requests": 34,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 78075,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 78075
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 31799,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 10,
+     "outside": 0,
+     "reflow": 0,
+     "total": 31799
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 5325,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 56,
+     "outside": 0,
+     "reflow": 0,
+     "total": 5325
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 0,
+     "cut": 0,
+     "filled": 0,
+     "max_movement": 0,
+     "steepest": 0
+    }
+   }
+  },
+  {
+   "run": "flat-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 3,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 5040,
+    "z": 104
+   },
+   "ground_y": 8,
+   "terrain_height_range": {
+    "max": 8,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": 4962,
+    "x2": 5171,
+    "z1": 58,
+    "z2": 208
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    48,
+    0,
+    0
+   ],
+   "changed_nodes": 86442,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 0,
+   "stage_overhang": {
+    "city_margins": 50,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 0,
+    "outskirts": 57,
+    "walls_or_roads (any node)": 0
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -135,
+    "x2": 187,
+    "z1": -90,
+    "z2": 154
+   },
+   "read_side_requests": 38,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 80226,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 80226
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 6216,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 57,
+     "outside": 0,
+     "reflow": 0,
+     "total": 6216
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 0,
+     "cut": 0,
+     "filled": 0,
+     "max_movement": 0,
+     "steepest": 0
+    }
+   }
+  },
+  {
+   "run": "flat-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 4,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 7524,
+    "z": 104
+   },
+   "ground_y": 8,
+   "terrain_height_range": {
+    "max": 8,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": 7446,
+    "x2": 7655,
+    "z1": 58,
+    "z2": 208
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    40,
+    0,
+    0
+   ],
+   "changed_nodes": 117771,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 0,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 0,
+    "outskirts": 54,
+    "walls": 2,
+    "walls_or_roads (any node)": 10
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -119,
+    "x2": 185,
+    "z1": -100,
+    "z2": 158
+   },
+   "read_side_requests": 42,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 79189,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 79189
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 31804,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 10,
+     "outside": 0,
+     "reflow": 0,
+     "total": 31804
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 7036,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 54,
+     "outside": 0,
+     "reflow": 0,
+     "total": 7036
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 0,
+     "cut": 0,
+     "filled": 0,
+     "max_movement": 0,
+     "steepest": 0
+    }
+   }
+  },
+  {
+   "run": "flat-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 1,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": -24,
+    "z": 40
+   },
+   "ground_y": 8,
+   "terrain_height_range": {
+    "max": 8,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": -128,
+    "x2": 22,
+    "z1": -92,
+    "z2": 117
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 210,
+   "envelope_snapshot_voxels": 107520000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    0,
+    0
+   ],
+   "changed_nodes": 86593,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 0,
+   "stage_overhang": {
+    "city_margins": 52,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 0,
+    "outskirts": 55,
+    "outside_roads": 4,
+    "walls_or_roads (any node)": 4
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -156,
+    "x2": 101,
+    "z1": -184,
+    "z2": 118
+   },
+   "read_side_requests": 38,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 80631,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 80631
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 64,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 4,
+     "outside": 0,
+     "reflow": 0,
+     "total": 64
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 5898,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 55,
+     "outside": 0,
+     "reflow": 0,
+     "total": 5898
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 6
+    },
+    "margins": {
+     "changed": 0,
+     "cut": 0,
+     "filled": 0,
+     "max_movement": 0,
+     "steepest": 0
+    }
+   }
+  },
+  {
+   "run": "flat-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 2,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 2540,
+    "z": 104
+   },
+   "ground_y": 8,
+   "terrain_height_range": {
+    "max": 8,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": 2408,
+    "x2": 2617,
+    "z1": 58,
+    "z2": 208
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    40,
+    0,
+    0
+   ],
+   "changed_nodes": 85361,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 0,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 0,
+    "outskirts": 56,
+    "outside_roads": 4,
+    "walls_or_roads (any node)": 4
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -173,
+    "x2": 101,
+    "z1": -102,
+    "z2": 160
+   },
+   "read_side_requests": 34,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 79972,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 79972
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 64,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 4,
+     "outside": 0,
+     "reflow": 0,
+     "total": 64
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 5325,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 56,
+     "outside": 0,
+     "reflow": 0,
+     "total": 5325
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 6
+    },
+    "margins": {
+     "changed": 0,
+     "cut": 0,
+     "filled": 0,
+     "max_movement": 0,
+     "steepest": 0
+    }
+   }
+  },
+  {
+   "run": "flat-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 3,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 5040,
+    "z": 104
+   },
+   "ground_y": 8,
+   "terrain_height_range": {
+    "max": 8,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": 4962,
+    "x2": 5171,
+    "z1": 58,
+    "z2": 208
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    48,
+    0,
+    0
+   ],
+   "changed_nodes": 87343,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 0,
+   "stage_overhang": {
+    "city_margins": 50,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 0,
+    "outskirts": 57,
+    "outside_roads": 4,
+    "walls_or_roads (any node)": 4
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -135,
+    "x2": 187,
+    "z1": -90,
+    "z2": 154
+   },
+   "read_side_requests": 38,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 81063,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 81063
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 64,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 4,
+     "outside": 0,
+     "reflow": 0,
+     "total": 64
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 6216,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 57,
+     "outside": 0,
+     "reflow": 0,
+     "total": 6216
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 6
+    },
+    "margins": {
+     "changed": 0,
+     "cut": 0,
+     "filled": 0,
+     "max_movement": 0,
+     "steepest": 0
+    }
+   }
+  },
+  {
+   "run": "flat-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 4,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 7540,
+    "z": 104
+   },
+   "ground_y": 8,
+   "terrain_height_range": {
+    "max": 8,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": 7462,
+    "x2": 7671,
+    "z1": 58,
+    "z2": 208
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    24,
+    0,
+    0
+   ],
+   "changed_nodes": 88236,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 0,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 0,
+    "outskirts": 56,
+    "outside_roads": 4,
+    "walls_or_roads (any node)": 4
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -114,
+    "x2": 187,
+    "z1": -99,
+    "z2": 157
+   },
+   "read_side_requests": 42,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 81136,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 81136
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 64,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 4,
+     "outside": 0,
+     "reflow": 0,
+     "total": 64
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 7036,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 56,
+     "outside": 0,
+     "reflow": 0,
+     "total": 7036
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 6
+    },
+    "margins": {
+     "changed": 0,
+     "cut": 0,
+     "filled": 0,
+     "max_movement": 0,
+     "steepest": 0
+    }
+   }
+  },
+  {
+   "run": "flat-roman",
+   "family": "roman",
+   "seed": 1,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": -56,
+    "z": 40
+   },
+   "ground_y": 8,
+   "terrain_height_range": {
+    "max": 8,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": -151,
+    "x2": 29,
+    "z1": -47,
+    "z2": 150
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    0,
+    32
+   ],
+   "changed_nodes": 107954,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 0,
+   "stage_overhang": {
+    "city_margins": 50,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 0,
+    "outskirts": 55,
+    "outside_roads": 4,
+    "walls_or_roads (any node)": 4
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -147,
+    "x2": 137,
+    "z1": -111,
+    "z2": 165
+   },
+   "read_side_requests": 42,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 101188,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 101188
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 48,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 4,
+     "outside": 0,
+     "reflow": 0,
+     "total": 48
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 6718,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 55,
+     "outside": 0,
+     "reflow": 0,
+     "total": 6718
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 3
+    },
+    "margins": {
+     "changed": 0,
+     "cut": 0,
+     "filled": 0,
+     "max_movement": 0,
+     "steepest": 0
+    }
+   }
+  },
+  {
+   "run": "flat-roman",
+   "family": "roman",
+   "seed": 2,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 2444,
+    "z": 40
+   },
+   "ground_y": 8,
+   "terrain_height_range": {
+    "max": 8,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": 2349,
+    "x2": 2529,
+    "z1": -47,
+    "z2": 150
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    0,
+    32
+   ],
+   "changed_nodes": 109843,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 0,
+   "stage_overhang": {
+    "city_margins": 49,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 0,
+    "outskirts": 56,
+    "outside_roads": 4,
+    "walls_or_roads (any node)": 4
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -119,
+    "x2": 141,
+    "z1": -141,
+    "z2": 166
+   },
+   "read_side_requests": 42,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 100240,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 100240
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 48,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 4,
+     "outside": 0,
+     "reflow": 0,
+     "total": 48
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 9555,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 56,
+     "outside": 0,
+     "reflow": 0,
+     "total": 9555
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 3
+    },
+    "margins": {
+     "changed": 0,
+     "cut": 0,
+     "filled": 0,
+     "max_movement": 0,
+     "steepest": 0
+    }
+   }
+  },
+  {
+   "run": "flat-roman",
+   "family": "roman",
+   "seed": 3,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 4944,
+    "z": 40
+   },
+   "ground_y": 8,
+   "terrain_height_range": {
+    "max": 8,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": 4849,
+    "x2": 5029,
+    "z1": -47,
+    "z2": 150
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    0,
+    32
+   ],
+   "changed_nodes": 109118,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 0,
+   "stage_overhang": {
+    "city_margins": 49,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 0,
+    "outskirts": 57,
+    "outside_roads": 4,
+    "walls_or_roads (any node)": 4
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -146,
+    "x2": 141,
+    "z1": -144,
+    "z2": 159
+   },
+   "read_side_requests": 40,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 99925,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 99925
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 48,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 4,
+     "outside": 0,
+     "reflow": 0,
+     "total": 48
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 9145,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 57,
+     "outside": 0,
+     "reflow": 0,
+     "total": 9145
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 3
+    },
+    "margins": {
+     "changed": 0,
+     "cut": 0,
+     "filled": 0,
+     "max_movement": 0,
+     "steepest": 0
+    }
+   }
+  },
+  {
+   "run": "flat-roman",
+   "family": "roman",
+   "seed": 4,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 7444,
+    "z": 40
+   },
+   "ground_y": 8,
+   "terrain_height_range": {
+    "max": 8,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": 7349,
+    "x2": 7529,
+    "z1": -47,
+    "z2": 150
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    0,
+    32
+   ],
+   "changed_nodes": 110796,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 0,
+   "stage_overhang": {
+    "city_margins": 53,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 0,
+    "outskirts": 55,
+    "outside_roads": 4,
+    "walls_or_roads (any node)": 4
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -150,
+    "x2": 139,
+    "z1": -142,
+    "z2": 164
+   },
+   "read_side_requests": 44,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 100783,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 100783
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 48,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 4,
+     "outside": 0,
+     "reflow": 0,
+     "total": 48
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 9965,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 55,
+     "outside": 0,
+     "reflow": 0,
+     "total": 9965
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 3
+    },
+    "margins": {
+     "changed": 0,
+     "cut": 0,
+     "filled": 0,
+     "max_movement": 0,
+     "steepest": 0
+    }
+   }
+  },
+  {
+   "run": "v7-seed7777-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 1,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed7777-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 2,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 2892,
+    "z": 136
+   },
+   "ground_y": 22,
+   "terrain_height_range": {
+    "max": 30,
+    "min": 10
+   },
+   "plan_bounds": {
+    "x1": 2760,
+    "x2": 2969,
+    "z1": 90,
+    "z2": 240
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 120,
+   "envelope_snapshot_voxels": 61440000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    8,
+    48,
+    16
+   ],
+   "changed_nodes": 180753,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 644,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 19,
+    "outskirts": 64,
+    "wall_features": 9,
+    "walls": 6,
+    "walls_or_roads (any node)": 10
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -191,
+    "x2": 137,
+    "z1": -110,
+    "z2": 146
+   },
+   "read_side_requests": 64,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 142065,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 142065
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 13070,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 19,
+     "outside": 0,
+     "reflow": 0,
+     "total": 13070
+    },
+    {
+     "in_allowed": 16783,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 10,
+     "outside": 0,
+     "reflow": 84,
+     "total": 16867
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 793,
+     "total": 793
+    },
+    {
+     "in_allowed": 9097,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 64,
+     "outside": 0,
+     "reflow": 0,
+     "total": 9097
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 3091,
+     "cut": 534,
+     "filled": 2557,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed7777-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 3,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed7777-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 4,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 7284,
+    "z": -152
+   },
+   "ground_y": 11,
+   "terrain_height_range": {
+    "max": 31,
+    "min": -9
+   },
+   "plan_bounds": {
+    "x1": 7206,
+    "x2": 7415,
+    "z1": -198,
+    "z2": -48
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    40,
+    0,
+    0
+   ],
+   "changed_nodes": 211074,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 1528,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 32,
+    "outskirts": 66,
+    "wall_features": 9,
+    "walls": 6,
+    "walls_or_roads (any node)": 13
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -132,
+    "x2": 176,
+    "z1": -108,
+    "z2": 170
+   },
+   "read_side_requests": 64,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 152306,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 152306
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 15116,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 32,
+     "outside": 0,
+     "reflow": 0,
+     "total": 15116
+    },
+    {
+     "in_allowed": 19897,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 13,
+     "outside": 0,
+     "reflow": 205,
+     "total": 20102
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1577,
+     "total": 1577
+    },
+    {
+     "in_allowed": 24518,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 66,
+     "outside": 0,
+     "reflow": 0,
+     "total": 24518
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 1802,
+     "cut": 957,
+     "filled": 845,
+     "max_movement": 10,
+     "steepest": 10
+    }
+   }
+  },
+  {
+   "run": "v7-seed7777-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 5,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed7777-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 6,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 2316,
+    "z": 2412
+   },
+   "ground_y": 21,
+   "terrain_height_range": {
+    "max": 45,
+    "min": 4
+   },
+   "plan_bounds": {
+    "x1": 2270,
+    "x2": 2420,
+    "z1": 2335,
+    "z2": 2544
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 144,
+   "envelope_snapshot_voxels": 73728000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    48,
+    32
+   ],
+   "changed_nodes": 267763,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 800,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 32,
+    "outskirts": 73,
+    "wall_features": 11,
+    "walls": 6,
+    "walls_or_roads (any node)": 13
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -109,
+    "x2": 164,
+    "z1": -117,
+    "z2": 205
+   },
+   "read_side_requests": 55,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 183079,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 183079
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 52467,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 32,
+     "outside": 0,
+     "reflow": 0,
+     "total": 52467
+    },
+    {
+     "in_allowed": 20377,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 13,
+     "outside": 0,
+     "reflow": 80,
+     "total": 20457
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 961,
+     "total": 961
+    },
+    {
+     "in_allowed": 17061,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 73,
+     "outside": 0,
+     "reflow": 0,
+     "total": 17061
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 5229,
+     "cut": 1799,
+     "filled": 3430,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed7777-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 1,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed7777-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 2,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 2892,
+    "z": 136
+   },
+   "ground_y": 22,
+   "terrain_height_range": {
+    "max": 30,
+    "min": 10
+   },
+   "plan_bounds": {
+    "x1": 2760,
+    "x2": 2969,
+    "z1": 90,
+    "z2": 240
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 120,
+   "envelope_snapshot_voxels": 61440000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    8,
+    48,
+    16
+   ],
+   "changed_nodes": 171400,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 595,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 19,
+    "outskirts": 62,
+    "outside_roads": 7,
+    "walls_or_roads (any node)": 7
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -169,
+    "x2": 139,
+    "z1": -102,
+    "z2": 164
+   },
+   "read_side_requests": 65,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 143541,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 143541
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 17058,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 19,
+     "outside": 0,
+     "reflow": 0,
+     "total": 17058
+    },
+    {
+     "in_allowed": 85,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 7,
+     "outside": 0,
+     "reflow": 72,
+     "total": 157
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 775,
+     "total": 775
+    },
+    {
+     "in_allowed": 9953,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 62,
+     "outside": 0,
+     "reflow": 0,
+     "total": 9953
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 6
+    },
+    "margins": {
+     "changed": 4013,
+     "cut": 646,
+     "filled": 3367,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed7777-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 3,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed7777-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 4,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 7284,
+    "z": -152
+   },
+   "ground_y": 11,
+   "terrain_height_range": {
+    "max": 31,
+    "min": -9
+   },
+   "plan_bounds": {
+    "x1": 7206,
+    "x2": 7415,
+    "z1": -198,
+    "z2": -48
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    40,
+    0,
+    0
+   ],
+   "changed_nodes": 200738,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 1506,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 32,
+    "outskirts": 76,
+    "outside_roads": 7,
+    "walls_or_roads (any node)": 7
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -132,
+    "x2": 200,
+    "z1": -108,
+    "z2": 180
+   },
+   "read_side_requests": 62,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 153889,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 153889
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 17706,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 32,
+     "outside": 0,
+     "reflow": 0,
+     "total": 17706
+    },
+    {
+     "in_allowed": 211,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 7,
+     "outside": 0,
+     "reflow": 206,
+     "total": 417
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1522,
+     "total": 1522
+    },
+    {
+     "in_allowed": 27609,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 76,
+     "outside": 0,
+     "reflow": 0,
+     "total": 27609
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 1,
+     "graded": 5
+    },
+    "margins": {
+     "changed": 2391,
+     "cut": 1185,
+     "filled": 1206,
+     "max_movement": 10,
+     "steepest": 10
+    }
+   }
+  },
+  {
+   "run": "v7-seed7777-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 5,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed7777-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 6,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 2316,
+    "z": 2412
+   },
+   "ground_y": 21,
+   "terrain_height_range": {
+    "max": 45,
+    "min": 4
+   },
+   "plan_bounds": {
+    "x1": 2270,
+    "x2": 2420,
+    "z1": 2335,
+    "z2": 2544
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 144,
+   "envelope_snapshot_voxels": 73728000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    48,
+    32
+   ],
+   "changed_nodes": 258988,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 928,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 32,
+    "outskirts": 73,
+    "outside_roads": 4,
+    "walls_or_roads (any node)": 4
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -109,
+    "x2": 164,
+    "z1": -119,
+    "z2": 205
+   },
+   "read_side_requests": 57,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 184532,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 184532
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 56251,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 32,
+     "outside": 0,
+     "reflow": 0,
+     "total": 56251
+    },
+    {
+     "in_allowed": 62,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 4,
+     "outside": 0,
+     "reflow": 103,
+     "total": 165
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1150,
+     "total": 1150
+    },
+    {
+     "in_allowed": 17132,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 73,
+     "outside": 0,
+     "reflow": 0,
+     "total": 17132
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 2,
+     "graded": 4
+    },
+    "margins": {
+     "changed": 5903,
+     "cut": 1974,
+     "filled": 3929,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed7777-roman",
+   "family": "roman",
+   "seed": 1,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed7777-roman",
+   "family": "roman",
+   "seed": 2,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed7777-roman",
+   "family": "roman",
+   "seed": 3,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed7777-roman",
+   "family": "roman",
+   "seed": 4,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed7777-roman",
+   "family": "roman",
+   "seed": 5,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed7777-roman",
+   "family": "roman",
+   "seed": 6,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 2828,
+    "z": 2668
+   },
+   "ground_y": 22,
+   "terrain_height_range": {
+    "max": 28,
+    "min": 12
+   },
+   "plan_bounds": {
+    "x1": 2733,
+    "x2": 2913,
+    "z1": 2581,
+    "z2": 2778
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 144,
+   "envelope_snapshot_voxels": 73728000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    48,
+    40
+   ],
+   "changed_nodes": 202429,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 282,
+   "stage_overhang": {
+    "city_margins": 53,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 32,
+    "outskirts": 65,
+    "outside_roads": 4,
+    "walls_or_roads (any node)": 4
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -139,
+    "x2": 150,
+    "z1": -119,
+    "z2": 175
+   },
+   "read_side_requests": 61,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 162093,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 162093
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 19203,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 32,
+     "outside": 0,
+     "reflow": 0,
+     "total": 19203
+    },
+    {
+     "in_allowed": 52,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 4,
+     "outside": 0,
+     "reflow": 55,
+     "total": 107
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 448,
+     "total": 448
+    },
+    {
+     "in_allowed": 20841,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 65,
+     "outside": 0,
+     "reflow": 0,
+     "total": 20841
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 1,
+     "graded": 2
+    },
+    "margins": {
+     "changed": 2472,
+     "cut": 1587,
+     "filled": 885,
+     "max_movement": 17,
+     "steepest": 17
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 1,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": -24,
+    "z": 72
+   },
+   "ground_y": 30,
+   "terrain_height_range": {
+    "max": 40,
+    "min": 14
+   },
+   "plan_bounds": {
+    "x1": -128,
+    "x2": 22,
+    "z1": -60,
+    "z2": 149
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 144,
+   "envelope_snapshot_voxels": 73728000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    40,
+    32
+   ],
+   "changed_nodes": 218514,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 833,
+   "stage_overhang": {
+    "city_margins": 52,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 29,
+    "outskirts": 69,
+    "wall_features": 11,
+    "walls": 6,
+    "walls_or_roads (any node)": 12
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -165,
+    "x2": 101,
+    "z1": -199,
+    "z2": 146
+   },
+   "read_side_requests": 44,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 141844,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 141844
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 27084,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 29,
+     "outside": 0,
+     "reflow": 0,
+     "total": 27084
+    },
+    {
+     "in_allowed": 18837,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 12,
+     "outside": 0,
+     "reflow": 233,
+     "total": 19070
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1779,
+     "total": 1779
+    },
+    {
+     "in_allowed": 31580,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 69,
+     "outside": 0,
+     "reflow": 0,
+     "total": 31580
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 2222,
+     "cut": 933,
+     "filled": 1289,
+     "max_movement": 16,
+     "steepest": 16
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 2,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 2652,
+    "z": -328
+   },
+   "ground_y": 17,
+   "terrain_height_range": {
+    "max": 31,
+    "min": -6
+   },
+   "plan_bounds": {
+    "x1": 2520,
+    "x2": 2729,
+    "z1": -374,
+    "z2": -224
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 144,
+   "envelope_snapshot_voxels": 73728000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    8,
+    56,
+    0
+   ],
+   "changed_nodes": 199850,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 1046,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 29,
+    "outskirts": 66,
+    "wall_features": 11,
+    "walls": 6,
+    "walls_or_roads (any node)": 14
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -193,
+    "x2": 133,
+    "z1": -97,
+    "z2": 170
+   },
+   "read_side_requests": 56,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 146022,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 146022
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 134,
+     "total": 134
+    },
+    {
+     "in_allowed": 24547,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 29,
+     "outside": 0,
+     "reflow": 0,
+     "total": 24547
+    },
+    {
+     "in_allowed": 22664,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 14,
+     "outside": 0,
+     "reflow": 239,
+     "total": 22903
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 997,
+     "total": 997
+    },
+    {
+     "in_allowed": 8930,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 66,
+     "outside": 0,
+     "reflow": 0,
+     "total": 8930
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 4656,
+     "cut": 3275,
+     "filled": 1381,
+     "max_movement": 17,
+     "steepest": 17
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 3,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 5056,
+    "z": 136
+   },
+   "ground_y": 12,
+   "terrain_height_range": {
+    "max": 29,
+    "min": -6
+   },
+   "plan_bounds": {
+    "x1": 4978,
+    "x2": 5187,
+    "z1": 90,
+    "z2": 240
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 150,
+   "envelope_snapshot_voxels": 76800000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    32,
+    0,
+    16
+   ],
+   "changed_nodes": 165202,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 1053,
+   "stage_overhang": {
+    "city_margins": 50,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 19,
+    "outskirts": 56,
+    "wall_features": 9,
+    "walls": 6,
+    "walls_or_roads (any node)": 10
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -117,
+    "x2": 166,
+    "z1": -102,
+    "z2": 159
+   },
+   "read_side_requests": 44,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 128930,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 128930
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 9349,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 19,
+     "outside": 0,
+     "reflow": 0,
+     "total": 9349
+    },
+    {
+     "in_allowed": 17198,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 10,
+     "outside": 0,
+     "reflow": 170,
+     "total": 17368
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1788,
+     "total": 1788
+    },
+    {
+     "in_allowed": 9901,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 56,
+     "outside": 0,
+     "reflow": 0,
+     "total": 9901
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 2381,
+     "cut": 926,
+     "filled": 1455,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 4,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 7732,
+    "z": -56
+   },
+   "ground_y": 7,
+   "terrain_height_range": {
+    "max": 24,
+    "min": -10
+   },
+   "plan_bounds": {
+    "x1": 7654,
+    "x2": 7863,
+    "z1": -102,
+    "z2": 48
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 210,
+   "envelope_snapshot_voxels": 107520000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    0,
+    0
+   ],
+   "changed_nodes": 159560,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 1835,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 19,
+    "outskirts": 68,
+    "wall_features": 11,
+    "walls": 6,
+    "walls_or_roads (any node)": 11
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -138,
+    "x2": 177,
+    "z1": -114,
+    "z2": 161
+   },
+   "read_side_requests": 52,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 111933,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 111933
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 16235,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 19,
+     "outside": 0,
+     "reflow": 0,
+     "total": 16235
+    },
+    {
+     "in_allowed": 20339,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 11,
+     "outside": 0,
+     "reflow": 262,
+     "total": 20601
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 2475,
+     "total": 2475
+    },
+    {
+     "in_allowed": 13012,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 68,
+     "outside": 0,
+     "reflow": 0,
+     "total": 13012
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 3293,
+     "cut": 1452,
+     "filled": 1841,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 5,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed2014-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 6,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed2014-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 7,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 5210,
+    "z": 2630
+   },
+   "ground_y": 12,
+   "terrain_height_range": {
+    "max": 28,
+    "min": -7
+   },
+   "plan_bounds": {
+    "x1": 5164,
+    "x2": 5314,
+    "z1": 2499,
+    "z2": 2708
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    0,
+    32
+   ],
+   "changed_nodes": 195501,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 1064,
+   "stage_overhang": {
+    "city_margins": 51,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 30,
+    "outskirts": 72,
+    "wall_features": 9,
+    "walls": 6,
+    "walls_or_roads (any node)": 14
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -118,
+    "x2": 149,
+    "z1": -203,
+    "z2": 145
+   },
+   "read_side_requests": 48,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 138657,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 138657
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 19678,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 30,
+     "outside": 0,
+     "reflow": 0,
+     "total": 19678
+    },
+    {
+     "in_allowed": 20478,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 14,
+     "outside": 0,
+     "reflow": 282,
+     "total": 20760
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1493,
+     "total": 1493
+    },
+    {
+     "in_allowed": 18660,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 72,
+     "outside": 0,
+     "reflow": 0,
+     "total": 18660
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 3502,
+     "cut": 2180,
+     "filled": 1322,
+     "max_movement": 16,
+     "steepest": 16
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-medieval-walled",
+   "family": "medieval-walled",
+   "seed": 8,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 7300,
+    "z": 2812
+   },
+   "ground_y": 19,
+   "terrain_height_range": {
+    "max": 27,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": 7169,
+    "x2": 7378,
+    "z1": 2708,
+    "z2": 2858
+   },
+   "has_wall": true,
+   "wall_features": 25,
+   "envelope_chunks": 168,
+   "envelope_snapshot_voxels": 86016000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    48,
+    0
+   ],
+   "changed_nodes": 175676,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 263,
+   "stage_overhang": {
+    "city_margins": 53,
+    "outskirts": 113,
+    "urban_build": 8,
+    "wall_approaches": 16,
+    "wall_features": 22,
+    "walls": 6
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 19,
+    "outskirts": 72,
+    "wall_features": 17,
+    "walls": 6,
+    "walls_or_roads (any node)": 17
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -159,
+    "x2": 138,
+    "z1": -176,
+    "z2": 101
+   },
+   "read_side_requests": 42,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 127358,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 127358
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 20335,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 19,
+     "outside": 0,
+     "reflow": 0,
+     "total": 20335
+    },
+    {
+     "in_allowed": 19349,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 17,
+     "outside": 0,
+     "reflow": 57,
+     "total": 19406
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 313,
+     "total": 313
+    },
+    {
+     "in_allowed": 11267,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 72,
+     "outside": 0,
+     "reflow": 0,
+     "total": 11267
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": null,
+    "margins": {
+     "changed": 4312,
+     "cut": 3387,
+     "filled": 925,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 1,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": -24,
+    "z": 72
+   },
+   "ground_y": 30,
+   "terrain_height_range": {
+    "max": 40,
+    "min": 14
+   },
+   "plan_bounds": {
+    "x1": -128,
+    "x2": 22,
+    "z1": -60,
+    "z2": 149
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 144,
+   "envelope_snapshot_voxels": 73728000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    40,
+    32
+   ],
+   "changed_nodes": 209188,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 974,
+   "stage_overhang": {
+    "city_margins": 52,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 29,
+    "outskirts": 69,
+    "outside_roads": 7,
+    "walls_or_roads (any node)": 7
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -165,
+    "x2": 101,
+    "z1": -200,
+    "z2": 146
+   },
+   "read_side_requests": 48,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 142362,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 142362
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 30849,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 29,
+     "outside": 0,
+     "reflow": 0,
+     "total": 30849
+    },
+    {
+     "in_allowed": 165,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 7,
+     "outside": 0,
+     "reflow": 250,
+     "total": 415
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1929,
+     "total": 1929
+    },
+    {
+     "in_allowed": 33885,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 69,
+     "outside": 0,
+     "reflow": 0,
+     "total": 33885
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 6
+    },
+    "margins": {
+     "changed": 2776,
+     "cut": 1109,
+     "filled": 1667,
+     "max_movement": 16,
+     "steepest": 16
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 2,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 2652,
+    "z": -328
+   },
+   "ground_y": 17,
+   "terrain_height_range": {
+    "max": 31,
+    "min": -6
+   },
+   "plan_bounds": {
+    "x1": 2520,
+    "x2": 2729,
+    "z1": -374,
+    "z2": -224
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 144,
+   "envelope_snapshot_voxels": 73728000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    8,
+    56,
+    0
+   ],
+   "changed_nodes": 188905,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 1584,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 29,
+    "outskirts": 59,
+    "outside_roads": 8,
+    "walls_or_roads (any node)": 8
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -177,
+    "x2": 126,
+    "z1": -101,
+    "z2": 163
+   },
+   "read_side_requests": 58,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 147021,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 147021
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 30046,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 29,
+     "outside": 0,
+     "reflow": 0,
+     "total": 30046
+    },
+    {
+     "in_allowed": 218,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 8,
+     "outside": 0,
+     "reflow": 95,
+     "total": 313
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1826,
+     "total": 1826
+    },
+    {
+     "in_allowed": 9851,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 59,
+     "outside": 0,
+     "reflow": 0,
+     "total": 9851
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 1,
+     "graded": 5
+    },
+    "margins": {
+     "changed": 5582,
+     "cut": 3851,
+     "filled": 1731,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 3,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 5056,
+    "z": 136
+   },
+   "ground_y": 12,
+   "terrain_height_range": {
+    "max": 29,
+    "min": -6
+   },
+   "plan_bounds": {
+    "x1": 4978,
+    "x2": 5187,
+    "z1": 90,
+    "z2": 240
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 150,
+   "envelope_snapshot_voxels": 76800000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    32,
+    0,
+    16
+   ],
+   "changed_nodes": 153791,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 1110,
+   "stage_overhang": {
+    "city_margins": 50,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 19,
+    "outskirts": 56,
+    "outside_roads": 11,
+    "walls_or_roads (any node)": 11
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -117,
+    "x2": 166,
+    "z1": -102,
+    "z2": 159
+   },
+   "read_side_requests": 44,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 129614,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 129614
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 12393,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 19,
+     "outside": 0,
+     "reflow": 0,
+     "total": 12393
+    },
+    {
+     "in_allowed": 172,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 11,
+     "outside": 0,
+     "reflow": 235,
+     "total": 407
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 2142,
+     "total": 2142
+    },
+    {
+     "in_allowed": 9531,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 56,
+     "outside": 0,
+     "reflow": 0,
+     "total": 9531
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 1,
+     "graded": 5
+    },
+    "margins": {
+     "changed": 3131,
+     "cut": 1260,
+     "filled": 1871,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 4,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 7524,
+    "z": -152
+   },
+   "ground_y": 28,
+   "terrain_height_range": {
+    "max": 39,
+    "min": 5
+   },
+   "plan_bounds": {
+    "x1": 7446,
+    "x2": 7655,
+    "z1": -198,
+    "z2": -48
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 144,
+   "envelope_snapshot_voxels": 73728000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    40,
+    40,
+    0
+   ],
+   "changed_nodes": 265392,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 975,
+   "stage_overhang": {
+    "city_margins": 47,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 30,
+    "outskirts": 69,
+    "outside_roads": 7,
+    "walls_or_roads (any node)": 7
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -144,
+    "x2": 187,
+    "z1": -115,
+    "z2": 142
+   },
+   "read_side_requests": 59,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 197477,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 197477
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 35739,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 30,
+     "outside": 0,
+     "reflow": 0,
+     "total": 35739
+    },
+    {
+     "in_allowed": 220,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 7,
+     "outside": 0,
+     "reflow": 164,
+     "total": 384
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1496,
+     "total": 1496
+    },
+    {
+     "in_allowed": 30877,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 69,
+     "outside": 0,
+     "reflow": 0,
+     "total": 30877
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 6
+    },
+    "margins": {
+     "changed": 4197,
+     "cut": 338,
+     "filled": 3859,
+     "max_movement": 17,
+     "steepest": 17
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 5,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed2014-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 6,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed2014-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 7,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 5210,
+    "z": 2630
+   },
+   "ground_y": 12,
+   "terrain_height_range": {
+    "max": 28,
+    "min": -7
+   },
+   "plan_bounds": {
+    "x1": 5164,
+    "x2": 5314,
+    "z1": 2499,
+    "z2": 2708
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    0,
+    32
+   ],
+   "changed_nodes": 182697,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 1189,
+   "stage_overhang": {
+    "city_margins": 51,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 30,
+    "outskirts": 72,
+    "outside_roads": 9,
+    "walls_or_roads (any node)": 9
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -118,
+    "x2": 149,
+    "z1": -203,
+    "z2": 145
+   },
+   "read_side_requests": 51,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 139677,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 139677
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 23185,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 30,
+     "outside": 0,
+     "reflow": 0,
+     "total": 23185
+    },
+    {
+     "in_allowed": 168,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 9,
+     "outside": 0,
+     "reflow": 279,
+     "total": 447
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1645,
+     "total": 1645
+    },
+    {
+     "in_allowed": 18226,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 72,
+     "outside": 0,
+     "reflow": 0,
+     "total": 18226
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 2,
+     "graded": 4
+    },
+    "margins": {
+     "changed": 4212,
+     "cut": 2547,
+     "filled": 1665,
+     "max_movement": 16,
+     "steepest": 16
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-medieval-unwalled",
+   "family": "medieval-unwalled",
+   "seed": 8,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 7300,
+    "z": 2812
+   },
+   "ground_y": 19,
+   "terrain_height_range": {
+    "max": 27,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": 7169,
+    "x2": 7378,
+    "z1": 2708,
+    "z2": 2858
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 168,
+   "envelope_snapshot_voxels": 86016000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    48,
+    0
+   ],
+   "changed_nodes": 162203,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 225,
+   "stage_overhang": {
+    "city_margins": 53,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 19,
+    "outskirts": 72,
+    "outside_roads": 15,
+    "walls_or_roads (any node)": 15
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -159,
+    "x2": 138,
+    "z1": -176,
+    "z2": 101
+   },
+   "read_side_requests": 43,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 129173,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 129173
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 21384,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 19,
+     "outside": 0,
+     "reflow": 0,
+     "total": 21384
+    },
+    {
+     "in_allowed": 398,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 15,
+     "outside": 0,
+     "reflow": 55,
+     "total": 453
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 264,
+     "total": 264
+    },
+    {
+     "in_allowed": 11354,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 72,
+     "outside": 0,
+     "reflow": 0,
+     "total": 11354
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 6
+    },
+    "margins": {
+     "changed": 4869,
+     "cut": 3593,
+     "filled": 1276,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-roman",
+   "family": "roman",
+   "seed": 1,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 40,
+    "z": -88
+   },
+   "ground_y": 30,
+   "terrain_height_range": {
+    "max": 39,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": -55,
+    "x2": 125,
+    "z1": -175,
+    "z2": 22
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 168,
+   "envelope_snapshot_voxels": 86016000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    40,
+    0
+   ],
+   "changed_nodes": 328747,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 879,
+   "stage_overhang": {
+    "city_margins": 50,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 30,
+    "outskirts": 67,
+    "outside_roads": 7,
+    "walls_or_roads (any node)": 7
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -158,
+    "x2": 152,
+    "z1": -124,
+    "z2": 147
+   },
+   "read_side_requests": 54,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 239740,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 239740
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 274,
+     "total": 274
+    },
+    {
+     "in_allowed": 57160,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 30,
+     "outside": 0,
+     "reflow": 0,
+     "total": 57160
+    },
+    {
+     "in_allowed": 182,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 7,
+     "outside": 0,
+     "reflow": 396,
+     "total": 578
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1266,
+     "total": 1266
+    },
+    {
+     "in_allowed": 30365,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 67,
+     "outside": 0,
+     "reflow": 0,
+     "total": 30365
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 3
+    },
+    "margins": {
+     "changed": 4397,
+     "cut": 2186,
+     "filled": 2211,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-roman",
+   "family": "roman",
+   "seed": 2,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed2014-roman",
+   "family": "roman",
+   "seed": 3,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 4864,
+    "z": 152
+   },
+   "ground_y": 28,
+   "terrain_height_range": {
+    "max": 34,
+    "min": 6
+   },
+   "plan_bounds": {
+    "x1": 4769,
+    "x2": 4949,
+    "z1": 65,
+    "z2": 262
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 168,
+   "envelope_snapshot_voxels": 86016000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    40,
+    0
+   ],
+   "changed_nodes": 232846,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 781,
+   "stage_overhang": {
+    "city_margins": 49,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 27,
+    "outskirts": 66,
+    "outside_roads": 12,
+    "walls_or_roads (any node)": 12
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -161,
+    "x2": 143,
+    "z1": -141,
+    "z2": 172
+   },
+   "read_side_requests": 54,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 198397,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 198397
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 20406,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 27,
+     "outside": 0,
+     "reflow": 0,
+     "total": 20406
+    },
+    {
+     "in_allowed": 366,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 12,
+     "outside": 0,
+     "reflow": 163,
+     "total": 529
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1344,
+     "total": 1344
+    },
+    {
+     "in_allowed": 12868,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 66,
+     "outside": 0,
+     "reflow": 0,
+     "total": 12868
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 3
+    },
+    "margins": {
+     "changed": 3545,
+     "cut": 752,
+     "filled": 2793,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-roman",
+   "family": "roman",
+   "seed": 4,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 7748,
+    "z": -24
+   },
+   "ground_y": 11,
+   "terrain_height_range": {
+    "max": 30,
+    "min": -13
+   },
+   "plan_bounds": {
+    "x1": 7653,
+    "x2": 7833,
+    "z1": -111,
+    "z2": 86
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 180,
+   "envelope_snapshot_voxels": 92160000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    0,
+    16
+   ],
+   "changed_nodes": 283189,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 1493,
+   "stage_overhang": {
+    "city_margins": 53,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 19,
+    "outskirts": 68,
+    "outside_roads": 5,
+    "walls_or_roads (any node)": 5
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -143,
+    "x2": 146,
+    "z1": -145,
+    "z2": 178
+   },
+   "read_side_requests": 63,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 240992,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 240992
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 26600,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 19,
+     "outside": 0,
+     "reflow": 0,
+     "total": 26600
+    },
+    {
+     "in_allowed": 60,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 5,
+     "outside": 0,
+     "reflow": 263,
+     "total": 323
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 2134,
+     "total": 2134
+    },
+    {
+     "in_allowed": 13481,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 68,
+     "outside": 0,
+     "reflow": 0,
+     "total": 13481
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 2,
+     "graded": 1
+    },
+    "margins": {
+     "changed": 5015,
+     "cut": 1890,
+     "filled": 3125,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-roman",
+   "family": "roman",
+   "seed": 5,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed2014-roman",
+   "family": "roman",
+   "seed": 6,
+   "status": "no_site"
+  },
+  {
+   "run": "v7-seed2014-roman",
+   "family": "roman",
+   "seed": 7,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 5002,
+    "z": 2518
+   },
+   "ground_y": 19,
+   "terrain_height_range": {
+    "max": 38,
+    "min": 3
+   },
+   "plan_bounds": {
+    "x1": 4907,
+    "x2": 5087,
+    "z1": 2431,
+    "z2": 2628
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 144,
+   "envelope_snapshot_voxels": 73728000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    48,
+    32
+   ],
+   "changed_nodes": 249185,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 772,
+   "stage_overhang": {
+    "city_margins": 48,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 32,
+    "outskirts": 74,
+    "outside_roads": 4,
+    "walls_or_roads (any node)": 4
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -155,
+    "x2": 159,
+    "z1": -152,
+    "z2": 175
+   },
+   "read_side_requests": 52,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 189518,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 189518
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 31873,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 32,
+     "outside": 0,
+     "reflow": 0,
+     "total": 31873
+    },
+    {
+     "in_allowed": 84,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 4,
+     "outside": 0,
+     "reflow": 103,
+     "total": 187
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 1159,
+     "total": 1159
+    },
+    {
+     "in_allowed": 27558,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 74,
+     "outside": 0,
+     "reflow": 0,
+     "total": 27558
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 3
+    },
+    "margins": {
+     "changed": 2129,
+     "cut": 455,
+     "filled": 1674,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  },
+  {
+   "run": "v7-seed2014-roman",
+   "family": "roman",
+   "seed": 8,
+   "status": "contained",
+   "build_ok": true,
+   "center": {
+    "x": 7252,
+    "z": 2764
+   },
+   "ground_y": 23,
+   "terrain_height_range": {
+    "max": 31,
+    "min": 8
+   },
+   "plan_bounds": {
+    "x1": 7157,
+    "x2": 7337,
+    "z1": 2677,
+    "z2": 2874
+   },
+   "has_wall": false,
+   "wall_features": 0,
+   "envelope_chunks": 144,
+   "envelope_snapshot_voxels": 73728000,
+   "envelope_declined": null,
+   "worst_alignment_chunks": 210,
+   "worst_alignment_shift": [
+    0,
+    48,
+    24
+   ],
+   "changed_nodes": 228840,
+   "outside_nonliquid": 0,
+   "outside_liquid_reflow": 539,
+   "stage_overhang": {
+    "city_margins": 53,
+    "outside_roads": 16,
+    "outskirts": 113,
+    "urban_build": 8
+   },
+   "stage_overrun_nodes": 0,
+   "interval_outside_nodes": 0,
+   "stage_reach_actual": {
+    "urban_build": 0,
+    "city_margins": 24,
+    "outskirts": 71,
+    "outside_roads": 12,
+    "walls_or_roads (any node)": 12
+   },
+   "within_max_rect": true,
+   "within_window": true,
+   "snapshot_ignore_blocks": 0,
+   "changed_bbox_relative_to_center": {
+    "x1": -152,
+    "x2": 141,
+    "z1": -122,
+    "z2": 181
+   },
+   "read_side_requests": 47,
+   "read_side_outside": null,
+   "reads_beyond_slack": false,
+   "inspection_volume_inside_urban_read": false,
+   "reported_vs_envelope_uncontained": [],
+   "intervals": [
+    {
+     "in_allowed": 199273,
+     "in_other_box": 0,
+     "label": "urban",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 199273
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_margins",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    },
+    {
+     "in_allowed": 15835,
+     "in_other_box": 0,
+     "label": "margins",
+     "max_reach": 24,
+     "outside": 0,
+     "reflow": 0,
+     "total": 15835
+    },
+    {
+     "in_allowed": 323,
+     "in_other_box": 0,
+     "label": "walls_or_roads",
+     "max_reach": 12,
+     "outside": 0,
+     "reflow": 112,
+     "total": 435
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "before_rural",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 537,
+     "total": 537
+    },
+    {
+     "in_allowed": 12984,
+     "in_other_box": 0,
+     "label": "rural",
+     "max_reach": 71,
+     "outside": 0,
+     "reflow": 0,
+     "total": 12984
+    },
+    {
+     "in_allowed": 0,
+     "in_other_box": 0,
+     "label": "final_idle",
+     "max_reach": 0,
+     "outside": 0,
+     "reflow": 0,
+     "total": 0
+    }
+   ],
+   "pipeline": {
+    "roads": {
+     "failed": 0,
+     "graded": 3
+    },
+    "margins": {
+     "changed": 4219,
+     "cut": 2165,
+     "filled": 2054,
+     "max_movement": 20,
+     "steepest": 20
+    }
+   }
+  }
+ ]
+}

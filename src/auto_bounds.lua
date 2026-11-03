@@ -61,7 +61,8 @@
 --   Usable span with one mapchunk (80) of edge clearance is 1024 - 160 = 864, so it fits
 --   with 17 nodes to spare and centre jitter of +/-8. M.CELL (1024) is unchanged.
 -- Named caps (M.CAPS): 256 chunks and 256 * 512000 snapshot voxels. Measured maxima are
---   180 chunks and 92,160,000 voxels (see the basis note on M.CAPS). Provisional until A12.
+--   210 chunks (worst chunk-grid alignment; 144 at the planner origin alignment) and
+--   107,520,000 voxels (see the basis note on M.CAPS). Provisional until the gate owner accepts A12.
 --
 -- Stage providers (names reported in envelope.stages):
 --   urban_read       read: plan.bounds in X/Z, reference_y -scan_down .. +scan_up+1
@@ -104,17 +105,20 @@ M.CELL_EDGE_CLEARANCE = M.CHUNKSIZE  -- one mapchunk from each cell edge
 -- Measured plan extents relative to the site centre (inclusive). See the header.
 M.PLAN_EXTENT = {x1 = -132, z1 = -132, x2 = 132, z2 = 132}
 
--- Named finite caps. PROVISIONAL: final freezing waits for the A12 containment test.
+-- Named finite caps. PROVISIONAL: kept until the gate owner accepts A12 (the write-capable
+-- containment test passed, docs/automatic_towns_probe_results.md).
 -- Basis: 300 seeds per family (medieval walled, medieval unwalled, Roman; 900 plans, none
--- declined) with the real Living Villages terrain and boundary queries. The largest
--- envelope is 180 distinct chunks (92,160,000 voxels). The outskirts band sets it,
--- and the reach that sets it is fixed by constants, so the maximum is structural. The
--- cap is 256 chunks, about 1.4 times the measured maximum.
+-- declined) with the real Living Villages terrain and boundary queries. The chunk count depends
+-- on where the town lands on the 80-node chunk grid: 144 at the planner origin alignment, 210 at
+-- the worst of 1000 alignments (210 x 512,000 = 107,520,000 voxels), the same for all three
+-- families. The outskirts band sets it, and the reach that sets it is fixed by constants, so the
+-- maximum is structural. The cap is 256 chunks, about 1.22 times the worst case. 36 real
+-- builds (A12) had 120 to 210 chunks.
 M.CAPS = {
 	MAX_REQUEST_CHUNKS = 256,
 	MAX_SNAPSHOT_VOXELS = 256 * 80 * 80 * 80,
 	PROVISIONAL = true,
-	BASIS = "300 seeds x 3 families; measured max 180 chunks / 92160000 voxels; cap 256 chunks",
+	BASIS = "300 seeds x 3 families; worst chunk-grid alignment 210 chunks / 107520000 voxels (144 at the planner origin alignment); cap 256 chunks",
 }
 
 local ROTATIONS = {"0", "90", "180", "270"}
@@ -221,13 +225,22 @@ function M.fit(cell, rect, clearance)
 	}
 end
 
+-- Sibling modules are loaded once, here at module load. In the game some of them find their
+-- own siblings with core.get_current_modname(), which is nil in a callback, so loading them
+-- lazily (at the first default_config() or plan_envelope() call) failed outside mod load time
+-- (A12 finding). Require this module while the Towns mod is loading.
+local loaded = {
+	outskirts = dofile(MODPATH .. "/src/outskirts.lua"),
+	roads = dofile(MODPATH .. "/src/town_roads.lua"),
+	walls = dofile(MODPATH .. "/src/medieval_walls.lua"),
+	features = dofile(MODPATH .. "/src/medieval_wall_features.lua"),
+}
+
 -- Towns constants read from the modules that own them. The site_search values are
 -- repeated here: that module needs a planner factory to load, so tests check them.
 function M.default_config()
-	local outskirts = dofile(MODPATH .. "/src/outskirts.lua").CONSTANTS
-	local roads = dofile(MODPATH .. "/src/town_roads.lua")
-	local walls = dofile(MODPATH .. "/src/medieval_walls.lua")
-	local features = dofile(MODPATH .. "/src/medieval_wall_features.lua")
+	local outskirts = loaded.outskirts.CONSTANTS
+	local roads, walls, features = loaded.roads, loaded.walls, loaded.features
 	return {
 		-- site_search.CONSTANTS (CUT_FILL_MARGIN, SCAN_UP, SCAN_DOWN)
 		cut_fill_margin = 8,
@@ -427,21 +440,11 @@ function M.new(providers)
 	return env
 end
 
--- Modules that define the stage geometry, loaded once.
-local modules
+-- Modules that define the stage geometry (loaded at module load, see above).
 local function stage_modules()
-	if not modules then
-		modules = {
-			walls = dofile(MODPATH .. "/src/medieval_walls.lua"),
-			roads = dofile(MODPATH .. "/src/town_roads.lua"),
-			features = dofile(MODPATH .. "/src/medieval_wall_features.lua"),
-		}
-	end
-	return modules
+	return loaded
 end
 
--- Stage providers. Each returns a box, a list of boxes, nil (not applicable), or
--- nil, reason (a failure that declines the plan).
 local function urban_read(env, st)
 	local c, b, wet = env.config, st.plan.bounds, env.config.wet_ring
 	return box(b.x1 - wet, st.reference_y - c.scan_down, b.z1 - wet,
