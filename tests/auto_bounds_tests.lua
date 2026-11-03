@@ -301,6 +301,54 @@ do
 	eq(failing_env, nil, "a failing boundary query declines the environment (no fallback padding)")
 end
 
+-- Walled towns: missing wall parts decline; an empty feature list is accepted.
+do
+	local m = planner.plan({x = 0, z = 0}, 20260101, {landmarks = profile})
+	m.center = {x = 0, z = 0}
+	local wall = assert(walls.plan(m, true), "walled fixture")
+	local e, _, code = env.plan_envelope(state_for(m, wall, nil))
+	eq(e, nil, "walled town with nil wall_features declines")
+	eq(code, "provider_failed", "nil wall_features is a provider failure")
+	local no_openings = {}
+	for k, v in pairs(wall) do no_openings[k] = v end
+	no_openings.openings = nil
+	e, _, code = env.plan_envelope(state_for(m, no_openings, {}))
+	eq(e, nil, "walled town with nil wall.openings declines")
+	eq(code, "provider_failed", "nil wall.openings is a provider failure")
+	local no_cells = {}
+	for k, v in pairs(wall) do no_cells[k] = v end
+	no_cells.cells = nil
+	e, _, code = env.plan_envelope(state_for(m, no_cells, {}))
+	eq(code, "provider_failed", "nil wall.cells is a provider failure")
+	e = env.plan_envelope(state_for(m, wall, {}))
+	eq(e ~= nil, true, "walled town with an empty feature list is accepted")
+end
+
+-- Feature bounds are copied, not aliased: mutating the feature afterwards must not
+-- change the envelope already returned (mutation test).
+do
+	local m = planner.plan({x = 0, z = 0}, 20260101, {landmarks = profile})
+	m.center = {x = 0, z = 0}
+	local wall = assert(walls.plan(m, true), "walled fixture for feature copy")
+	local b = m.bounds
+	local g = 64
+	local feature = {min = {x = b.x2, y = g, z = b.z1}, max = {x = b.x2 + 2, y = g + 4, z = b.z1 + 2}}
+	local e = env.plan_envelope(state_for(m, wall, {feature}))
+	eq(e ~= nil, true, "walled town with a synthetic feature is accepted")
+	if e then
+		local found
+		for name, s in pairs(e.stages) do
+			if name:match("^wall_features") and s.box.min.y == g - 32 then found = s.box end
+		end
+		eq(found ~= nil, true, "feature foundation box is present")
+		local before = found and found.max.x
+		feature.max.x = 99999
+		feature.max.y = 99999
+		eq(found and found.max.x, before, "mutating feature.max after the call leaves the envelope unchanged")
+		eq(found and found.max.y ~= 99999, true, "feature foundation max is not the mutated table")
+	end
+end
+
 -- Optional real Living Villages volumes (TOWNS_LIVING_VILLAGES = checkout path).
 local lv_path = os.getenv("TOWNS_LIVING_VILLAGES")
 if not lv_path then

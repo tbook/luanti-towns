@@ -465,28 +465,50 @@ local function city_margins(env, st)
 	return box(vol.minp.x, vol.minp.y, vol.minp.z, vol.maxp.x, vol.maxp.y, vol.maxp.z)
 end
 
+-- A walled town must supply its wall object with cells and openings; a
+-- missing part declines rather than reading as an empty wall.
+local function check_wall(st)
+	local w = st.wall
+	if type(w.cells) ~= "table" then return nil, "walled town: wall.cells is missing" end
+	if type(w.openings) ~= "table" then return nil, "walled town: wall.openings is missing" end
+	return true
+end
+
 local function walls(env, st, m)
 	if not st.wall then return nil end
+	local ok, why = check_wall(st)
+	if not ok then return nil, why end
 	return m.walls.bounds(st.wall, st.ground_y)
 end
 
 local function wall_approaches(env, st, m)
 	if not st.wall then return nil end
+	local ok, why = check_wall(st)
+	if not ok then return nil, why end
 	local out = {}
-	for _, columns in ipairs(m.roads.crossings(st.wall.openings or {})) do
+	for _, columns in ipairs(m.roads.crossings(st.wall.openings)) do
 		out[#out + 1] = m.roads.approach_bounds(columns, st.ground_y)
 	end
 	return out
 end
 
 local function wall_features(env, st, m)
-	if not st.wall or not st.wall_features then return nil end
+	if not st.wall then return nil end
+	-- An empty list means "no features"; a missing list means the caller did not say.
+	if type(st.wall_features) ~= "table" then
+		return nil, "walled town: wall_features list is required (use {} for none)"
+	end
+	local ok, why = check_wall(st)
+	if not ok then return nil, why end
 	local out = {}
 	for _, feature in ipairs(st.wall_features) do
+		if type(feature.min) ~= "table" or type(feature.max) ~= "table" then
+			return nil, "wall feature has no min/max bounds"
+		end
 		local apron = m.walls.feature_clearance_bounds(feature, st.ground_y)
 		if apron then out[#out + 1] = apron end
 		out[#out + 1] = {min = {x = feature.min.x, y = feature.min.y - env.config.foundation_depth, z = feature.min.z},
-			max = feature.max}
+			max = {x = feature.max.x, y = feature.max.y, z = feature.max.z}}
 		if feature.outside_approach then
 			out[#out + 1] = m.roads.approach_bounds(feature.outside_approach, st.ground_y)
 		end
