@@ -182,7 +182,12 @@ local function liquid_kind(name)
 	return v
 end
 local function is_reflow(oname, nname)
-	if liquid_kind(nname) ~= "none" then return true end
+	if liquid_kind(nname) ~= "none" then
+		-- Liquid only flows into air, buildable_to nodes (snow, plants) and other liquid.
+		if oname == "air" or liquid_kind(oname) ~= "none" then return true end
+		local def = core.registered_nodes[oname]
+		return def ~= nil and def.buildable_to == true
+	end
 	return liquid_kind(oname) ~= "none" and nname == "air"
 end
 
@@ -642,7 +647,20 @@ run_sample = function(index, done_sample, attempt)
 								warnings = summary.warnings,
 							}
 						end
-						sample.status = (agg.outside == 0) and "contained" or "ESCAPED"
+						local seen = {}
+						for _, iv in ipairs(sample.intervals or {}) do seen[iv.label] = true end
+						local problems = {}
+						if agg.outside ~= 0 then problems[#problems + 1] = "ESCAPED" end
+						if not sample.build_ok then problems[#problems + 1] = "build_failed" end
+						if sample.snapshot_ignore_blocks ~= 0 then problems[#problems + 1] = "snapshot_has_ungenerated_blocks" end
+						if not sample.within_window then problems[#problems + 1] = "snapshot_outside_window" end
+						if sample.interval_outside_nodes ~= 0 then problems[#problems + 1] = "interval_outside" end
+						if sample.stage_overrun_nodes ~= 0 then problems[#problems + 1] = "stage_overrun" end
+						if sample.harness_error then problems[#problems + 1] = "harness_error" end
+						if not (seen.urban and seen.final_idle) then problems[#problems + 1] = "missing_interval" end
+						if sample.reads_beyond_slack then problems[#problems + 1] = "reads_beyond_slack" end
+						sample.problems = problems
+						sample.status = #problems == 0 and "contained" or (problems[1] == "ESCAPED" and "ESCAPED" or "INVALID")
 					end)
 					if not ok2 then sample.status = "harness_error"; sample.harness_error = tostring(err2) end
 					towns.builder.build_town = original_build_town

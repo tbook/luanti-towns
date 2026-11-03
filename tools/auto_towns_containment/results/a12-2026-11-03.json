@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-03",
+ "generated": "2026-11-03 (rerun with the stricter status and reflow rules)",
  "source": "tools/auto_towns_containment/run.py + summarize.py; scratch worlds are not kept in the repo",
  "env_stage_reach": {
   "city_margins": 63,
@@ -327,7 +327,7 @@
     0,
     0
    ],
-   "changed_nodes": 117982,
+   "changed_nodes": 86442,
    "outside_nonliquid": 0,
    "outside_liquid_reflow": 0,
    "stage_overhang": {
@@ -344,8 +344,7 @@
     "urban_build": 0,
     "city_margins": 0,
     "outskirts": 57,
-    "walls": 2,
-    "walls_or_roads (any node)": 10
+    "walls_or_roads (any node)": 0
    },
    "within_max_rect": true,
    "within_window": true,
@@ -390,13 +389,13 @@
      "total": 0
     },
     {
-     "in_allowed": 31798,
+     "in_allowed": 0,
      "in_other_box": 0,
      "label": "walls_or_roads",
-     "max_reach": 10,
+     "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 31798
+     "total": 0
     },
     {
      "in_allowed": 0,
@@ -444,7 +443,7 @@
    "status": "contained",
    "build_ok": true,
    "center": {
-    "x": 7540,
+    "x": 7524,
     "z": 104
    },
    "ground_y": 8,
@@ -453,8 +452,8 @@
     "min": 8
    },
    "plan_bounds": {
-    "x1": 7462,
-    "x2": 7671,
+    "x1": 7446,
+    "x2": 7655,
     "z1": 58,
     "z2": 208
    },
@@ -465,7 +464,7 @@
    "envelope_declined": null,
    "worst_alignment_chunks": 210,
    "worst_alignment_shift": [
-    24,
+    40,
     0,
     0
    ],
@@ -1761,9 +1760,9 @@
     48,
     16
    ],
-   "changed_nodes": 180664,
+   "changed_nodes": 180753,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 561,
+   "outside_liquid_reflow": 644,
    "stage_overhang": {
     "city_margins": 47,
     "outskirts": 113,
@@ -1798,13 +1797,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 142069,
+     "in_allowed": 142065,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 142069
+     "total": 142065
     },
     {
      "in_allowed": 0,
@@ -1816,22 +1815,22 @@
      "total": 0
     },
     {
-     "in_allowed": 13069,
+     "in_allowed": 13070,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 19,
      "outside": 0,
      "reflow": 0,
-     "total": 13069
+     "total": 13070
     },
     {
-     "in_allowed": 16778,
+     "in_allowed": 16783,
      "in_other_box": 0,
      "label": "walls_or_roads",
      "max_reach": 10,
      "outside": 0,
-     "reflow": 70,
-     "total": 16848
+     "reflow": 84,
+     "total": 16867
     },
     {
      "in_allowed": 0,
@@ -1839,17 +1838,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 717,
-     "total": 717
+     "reflow": 793,
+     "total": 793
     },
     {
-     "in_allowed": 9104,
+     "in_allowed": 9097,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 64,
      "outside": 0,
      "reflow": 0,
-     "total": 9104
+     "total": 9097
     },
     {
      "in_allowed": 0,
@@ -1910,9 +1909,9 @@
     0,
     0
    ],
-   "changed_nodes": 209868,
+   "changed_nodes": 211074,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 14,
+   "outside_liquid_reflow": 1528,
    "stage_overhang": {
     "city_margins": 47,
     "outskirts": 113,
@@ -1947,13 +1946,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 152292,
+     "in_allowed": 152306,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 152292
+     "total": 152306
     },
     {
      "in_allowed": 0,
@@ -1965,22 +1964,22 @@
      "total": 0
     },
     {
-     "in_allowed": 15217,
+     "in_allowed": 15116,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 32,
      "outside": 0,
      "reflow": 0,
-     "total": 15217
+     "total": 15116
     },
     {
-     "in_allowed": 19898,
+     "in_allowed": 19897,
      "in_other_box": 0,
      "label": "walls_or_roads",
      "max_reach": 13,
      "outside": 0,
-     "reflow": 8,
-     "total": 19906
+     "reflow": 205,
+     "total": 20102
     },
     {
      "in_allowed": 0,
@@ -1988,17 +1987,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 32,
-     "total": 32
+     "reflow": 1577,
+     "total": 1577
     },
     {
-     "in_allowed": 24861,
+     "in_allowed": 24518,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 66,
      "outside": 0,
      "reflow": 0,
-     "total": 24861
+     "total": 24518
     },
     {
      "in_allowed": 0,
@@ -2013,9 +2012,9 @@
    "pipeline": {
     "roads": null,
     "margins": {
-     "changed": 1835,
+     "changed": 1802,
      "cut": 957,
-     "filled": 878,
+     "filled": 845,
      "max_movement": 10,
      "steepest": 10
     }
@@ -2059,9 +2058,9 @@
     48,
     32
    ],
-   "changed_nodes": 268247,
+   "changed_nodes": 267763,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 1086,
+   "outside_liquid_reflow": 800,
    "stage_overhang": {
     "city_margins": 47,
     "outskirts": 113,
@@ -2096,13 +2095,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 183176,
+     "in_allowed": 183079,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 183176
+     "total": 183079
     },
     {
      "in_allowed": 0,
@@ -2114,22 +2113,22 @@
      "total": 0
     },
     {
-     "in_allowed": 52491,
+     "in_allowed": 52467,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 32,
      "outside": 0,
      "reflow": 0,
-     "total": 52491
+     "total": 52467
     },
     {
-     "in_allowed": 20378,
+     "in_allowed": 20377,
      "in_other_box": 0,
      "label": "walls_or_roads",
      "max_reach": 13,
      "outside": 0,
-     "reflow": 100,
-     "total": 20478
+     "reflow": 80,
+     "total": 20457
     },
     {
      "in_allowed": 0,
@@ -2137,17 +2136,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1262,
-     "total": 1262
+     "reflow": 961,
+     "total": 961
     },
     {
-     "in_allowed": 17087,
+     "in_allowed": 17061,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 73,
      "outside": 0,
      "reflow": 0,
-     "total": 17087
+     "total": 17061
     },
     {
      "in_allowed": 0,
@@ -2208,9 +2207,9 @@
     48,
     16
    ],
-   "changed_nodes": 171428,
+   "changed_nodes": 171400,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 573,
+   "outside_liquid_reflow": 595,
    "stage_overhang": {
     "city_margins": 47,
     "outside_roads": 16,
@@ -2242,13 +2241,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 143566,
+     "in_allowed": 143541,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 143566
+     "total": 143541
     },
     {
      "in_allowed": 0,
@@ -2274,8 +2273,8 @@
      "label": "walls_or_roads",
      "max_reach": 7,
      "outside": 0,
-     "reflow": 80,
-     "total": 165
+     "reflow": 72,
+     "total": 157
     },
     {
      "in_allowed": 0,
@@ -2283,17 +2282,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 791,
-     "total": 791
+     "reflow": 775,
+     "total": 775
     },
     {
-     "in_allowed": 9942,
+     "in_allowed": 9953,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 62,
      "outside": 0,
      "reflow": 0,
-     "total": 9942
+     "total": 9953
     },
     {
      "in_allowed": 0,
@@ -2357,9 +2356,9 @@
     0,
     0
    ],
-   "changed_nodes": 200909,
+   "changed_nodes": 200738,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 1627,
+   "outside_liquid_reflow": 1506,
    "stage_overhang": {
     "city_margins": 47,
     "outside_roads": 16,
@@ -2391,13 +2390,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 153905,
+     "in_allowed": 153889,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 153905
+     "total": 153889
     },
     {
      "in_allowed": 0,
@@ -2405,17 +2404,17 @@
      "label": "before_margins",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 173,
-     "total": 173
+     "reflow": 0,
+     "total": 0
     },
     {
-     "in_allowed": 17747,
+     "in_allowed": 17706,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 32,
      "outside": 0,
      "reflow": 0,
-     "total": 17747
+     "total": 17706
     },
     {
      "in_allowed": 211,
@@ -2423,8 +2422,8 @@
      "label": "walls_or_roads",
      "max_reach": 7,
      "outside": 0,
-     "reflow": 281,
-     "total": 492
+     "reflow": 206,
+     "total": 417
     },
     {
      "in_allowed": 0,
@@ -2432,17 +2431,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1568,
-     "total": 1568
+     "reflow": 1522,
+     "total": 1522
     },
     {
-     "in_allowed": 27552,
+     "in_allowed": 27609,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 76,
      "outside": 0,
      "reflow": 0,
-     "total": 27552
+     "total": 27609
     },
     {
      "in_allowed": 0,
@@ -2460,8 +2459,8 @@
      "graded": 5
     },
     "margins": {
-     "changed": 2392,
-     "cut": 1186,
+     "changed": 2391,
+     "cut": 1185,
      "filled": 1206,
      "max_movement": 10,
      "steepest": 10
@@ -2506,9 +2505,9 @@
     48,
     32
    ],
-   "changed_nodes": 258875,
+   "changed_nodes": 258988,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 929,
+   "outside_liquid_reflow": 928,
    "stage_overhang": {
     "city_margins": 47,
     "outside_roads": 16,
@@ -2540,13 +2539,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 184497,
+     "in_allowed": 184532,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 184497
+     "total": 184532
     },
     {
      "in_allowed": 0,
@@ -2558,13 +2557,13 @@
      "total": 0
     },
     {
-     "in_allowed": 56238,
+     "in_allowed": 56251,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 32,
      "outside": 0,
      "reflow": 0,
-     "total": 56238
+     "total": 56251
     },
     {
      "in_allowed": 62,
@@ -2572,8 +2571,8 @@
      "label": "walls_or_roads",
      "max_reach": 4,
      "outside": 0,
-     "reflow": 93,
-     "total": 155
+     "reflow": 103,
+     "total": 165
     },
     {
      "in_allowed": 0,
@@ -2581,17 +2580,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1083,
-     "total": 1083
+     "reflow": 1150,
+     "total": 1150
     },
     {
-     "in_allowed": 17127,
+     "in_allowed": 17132,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 73,
      "outside": 0,
      "reflow": 0,
-     "total": 17127
+     "total": 17132
     },
     {
      "in_allowed": 0,
@@ -2679,9 +2678,9 @@
     48,
     40
    ],
-   "changed_nodes": 202461,
+   "changed_nodes": 202429,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 238,
+   "outside_liquid_reflow": 282,
    "stage_overhang": {
     "city_margins": 53,
     "outside_roads": 16,
@@ -2692,8 +2691,8 @@
    "interval_outside_nodes": 0,
    "stage_reach_actual": {
     "urban_build": 0,
-    "city_margins": 31,
-    "outskirts": 66,
+    "city_margins": 32,
+    "outskirts": 65,
     "outside_roads": 4,
     "walls_or_roads (any node)": 4
    },
@@ -2704,7 +2703,7 @@
     "x1": -139,
     "x2": 150,
     "z1": -119,
-    "z2": 176
+    "z2": 175
    },
    "read_side_requests": 61,
    "read_side_outside": null,
@@ -2713,13 +2712,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 162183,
+     "in_allowed": 162093,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 162183
+     "total": 162093
     },
     {
      "in_allowed": 0,
@@ -2734,7 +2733,7 @@
      "in_allowed": 19203,
      "in_other_box": 0,
      "label": "margins",
-     "max_reach": 31,
+     "max_reach": 32,
      "outside": 0,
      "reflow": 0,
      "total": 19203
@@ -2745,8 +2744,8 @@
      "label": "walls_or_roads",
      "max_reach": 4,
      "outside": 0,
-     "reflow": 50,
-     "total": 102
+     "reflow": 55,
+     "total": 107
     },
     {
      "in_allowed": 0,
@@ -2754,17 +2753,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 380,
-     "total": 380
+     "reflow": 448,
+     "total": 448
     },
     {
-     "in_allowed": 20851,
+     "in_allowed": 20841,
      "in_other_box": 0,
      "label": "rural",
-     "max_reach": 66,
+     "max_reach": 65,
      "outside": 0,
      "reflow": 0,
-     "total": 20851
+     "total": 20841
     },
     {
      "in_allowed": 0,
@@ -2822,9 +2821,9 @@
     40,
     32
    ],
-   "changed_nodes": 218333,
+   "changed_nodes": 218514,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 910,
+   "outside_liquid_reflow": 833,
    "stage_overhang": {
     "city_margins": 52,
     "outskirts": 113,
@@ -2859,13 +2858,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 141680,
+     "in_allowed": 141844,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 141680
+     "total": 141844
     },
     {
      "in_allowed": 0,
@@ -2877,22 +2876,22 @@
      "total": 0
     },
     {
-     "in_allowed": 27018,
+     "in_allowed": 27084,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 29,
      "outside": 0,
      "reflow": 0,
-     "total": 27018
+     "total": 27084
     },
     {
-     "in_allowed": 18838,
+     "in_allowed": 18837,
      "in_other_box": 0,
      "label": "walls_or_roads",
      "max_reach": 12,
      "outside": 0,
-     "reflow": 229,
-     "total": 19067
+     "reflow": 233,
+     "total": 19070
     },
     {
      "in_allowed": 0,
@@ -2900,17 +2899,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1749,
-     "total": 1749
+     "reflow": 1779,
+     "total": 1779
     },
     {
-     "in_allowed": 31640,
+     "in_allowed": 31580,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 69,
      "outside": 0,
      "reflow": 0,
-     "total": 31640
+     "total": 31580
     },
     {
      "in_allowed": 0,
@@ -2925,9 +2924,9 @@
    "pipeline": {
     "roads": null,
     "margins": {
-     "changed": 2223,
-     "cut": 928,
-     "filled": 1295,
+     "changed": 2222,
+     "cut": 933,
+     "filled": 1289,
      "max_movement": 16,
      "steepest": 16
     }
@@ -2965,9 +2964,9 @@
     56,
     0
    ],
-   "changed_nodes": 199868,
+   "changed_nodes": 199850,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 1003,
+   "outside_liquid_reflow": 1046,
    "stage_overhang": {
     "city_margins": 47,
     "outskirts": 113,
@@ -3002,13 +3001,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 146025,
+     "in_allowed": 146022,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 146025
+     "total": 146022
     },
     {
      "in_allowed": 0,
@@ -3016,26 +3015,26 @@
      "label": "before_margins",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 0,
-     "total": 0
+     "reflow": 134,
+     "total": 134
     },
     {
-     "in_allowed": 24517,
+     "in_allowed": 24547,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 29,
      "outside": 0,
      "reflow": 0,
-     "total": 24517
+     "total": 24547
     },
     {
-     "in_allowed": 22657,
+     "in_allowed": 22664,
      "in_other_box": 0,
      "label": "walls_or_roads",
      "max_reach": 14,
      "outside": 0,
-     "reflow": 106,
-     "total": 22763
+     "reflow": 239,
+     "total": 22903
     },
     {
      "in_allowed": 0,
@@ -3043,17 +3042,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1171,
-     "total": 1171
+     "reflow": 997,
+     "total": 997
     },
     {
-     "in_allowed": 8946,
+     "in_allowed": 8930,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 66,
      "outside": 0,
      "reflow": 0,
-     "total": 8946
+     "total": 8930
     },
     {
      "in_allowed": 0,
@@ -3068,9 +3067,9 @@
    "pipeline": {
     "roads": null,
     "margins": {
-     "changed": 4649,
+     "changed": 4656,
      "cut": 3275,
-     "filled": 1374,
+     "filled": 1381,
      "max_movement": 17,
      "steepest": 17
     }
@@ -3108,9 +3107,9 @@
     0,
     16
    ],
-   "changed_nodes": 165461,
+   "changed_nodes": 165202,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 1096,
+   "outside_liquid_reflow": 1053,
    "stage_overhang": {
     "city_margins": 50,
     "outskirts": 113,
@@ -3177,8 +3176,8 @@
      "label": "walls_or_roads",
      "max_reach": 10,
      "outside": 0,
-     "reflow": 236,
-     "total": 17434
+     "reflow": 170,
+     "total": 17368
     },
     {
      "in_allowed": 0,
@@ -3186,8 +3185,8 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 2062,
-     "total": 2062
+     "reflow": 1788,
+     "total": 1788
     },
     {
      "in_allowed": 9901,
@@ -3227,18 +3226,18 @@
    "build_ok": true,
    "center": {
     "x": 7732,
-    "z": -8
+    "z": -56
    },
-   "ground_y": 10,
+   "ground_y": 7,
    "terrain_height_range": {
     "max": 24,
-    "min": -13
+    "min": -10
    },
    "plan_bounds": {
     "x1": 7654,
     "x2": 7863,
-    "z1": -54,
-    "z2": 96
+    "z1": -102,
+    "z2": 48
    },
    "has_wall": true,
    "wall_features": 25,
@@ -3251,9 +3250,9 @@
     0,
     0
    ],
-   "changed_nodes": 194989,
+   "changed_nodes": 159560,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 1456,
+   "outside_liquid_reflow": 1835,
    "stage_overhang": {
     "city_margins": 47,
     "outskirts": 113,
@@ -3267,34 +3266,34 @@
    "stage_reach_actual": {
     "urban_build": 0,
     "city_margins": 19,
-    "outskirts": 60,
-    "wall_features": 9,
+    "outskirts": 68,
+    "wall_features": 11,
     "walls": 6,
-    "walls_or_roads (any node)": 9
+    "walls_or_roads (any node)": 11
    },
    "within_max_rect": true,
    "within_window": true,
    "snapshot_ignore_blocks": 0,
    "changed_bbox_relative_to_center": {
-    "x1": -129,
-    "x2": 174,
-    "z1": -106,
-    "z2": 157
+    "x1": -138,
+    "x2": 177,
+    "z1": -114,
+    "z2": 161
    },
-   "read_side_requests": 78,
+   "read_side_requests": 52,
    "read_side_outside": null,
    "reads_beyond_slack": false,
    "inspection_volume_inside_urban_read": false,
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 144952,
+     "in_allowed": 111933,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 144952
+     "total": 111933
     },
     {
      "in_allowed": 0,
@@ -3306,22 +3305,22 @@
      "total": 0
     },
     {
-     "in_allowed": 22930,
+     "in_allowed": 16235,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 19,
      "outside": 0,
      "reflow": 0,
-     "total": 22930
+     "total": 16235
     },
     {
-     "in_allowed": 16609,
+     "in_allowed": 20339,
      "in_other_box": 0,
      "label": "walls_or_roads",
-     "max_reach": 9,
+     "max_reach": 11,
      "outside": 0,
-     "reflow": 221,
-     "total": 16830
+     "reflow": 262,
+     "total": 20601
     },
     {
      "in_allowed": 0,
@@ -3329,17 +3328,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1958,
-     "total": 1958
+     "reflow": 2475,
+     "total": 2475
     },
     {
-     "in_allowed": 11226,
+     "in_allowed": 13012,
      "in_other_box": 0,
      "label": "rural",
-     "max_reach": 60,
+     "max_reach": 68,
      "outside": 0,
      "reflow": 0,
-     "total": 11226
+     "total": 13012
     },
     {
      "in_allowed": 0,
@@ -3354,9 +3353,9 @@
    "pipeline": {
     "roads": null,
     "margins": {
-     "changed": 4135,
-     "cut": 1271,
-     "filled": 2864,
+     "changed": 3293,
+     "cut": 1452,
+     "filled": 1841,
      "max_movement": 20,
      "steepest": 20
     }
@@ -3406,9 +3405,9 @@
     0,
     32
    ],
-   "changed_nodes": 195564,
+   "changed_nodes": 195501,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 1122,
+   "outside_liquid_reflow": 1064,
    "stage_overhang": {
     "city_margins": 51,
     "outskirts": 113,
@@ -3434,7 +3433,7 @@
     "x1": -118,
     "x2": 149,
     "z1": -203,
-    "z2": 148
+    "z2": 145
    },
    "read_side_requests": 48,
    "read_side_outside": null,
@@ -3443,13 +3442,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 138647,
+     "in_allowed": 138657,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 138647
+     "total": 138657
     },
     {
      "in_allowed": 0,
@@ -3461,22 +3460,22 @@
      "total": 0
     },
     {
-     "in_allowed": 19667,
+     "in_allowed": 19678,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 30,
      "outside": 0,
      "reflow": 0,
-     "total": 19667
+     "total": 19678
     },
     {
-     "in_allowed": 20432,
+     "in_allowed": 20478,
      "in_other_box": 0,
      "label": "walls_or_roads",
      "max_reach": 14,
      "outside": 0,
-     "reflow": 277,
-     "total": 20709
+     "reflow": 282,
+     "total": 20760
     },
     {
      "in_allowed": 0,
@@ -3484,17 +3483,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1548,
-     "total": 1548
+     "reflow": 1493,
+     "total": 1493
     },
     {
-     "in_allowed": 18762,
+     "in_allowed": 18660,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 72,
      "outside": 0,
      "reflow": 0,
-     "total": 18762
+     "total": 18660
     },
     {
      "in_allowed": 0,
@@ -3509,8 +3508,8 @@
    "pipeline": {
     "roads": null,
     "margins": {
-     "changed": 3508,
-     "cut": 2186,
+     "changed": 3502,
+     "cut": 2180,
      "filled": 1322,
      "max_movement": 16,
      "steepest": 16
@@ -3549,9 +3548,9 @@
     48,
     0
    ],
-   "changed_nodes": 175647,
+   "changed_nodes": 175676,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 247,
+   "outside_liquid_reflow": 263,
    "stage_overhang": {
     "city_margins": 53,
     "outskirts": 113,
@@ -3618,8 +3617,8 @@
      "label": "walls_or_roads",
      "max_reach": 17,
      "outside": 0,
-     "reflow": 51,
-     "total": 19400
+     "reflow": 57,
+     "total": 19406
     },
     {
      "in_allowed": 0,
@@ -3627,17 +3626,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 285,
-     "total": 285
+     "reflow": 313,
+     "total": 313
     },
     {
-     "in_allowed": 11268,
+     "in_allowed": 11267,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 72,
      "outside": 0,
      "reflow": 0,
-     "total": 11268
+     "total": 11267
     },
     {
      "in_allowed": 0,
@@ -3692,9 +3691,9 @@
     40,
     32
    ],
-   "changed_nodes": 209237,
+   "changed_nodes": 209188,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 1093,
+   "outside_liquid_reflow": 974,
    "stage_overhang": {
     "city_margins": 52,
     "outside_roads": 16,
@@ -3716,7 +3715,7 @@
    "changed_bbox_relative_to_center": {
     "x1": -165,
     "x2": 101,
-    "z1": -199,
+    "z1": -200,
     "z2": 146
    },
    "read_side_requests": 48,
@@ -3726,13 +3725,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 142666,
+     "in_allowed": 142362,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 142666
+     "total": 142362
     },
     {
      "in_allowed": 0,
@@ -3744,13 +3743,13 @@
      "total": 0
     },
     {
-     "in_allowed": 30873,
+     "in_allowed": 30849,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 29,
      "outside": 0,
      "reflow": 0,
-     "total": 30873
+     "total": 30849
     },
     {
      "in_allowed": 165,
@@ -3758,8 +3757,8 @@
      "label": "walls_or_roads",
      "max_reach": 7,
      "outside": 0,
-     "reflow": 239,
-     "total": 404
+     "reflow": 250,
+     "total": 415
     },
     {
      "in_allowed": 0,
@@ -3767,17 +3766,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1992,
-     "total": 1992
+     "reflow": 1929,
+     "total": 1929
     },
     {
-     "in_allowed": 33553,
+     "in_allowed": 33885,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 69,
      "outside": 0,
      "reflow": 0,
-     "total": 33553
+     "total": 33885
     },
     {
      "in_allowed": 0,
@@ -3835,9 +3834,9 @@
     56,
     0
    ],
-   "changed_nodes": 188386,
+   "changed_nodes": 188905,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 1018,
+   "outside_liquid_reflow": 1584,
    "stage_overhang": {
     "city_margins": 47,
     "outside_roads": 16,
@@ -3869,13 +3868,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 147022,
+     "in_allowed": 147021,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 147022
+     "total": 147021
     },
     {
      "in_allowed": 0,
@@ -3887,13 +3886,13 @@
      "total": 0
     },
     {
-     "in_allowed": 30067,
+     "in_allowed": 30046,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 29,
      "outside": 0,
      "reflow": 0,
-     "total": 30067
+     "total": 30046
     },
     {
      "in_allowed": 218,
@@ -3901,8 +3900,8 @@
      "label": "walls_or_roads",
      "max_reach": 8,
      "outside": 0,
-     "reflow": 98,
-     "total": 316
+     "reflow": 95,
+     "total": 313
     },
     {
      "in_allowed": 0,
@@ -3910,17 +3909,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1270,
-     "total": 1270
+     "reflow": 1826,
+     "total": 1826
     },
     {
-     "in_allowed": 9864,
+     "in_allowed": 9851,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 59,
      "outside": 0,
      "reflow": 0,
-     "total": 9864
+     "total": 9851
     },
     {
      "in_allowed": 0,
@@ -3978,9 +3977,9 @@
     0,
     16
    ],
-   "changed_nodes": 153759,
+   "changed_nodes": 153791,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 1124,
+   "outside_liquid_reflow": 1110,
    "stage_overhang": {
     "city_margins": 50,
     "outside_roads": 16,
@@ -4026,8 +4025,8 @@
      "label": "before_margins",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 241,
-     "total": 241
+     "reflow": 0,
+     "total": 0
     },
     {
      "in_allowed": 12393,
@@ -4044,8 +4043,8 @@
      "label": "walls_or_roads",
      "max_reach": 11,
      "outside": 0,
-     "reflow": 469,
-     "total": 641
+     "reflow": 235,
+     "total": 407
     },
     {
      "in_allowed": 0,
@@ -4053,8 +4052,8 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1890,
-     "total": 1890
+     "reflow": 2142,
+     "total": 2142
     },
     {
      "in_allowed": 9531,
@@ -4096,34 +4095,34 @@
    "status": "contained",
    "build_ok": true,
    "center": {
-    "x": 7732,
-    "z": -8
+    "x": 7524,
+    "z": -152
    },
-   "ground_y": 10,
+   "ground_y": 28,
    "terrain_height_range": {
-    "max": 24,
-    "min": -13
+    "max": 39,
+    "min": 5
    },
    "plan_bounds": {
-    "x1": 7654,
-    "x2": 7863,
-    "z1": -54,
-    "z2": 96
+    "x1": 7446,
+    "x2": 7655,
+    "z1": -198,
+    "z2": -48
    },
    "has_wall": false,
    "wall_features": 0,
-   "envelope_chunks": 210,
-   "envelope_snapshot_voxels": 107520000,
+   "envelope_chunks": 144,
+   "envelope_snapshot_voxels": 73728000,
    "envelope_declined": null,
    "worst_alignment_chunks": 210,
    "worst_alignment_shift": [
-    0,
-    0,
+    40,
+    40,
     0
    ],
-   "changed_nodes": 188258,
+   "changed_nodes": 265392,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 1,
+   "outside_liquid_reflow": 975,
    "stage_overhang": {
     "city_margins": 47,
     "outside_roads": 16,
@@ -4134,34 +4133,34 @@
    "interval_outside_nodes": 0,
    "stage_reach_actual": {
     "urban_build": 0,
-    "city_margins": 19,
-    "outskirts": 60,
-    "outside_roads": 6,
-    "walls_or_roads (any node)": 6
+    "city_margins": 30,
+    "outskirts": 69,
+    "outside_roads": 7,
+    "walls_or_roads (any node)": 7
    },
    "within_max_rect": true,
    "within_window": true,
    "snapshot_ignore_blocks": 0,
    "changed_bbox_relative_to_center": {
-    "x1": -129,
-    "x2": 174,
-    "z1": -106,
-    "z2": 157
+    "x1": -144,
+    "x2": 187,
+    "z1": -115,
+    "z2": 142
    },
-   "read_side_requests": 78,
+   "read_side_requests": 59,
    "read_side_outside": null,
    "reads_beyond_slack": false,
    "inspection_volume_inside_urban_read": false,
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 146817,
+     "in_allowed": 197477,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 146817
+     "total": 197477
     },
     {
      "in_allowed": 0,
@@ -4173,22 +4172,22 @@
      "total": 0
     },
     {
-     "in_allowed": 30335,
+     "in_allowed": 35739,
      "in_other_box": 0,
      "label": "margins",
-     "max_reach": 19,
+     "max_reach": 30,
      "outside": 0,
      "reflow": 0,
-     "total": 30335
+     "total": 35739
     },
     {
-     "in_allowed": 115,
+     "in_allowed": 220,
      "in_other_box": 0,
      "label": "walls_or_roads",
-     "max_reach": 6,
+     "max_reach": 7,
      "outside": 0,
-     "reflow": 12,
-     "total": 127
+     "reflow": 164,
+     "total": 384
     },
     {
      "in_allowed": 0,
@@ -4196,17 +4195,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 0,
-     "total": 0
+     "reflow": 1496,
+     "total": 1496
     },
     {
-     "in_allowed": 11189,
+     "in_allowed": 30877,
      "in_other_box": 0,
      "label": "rural",
-     "max_reach": 60,
+     "max_reach": 69,
      "outside": 0,
      "reflow": 0,
-     "total": 11189
+     "total": 30877
     },
     {
      "in_allowed": 0,
@@ -4220,15 +4219,15 @@
    ],
    "pipeline": {
     "roads": {
-     "failed": 3,
-     "graded": 3
+     "failed": 0,
+     "graded": 6
     },
     "margins": {
-     "changed": 5301,
-     "cut": 1388,
-     "filled": 3913,
-     "max_movement": 20,
-     "steepest": 20
+     "changed": 4197,
+     "cut": 338,
+     "filled": 3859,
+     "max_movement": 17,
+     "steepest": 17
     }
    }
   },
@@ -4276,9 +4275,9 @@
     0,
     32
    ],
-   "changed_nodes": 182679,
+   "changed_nodes": 182697,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 1284,
+   "outside_liquid_reflow": 1189,
    "stage_overhang": {
     "city_margins": 51,
     "outside_roads": 16,
@@ -4300,7 +4299,7 @@
    "changed_bbox_relative_to_center": {
     "x1": -118,
     "x2": 149,
-    "z1": -195,
+    "z1": -203,
     "z2": 145
    },
    "read_side_requests": 51,
@@ -4310,13 +4309,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 139702,
+     "in_allowed": 139677,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 139702
+     "total": 139677
     },
     {
      "in_allowed": 0,
@@ -4328,13 +4327,13 @@
      "total": 0
     },
     {
-     "in_allowed": 23238,
+     "in_allowed": 23185,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 30,
      "outside": 0,
      "reflow": 0,
-     "total": 23238
+     "total": 23185
     },
     {
      "in_allowed": 168,
@@ -4342,8 +4341,8 @@
      "label": "walls_or_roads",
      "max_reach": 9,
      "outside": 0,
-     "reflow": 263,
-     "total": 431
+     "reflow": 279,
+     "total": 447
     },
     {
      "in_allowed": 0,
@@ -4351,17 +4350,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1784,
-     "total": 1784
+     "reflow": 1645,
+     "total": 1645
     },
     {
-     "in_allowed": 17974,
+     "in_allowed": 18226,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 72,
      "outside": 0,
      "reflow": 0,
-     "total": 17974
+     "total": 18226
     },
     {
      "in_allowed": 0,
@@ -4379,9 +4378,9 @@
      "graded": 4
     },
     "margins": {
-     "changed": 4222,
-     "cut": 2555,
-     "filled": 1667,
+     "changed": 4212,
+     "cut": 2547,
+     "filled": 1665,
      "max_movement": 16,
      "steepest": 16
     }
@@ -4419,9 +4418,9 @@
     48,
     0
    ],
-   "changed_nodes": 162295,
+   "changed_nodes": 162203,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 309,
+   "outside_liquid_reflow": 225,
    "stage_overhang": {
     "city_margins": 53,
     "outside_roads": 16,
@@ -4485,8 +4484,8 @@
      "label": "walls_or_roads",
      "max_reach": 15,
      "outside": 0,
-     "reflow": 35,
-     "total": 433
+     "reflow": 55,
+     "total": 453
     },
     {
      "in_allowed": 0,
@@ -4494,17 +4493,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 355,
-     "total": 355
+     "reflow": 264,
+     "total": 264
     },
     {
-     "in_allowed": 11353,
+     "in_allowed": 11354,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 72,
      "outside": 0,
      "reflow": 0,
-     "total": 11353
+     "total": 11354
     },
     {
      "in_allowed": 0,
@@ -4562,9 +4561,9 @@
     40,
     0
    ],
-   "changed_nodes": 329092,
+   "changed_nodes": 328747,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 837,
+   "outside_liquid_reflow": 879,
    "stage_overhang": {
     "city_margins": 50,
     "outside_roads": 16,
@@ -4596,13 +4595,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 240084,
+     "in_allowed": 239740,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 240084
+     "total": 239740
     },
     {
      "in_allowed": 0,
@@ -4610,17 +4609,17 @@
      "label": "before_margins",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 0,
-     "total": 0
+     "reflow": 274,
+     "total": 274
     },
     {
-     "in_allowed": 56975,
+     "in_allowed": 57160,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 30,
      "outside": 0,
      "reflow": 0,
-     "total": 56975
+     "total": 57160
     },
     {
      "in_allowed": 182,
@@ -4628,8 +4627,8 @@
      "label": "walls_or_roads",
      "max_reach": 7,
      "outside": 0,
-     "reflow": 277,
-     "total": 459
+     "reflow": 396,
+     "total": 578
     },
     {
      "in_allowed": 0,
@@ -4637,17 +4636,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1449,
-     "total": 1449
+     "reflow": 1266,
+     "total": 1266
     },
     {
-     "in_allowed": 30590,
+     "in_allowed": 30365,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 67,
      "outside": 0,
      "reflow": 0,
-     "total": 30590
+     "total": 30365
     },
     {
      "in_allowed": 0,
@@ -4665,9 +4664,9 @@
      "graded": 3
     },
     "margins": {
-     "changed": 4434,
-     "cut": 2203,
-     "filled": 2231,
+     "changed": 4397,
+     "cut": 2186,
+     "filled": 2211,
      "max_movement": 20,
      "steepest": 20
     }
@@ -4711,9 +4710,9 @@
     40,
     0
    ],
-   "changed_nodes": 232808,
+   "changed_nodes": 232846,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 729,
+   "outside_liquid_reflow": 781,
    "stage_overhang": {
     "city_margins": 49,
     "outside_roads": 16,
@@ -4745,13 +4744,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 198423,
+     "in_allowed": 198397,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 198423
+     "total": 198397
     },
     {
      "in_allowed": 0,
@@ -4763,13 +4762,13 @@
      "total": 0
     },
     {
-     "in_allowed": 20369,
+     "in_allowed": 20406,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 27,
      "outside": 0,
      "reflow": 0,
-     "total": 20369
+     "total": 20406
     },
     {
      "in_allowed": 366,
@@ -4777,8 +4776,8 @@
      "label": "walls_or_roads",
      "max_reach": 12,
      "outside": 0,
-     "reflow": 177,
-     "total": 543
+     "reflow": 163,
+     "total": 529
     },
     {
      "in_allowed": 0,
@@ -4786,17 +4785,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1346,
-     "total": 1346
+     "reflow": 1344,
+     "total": 1344
     },
     {
-     "in_allowed": 12830,
+     "in_allowed": 12868,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 66,
      "outside": 0,
      "reflow": 0,
-     "total": 12830
+     "total": 12868
     },
     {
      "in_allowed": 0,
@@ -4814,8 +4813,8 @@
      "graded": 3
     },
     "margins": {
-     "changed": 3544,
-     "cut": 751,
+     "changed": 3545,
+     "cut": 752,
      "filled": 2793,
      "max_movement": 20,
      "steepest": 20
@@ -4854,9 +4853,9 @@
     0,
     16
    ],
-   "changed_nodes": 283248,
+   "changed_nodes": 283189,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 1519,
+   "outside_liquid_reflow": 1493,
    "stage_overhang": {
     "city_margins": 53,
     "outside_roads": 16,
@@ -4906,13 +4905,13 @@
      "total": 0
     },
     {
-     "in_allowed": 26593,
+     "in_allowed": 26600,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 19,
      "outside": 0,
      "reflow": 0,
-     "total": 26593
+     "total": 26600
     },
     {
      "in_allowed": 60,
@@ -4920,8 +4919,8 @@
      "label": "walls_or_roads",
      "max_reach": 5,
      "outside": 0,
-     "reflow": 278,
-     "total": 338
+     "reflow": 263,
+     "total": 323
     },
     {
      "in_allowed": 0,
@@ -4929,17 +4928,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 2173,
-     "total": 2173
+     "reflow": 2134,
+     "total": 2134
     },
     {
-     "in_allowed": 13498,
+     "in_allowed": 13481,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 68,
      "outside": 0,
      "reflow": 0,
-     "total": 13498
+     "total": 13481
     },
     {
      "in_allowed": 0,
@@ -5009,9 +5008,9 @@
     48,
     32
    ],
-   "changed_nodes": 249197,
+   "changed_nodes": 249185,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 831,
+   "outside_liquid_reflow": 772,
    "stage_overhang": {
     "city_margins": 48,
     "outside_roads": 16,
@@ -5043,13 +5042,13 @@
    "reported_vs_envelope_uncontained": [],
    "intervals": [
     {
-     "in_allowed": 189482,
+     "in_allowed": 189518,
      "in_other_box": 0,
      "label": "urban",
      "max_reach": 0,
      "outside": 0,
      "reflow": 0,
-     "total": 189482
+     "total": 189518
     },
     {
      "in_allowed": 0,
@@ -5057,17 +5056,17 @@
      "label": "before_margins",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 111,
-     "total": 111
+     "reflow": 0,
+     "total": 0
     },
     {
-     "in_allowed": 31961,
+     "in_allowed": 31873,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 32,
      "outside": 0,
      "reflow": 0,
-     "total": 31961
+     "total": 31873
     },
     {
      "in_allowed": 84,
@@ -5075,8 +5074,8 @@
      "label": "walls_or_roads",
      "max_reach": 4,
      "outside": 0,
-     "reflow": 237,
-     "total": 321
+     "reflow": 103,
+     "total": 187
     },
     {
      "in_allowed": 0,
@@ -5084,17 +5083,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 1126,
-     "total": 1126
+     "reflow": 1159,
+     "total": 1159
     },
     {
-     "in_allowed": 27435,
+     "in_allowed": 27558,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 74,
      "outside": 0,
      "reflow": 0,
-     "total": 27435
+     "total": 27558
     },
     {
      "in_allowed": 0,
@@ -5152,9 +5151,9 @@
     48,
     24
    ],
-   "changed_nodes": 228838,
+   "changed_nodes": 228840,
    "outside_nonliquid": 0,
-   "outside_liquid_reflow": 533,
+   "outside_liquid_reflow": 539,
    "stage_overhang": {
     "city_margins": 53,
     "outside_roads": 16,
@@ -5204,13 +5203,13 @@
      "total": 0
     },
     {
-     "in_allowed": 15837,
+     "in_allowed": 15835,
      "in_other_box": 0,
      "label": "margins",
      "max_reach": 24,
      "outside": 0,
      "reflow": 0,
-     "total": 15837
+     "total": 15835
     },
     {
      "in_allowed": 323,
@@ -5218,8 +5217,8 @@
      "label": "walls_or_roads",
      "max_reach": 12,
      "outside": 0,
-     "reflow": 109,
-     "total": 432
+     "reflow": 112,
+     "total": 435
     },
     {
      "in_allowed": 0,
@@ -5227,17 +5226,17 @@
      "label": "before_rural",
      "max_reach": 0,
      "outside": 0,
-     "reflow": 528,
-     "total": 528
+     "reflow": 537,
+     "total": 537
     },
     {
-     "in_allowed": 12986,
+     "in_allowed": 12984,
      "in_other_box": 0,
      "label": "rural",
      "max_reach": 71,
      "outside": 0,
      "reflow": 0,
-     "total": 12986
+     "total": 12984
     },
     {
      "in_allowed": 0,

@@ -25,8 +25,10 @@ never written: `run.py` copies `world.mt` / `map_meta.txt` of a source world (de
    grading of an unwalled one: they share one interval), `rural`, plus idle intervals in between.
 5. At completion the first snapshot is diffed with the world (the aggregate) against every write box.
 
-Verdict per sample: `contained` when no node outside every write stage box changed, other than
-natural liquid reflow (below). `stage_overrun_nodes` counts nodes a stage wrote inside another
+Verdict per sample: `contained` only when no node outside every write stage box changed (other than
+natural liquid reflow, below), the build succeeded, the snapshot had no ungenerated block and lay inside the emerged
+window, no stage-interval outside or overrun node, no harness error, the urban and final intervals exist and no read
+beyond the mapblock slack. `ESCAPED` is a write outside the boxes; any other failure is `INVALID` (`problems` lists why). `stage_overrun_nodes` counts nodes a stage wrote inside another
 stage's box but outside its own; `interval_outside_nodes` is the outside count summed over the
 stage intervals. Read side: every `core.emerge_area` request made during the build is recorded and
 compared with the envelope read box (mapblock rounding slack of 15 allowed), and the search's
@@ -34,7 +36,7 @@ compared with the envelope read box (mapblock rounding slack of 15 allowed), and
 
 Liquid reflow: after chunks load, the liquid simulation turns air and `buildable_to` nodes into
 flowing liquid and renews sources, with no Towns write involved. A change outside every allowed box
-counts as reflow only if the node became a liquid or a liquid became air. It is reported separately
+counts as reflow only if a node became liquid from air, a `buildable_to` node or liquid, or a liquid became air. It is reported separately
 and never makes a sample fail; `--control SECONDS` builds nothing, snapshots, waits and diffs, to show
 the ambient changes of the same window. Reflow inside a write box is an ordinary change there.
 

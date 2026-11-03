@@ -136,6 +136,7 @@ def main():
         print('    stage_overrun_nodes=%s interval_outside_nodes=%s' % (s.get('stage_overrun_nodes'), s.get('interval_outside_nodes')))
         if s.get('status') != 'contained':
             all_ok = False
+            print('    NOT CONTAINED: status=%s problems=%s' % (s.get('status'), s.get('problems')))
     rep.write_text(json.dumps({'family': args.family, 'args': vars(args) | {'settings_from': str(args.settings_from)},
                                'samples': samples}, indent=1, default=str))
     print('report:', rep)

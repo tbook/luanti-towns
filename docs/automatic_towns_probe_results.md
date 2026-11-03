@@ -232,7 +232,7 @@ the Living Villages planner config, the rural catalog plus chapel and the `wall_
 
 Liquid reflow: after chunks load the liquid simulation fills air (and buildable_to nodes such as snow) with flowing liquid
 and renews sources, with no Towns write. A change outside every allowed box counts as reflow only if the node became a
-liquid or a liquid became air. These are counted and reported separately and never fail a sample. Control runs (no build,
+liquid or a liquid became air. These are counted and reported separately and never fail a sample. A change counts as reflow only if a node became liquid from air, a buildable_to node or liquid, or a liquid became air; any other change to liquid is an outside write. A sample is `contained` only if, besides no escape, the build succeeded, the snapshot had no ungenerated block and lay inside the emerged window, no stage-interval outside or overrun node, no harness error, the urban and final intervals were recorded and no emerge request exceeded the read box by more than the mapblock slack; otherwise it is `ESCAPED` or `INVALID`. The numbers below are from a rerun of all samples under these rules (all 36 evaluated plans stayed `contained`; run-to-run counts differ slightly from the first pass). Control runs (no build,
 snapshot, 45 s, diff) on the same v7 windows changed 4,298 and 2,662 nodes, every one of them
 `air`, `water_flowing`, `water_source` or `lava_flowing`, so reflow is ambient (an earlier control without the 30 s settle
 also showed geode and basalt decoration from deferred mapgen; the settle removes it).
@@ -267,28 +267,27 @@ moving the fake player up to 8 times; it is not a sample.
 
 | Terrain | Family | Requested | No site | Evaluated | Contained | Written nodes (sum) | Chunks (min to max) | Placed wall features |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| flat | medieval walled | 4 | 0 | 4 | 4 | 467,776 | 180 to 210 | 100 |
+| flat | medieval walled | 4 | 0 | 4 | 4 | 436,236 | 180 to 210 | 75 |
 | flat | medieval unwalled | 4 | 0 | 4 | 4 | 347,533 | 180 to 210 | 0 |
 | flat | Roman | 4 | 0 | 4 | 4 | 437,711 | 180 | 0 |
-| v7, map seed 2014 | medieval walled | 8 | 2 | 6 | 6 | 1,149,862 | 144 to 210 | 136 |
-| v7, map seed 2014 | medieval unwalled | 8 | 2 | 6 | 6 | 1,084,614 | 144 to 210 | 0 |
-| v7, map seed 2014 | Roman | 8 | 3 | 5 | 5 | 1,323,183 | 144 to 180 | 0 |
-| v7, map seed 7777 | medieval walled | 6 | 3 | 3 | 3 | 658,779 | 120 to 180 | 72 |
-| v7, map seed 7777 | medieval unwalled | 6 | 3 | 3 | 3 | 631,212 | 120 to 180 | 0 |
-| v7, map seed 7777 | Roman | 6 | 5 | 1 | 1 | 202,461 | 144 | 0 |
-| **all** | | 54 | 18 | **36** | **36** | **6,303,131** | **120 to 210** | 308 |
+| v7, map seed 2014 | medieval walled | 8 | 2 | 6 | 6 | 1,114,303 | 144 to 210 | 139 |
+| v7, map seed 2014 | medieval unwalled | 8 | 2 | 6 | 6 | 1,162,176 | 144 to 180 | 0 |
+| v7, map seed 2014 | Roman | 8 | 3 | 5 | 5 | 1,322,807 | 144 to 180 | 0 |
+| v7, map seed 7777 | medieval walled | 6 | 3 | 3 | 3 | 659,590 | 120 to 180 | 72 |
+| v7, map seed 7777 | medieval unwalled | 6 | 3 | 3 | 3 | 631,126 | 120 to 180 | 0 |
+| v7, map seed 7777 | Roman | 6 | 5 | 1 | 1 | 202,429 | 144 | 0 |
+| **all** | | 54 | 18 | **36** | **36** | **6,313,911** | **120 to 210** | 286 |
 
 (Per-row node sums and placed-feature counts are recomputed from the digest; the "written nodes" sum counts every changed node
-in the snapshot region; 20,140 of them are liquid reflow outside the boxes.) The 24 v7 footprints had a surface height range
-of 16 to 43 nodes (finished ground y 10 to 30; the flat world is y 8), so ramps, cut and fill and margin smoothing really ran: margin
-`max_movement` reached its 20-node cap, 95 road exits were graded (13 refused cleanly), 13 walled towns placed 20 to 25
-features each (308, from 325 selected) and had 78 bare gate-crossing approach boxes.
+in the snapshot region; 22,898 of them are liquid reflow outside the boxes.) The 24 v7 footprints had a surface height range
+of 16 to 43 nodes (finished ground y 7 to 30; the flat world is y 7 or 8), so ramps, cut and fill and margin smoothing really ran: margin
+`max_movement` reached its 20-node cap, 98 road exits were graded (10 refused cleanly), 13 walled towns placed 286 wall features (from 325 selected) and had 78 bare gate-crossing approach boxes.
 
 Aggregate and per-stage outcome over the 36 evaluated plans:
 
 - Nodes changed outside every write box that were not liquid reflow: **0** (aggregate, every sample).
 - Nodes a stage wrote in another stage's box but outside its own, over the stage intervals: **0**. Nodes outside every box
-  in the stage intervals: **0**. Idle gaps between stages changed only reflow (28,519 + 525 nodes).
+  in the stage intervals: **0**. Idle gaps between stages changed only reflow (31,813 + 408 nodes).
 - Changed region against `max_rect` (centre relative, +/-245): within in 36 of 36; the largest extent was 205 nodes from the
   centre. Vertically the writes ran from 46 below to 75 above the finished ground, inside the envelope's y ranges.
 - Builder-reported write bounds (`summary.write_bounds`, every stage `attempted_bounds`) inside `envelope.write`: 36 of 36.
@@ -340,12 +339,12 @@ axis):
 | Roman | 144 | 210 |
 
 210 looks structural: the outskirts box (plan bounds grown by 113 horizontally, 270 nodes tall) dominates the union, and all
-three families reach the same worst case (about 7 x 6 x 5 chunks by my reading of the box sizes, not separately verified). Four of the real builds landed on a 210-chunk alignment. The cap's headroom is therefore 256 / 210 = 1.22, not the 1.4
+three families reach the same worst case (the exact chunk shape was not verified). Three of the real builds landed on a 210-chunk alignment. The cap's headroom is therefore 256 / 210 = 1.22, not the 1.4
 quoted in `auto_bounds`, and 210 chunks hold 107,520,000 voxels, inside the 131,072,000 snapshot cap.
 
 ### Read side (feasible part)
 
-- Every `core.emerge_area` request made while the build ran (34 to 78 per sample, 1,804 in all, recorded by wrapping
+- Every `core.emerge_area` request made while the build ran (34 to 65 per sample, 1,759 in all, recorded by wrapping
   `core.emerge_area` in the scratch world) lay inside the envelope read box with 0 nodes of excess (rounding slack of 15 was
   allowed and not needed).
 - `build_volume` (the cut and fill margin emerge) was inside the `urban_build` box in 36 of 36.
