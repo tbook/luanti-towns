@@ -234,7 +234,8 @@ do
 	eq(s:center("A").valid, 6400, "retained centre is not replaced")
 end
 
--- Centre counts: mixed classes are counted, and values hold only the valid ones.
+-- Centre: a partly clipped, ambiguous or sentinel footprint is not retained. A later clean event
+-- for the same centre column still provides it.
 do
 	local s = new_session()
 	local e = event(1, 1, 1, "surface")
@@ -243,12 +244,43 @@ do
 	e.heights[62][100] = SENTINEL
 	e.heights[63] = nil          -- whole row missing: 80 sentinel columns
 	s:on_generated(e)
+	eq(s:center("A"), nil, "partly invalid footprint retains no centre")
+	eq(s:state("A"), "inspecting", "the same event still activates on its valid ground")
+	local one_clipped = event(1, 1, 1, "surface")
+	one_clipped.heights[60][100] = 127
+	s:on_generated(one_clipped)
+	eq(s:center("A"), nil, "a single clipped column blocks retention")
+	local one_ambiguous = event(1, 1, 1, "surface")
+	one_ambiguous.heights[60][100] = 48
+	s:on_generated(one_ambiguous)
+	eq(s:center("A"), nil, "a single ambiguous column blocks retention")
+	local one_sentinel = event(1, 1, 1, "surface")
+	one_sentinel.heights[60][100] = SENTINEL
+	s:on_generated(one_sentinel)
+	eq(s:center("A"), nil, "a single sentinel column blocks retention")
+	s:on_generated(event(1, 1, 1, "surface"))
 	local c = s:center("A")
-	eq(c and c.valid, 6317, "valid count excludes ambiguous, clipped and sentinel columns")
-	eq(c and c.ambiguous, 1, "one ambiguous column")
-	eq(c and c.clipped, 1, "one clipped column")
-	eq(c and c.sentinel, 81, "sentinel columns include the missing row")
-	eq(c and #c.values, 6317, "values hold valid heights only")
+	eq(c and c.valid, 6400, "a later clean event provides the centre")
+	eq(c and c.clipped + c.ambiguous + c.sentinel, 0, "retained centre is fully clean")
+	eq(c and #c.values, 6400, "values hold the clean valid heights")
+end
+
+-- Validation before mutation: a malformed descriptor anywhere in the lookup changes nothing.
+do
+	local bad = {id = "X", center = {x = 1}}   -- malformed: no centre z, no rects
+	for _, list in ipairs({{SITE_A, bad}, {bad, SITE_A}}) do
+		local s = new_session({lookup = function() return list end})
+		local a, why, code = s:on_generated(event(1, 1, 1, "surface"))
+		eq(a, nil, "malformed descriptor makes the event fail")
+		eq(code, "invalid_site", "malformed descriptor code")
+		eq(why, "invalid site descriptor", "malformed descriptor reason")
+		eq(s:state("A"), nil, "a valid site before the bad one is not left inspecting")
+		eq(s:covers("A", box(60, 50, 60, 100, 70, 100)), false, "no chunk is recorded for the valid site")
+		-- The same session, with the valid site alone, activates normally afterwards.
+		s = new_session({lookup = function() return {SITE_A} end})
+		local ok = acts(s:on_generated(event(1, 1, 1, "surface")), "recovered event")
+		eq(#ok, 1, "the valid site activates once the descriptor list is clean")
+	end
 end
 
 -- Centre copies are independent of the session's state.
@@ -405,6 +437,21 @@ do
 	eq(s:descriptor("B").max_rect.x1, 280, "session descriptor is independent")
 	eq(s:covers("A", box(130, 50, 60, 170, 70, 100)), true, "A's set is independent of B's (chunk 2 recorded for A)")
 	eq(s:covers("A", box(280, 50, 60, 285, 70, 70)), false, "A's max rect excludes B's region")
+end
+
+-- Vertical bound: boxes beyond the engine map limit are rejected, not walked.
+do
+	eq(M.MAP_LIMIT, ab.MAP_LIMIT, "session map limit matches auto_bounds")
+	local s = new_session()
+	s:on_generated(event(1, 1, 1, "surface"))
+	local ok, why = s:covers("A", box(60, 50, 60, 100, M.MAP_LIMIT + 1, 100))
+	eq(ok, false, "box above the map limit is rejected")
+	eq(why, "outside_world", "map limit reason")
+	ok, why = s:covers("A", box(60, -M.MAP_LIMIT - 1, 60, 100, 70, 100))
+	eq(ok, false, "box below the map limit is rejected")
+	eq(why, "outside_world", "map limit reason below")
+	ok = s:covers("A", box(60, -M.MAP_LIMIT, 60, 100, M.MAP_LIMIT, 100))
+	eq(ok, false, "a full-height box is not fresh (its chunks are not recorded)")
 end
 
 -- Real auto_sites lookup for seed "2014": one cell-0 site with centre (506,505) (golden row).
