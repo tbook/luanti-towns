@@ -33,6 +33,7 @@ python3 tools/auto_towns_probe/run.py --scenario sky-underground
 python3 tools/auto_towns_probe/run.py --scenario concurrent
 python3 tools/auto_towns_probe/run.py --scenario old-neighbor   # two phases, same world
 python3 tools/auto_towns_probe/run.py --scenario restart        # two phases, same world
+python3 tools/auto_towns_probe/run.py --scenario center         # two phases; origin chunk fresh, then old (#392)
 python3 tools/auto_towns_probe/run.py --scenario villages --mg-name v7   # forceloaded; see below
 ```
 
@@ -46,8 +47,12 @@ The source world's mapgen is `flat` (superflat). VoxeLibre's
 `settlements.evaluate_heightmap` returns `max_height_difference + 1` whenever a
 chunk's height difference is 1 or less, so flat chunks never plan villages. Use
 `--mg-name v7` (or another non-flat mapgen) to observe village planning. The
-`villages` run on `flat` observed one seed-gate opportunity, rejected by that
-rule (height difference 57 against a limit of 56 in the event log).
+`villages` run on `flat` observed one seed-gate opportunity. Its `terrain` record
+reads `height_difference = 57`, but 57 is not a measured difference: it is
+`max_height_difference + 1`, the sentinel that `evaluate_heightmap` returns for a
+difference of 1 or less (flat ground, every heightmap entry 8) and for a 40x40
+center with only sentinel heights. Read `passed = false` with 57 as "flat or
+invalid", never as a 57-node height difference (#392 correction).
 
 Scenario fixtures are bounded: at most 1024 mapblocks per phase, enforced by
 both `run.py` and the observer. The observer itself never emerges any area;
@@ -68,6 +73,13 @@ Each phase writes two files into the scratch world (path printed at the start):
   `nearest_player_status` and `nearest_player_distance`), `emerge_request`,
   `emerge_block` (action per mapblock), `terrain` (VoxeLibre's heightmap gate),
   `village` (`planned`, `no_plan`, `placed`, `place_error`), `route`, `error`.
+- `auto-towns-probe-writethrough-phaseN.jsonl` (#392): the same callbacks written and
+  flushed directly from the producing callback, with `t_ms`: `wt_request`, `wt_emerge`
+  (action per mapblock, plus `mapgen_heightmap_in_callback`), `wt_generated` (chunk
+  bounds, class, valid heights, and the center-column check: heightmap values under two
+  index layouts and the top solid node of the VoxelManip, which is a verification-only scan),
+  `wt_planner` (`enter`/`exit` of `settlements.create_site_plan`), and `wt_finish`. It is not
+  drained by the main thread, so it keeps records after the observer finishes and during shutdown.
 
 `probe-report.json` (in the scratch world) combines the phases with the exact
 invocation, engine version and git revisions of Towns, Living Villages and the
@@ -127,8 +139,16 @@ reported `no_player`.
   themselves; the engine loads the blocks afterwards, so it does not measure that
   work. `main_loop.longest_step_s` is the longest step seen by the observer.
   One early run on `flat` logged no server output for about 15 minutes and a
-  "maximum lag" of 940 s. A rerun with the same settings did not reproduce it
-  (longest step 0.099 s). The cause is not established.
-- The `on_generated` callback cannot be unregistered. After exit it records
-  nothing, and the wrapped globals are restored; `instrumentation_restored`
+  "maximum lag" of 940 s. The cause is macOS idle system sleep, not the engine or
+  the probe: `pmset -g log` shows `Entering Sleep state due to 'Idle Sleep'` at 18:21:40
+  and `DarkWake` at 18:37:23, which is 943 s, matching the engine's 940.569 s lag. Run
+  the probe under `caffeinate -i` to avoid it (#392).
+- `core.get_mapgen_object("heightmap")` is not nil inside an emerge callback, although the
+  bundled API says it is nil outside `on_generated`. In callbacks it returned the heightmap of
+  the most recently generated chunk (`from_memory`) or an all-zero table (`from_disk`), so
+  request-time callback reads must not be used as ground (#392, A9). The `wt_emerge.hm`
+  summary exists to check this.
+- The queued events file stops at finish; the write-through file keeps recording (#392, A13).
+- The `on_generated` callback cannot be unregistered. After exit the queued events stop; the
+  write-through file still records generations, and the wrapped globals are restored; `instrumentation_restored`
   checks that.

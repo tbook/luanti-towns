@@ -70,6 +70,14 @@ SCENARIOS = {
         'duration': 60,
         'about': 'restart in a fresh process must not regenerate saved chunks',
     },
+    # Center chunk (origin chunk, minp -32 mod 80) generated, then requested again in a new process.
+    # Phase 2 must not regenerate it; the center heightmap exists only inside the first callback (#392, A9).
+    'center': {
+        'phases': ['center:-40,0,-40,39,47,39',
+                   'center:-40,0,-40,39,47,39'],
+        'duration': 60,
+        'about': 'center chunk: fresh heightmap in its own callback, then an old chunk in a new process',
+    },
     # The largest single-phase area (1024 mapblocks). VoxeLibre places its village
     # structblock at a chunk's minimum corner, y = -32 for the chunk layer that holds
     # the ground here, so the fixture is the one block layer -32..-17 that contains it.
@@ -227,6 +235,14 @@ def scenario_checks(name, phases, events):
         out.append(('old-neighbor: saved blocks reloaded from disk or memory',
                     bool(blocks(second, ('from_disk', 'from_memory')) & old)))
         out.append(('old-neighbor: neighbor generated new blocks', len(new_generated) > 0))
+    elif name == 'center' and len(phases) == 2:
+        first, second = phases[0][0], phases[1][0]
+        origin = {'x': -32, 'y': -32, 'z': -32}
+        fresh = [e for e in generated_chunks(first) if e['minp'] == origin]
+        out.append(('center: origin chunk generated fresh in phase 1', len(fresh) == 1))
+        out.append(('center: fresh origin chunk has valid heightmap', bool(fresh) and fresh[0]['heightmap'].get('valid', 0) > 0))
+        again = [e for e in generated_chunks(second) if e['minp'] == origin]
+        out.append(('center: origin chunk not generated again in phase 2', len(again) == 0))
     elif name == 'restart' and len(phases) == 2:
         second = phases[1][0]
         out.append(('restart: no block generated again after restart', len(blocks(second, ('generated',))) == 0))

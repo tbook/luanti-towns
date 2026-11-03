@@ -38,6 +38,18 @@ local function elapsed()
 	return (core.get_us_time() - t0) / 1000000
 end
 
+-- Write-through log (#392): each wt record is written and flushed by the callback that
+-- produced it, so records from late completions and engine shutdown are not lost.
+-- The queued events file is still drained by the main thread and stops at finish().
+local WT_NAME = ("auto-towns-probe-writethrough-phase%d.jsonl"):format(PHASE)
+local wt_file = io.open(core.get_worldpath() .. "/" .. WT_NAME, "w")
+local function wt(rec)
+	if not wt_file then return end
+	rec.t_ms = math.floor((core.get_us_time() - t0) / 1000)
+	wt_file:write(core.write_json(rec), "\n")
+	wt_file:flush()
+end
+
 local finished = false
 local active = true
 local queue = {}
@@ -221,9 +233,43 @@ local function heightmap_summary()
 	return out
 end
 
+-- Center column (#392, A9): the heightmap value the design would copy for the center
+-- column, under two candidate index layouts, next to the top solid node found by
+-- scanning this chunk's VoxelManip. The scan is verification only; it is never part of
+-- a runtime path. Returns nil when no heightmap or VoxelManip is available.
+local function center_check(mn, mx)
+	local hm = core.get_mapgen_object("heightmap")
+	local vm, emin, emax = core.get_mapgen_object("voxelmanip")
+	if type(hm) ~= "table" or not vm then return nil end
+	local side_x, side_z = mx.x - mn.x + 1, mx.z - mn.z + 1
+	local cx, cz = math.floor((mn.x + mx.x) / 2), math.floor((mn.z + mx.z) / 2)
+	local ix, iz = cx - mn.x, cz - mn.z
+	local out = {
+		x = cx, z = cz,
+		hm_x_fastest = hm[iz * side_x + ix + 1],
+		hm_z_fastest = hm[ix * side_z + iz + 1],
+	}
+	local data = vm:get_data()
+	local area = VoxelArea:new({MinEdge = emin, MaxEdge = emax})
+	local air, ignore = core.get_content_id("air"), core.CONTENT_IGNORE
+	for y = mx.y, mn.y, -1 do
+		local c = data[area:indexp({x = cx, y = y, z = cz})]
+		if c ~= air and c ~= ignore then out.vm_top = y; break end
+	end
+	return out
+end
+
 -- on_generated runs in the emerge thread: no world queries beyond mapgen objects.
 core.register_on_generated(function(minp, maxp, blockseed)
-	if not active then return end
+	if not active then
+		-- After finish the queued observer stops, but generation continues during shutdown.
+		-- The write-through record still notes it (#392, A13), so the gap is visible, not silent.
+		pcall(function()
+			wt({kind = "wt_generated", after_finish = true, minp = {x = minp.x, y = minp.y, z = minp.z},
+				maxp = {x = maxp.x, y = maxp.y, z = maxp.z}, valid = heightmap_summary().valid})
+		end)
+		return
+	end
 	local ok, err = pcall(function()
 		local mn = {x = minp.x, y = minp.y, z = minp.z}
 		local mx = {x = maxp.x, y = maxp.y, z = maxp.z}
@@ -241,6 +287,8 @@ core.register_on_generated(function(minp, maxp, blockseed)
 		rec.nearest_player_status = player_sample_at < 0 and "never_sampled" or (d and "sampled" or "none")
 		rec.nearest_player_distance = d -- key absent = null (no connected player at the last sample)
 		emit(rec)
+		wt({kind = "wt_generated", minp = mn, maxp = mx, class = rec.class,
+			valid = rec.heightmap.valid, center = center_check(mn, mx), blockseed = blockseed})
 	end)
 	if not ok then observer_error("on_generated", err) end
 end)
@@ -277,10 +325,17 @@ emerge_wrapper = function(minp, maxp, callback, param)
 	emit({kind = "emerge_request", request = rid, source = source,
 		fixture = fixture and fixture.id or nil, caller = not fixture and caller_name() or nil,
 		minp = vec_table(minp), maxp = vec_table(maxp)})
+	wt({kind = "wt_request", request = rid, source = source, minp = vec_table(minp), maxp = vec_table(maxp)})
 	local wrapped = function(blockpos, action, calls_remaining, cb_param)
 		local name = ACTION[action] or tostring(action)
 		emit({kind = "emerge_block", request = rid, source = source, fixture = fixture and fixture.id or nil,
 			block = vec_table(blockpos), action = name, calls_remaining = calls_remaining})
+		wt({kind = "wt_emerge", request = rid, source = source, block = vec_table(blockpos), action = name,
+			calls_remaining = calls_remaining,
+			-- Bundled API says the mapgen heightmap is nil outside on_generated; recorded as observed,
+			-- with its summary, so a stale or foreign heightmap would show up as a mismatch (#392, A9).
+			mapgen_heightmap_in_callback = core.get_mapgen_object("heightmap") ~= nil,
+			hm = core.get_mapgen_object("heightmap") and heightmap_summary() or nil})
 		if fixture then
 			fixture.done = fixture.done + 1
 			bump(fixture.actions, name)
@@ -315,7 +370,9 @@ if settlements then
 	settlements.evaluate_heightmap = heights_wrapper
 
 	local plan_wrapper = function(maxp, minp, pr)
+		wt({kind = "wt_planner", state = "enter", minp = vec_table(minp), maxp = vec_table(maxp)})
 		local plan, why = orig.plan(maxp, minp, pr)
+		wt({kind = "wt_planner", state = "exit", planned = type(plan) == "table" and #plan > 0})
 		if type(plan) == "table" and #plan > 0 then
 			emit({kind = "village", outcome = "planned", buildings = #plan,
 				minp = vec_table(minp), maxp = vec_table(maxp)})
@@ -509,6 +566,7 @@ end
 local function finish(reason, from_shutdown)
 	if finished then return end
 	finished = true
+	wt({kind = "wt_finish", reason = reason, from_shutdown = from_shutdown and true or false})
 	local restored, still_ours = restore()
 	drain()
 	local report = build_report(reason, restored, still_ours)
