@@ -10,8 +10,9 @@ center scenario, a center-column check, planner timing marks); they are verifica
 ## Gate status
 
 Not closed. The epic requires every correctness assumption to be PASS before this gate passes.
-A10 (activation-halo ordering), A12 (containment) and A14 (player-visible loading) are still
-UNVERIFIED, so #392 stays open.
+A10 (activation-halo ordering) and A14 (player-visible loading) are still UNVERIFIED, so #392 stays
+open. A12 (containment) was tested with a write-capable scratch-world test and is **PASS (tested scope)**,
+see "Containment (A12)".
 
 - Freshness (callback recording before emerge completion, including FROM_MEMORY): **PASS** within the
   tested scenarios.
@@ -23,7 +24,10 @@ UNVERIFIED, so #392 stays open.
 - Village ordering and activation halo (A10): **UNVERIFIED**. The planner's own terrain requests complete only
   after the planner returns (one window observed). A town-activation chunk arriving inside a window was not
   reproduced, because no town exists in this probe.
-- Containment feasibility (A12): **UNVERIFIED** (needs write-capable code; see A12).
+- Containment feasibility (A12): **PASS (tested scope)**: 36 of 36 real built plans (13 walled medieval,
+  13 unwalled medieval, 10 Roman) wrote nothing outside the #393 envelope. Three read-side and envelope
+  findings need follow-up (a 1-node `urban_read` gap, a 210-chunk worst case, a callback-time loading
+  defect), none of which breaks containment. See "Containment (A12)".
 - Player-visible loading (A14): **UNVERIFIED** (no connected client was available).
 - Village planner pause (A15): **accepted** by the PM as pre-existing upstream behavior. Not a gate
   failure and not a blocker. See "Village planner stall".
@@ -131,7 +135,7 @@ terrain came from scripted fixtures, planner requests, or structure placement.
 | A9 | Center ground is obtained from the center request without a vertical search | **PASS** for the design's method: capture inside the center chunk's own generation callback. **FAIL** sub-finding: request-time heightmap reads are unusable. | Fresh center (v7): the callback that generated the chunk recorded its heightmap (4 of 4 generated blocks matched the chunk record). Request-time callbacks for old chunks returned a non-nil table that was all zero (`from_disk`, 108 of 108) or the heightmap of the most recently generated chunk (`from_memory`, 16 of 104 matched a different chunk, see "Callback heightmap"). Design consequence: the center reference must be read only inside the on_generated call for that chunk, and old centers decline. Center-column semantics (heightmap vs top solid node) are UNVERIFIED, see "Callback heightmap". | #397 must capture only in on_generated; the bundled API note must not be relied on |
 | A10 | Activation-halo ordering: the village planner runs only after the town reservation exists, and a town-activation chunk cannot arrive midway through the planner's terrain requests | **UNVERIFIED** (partial positive) | One planner window (v7, village). Its two forced terrain requests were issued 10 s apart (9989 ms, 19995 ms) and completed only after the planner returned (30457 ms, 30503 ms; window 9967-30003 ms). No `on_generated` record fell inside the window. See "Planner window timing". No town existed, so a town-activation chunk arriving in the window was not reproduced. | #400, #402, #403, #404 |
 | A11 | Village trigger reaches the guarded planner (`settlements.create_site_plan`) | **PASS** | The probe's wrapper recorded `planned` and `placed` in both v7 runs. The chain is `structblock LBM -> emerge_area(footprint) -> ecb_village -> create_site_plan`. | Not blocked |
-| A12 | Containment feasibility (writes stay inside the envelope) | **UNVERIFIED**. The probe is read-only by design, so this cannot be tested here. | See "Containment (A12)". | #393 (caps), #397, #403 |
+| A12 | Containment feasibility (writes stay inside the envelope) | **PASS (tested scope)**: 36 evaluated plans (3 families, flat and relief terrain), 0 nodes written outside the envelope write boxes (aggregate) and 0 outside a stage's own boxes in the stage intervals; builder-reported write bounds inside the envelope in 36 of 36. | Write-capable scratch-world test, `tools/auto_towns_containment/`; numbers, commands and caveats in "Containment (A12)". Cap sweep: 900 plans, worst case 210 chunks (cap 256). | #393 (cap freeze, after the findings below are decided), #397, #403 |
 | A13 | Cancelled or late completions are delivered and recorded; cancelled does not mean ungenerated | **PASS** | cancel after fix: 1019 `cancelled` callbacks delivered after `wt_finish` (2159 to 2560 ms), 2 chunks generated after finish with `after_finish` records, and 31 cancelled blocks lying inside those generated chunks. See "Cancellation". | #398 may keep the rule that `EMERGE_CANCELLED` requires proof and records |
 | A14 | Player-visible loading latency is within the starting targets | **UNVERIFIED** | No connected client was available. Only scripted demand was measured. | #405 and the loading parts of #397 |
 | A15 | Village planner pause | **ACCEPTED (PM decision)**: pre-existing upstream behavior, not a gate failure, not a blocker | See "Village planner stall". | None (the PM accepted the pause) |
@@ -196,11 +200,193 @@ judgment needed (see Blockers).
 
 ## Containment (A12)
 
-Containment requires the write bound of each construction stage to be measured against the mapgen data,
-which means writing nodes (VoxelManip or `set_node`) in a scratch world and comparing the written region with
-the declared volume. This probe deliberately writes no nodes, and its observer must not do so. The envelope
-and write-bound accounting (`summary.write_bounds`) does not exist yet (#393 onward), so there is nothing to
-compare. A write-capable test mod is needed; that is beyond this read-only probe.
+Verdict: **PASS (tested scope).** Every one of the 36 sampled plans that were built was contained. No run
+wrote a node outside the #393 envelope, aggregate or per stage. The scope is the terrain, seeds and
+families below; it is not a proof for every possible terrain.
+
+### Method
+
+`tools/auto_towns_containment/` (README there) is a scratch-world mod plus a runner. It does not add a builder or
+intercept node writes. For each sample it:
+
+1. Runs the production site search (`towns.populated.search`, forced walls on or off for the medieval families,
+   Roman for the third) at a fresh grid point, 2500 nodes from the previous one.
+2. Emerges a window one chunk wider than the snapshot region and waits 30 s so deferred mapgen work settles.
+3. Calls the production build (`towns.populated.build`). When `builder.build_town` is entered (nothing written yet)
+   it computes `auto_bounds` `plan_envelope` from the same plan, wall, wall features and ground, then snapshots, with
+   VoxelManip (content id and param2 of every node, one fresh VoxelManip per mapblock), the envelope read box plus 80
+   nodes on every axis (mapblock aligned). The window it emerged is checked to contain that region.
+4. Diffs again at each stage boundary by wrapping the public stage functions (`builder.build_town`,
+   `living_villages.terrain.smooth_boundary`, `towns.outskirts.search`, `towns.outskirts_build.apply`) and at
+   completion, so each stage's writes are checked against its own boxes: urban, margins, the wall / feature / gate
+   approach stage (or the road-exit grading of an unwalled or Roman town; one interval), the rural stage, plus the idle
+   gaps between them. The first snapshot against the final world is the aggregate.
+5. Compares every changed node with the envelope's write boxes (per-stage names `urban_build`, `city_margins`, `walls`,
+   `wall_approaches[i]`, `wall_features[i]`, `outside_roads[i]`, `outskirts`), the builder's own reported bounds
+   (`summary.write_bounds`, stage `attempted_bounds`) with the envelope write box, and the changed region with
+   `max_rect` (centre-relative).
+
+Providers: the real Living Villages `terrain.volume` and `terrain.boundary_volume` (LV `668c5fc`), `settlements.schematic_table`,
+the Living Villages planner config, the rural catalog plus chapel and the `wall_*` catalog entries. Scratch worlds copy
+`TownsWorkshop`'s `world.mt` / `map_meta.txt` and its mods; its map, the installed mods and the game are not written.
+
+Liquid reflow: after chunks load the liquid simulation fills air (and buildable_to nodes such as snow) with flowing liquid
+and renews sources, with no Towns write. A change outside every allowed box counts as reflow only if the node became a
+liquid or a liquid became air. These are counted and reported separately and never fail a sample. Control runs (no build,
+snapshot, 45 s, diff) on the same v7 windows changed 4,298 and 2,662 nodes, every one of them
+`air`, `water_flowing`, `water_source` or `lava_flowing`, so reflow is ambient (an earlier control without the 30 s settle
+also showed geode and basalt decoration from deferred mapgen; the settle removes it).
+
+### Commands and artifacts
+
+From the Towns mod directory (each run kept its scratch world; the paths below are under
+`/var/folders/nf/h9p5hfvs7jj6vs6q252mzhw00000gn/T/` and are temporary):
+
+```sh
+python3 tools/auto_towns_containment/run.py --family medieval-walled   --count 4                       # flat, TownsWorkshop mapgen
+python3 tools/auto_towns_containment/run.py --family medieval-unwalled --count 4
+python3 tools/auto_towns_containment/run.py --family roman             --count 4
+python3 tools/auto_towns_containment/run.py --family <family> --count 8 --set-meta mg_name=v7                  # relief, map seed 2014
+python3 tools/auto_towns_containment/run.py --family <family> --count 6 --set-meta mg_name=v7 --map-seed 7777  # relief, map seed 7777
+python3 tools/auto_towns_containment/run.py --family medieval-walled --count 2 --control 45 --set-meta mg_name=v7  # ambient control
+TOWNS_LIVING_VILLAGES=<living_villages> lua5.1 tools/auto_towns_containment/cap_sweep.lua 300 8               # 900 plans x 1000 alignments
+python3 tools/auto_towns_containment/summarize.py LABEL=<scratch>/containment-summary.json ... --digest out.json
+```
+
+Committed digest of the evaluated runs: `tools/auto_towns_containment/results/a12-2026-11-03.json` (per sample: status, envelope
+chunks, worst-alignment chunks, changed and reflow counts, per-stage reach, interval counts, read-side checks). Scratch worlds
+(per-sample `containment-sample-N.json`, `engine.log`):
+the nine runs behind the table were made on 2026-11-03 (Luanti 5.17.0, LuaJIT, VoxeLibre `mineclone2`, Living Villages
+`668c5fc`); the scratch world of each is named in its `containment-summary.json` and in the run output, and the committed
+digest holds the numbers. The earlier ambient-control world is `towns-containment-io1_m971`.
+
+### Sample counts and results
+
+"No site" means the production search found no acceptable site at that grid point (water, trees, mountains) after
+moving the fake player up to 8 times; it is not a sample.
+
+| Terrain | Family | Requested | No site | Evaluated | Contained | Written nodes (sum) | Chunks (min to max) | Placed wall features |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| flat | medieval walled | 4 | 0 | 4 | 4 | 467,776 | 180 to 210 | 100 |
+| flat | medieval unwalled | 4 | 0 | 4 | 4 | 347,533 | 180 to 210 | 0 |
+| flat | Roman | 4 | 0 | 4 | 4 | 437,711 | 180 | 0 |
+| v7, map seed 2014 | medieval walled | 8 | 2 | 6 | 6 | 1,149,862 | 144 to 210 | 136 |
+| v7, map seed 2014 | medieval unwalled | 8 | 2 | 6 | 6 | 1,084,614 | 144 to 210 | 0 |
+| v7, map seed 2014 | Roman | 8 | 3 | 5 | 5 | 1,323,183 | 144 to 180 | 0 |
+| v7, map seed 7777 | medieval walled | 6 | 3 | 3 | 3 | 658,779 | 120 to 180 | 72 |
+| v7, map seed 7777 | medieval unwalled | 6 | 3 | 3 | 3 | 631,212 | 120 to 180 | 0 |
+| v7, map seed 7777 | Roman | 6 | 5 | 1 | 1 | 202,461 | 144 | 0 |
+| **all** | | 54 | 18 | **36** | **36** | **6,303,131** | **120 to 210** | 308 |
+
+(Per-row node sums and placed-feature counts are recomputed from the digest; the "written nodes" sum counts every changed node
+in the snapshot region; 20,140 of them are liquid reflow outside the boxes.) The 24 v7 footprints had a surface height range
+of 16 to 43 nodes (finished ground y 10 to 30; the flat world is y 8), so ramps, cut and fill and margin smoothing really ran: margin
+`max_movement` reached its 20-node cap, 95 road exits were graded (13 refused cleanly), 13 walled towns placed 20 to 25
+features each (308, from 325 selected) and had 78 bare gate-crossing approach boxes.
+
+Aggregate and per-stage outcome over the 36 evaluated plans:
+
+- Nodes changed outside every write box that were not liquid reflow: **0** (aggregate, every sample).
+- Nodes a stage wrote in another stage's box but outside its own, over the stage intervals: **0**. Nodes outside every box
+  in the stage intervals: **0**. Idle gaps between stages changed only reflow (28,519 + 525 nodes).
+- Changed region against `max_rect` (centre relative, +/-245): within in 36 of 36; the largest extent was 205 nodes from the
+  centre. Vertically the writes ran from 46 below to 75 above the finished ground, inside the envelope's y ranges.
+- Builder-reported write bounds (`summary.write_bounds`, every stage `attempted_bounds`) inside `envelope.write`: 36 of 36.
+- Every envelope was produced (0 declined for `oversized`, `map_limit`, `chunk_cap` or `snapshot_cap`).
+- Snapshot region inside the emerged window and containing no ungenerated (`ignore`) block: 36 of 36.
+
+### The #393 caveats (reaches derived from constants and comments)
+
+Per stage, furthest horizontal reach beyond `plan.bounds`: the stage `stage_reach` that #393 derived; the largest
+stage box built from the real plans (the 36 builds, and the cap sweep over 900 plans in brackets); and the furthest node
+actually written (v7 builds; attributed by the stage interval, and for the shared wall/road interval by lying in exactly
+one stage's box):
+
+| Stage | stage_reach | Largest box overhang | Furthest node written |
+| --- | --- | --- | --- |
+| urban_build | 8 | 8 (8) | 0 beyond the plan bounds |
+| city_margins | 63 | 53 (51) | 32 |
+| walls | 6 | 6 (6) | 6 |
+| wall_approaches | 22 | 16 (16) | not separable (see below) |
+| wall_features | 34 | 22 (22) | 17 |
+| outside_roads | 16 | 16 (16) | 15 |
+| outskirts | 113 | 113 (113) | 76 |
+| any node in the wall / road interval | | | 17 |
+
+- Wall approach, wall feature and outside road reaches: no written node fell outside its stage's own boxes, and every box
+  overhang is within its `stage_reach` (equal for `walls`, `outside_roads` and `outskirts`, so those three are tight; the
+  others have slack). The 22-node `wall_approaches` and 34-node `wall_features` reaches are never approached: the boxes
+  reach 16 and 22 and the furthest written node of the whole wall interval is 17. Gate approaches cannot be separated from
+  the other wall stages by exclusive box membership (they sit inside the walls, feature and margin boxes except at the outer
+  ramp end), so their reach is bounded by the 17 of the shared interval, which is below 22.
+- The stage code in `generate_command.lua` opens its working region from the same box functions that `auto_bounds` uses
+  (`walls.bounds`, `approach_bounds`, `feature_clearance_bounds`), which is why the boxes and the writes agree; the samples
+  confirm it, they do not prove it for terrain the sampled maps did not produce.
+
+### Caps and chunk count
+
+`MAX_REQUEST_CHUNKS` 256 holds. The 36 real builds had 120 to 210 chunks (observed alignment) and 107,520,000 snapshot voxels at
+the most, against 131,072,000.
+
+The documented "180-chunk measured maximum" is not the maximum. The chunk count depends on where the town lands on the
+80-node engine chunk grid. `cap_sweep.lua` builds 300 seeds per family (900 plans, none declined) with the real planner, the
+real Living Villages volumes and the real wall features, and counts distinct chunks at 1000 alignments (steps of 8 on each
+axis):
+
+| Family | Max at the planner origin alignment | Max over all alignments |
+| --- | --- | --- |
+| medieval walled | 144 | 210 |
+| medieval unwalled | 144 | 210 |
+| Roman | 144 | 210 |
+
+210 looks structural: the outskirts box (plan bounds grown by 113 horizontally, 270 nodes tall) dominates the union, and all
+three families reach the same worst case (about 7 x 6 x 5 chunks by my reading of the box sizes, not separately verified). Four of the real builds landed on a 210-chunk alignment. The cap's headroom is therefore 256 / 210 = 1.22, not the 1.4
+quoted in `auto_bounds`, and 210 chunks hold 107,520,000 voxels, inside the 131,072,000 snapshot cap.
+
+### Read side (feasible part)
+
+- Every `core.emerge_area` request made while the build ran (34 to 78 per sample, 1,804 in all, recorded by wrapping
+  `core.emerge_area` in the scratch world) lay inside the envelope read box with 0 nodes of excess (rounding slack of 15 was
+  allowed and not needed).
+- `build_volume` (the cut and fill margin emerge) was inside the `urban_build` box in 36 of 36.
+- **Finding:** `result.inspection_volume` (the area the search read) was 1 node wider than the `urban_read` box on x and z in
+  36 of 36. The production search uses `site_search.WET_DEFAULTS` (wet mode, a one-node ring), while
+  `auto_bounds.default_config().wet_ring` is 0. The union read box still contained it (36 of 36), so no envelope is wrong, but a
+  caller using the production search must set `config.wet_ring = 1`. The y extent matched exactly (98 nodes, `reference_y - 48 ..
+  reference_y + 49`) once the reference is the search's own reference ground, which differed from the finished ground by -35 to
+  +19 in these samples. The harness passed the finished ground as `reference_y`, which is why `urban_read` itself is not compared
+  in y.
+- Reads made by VoxelManip or `get_node` inside the dependencies are not observable without engine-level interception, which
+  was out of scope. The emerge requests bound the data the engine had to load; they are not a proof that every read was inside
+  the box.
+
+### Findings and proposed corrections (nothing in `src/` was changed)
+
+1. **Callback-time loading** (needs a decision, small fix): `auto_bounds.default_config()` and the first `plan_envelope`
+   `dofile` `medieval_walls.lua`, whose sibling loader calls `core.get_modpath(core.get_current_modname())`. Outside mod load
+   time the modname is nil and the call raises (`bad argument #1 to 'get_modpath'`). The harness works around it by scoping a
+   shim. #394 onward should call `default_config()` and a first `plan_envelope` while the Towns mod is loading (module-level
+   preload of `stage_modules()` in `auto_bounds`, or a nil-safe fallback to `debug.getinfo` in `medieval_walls.sibling`).
+   Not applied: it touches load order outside `auto_bounds.lua`.
+2. **Wet ring** (config): set `wet_ring = 1` (or derive it from `site_search.WET_DEFAULTS`) when the production search is used;
+   the default of 0 leaves `urban_read` one node short of what is read. Not applied: the existing test fixes the default as 0.
+3. **Cap basis** (documentation): the `M.CAPS` basis string and header say a 180-chunk measured maximum; the worst alignment is
+   210. The 256 cap itself holds, so no cap change is needed; update the basis text, and `PROVISIONAL` can be cleared once the
+   gate owner accepts A12. Not applied: that freeze is a gate decision.
+
+### Limits of this evidence
+
+- 36 plans: 13 walled medieval, 13 unwalled medieval, 10 Roman (only 1 Roman on map seed 7777, 5 on 2014). Two relief maps and
+  the flat world; no ocean, snow, desert or mountain-biome sites (the search rejected those grid points).
+- Only content id and param2 are compared. A node rewritten with the same id and param2 is invisible, which is harmless for
+  containment. Light is not compared.
+- The snapshot is the envelope read box plus 80 nodes; a write further out would be missed. The changed-region and
+  builder-reported-bounds checks above would catch a stage reporting such a write, not an unreported one.
+- Attribution inside the shared wall / road interval is by box membership, not by timing.
+- Liquid reflow is ambient and excluded from the verdict; a Towns write of liquid (not seen in any box here) outside every box
+  would be hidden among it. The control runs are the only check on that; liquid written by Towns (fountains, wells)
+  lies inside boxes in these samples.
+- The 30 s settle before the first snapshot and the 45 s control are fixed choices, not measured limits.
 
 ## Cancellation (A13 detail)
 
@@ -339,20 +525,22 @@ The #391 README now states this (updated in this ticket).
 
 ## Blockers and next steps
 
-1. Do not close #392. A10 (activation-halo ordering), A12 (containment) and A14 (player-visible loading) are still
-   UNVERIFIED.
+1. Do not close #392. A10 (activation-halo ordering) and A14 (player-visible loading) are still UNVERIFIED. A12
+   (containment) is PASS (tested scope).
 2. Pure geometry can proceed. #393 may start on envelope arithmetic with chunksize 5 and origin -32 (settled).
-   Freezing caps stays blocked by A12 (write bounds not measured).
+   Freezing caps is no longer blocked by A12: write bounds are measured and contained. Three follow-ups from A12
+   are listed under "Findings and proposed corrections" (callback-time loading, wet ring, cap basis text).
 3. #397 (center-first loading): center ground must be captured only inside the center chunk's own on_generated
    (A9 FAIL for request-time reads). Old centers decline. The planner pause is accepted (A15), so it is not a
    blocker for #397.
 4. #400 (reservations and village guard) is blocked by A10 (activation-halo ordering), with only one window observed.
-5. #402 to #404 are blocked transitively (A10, A12). #405 needs A14 first.
+5. #402 to #404 are blocked transitively (A10; A12 is no longer a blocker). #405 needs A14 first.
 6. **Design judgment to escalate:** (a) which node counts as ground for the center reference (heightmap vs top solid,
    for vegetation); (b) whether the planner-window evidence is enough to drop or keep the activation decline in
    the wrapper (A10), or whether more windows are required.
-7. Next probes: (a) a connected client route for A14; (b) a write-capable test for A12 (containment), in a scratch
-   mod outside the read-only probe; (c) more village windows on other seeds for A10.
+7. Next probes: (a) a connected client route for A14; (b) more village windows on other seeds for A10. The A12
+   write-capable test exists (`tools/auto_towns_containment/`); rerun it after any change to the stage boxes or the
+   builder.
 
 The epic and the #393-#405 blocker texts were not updated in this ticket. The senior developer should decide that
 update, now that the verdicts above are known.
