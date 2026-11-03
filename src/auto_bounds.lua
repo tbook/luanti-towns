@@ -3,11 +3,11 @@
 -- Every world-dependent answer comes from injected providers, so the same code
 -- runs under plain Lua 5.1 tests and in the game.
 --
--- STATUS: the resource caps in M.CAPS are PROVISIONAL. They are measured from
--- current plans and volume queries (see "Measured basis"), but final freezing
--- waits for the write-capable containment test A12
--- (docs/automatic_towns_probe_results.md). Nothing here authorizes a write, and
--- no caller uses this module yet (#394 onward).
+-- STATUS: the resource caps in M.CAPS are FROZEN (PROVISIONAL = false). They are measured
+-- from current plans and volume queries (see "Measured basis") and were frozen on the A12
+-- containment evidence (210-chunk worst case, 256-chunk cap; PM accepted A12, see
+-- docs/automatic_towns_probe_results.md). Freezing the caps does not authorize a write:
+-- nothing here writes, and no caller uses this module yet (#394 onward).
 --
 -- Conventions (shared with the existing modules):
 --   rect  {x1, z1, x2, z2}                    inclusive, horizontal
@@ -62,7 +62,7 @@
 --   with 17 nodes to spare and centre jitter of +/-8. M.CELL (1024) is unchanged.
 -- Named caps (M.CAPS): 256 chunks and 256 * 512000 snapshot voxels. Measured maxima are
 --   210 chunks (worst chunk-grid alignment; 144 at the planner origin alignment) and
---   107,520,000 voxels (see the basis note on M.CAPS). Provisional until the gate owner accepts A12.
+--   107,520,000 voxels (see the basis note on M.CAPS). Frozen on the A12 evidence (PM accepted A12).
 --
 -- Stage providers (names reported in envelope.stages):
 --   urban_read       read: plan.bounds in X/Z, reference_y -scan_down .. +scan_up+1
@@ -105,8 +105,8 @@ M.CELL_EDGE_CLEARANCE = M.CHUNKSIZE  -- one mapchunk from each cell edge
 -- Measured plan extents relative to the site centre (inclusive). See the header.
 M.PLAN_EXTENT = {x1 = -132, z1 = -132, x2 = 132, z2 = 132}
 
--- Named finite caps. PROVISIONAL: kept until the gate owner accepts A12 (the write-capable
--- containment test passed, docs/automatic_towns_probe_results.md).
+-- Named finite caps. FROZEN (PROVISIONAL = false): frozen on the A12 evidence (the write-capable
+-- containment test passed and the PM accepted it, docs/automatic_towns_probe_results.md).
 -- Basis: 300 seeds per family (medieval walled, medieval unwalled, Roman; 900 plans, none
 -- declined) with the real Living Villages terrain and boundary queries. The chunk count depends
 -- on where the town lands on the 80-node chunk grid: 144 at the planner origin alignment, 210 at
@@ -117,7 +117,7 @@ M.PLAN_EXTENT = {x1 = -132, z1 = -132, x2 = 132, z2 = 132}
 M.CAPS = {
 	MAX_REQUEST_CHUNKS = 256,
 	MAX_SNAPSHOT_VOXELS = 256 * 80 * 80 * 80,
-	PROVISIONAL = true,
+	PROVISIONAL = false,
 	BASIS = "300 seeds x 3 families; worst chunk-grid alignment 210 chunks / 107520000 voxels (144 at the planner origin alignment); cap 256 chunks",
 }
 
