@@ -320,6 +320,8 @@ do
 	ab.CAPS.MAX_SNAPSHOT_VOXELS = saved_voxels
 	eq(e, nil, "an envelope over the chunk cap is rejected before allocation")
 	eq(code, "chunk_cap", "chunk cap reason")
+	eq(ab.CAPS.PROVISIONAL, false, "caps are frozen on the A12 evidence")
+	eq(ab.CAPS.MAX_REQUEST_CHUNKS, 256, "frozen request cap")
 	-- City margin failure declines the plan, never a partial envelope.
 	local failing = providers({volume = {terrain = fake_terrain(10, 60, 10),
 		boundary = function() return nil, "no ground" end}})
