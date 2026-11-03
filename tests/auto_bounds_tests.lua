@@ -263,6 +263,32 @@ do
 	end
 end
 
+-- Callback-time use (A12 finding): in the game, medieval_walls.lua finds its siblings with
+-- core.get_current_modname(), which is nil outside mod load time. auto_bounds loads its stage
+-- modules when it is loaded, so default_config() and plan_envelope() must work with it nil.
+do
+	local saved_core = rawget(_G, "core")
+	local modname = "towns"
+	core = {get_modpath = function(name) return name == "towns" and "." or nil end,
+		get_current_modname = function() return modname end}
+	local ok, ab_load = pcall(dofile, "src/auto_bounds.lua") -- mod load time: modname is "towns"
+	modname = nil                                            -- later, in a callback
+	local m = planner.plan({x = 0, z = 0}, 20260101, {landmarks = profile})
+	m.center = {x = 0, z = 0}
+	local wall = walls.plan(m, true)
+	local ok2, e
+	if ok then
+		local cfg2 = ab_load.default_config()
+		cfg2.village = LV_VILLAGE
+		local lenv = assert(ab_load.new({config = cfg2, assets = {outskirts = outskirts_assets(), village = VILLAGE,
+			wall_features = wall_feature_assets()}, volume = {terrain = fake_terrain(10, 60, 10), boundary = fake_boundary}}))
+		ok2, e = pcall(lenv.plan_envelope, state_for(m, wall, {}))
+	end
+	core = saved_core
+	eq(ok, true, "auto_bounds loads while the mod name is known")
+	eq(ok2 and e ~= nil and e.stages.walls ~= nil, true, "default_config and plan_envelope work with a nil mod name")
+end
+
 -- Declines before any allocation: state, extent, build bounds and caps.
 do
 	local m = planner.plan({x = 0, z = 0}, 20260101, {landmarks = profile})

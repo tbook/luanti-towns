@@ -360,19 +360,18 @@ quoted in `auto_bounds`, and 210 chunks hold 107,520,000 voxels, inside the 131,
   was out of scope. The emerge requests bound the data the engine had to load; they are not a proof that every read was inside
   the box.
 
-### Findings and proposed corrections (nothing in `src/` was changed)
+### Findings and corrections (findings 1 and 3 applied in `src/auto_bounds.lua`; 2 is for callers)
 
-1. **Callback-time loading** (needs a decision, small fix): `auto_bounds.default_config()` and the first `plan_envelope`
-   `dofile` `medieval_walls.lua`, whose sibling loader calls `core.get_modpath(core.get_current_modname())`. Outside mod load
-   time the modname is nil and the call raises (`bad argument #1 to 'get_modpath'`). The harness works around it by scoping a
-   shim. #394 onward should call `default_config()` and a first `plan_envelope` while the Towns mod is loading (module-level
-   preload of `stage_modules()` in `auto_bounds`, or a nil-safe fallback to `debug.getinfo` in `medieval_walls.sibling`).
-   Not applied: it touches load order outside `auto_bounds.lua`.
+1. **Callback-time loading** (fixed): `auto_bounds.default_config()` and the first `plan_envelope` used to `dofile`
+   `medieval_walls.lua` lazily, whose sibling loader calls `core.get_modpath(core.get_current_modname())`; outside mod load
+   time the modname is nil and the call raised. `auto_bounds` now loads its sibling modules when it is loaded, so it must be
+   required while the Towns mod loads (as #394 onward will), and a test (`tests/auto_bounds_tests.lua`) covers use with a nil
+   mod name. The harness loads it under a modname shim because it is not the Towns mod.
 2. **Wet ring** (config): set `wet_ring = 1` (or derive it from `site_search.WET_DEFAULTS`) when the production search is used;
    the default of 0 leaves `urban_read` one node short of what is read. Not applied: the existing test fixes the default as 0.
-3. **Cap basis** (documentation): the `M.CAPS` basis string and header say a 180-chunk measured maximum; the worst alignment is
-   210. The 256 cap itself holds, so no cap change is needed; update the basis text, and `PROVISIONAL` can be cleared once the
-   gate owner accepts A12. Not applied: that freeze is a gate decision.
+3. **Cap basis** (corrected): the `M.CAPS` basis string and `auto_bounds` header now state the worst alignment, 210 chunks
+   (144 at the planner origin alignment), headroom 1.22. The 256 cap is unchanged and `PROVISIONAL` stays set until the gate
+   owner accepts A12.
 
 ### Limits of this evidence
 
@@ -528,7 +527,7 @@ The #391 README now states this (updated in this ticket).
 1. Do not close #392. A10 (activation-halo ordering) and A14 (player-visible loading) are still UNVERIFIED. A12
    (containment) is PASS (tested scope).
 2. Pure geometry can proceed. #393 may start on envelope arithmetic with chunksize 5 and origin -32 (settled).
-   Freezing caps is no longer blocked by A12: write bounds are measured and contained. Three follow-ups from A12
+   Freezing caps is no longer blocked by A12: write bounds are measured and contained. Three follow-ups from A12 (two applied)
    are listed under "Findings and proposed corrections" (callback-time loading, wet ring, cap basis text).
 3. #397 (center-first loading): center ground must be captured only inside the center chunk's own on_generated
    (A9 FAIL for request-time reads). Old centers decline. The planner pause is accepted (A15), so it is not a

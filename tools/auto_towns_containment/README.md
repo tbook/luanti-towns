@@ -71,5 +71,7 @@ chunk grid, to check the `MAX_REQUEST_CHUNKS` cap independently of where the sam
   bounds (`summary.write_bounds` and the stage `attempted_bounds`) are compared with the envelope write box.
 - A sample whose site search finds nothing (`no_site`) is not a sample. Relief and biomes come from the
   scratch map, so the matrix is limited to the terrains actually run.
-- `auto_bounds` loads `medieval_walls.lua` with `core.get_current_modname()`, which is nil in a callback;
-  the harness scopes a shim around `default_config` and `plan_envelope` (reported in the A12 results).
+- The harness is not the Towns mod, so it loads `auto_bounds` under a shim that makes
+  `core.get_current_modname()` return "towns" (the real mod loads it while Towns loads). `auto_bounds` now loads its
+  sibling modules at load time, so `default_config()` and `plan_envelope()` work in callbacks (an A12 finding, fixed
+  with a test in `tests/auto_bounds_tests.lua`).

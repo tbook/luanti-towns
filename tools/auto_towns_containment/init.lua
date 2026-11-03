@@ -28,11 +28,9 @@ local SETTLE = tonumber(core.settings:get("containment_settle_seconds")) or 30
 local CONTROL_SECONDS = tonumber(core.settings:get("containment_control_seconds")) or 0
 local OUT = core.get_worldpath() .. "/containment-%s.json"
 
-local ab = dofile(towns.modpath .. "/src/auto_bounds.lua")
-local roads = towns.town_roads
--- auto_bounds loads its sibling modules with core.get_current_modname(), which is nil
--- outside mod load time. That is a limit of src/auto_bounds.lua / medieval_walls.lua
--- when called from a callback (reported in the A12 results); the harness scopes a shim.
+-- The harness is not the Towns mod: medieval_walls.lua finds its siblings with
+-- core.get_current_modname(), so loading auto_bounds (which loads them) is done under a
+-- shim that reports "towns". In the real mod, auto_bounds is loaded while Towns loads.
 local function as_towns(fn, ...)
 	local saved = core.get_current_modname
 	core.get_current_modname = function() return "towns" end
@@ -41,6 +39,8 @@ local function as_towns(fn, ...)
 	if not res[1] then error(res[2], 0) end
 	return unpack(res, 2)
 end
+local ab = as_towns(dofile, towns.modpath .. "/src/auto_bounds.lua")
+local roads = towns.town_roads
 local report = {family = family, samples = {}, errors = {}}
 
 local function write_json(name, value)
