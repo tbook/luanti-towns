@@ -297,12 +297,14 @@ core.emerge_area = emerge_wrapper
 -- this mod loads (optional_depends), so the chain here is observer -> LV -> VoxeLibre.
 local settlements = rawget(_G, "settlements")
 local orig = {}
+local our = {} -- the observer's own wrapper functions, to tell at exit whether they are still installed
 if settlements then
 	orig.heights = settlements.evaluate_heightmap
 	orig.plan = settlements.create_site_plan
 	orig.place = settlements.place_schematics
 
-	settlements.evaluate_heightmap = function(...)
+	-- Each wrapper returns exactly what the wrapped function returned.
+	local heights_wrapper = function(...)
 		local h = orig.heights(...)
 		local limit = rawget(_G, "max_height_difference")
 		local passed
@@ -310,8 +312,9 @@ if settlements then
 		emit({kind = "terrain", height_difference = h, limit = limit, passed = passed})
 		return h
 	end
+	settlements.evaluate_heightmap = heights_wrapper
 
-	settlements.create_site_plan = function(maxp, minp, pr)
+	local plan_wrapper = function(maxp, minp, pr)
 		local plan, why = orig.plan(maxp, minp, pr)
 		if type(plan) == "table" and #plan > 0 then
 			emit({kind = "village", outcome = "planned", buildings = #plan,
@@ -322,21 +325,35 @@ if settlements then
 		end
 		return plan, why
 	end
+	settlements.create_site_plan = plan_wrapper
 
-	settlements.place_schematics = function(info, pr)
-		local ok, err = pcall(orig.place, info, pr)
+	-- pcall only to record a failure; the error is rethrown unchanged and results pass through.
+	local function after_place(info, ok, ...)
 		if ok then
 			emit({kind = "village", outcome = "placed", buildings = type(info) == "table" and #info or 0})
-		else
-			emit({kind = "village", outcome = "place_error"})
-			observer_error("place_schematics", err)
-			error(err, 0)
+			return ...
 		end
+		emit({kind = "village", outcome = "place_error"})
+		observer_error("place_schematics", (...))
+		error((...), 0)
 	end
+	local place_wrapper = function(info, pr)
+		return after_place(info, pcall(orig.place, info, pr))
+	end
+	settlements.place_schematics = place_wrapper
+
+	our = {heights = heights_wrapper, plan = plan_wrapper, place = place_wrapper}
 end
 
--- Puts every wrapped global back and reports whether no observer wrapper is still installed.
+-- Checks which wrappers are still the observer's own (before restoring), puts every
+-- wrapped global back and reports whether all of them now hold their originals.
 local function restore()
+	local still_ours = {emerge = core.emerge_area == emerge_wrapper}
+	if settlements then
+		still_ours.evaluate_heightmap = settlements.evaluate_heightmap == our.heights
+		still_ours.create_site_plan = settlements.create_site_plan == our.plan
+		still_ours.place_schematics = settlements.place_schematics == our.place
+	end
 	core.emerge_area = real_emerge
 	if settlements then
 		settlements.evaluate_heightmap = orig.heights
@@ -344,12 +361,12 @@ local function restore()
 		settlements.place_schematics = orig.place
 	end
 	active = false
-	local detached = core.emerge_area ~= emerge_wrapper
+	local restored = core.emerge_area == real_emerge
 	if settlements then
-		detached = detached and settlements.evaluate_heightmap == orig.heights
+		restored = restored and settlements.evaluate_heightmap == orig.heights
 			and settlements.create_site_plan == orig.plan and settlements.place_schematics == orig.place
 	end
-	return detached
+	return restored, still_ours
 end
 
 -- Route driver: needs a connected client; without one the route stays no_player.
@@ -440,7 +457,7 @@ local function forceload_fixtures()
 	emit({kind = "forceload", blocks = forceloaded, ms = forceload_ms})
 end
 
-local function build_report(reason, restored)
+local function build_report(reason, restored, still_ours)
 	local fixture_report = {}
 	local all_complete = true
 	for _, f in ipairs(fixtures) do
@@ -483,6 +500,7 @@ local function build_report(reason, restored)
 		errors = {total = error_total, first = errors},
 		events = {file = EVENTS_NAME, count = seq},
 		instrumentation_restored = restored,
+		wrappers_still_ours_at_exit = still_ours,
 		checks = checks,
 		ok = ok and all_complete,
 	}
@@ -491,9 +509,9 @@ end
 local function finish(reason, from_shutdown)
 	if finished then return end
 	finished = true
-	local restored = restore()
+	local restored, still_ours = restore()
 	drain()
-	local report = build_report(reason, restored)
+	local report = build_report(reason, restored, still_ours)
 	if events_file then
 		events_file:close()
 		events_file = nil

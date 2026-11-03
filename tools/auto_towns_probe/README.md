@@ -8,14 +8,19 @@ any town is built. It builds nothing, enables nothing and never loads Towns.
 
 Files:
 
-- `run.py`: copies only `world.mt` and `map_meta.txt` from a source world into a
-  scratch world, installs `init.lua` and `mod.conf` as the scratch-only mod
-  `auto_towns_probe`, runs the Luanti server headlessly (one process per phase,
-  like `tools/place_check/run.py`) and checks the scenario's expectations.
+- `run.py`: copies `world.mt` and `map_meta.txt` from a source world into a
+  scratch world. Every mod that the source `world.mt` loads is copied into the
+  scratch `worldmods/` and the `load_mod` lines are rewritten to those copies, so
+  no installed mod is referenced. Installs `init.lua` and `mod.conf` as the
+  scratch-only mod `auto_towns_probe`, runs the Luanti server headlessly (one
+  process per phase, like `tools/place_check/run.py`), normalizes absent keys to
+  explicit null and checks the scenario's expectations. The game (`mineclone2`) is
+  read by the engine from its own directory; the probe never writes to it.
 - `init.lua`: the observer. Installed only in the scratch world.
 
-The source world map and installed mods are not modified. The scratch world is
-kept when a check fails or with `--keep`.
+The source world map is not read or modified. The scratch world is always kept
+(its `probe-report.json`, `auto-towns-probe-phaseN.json` and `.jsonl` stay with
+it); `--cleanup` removes it only when every check passes.
 
 ## Commands
 
@@ -35,7 +40,7 @@ Options: `--engine` (default `/Applications/luanti.app/Contents/MacOS/luanti`),
 `--port` (default 39490), `--seed N` and `--mg-name NAME` (written into the
 scratch `map_meta.txt` only), `--duration`, `--start-delay`,
 `--fixture "id:x1,y1,z1,x2,y2,z2;..."` (one phase, no scenario checks),
-`--route route.json`, `--keep`.
+`--route route.json`, `--cleanup`.
 
 The source world's mapgen is `flat` (superflat). VoxeLibre's
 `settlements.evaluate_heightmap` returns `max_height_difference + 1` whenever a
@@ -68,10 +73,14 @@ Each phase writes two files into the scratch world (path printed at the start):
 invocation, engine version and git revisions of Towns, Living Villages and the
 game when it is a git checkout.
 
-Null and absence: a key that is absent from an event, or an observation shown as
-`null`, means nothing was observed. A missing `nearest_player_distance` means no
-connected player was sampled, never a fabricated distance. Failures are counted
-separately in `errors` and make the check fail.
+Null: `run.py` rewrites every phase report and events file so that a field with
+no value is an explicit `null`, not a missing key. `nearest_player_distance` is
+`null` when no connected player was sampled, never a fabricated distance;
+`terrain.height_difference` and `limit` are `null` when the value was unavailable.
+An observation category that saw nothing is `null`. Failures are counted separately
+in `errors` and make the check fail. A phase that timed out or wrote no report is
+recorded in `probe-report.json` as `status: timeout` or `no_report`, which fails
+the run.
 
 ## Scripted demand is a proxy
 
@@ -94,7 +103,7 @@ player connects. It does not start a client. Without one, the route stays
 position; over ungenerated terrain it holds its last height and counts
 `ungrounded_steps`. `fly` keeps the y coordinates of the points. Speed is in
 nodes per second, at most 30. To drive a route, run `run.py --scenario fresh
---route route.json --duration 300 --keep`, then join the server on `--port`
+--route route.json --duration 300`, then join the server on `--port`
 (default 39490) with a client while the phase runs. This path has not been
 exercised here: no client was available, so every route run in this slice
 reported `no_player`.

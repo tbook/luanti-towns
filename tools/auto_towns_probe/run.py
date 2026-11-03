@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Disposable-world frontier and freshness probe for automatic towns (#391, slice 0).
 
-Copies only the settings (world.mt, map_meta.txt) of a source world into a
-scratch world, installs init.lua from this folder as a scratch-only observer
-mod, and runs the Luanti server headlessly. Nothing is written to the source
-world or to any installed mod. Towns is not loaded in the scratch world.
+Copies only settings (world.mt, map_meta.txt) and the mods that the source
+world.mt loads into a scratch world. Each copied mod is a copy, so no installed
+mod or source world map is referenced or modified. Towns is never loaded.
+Installs init.lua from this folder as a scratch-only observer mod and runs the
+Luanti server headlessly, one process per phase.
 
-Each scenario runs one or two server phases on the same scratch world. Each
-phase writes auto-towns-probe-phaseN.json and .jsonl with one event per line
-(ids "p<phase>-<seq>"). This script then checks the scenario's expectations
-and writes probe-report.json. Exit status 0 means every check passed.
+Each scenario runs one or two phases on the same scratch world. Each phase writes
+auto-towns-probe-phaseN.json and .jsonl (one event per line, ids "p<phase>-<seq>").
+This script normalizes absent keys to explicit null, checks the scenario's
+expectations and writes probe-report.json into the scratch world. The scratch world
+is kept by default so the report and events survive; --cleanup removes it on pass.
+Exit status 0 means every check passed.
 
 Scripted fixture boxes are explicit, bounded emerge requests. They are a proxy
 for load, not evidence of actual player request latency.
@@ -17,6 +20,8 @@ for load, not evidence of actual player request latency.
 import argparse
 import json
 from pathlib import Path
+import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -24,13 +29,14 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 HELPER = Path(__file__).resolve().parent
-DEFAULT_SOURCE = Path.home() / 'Library/Application Support/minetest/worlds/TownsWorkshop'
+USER_DATA = Path.home() / 'Library/Application Support/minetest'
+DEFAULT_SOURCE = USER_DATA / 'worlds/TownsWorkshop'
 DEFAULT_ENGINE = '/Applications/luanti.app/Contents/MacOS/luanti'
-DEFAULT_LV = Path.home() / 'Library/Application Support/minetest/mods/living_villages'
-DEFAULT_GAME = Path.home() / 'Library/Application Support/minetest/games/mineclone2'
+DEFAULT_LV = USER_DATA / 'mods/living_villages'
+DEFAULT_GAME = USER_DATA / 'games/mineclone2'
 
-# Fixture boxes are inclusive node boxes "id:x1,y1,z1,x2,y2,z2"; one entry per phase.
-# Phases are separated by "|" inside a scenario, and boxes by ";".
+# Fixture boxes are inclusive node boxes "id:x1,y1,z1,x2,y2,z2"; one list entry per phase,
+# several boxes in one entry separated by ";".
 SCENARIOS = {
     # One phase of surface boxes around the origin.
     'fresh': {
@@ -78,6 +84,19 @@ SCENARIOS = {
     },
 }
 
+# Keys that the observer omits when it has no value. Written out as explicit null here.
+EVENT_NULLABLE = {
+    'generated': ['nearest_player_distance'],
+    'terrain': ['height_difference', 'limit', 'passed'],
+    'village': ['minp', 'maxp', 'buildings', 'reason'],
+    'emerge_request': ['caller', 'fixture'],
+    'emerge_block': ['fixture'],
+}
+REPORT_NULLABLE = [
+    'engine', 'game', 'modpaths.living_villages', 'modpaths.mcl_villages',
+    'mapgen.chunksize', 'route.mode', 'route.speed', 'forceload.ms', 'main_loop.longest_step_at_s',
+]
+
 
 def parse_route(path):
     """Validate a walking or flying route before handing it to the scratch world."""
@@ -111,10 +130,54 @@ def count_blocks(fixture_text):
     return total
 
 
+def copy_source_mods(source_world_mt, work):
+    """Copy every load_mod_<name> of the source world.mt into worldmods/ and rewrite it
+    to the copy. Returns the rewritten world.mt lines. Live installed mods are never
+    referenced; the game itself (gameid) is read by the engine and never written."""
+    worldmods = work / 'worldmods'
+    worldmods.mkdir(exist_ok=True)
+    lines = []
+    for line in source_world_mt.read_text().splitlines():
+        m = re.match(r'^\s*load_mod_([^=\s]+)\s*=\s*(.+?)\s*$', line)
+        if not m:
+            lines.append(line)
+            continue
+        name, value = m.groups()
+        if name == 'towns':
+            raise SystemExit('the source world loads towns; the probe never loads Towns')
+        src = Path(value) if Path(value).is_absolute() else USER_DATA / value
+        if not (src / 'mod.conf').is_file():
+            raise SystemExit('mod %s not found at %s' % (name, src))
+        shutil.copytree(src, worldmods / name, ignore=shutil.ignore_patterns('.git', '__pycache__'))
+        lines.append('load_mod_%s = worldmods/%s' % (name, name))
+    return lines
+
+
 def read_events(path):
     if not path.exists():
         return []
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+
+
+def write_events(path, events):
+    path.write_text(''.join(json.dumps(e, sort_keys=True) + '\n' for e in events))
+
+
+def normalize_event(e):
+    for key in EVENT_NULLABLE.get(e.get('kind'), []):
+        e.setdefault(key, None)
+    return e
+
+
+def normalize_report(phase):
+    for dotted in REPORT_NULLABLE:
+        *parents, leaf = dotted.split('.')
+        node = phase
+        for key in parents:
+            node = node.setdefault(key, {})
+        if node is not None:
+            node.setdefault(leaf, None)
+    return phase
 
 
 def git_rev(path):
@@ -131,7 +194,7 @@ def engine_version(engine):
 
 
 def scenario_checks(name, phases, events):
-    """Scenario expectations, computed from the events of each phase.
+    """Scenario expectations, computed from the events of each completed phase.
 
     phases: list of (phase number, report dict). events: phase number -> list.
     Returns (label, ok) pairs. Only fixture requests (source "fixture") count.
@@ -187,7 +250,8 @@ def main():
     ap.add_argument('--route', type=Path,
                     help='walk or fly route JSON {"mode","speed","points"} for one connected client (see README)')
     ap.add_argument('--timeout', type=int, default=900, help='per-phase engine timeout in seconds')
-    ap.add_argument('--keep', action='store_true', help='keep the scratch world even when every check passes')
+    ap.add_argument('--cleanup', action='store_true',
+                    help='remove the scratch world when every check passes (it is kept otherwise)')
     args = ap.parse_args()
 
     scenario = SCENARIOS[args.scenario]
@@ -200,11 +264,10 @@ def main():
             raise SystemExit('fixture requests %d mapblocks; cap is 1024' % blocks)
     if args.route:
         parse_route(args.route)
+    invocation = shlex.join(['python3', 'tools/auto_towns_probe/run.py', *sys.argv[1:]])
 
-    invocation = ' '.join(['python3', 'tools/auto_towns_probe/run.py'] + sys.argv[1:])
     work = Path(tempfile.mkdtemp(prefix='towns-auto-probe-'))
-    for name in ('world.mt', 'map_meta.txt'):
-        shutil.copy2(args.settings_from / name, work / name)
+    shutil.copy2(args.settings_from / 'map_meta.txt', work / 'map_meta.txt')
     overrides = {}
     if args.seed is not None:
         overrides['seed'] = str(args.seed)
@@ -221,16 +284,15 @@ def main():
             if not any(line.startswith(prefix) for line in meta):
                 meta.append(prefix + value)
         (work / 'map_meta.txt').write_text('\n'.join(meta) + '\n')
-    mods = work / 'worldmods'
-    mods.mkdir()
-    probe = mods / 'auto_towns_probe'
-    probe.mkdir()
+    probe = work / 'worldmods' / 'auto_towns_probe'
+    probe.mkdir(parents=True)
     shutil.copy2(HELPER / 'init.lua', probe / 'init.lua')
     shutil.copy2(HELPER / 'mod.conf', probe / 'mod.conf')
     if args.route:
         shutil.copy2(args.route, work / 'route.json')
-    with (work / 'world.mt').open('a') as f:
-        f.write('\nload_mod_auto_towns_probe = worldmods/auto_towns_probe\n')
+    world_lines = copy_source_mods(args.settings_from / 'world.mt', work)
+    world_lines.append('load_mod_auto_towns_probe = worldmods/auto_towns_probe')
+    (work / 'world.mt').write_text('\n'.join(world_lines) + '\n')
     print('Scratch world:', work, flush=True)
 
     report = {'invocation': invocation, 'scenario': args.scenario, 'about': scenario['about'],
@@ -238,36 +300,51 @@ def main():
               'engine_version': engine_version(args.engine),
               'repo_revisions': {'towns': git_rev(ROOT), 'living_villages': git_rev(DEFAULT_LV),
                                  'mineclone2': git_rev(DEFAULT_GAME)},
-              'duration_s': duration, 'phases': [], 'checks': [], 'ok': False}
+              'scratch_world': str(work), 'duration_s': duration, 'phases': [], 'checks': [], 'ok': False}
     events = {}
     phase_reports = []
     for index, fixture in enumerate(phases, start=1):
         with (work / 'check.conf').open('w') as f:
             f.write('enable_ipv6 = false\nbind_address = 127.0.0.1\nserver_announce = false\n')
+            f.write('max_forceloaded_blocks = 4096\n')
             f.write('auto_towns_probe_phase = %d\n' % index)
             f.write('auto_towns_probe_scenario = %s\n' % args.scenario)
             f.write('auto_towns_probe_duration = %d\n' % duration)
             f.write('auto_towns_probe_start_delay = %d\n' % args.start_delay)
             f.write('auto_towns_probe_forceload = %s\n' % ('true' if forceload else 'false'))
-            f.write('max_forceloaded_blocks = 4096\n')
             f.write('auto_towns_probe_fixture = %s\n' % fixture)
             f.write('auto_towns_probe_invocation = %s\n' % invocation)
+        entry = {'phase': index, 'status': None, 'exit_code': None, 'report': None}
+        report['phases'].append(entry)
         log = work / ('stdout-phase%d.log' % index)
-        with log.open('w') as out:
-            subprocess.run(
-                [args.engine, '--server', '--world', str(work), '--gameid', 'mineclone2',
-                 '--config', str(work / 'check.conf'), '--port', str(args.port),
-                 '--logfile', str(work / ('engine-phase%d.log' % index))],
-                stdout=out, stderr=subprocess.STDOUT, timeout=args.timeout)
+        try:
+            with log.open('w') as out:
+                done = subprocess.run(
+                    [args.engine, '--server', '--world', str(work), '--gameid', 'mineclone2',
+                     '--config', str(work / 'check.conf'), '--port', str(args.port),
+                     '--logfile', str(work / ('engine-phase%d.log' % index))],
+                    stdout=out, stderr=subprocess.STDOUT, timeout=args.timeout)
+            entry['exit_code'] = done.returncode
+        except subprocess.TimeoutExpired:
+            # Recorded as a failed phase, distinct from an observation that was simply absent.
+            entry['status'] = 'timeout'
         report_file = work / ('auto-towns-probe-phase%d.json' % index)
+        if entry['status'] == 'timeout':
+            report['checks'].append({'ok': False, 'label': 'phase %d timed out after %ds' % (index, args.timeout)})
         if not report_file.exists():
-            report['checks'].append({'ok': False, 'label': 'phase %d wrote a report' % index})
-            print('FAIL phase %d wrote no report; inspect %s' % (index, work / ('engine-phase%d.log' % index)))
+            entry['status'] = entry['status'] or 'no_report'
+            report['checks'].append({'ok': False, 'label': 'phase %d: %s (inspect %s)' % (
+                index, entry['status'], work / ('engine-phase%d.log' % index))})
+            print('FAIL phase %d: %s; inspect %s' % (index, entry['status'], work / ('engine-phase%d.log' % index)))
             break
-        phase = json.loads(report_file.read_text())
+        entry['status'] = entry['status'] or 'completed'
+        phase = normalize_report(json.loads(report_file.read_text()))
+        report_file.write_text(json.dumps(phase, indent=2, sort_keys=True))
+        events_file = work / ('auto-towns-probe-phase%d.jsonl' % index)
+        events[index] = [normalize_event(e) for e in read_events(events_file)]
+        write_events(events_file, events[index])
+        entry['report'] = phase
         phase_reports.append((index, phase))
-        events[index] = read_events(work / ('auto-towns-probe-phase%d.jsonl' % index))
-        report['phases'].append(phase)
         print('Phase %d: %s' % (index, json.dumps({
             'fixtures': [{k: f[k] for k in ('id', 'blocks', 'reported', 'complete')} for f in phase['fixtures']],
             'observations': phase['observations'], 'route': phase['route'],
@@ -276,9 +353,11 @@ def main():
             report['checks'].append({'ok': c['ok'], 'label': 'phase %d: %s' % (index, c['label'])})
         if not phase.get('ok'):
             report['checks'].append({'ok': False, 'label': 'phase %d report ok' % index})
+        if entry['exit_code'] != 0:
+            report['checks'].append({'ok': False, 'label': 'phase %d engine exit status %s' % (index, entry['exit_code'])})
 
-    # Scenario expectations describe the preset boxes only; a --fixture override has none.
     if len(phase_reports) == len(phases) and not args.fixture:
+        # Scenario expectations describe the preset boxes only; a --fixture override has none.
         for label, ok in scenario_checks(args.scenario, phase_reports, events):
             report['checks'].append({'ok': bool(ok), 'label': label})
     report['ok'] = bool(report['checks']) and all(c['ok'] for c in report['checks'])
@@ -286,8 +365,9 @@ def main():
     for c in report['checks']:
         print('PASS' if c['ok'] else 'FAIL', c['label'])
     print('Report:', work / 'probe-report.json')
-    if not args.keep and report['ok']:
+    if report['ok'] and args.cleanup:
         shutil.rmtree(work, ignore_errors=True)
+        print('Scratch world removed (--cleanup).')
     else:
         print('Scratch world kept:', work)
     raise SystemExit(0 if report['ok'] else 1)
