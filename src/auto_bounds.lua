@@ -119,6 +119,7 @@ M.CAPS = {
 
 local ROTATIONS = {"0", "90", "180", "270"}
 local MAP_LIMIT = 31000
+M.MAP_LIMIT = MAP_LIMIT     -- engine map limit in nodes, per axis (read by auto_sites)
 
 local function is_int(v)
 	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge and v == math.floor(v)
