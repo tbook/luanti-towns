@@ -478,6 +478,9 @@ run_group("tests/auto_bounds_tests.lua", eq, fails, dofile("src/planner.lua"), c
 -- Automatic town sites (#394): deterministic descriptors, cell lookup, golden values.
 run_group("tests/auto_sites_tests.lua", eq)
 
+-- Automatic town session state (#395): freshness records, activation, terminal states.
+run_group("tests/auto_state_tests.lua", eq)
+
 if only_group and not only_group_ran then
 	print("TOWNS_TEST_ONLY matched no group: " .. only_group)
 	os.exit(2)

@@ -12,7 +12,8 @@ center scenario, a center-column check, planner timing marks); they are verifica
 Not closed. The epic requires every correctness assumption to be PASS before this gate passes.
 A10 (activation-halo ordering) and A14 (player-visible loading) are still UNVERIFIED, so #392 stays
 open. A12 (containment) was tested with a write-capable scratch-world test and is **PASS (tested scope)**,
-see "Containment (A12)".
+see "Containment (A12)". The PM accepted A12, and the #393 caps are frozen on that evidence (`PROVISIONAL = false`).
+A10 and A14 remain open.
 
 - Freshness (callback recording before emerge completion, including FROM_MEMORY): **PASS** within the
   tested scenarios.
@@ -24,10 +25,10 @@ see "Containment (A12)".
 - Village ordering and activation halo (A10): **UNVERIFIED**. The planner's own terrain requests complete only
   after the planner returns (one window observed). A town-activation chunk arriving inside a window was not
   reproduced, because no town exists in this probe.
-- Containment feasibility (A12): **PASS (tested scope)**: 36 of 36 real built plans (13 walled medieval,
+- Containment feasibility (A12): **PASS (tested scope), PM accepted**: 36 of 36 real built plans (13 walled medieval,
   13 unwalled medieval, 10 Roman) wrote nothing outside the #393 envelope. Three read-side and envelope
   findings need follow-up (a 1-node `urban_read` gap, a 210-chunk worst case, a callback-time loading
-  defect), none of which breaks containment. See "Containment (A12)".
+  defect), none of which breaks containment. The caps are frozen on this evidence. See "Containment (A12)".
 - Player-visible loading (A14): **UNVERIFIED** (no connected client was available).
 - Village planner pause (A15): **accepted** by the PM as pre-existing upstream behavior. Not a gate
   failure and not a blocker. See "Village planner stall".
@@ -135,7 +136,7 @@ terrain came from scripted fixtures, planner requests, or structure placement.
 | A9 | Center ground is obtained from the center request without a vertical search | **PASS** for the design's method: capture inside the center chunk's own generation callback. **FAIL** sub-finding: request-time heightmap reads are unusable. | Fresh center (v7): the callback that generated the chunk recorded its heightmap (4 of 4 generated blocks matched the chunk record). Request-time callbacks for old chunks returned a non-nil table that was all zero (`from_disk`, 108 of 108) or the heightmap of the most recently generated chunk (`from_memory`, 16 of 104 matched a different chunk, see "Callback heightmap"). Design consequence: the center reference must be read only inside the on_generated call for that chunk, and old centers decline. Center-column semantics (heightmap vs top solid node) are UNVERIFIED, see "Callback heightmap". | #397 must capture only in on_generated; the bundled API note must not be relied on |
 | A10 | Activation-halo ordering: the village planner runs only after the town reservation exists, and a town-activation chunk cannot arrive midway through the planner's terrain requests | **UNVERIFIED** (partial positive) | One planner window (v7, village). Its two forced terrain requests were issued 10 s apart (9989 ms, 19995 ms) and completed only after the planner returned (30457 ms, 30503 ms; window 9967-30003 ms). No `on_generated` record fell inside the window. See "Planner window timing". No town existed, so a town-activation chunk arriving in the window was not reproduced. | #400, #402, #403, #404 |
 | A11 | Village trigger reaches the guarded planner (`settlements.create_site_plan`) | **PASS** | The probe's wrapper recorded `planned` and `placed` in both v7 runs. The chain is `structblock LBM -> emerge_area(footprint) -> ecb_village -> create_site_plan`. | Not blocked |
-| A12 | Containment feasibility (writes stay inside the envelope) | **PASS (tested scope)**: 36 evaluated plans (3 families, flat and relief terrain), 0 nodes written outside the envelope write boxes (aggregate) and 0 outside a stage's own boxes in the stage intervals; builder-reported write bounds inside the envelope in 36 of 36. | Write-capable scratch-world test, `tools/auto_towns_containment/`; numbers, commands and caveats in "Containment (A12)". Cap sweep: 900 plans, worst case 210 chunks (cap 256). | #393 (cap freeze, after the findings below are decided), #397, #403 |
+| A12 | Containment feasibility (writes stay inside the envelope) | **PASS (tested scope)**: 36 evaluated plans (3 families, flat and relief terrain), 0 nodes written outside the envelope write boxes (aggregate) and 0 outside a stage's own boxes in the stage intervals; builder-reported write bounds inside the envelope in 36 of 36. | Write-capable scratch-world test, `tools/auto_towns_containment/`; numbers, commands and caveats in "Containment (A12)". Cap sweep: 900 plans, worst case 210 chunks (cap 256). **PM accepted A12; caps frozen (`PROVISIONAL = false`).** | #393 (cap freeze, done), #397, #403 |
 | A13 | Cancelled or late completions are delivered and recorded; cancelled does not mean ungenerated | **PASS** | cancel after fix: 1019 `cancelled` callbacks delivered after `wt_finish` (2159 to 2560 ms), 2 chunks generated after finish with `after_finish` records, and 31 cancelled blocks lying inside those generated chunks. See "Cancellation". | #398 may keep the rule that `EMERGE_CANCELLED` requires proof and records |
 | A14 | Player-visible loading latency is within the starting targets | **UNVERIFIED** | No connected client was available. Only scripted demand was measured. | #405 and the loading parts of #397 |
 | A15 | Village planner pause | **ACCEPTED (PM decision)**: pre-existing upstream behavior, not a gate failure, not a blocker | See "Village planner stall". | None (the PM accepted the pause) |
@@ -369,8 +370,8 @@ quoted in `auto_bounds`, and 210 chunks hold 107,520,000 voxels, inside the 131,
 2. **Wet ring** (config): set `wet_ring = 1` (or derive it from `site_search.WET_DEFAULTS`) when the production search is used;
    the default of 0 leaves `urban_read` one node short of what is read. Not applied: the existing test fixes the default as 0.
 3. **Cap basis** (corrected): the `M.CAPS` basis string and `auto_bounds` header now state the worst alignment, 210 chunks
-   (144 at the planner origin alignment), headroom 1.22. The 256 cap is unchanged and `PROVISIONAL` stays set until the gate
-   owner accepts A12.
+   (144 at the planner origin alignment), headroom 1.22. The 256 cap is unchanged. The PM accepted A12 and the caps are frozen
+   (`PROVISIONAL = false` in `src/auto_bounds.lua`).
 
 ### Limits of this evidence
 
