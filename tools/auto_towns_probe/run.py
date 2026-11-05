@@ -250,6 +250,87 @@ def scenario_checks(name, phases, events):
     return out
 
 
+def rects_touch(a, b):
+    return a['x1'] <= b['x2'] and a['x2'] >= b['x1'] and a['z1'] <= b['z2'] and a['z2'] >= b['z1']
+
+
+def model_a10_observation(events):
+    try:
+        return _model_a10_observation(events)
+    except (KeyError, TypeError, ValueError, IndexError) as exc:
+        return {'evidence_status': 'inconclusive', 'complete': False, 'callback_relation': 'unobserved',
+                'missing_or_invalid': ['malformed event: ' + str(exc)],
+                'interpretation': 'Scratch synchronous adapter only; A10 remains UNVERIFIED.'}
+
+
+def _model_a10_observation(events):
+    """Strictly identify a complete scratch model trace; never promote the gate."""
+    def find(kind, state=None):
+        return [(i, e) for i, e in enumerate(events) if e.get('kind') == kind
+                and (state is None or e.get('state') == state)]
+    geometry = find('wt_a10_geometry')
+    entries = find('wt_a10_planner', 'entry')
+    missing = []
+    relation = 'unobserved'
+    if len(geometry) != 1 or len(entries) != 1:
+        missing.append('exactly one geometry record and one matching planner entry')
+    else:
+        ei, entry = entries[0]
+        if geometry[0][1].get('fixture_version') != 2:
+            missing.append('recognized fixture version')
+        planner_entries = [(i, e) for i, e in find('wt_planner', 'enter') if i < ei and e.get('minp') == entry.get('minp')]
+        if not planner_entries:
+            missing.append('matching real planner entry')
+        site = entry['site']['id']
+        matching = lambda kind, state: [(i, e) for i, e in find(kind, state)
+                                        if e.get('site') == site]
+        declines = matching('wt_a10_planner', 'declined')
+        requests = matching('wt_a10_competing', 'request')
+        callbacks = matching('wt_a10_competing', 'callback')
+        triggers = [(i, e) for i, e in find('wt_a10_surface')
+                    if e.get('site') == site and e.get('minp') == entry.get('minp')
+                    and e.get('valid', 0) > 0 and e.get('site_state') == 'inspecting']
+        exits = [(i, e) for i, e in find('wt_planner', 'exit') if i > ei]
+        if not triggers or triggers[0][0] >= ei or entry.get('fresh_state') != 'inspecting':
+            missing.append('matching surface trigger and inspecting site before planner entry')
+        if len(declines) != 1 or len(requests) != 1 or len(callbacks) != 1 or not exits:
+            missing.append('decline, competing request, callback, and planner exit')
+        else:
+            di, decline = declines[0]; ri, request = requests[0]; ci, callback = callbacks[0]
+            xi = exits[0][0]
+            if not (ei < di < ri < ci and ei < xi):
+                missing.append('planner, decline, request, callback order')
+            requests_in_window = [(i, e) for i, e in find('wt_request') if ei < i < xi]
+            center = entry['site'].get('center', {})
+            if not requests_in_window or requests_in_window[0][0] <= ri \
+                    or requests_in_window[0][1].get('minp', {}).get('x') != center.get('x') \
+                    or requests_in_window[0][1].get('minp', {}).get('z') != center.get('z'):
+                missing.append('decline precedes first planner-window terrain request')
+            if decline.get('inactive_after') != 'declined' or callback.get('before') != 'declined' \
+                    or callback.get('after') != 'declined' or callback.get('activations') != 0:
+                missing.append('declined state blocks activation')
+            if request.get('minp') != callback.get('minp'):
+                missing.append('callback matches requested chunk')
+            if callback.get('valid', 0) <= 0:
+                missing.append('competing callback has valid surface heights')
+            rect = entry['site']['activation_rect']
+            lo, hi = callback['minp'], callback.get('maxp', {})
+            chunk = {'x1': lo['x'], 'z1': lo['z'], 'x2': hi.get('x', lo['x'] - 1), 'z2': hi.get('z', lo['z'] - 1)}
+            if not rects_touch(chunk, rect):
+                missing.append('competing chunk intersects activation rectangle')
+            if any(e.get('kind') == 'wt_generated' and e.get('minp') == lo for e in events[:ri]):
+                missing.append('competing chunk was fresh at request')
+            emitted = [(i, e) for i, e in find('wt_generated') if e.get('minp') == lo and i >= ci]
+            if not emitted:
+                missing.append('matching generated event')
+            relation = 'during_planner' if ci < xi else 'after_planner'
+        if entry.get('inactive_before') is not None:
+            missing.append('inactive session initially has no site state')
+    return {'evidence_status': 'inconclusive', 'complete': not missing,
+            'callback_relation': relation, 'missing_or_invalid': missing,
+            'interpretation': 'Scratch synchronous adapter only; A10 remains UNVERIFIED.'}
+
+
 def controlled_a10_observation(events):
     """Validate the controlled A10 instrumentation without promoting A10 to PASS."""
     reserve_min = {'x': -192, 'y': -32, 'z': 128}
@@ -410,6 +491,7 @@ def main():
     ap.add_argument('--fixture', help='override the scenario fixture boxes, "id:x1,y1,z1,x2,y2,z2;..." (one phase)')
     ap.add_argument('--controlled-a10', action='store_true',
                     help='enable the synthetic reservation and competing-emerge timing probe (villages scenario only)')
+    ap.add_argument('--model-a10', action='store_true', help='run the scratch-only pure-state A10 model')
     ap.add_argument('--inactive-trigger-a10', action='store_true',
                     help='forceload one inactive village structblock after fixture generation (villages scenario only)')
     ap.add_argument('--route', type=Path,
@@ -422,6 +504,8 @@ def main():
     scenario = SCENARIOS[args.scenario]
     if args.controlled_a10 and args.scenario != 'villages':
         raise SystemExit('--controlled-a10 requires --scenario villages')
+    if args.model_a10 and (args.scenario != 'villages' or args.fixture or args.controlled_a10 or args.inactive_trigger_a10):
+        raise SystemExit('--model-a10 requires the unmodified villages scenario and no other A10 mode')
     if args.controlled_a10 and args.fixture:
         raise SystemExit('--controlled-a10 uses the villages scenario fixture; do not pass --fixture')
     if args.inactive_trigger_a10 and args.scenario != 'villages':
@@ -463,6 +547,11 @@ def main():
     probe.mkdir(parents=True)
     shutil.copy2(HELPER / 'init.lua', probe / 'init.lua')
     shutil.copy2(HELPER / 'mod.conf', probe / 'mod.conf')
+    if args.model_a10:
+        shutil.copy2(HELPER / 'a10_model.lua', probe / 'a10_model.lua')
+        shutil.copy2(HELPER / 'a10_geometry.lua', probe / 'a10_geometry.lua')
+        for directory in ('src', 'schematics'):
+            shutil.copytree(ROOT / directory, probe / 'towns_source' / directory)
     if args.route:
         shutil.copy2(args.route, work / 'route.json')
     world_lines = copy_source_mods(args.settings_from / 'world.mt', work)
@@ -483,7 +572,7 @@ def main():
         with (work / 'check.conf').open('w') as f:
             f.write('enable_ipv6 = false\nbind_address = 127.0.0.1\nserver_announce = false\n')
             f.write('max_forceloaded_blocks = 4096\n')
-            if args.controlled_a10 or args.inactive_trigger_a10:
+            if args.controlled_a10 or args.inactive_trigger_a10 or args.model_a10:
                 f.write('num_emerge_threads = 4\n')
             f.write('auto_towns_probe_phase = %d\n' % index)
             f.write('auto_towns_probe_scenario = %s\n' % args.scenario)
@@ -492,6 +581,7 @@ def main():
             f.write('auto_towns_probe_forceload = %s\n' % (
                 'true' if forceload and not args.inactive_trigger_a10 else 'false'))
             f.write('auto_towns_probe_controlled_a10 = %s\n' % ('true' if args.controlled_a10 else 'false'))
+            f.write('auto_towns_probe_model_a10 = %s\n' % ('true' if args.model_a10 else 'false'))
             f.write('auto_towns_probe_inactive_trigger_a10 = %s\n' % (
                 'true' if args.inactive_trigger_a10 else 'false'))
             f.write('auto_towns_probe_fixture = %s\n' % fixture)
@@ -544,6 +634,10 @@ def main():
         # Scenario expectations describe the preset boxes only; a --fixture override has none.
         for label, ok in scenario_checks(args.scenario, phase_reports, events):
             report['checks'].append({'ok': bool(ok), 'label': label})
+    if args.model_a10:
+        observation = model_a10_observation(write_through_events.get(1, []))
+        report['model_a10'] = observation
+        report['checks'].append({'ok': observation['complete'], 'label': 'model A10: complete ordered trace'})
     if args.controlled_a10:
         observation = controlled_a10_observation(write_through_events.get(1, []))
         report['controlled_a10'] = observation

@@ -19,6 +19,7 @@ local START_DELAY = tonumber(settings:get("auto_towns_probe_start_delay")) or 2
 local FIXTURE_TEXT = settings:get("auto_towns_probe_fixture") or ""
 local CONTROLLED_A10 = settings:get_bool("auto_towns_probe_controlled_a10", false)
 local INACTIVE_TRIGGER_A10 = settings:get_bool("auto_towns_probe_inactive_trigger_a10", false)
+local MODEL_A10 = settings:get_bool("auto_towns_probe_model_a10", false)
 local SCENARIO = settings:get("auto_towns_probe_scenario") or ""
 local INVOCATION = settings:get("auto_towns_probe_invocation") or ""
 -- Forceloading activates fixture blocks so their LBMs (village planning) run
@@ -50,6 +51,14 @@ local function wt(rec)
 	rec.t_ms = math.floor((core.get_us_time() - t0) / 1000)
 	wt_file:write(core.write_json(rec), "\n")
 	wt_file:flush()
+end
+
+local model_a10
+if MODEL_A10 then
+	core.register_on_mods_loaded(function()
+		local path = core.get_modpath("auto_towns_probe")
+		model_a10 = dofile(path .. "/a10_model.lua")(path .. "/towns_source", wt)
+	end)
 end
 
 local finished = false
@@ -279,6 +288,7 @@ core.register_on_generated(function(minp, maxp, blockseed)
 	local ok, err = pcall(function()
 		local mn = {x = minp.x, y = minp.y, z = minp.z}
 		local mx = {x = maxp.x, y = maxp.y, z = maxp.z}
+		if model_a10 then model_a10.generated(mn, mx, core.get_mapgen_object("heightmap")) end
 		if CONTROLLED_A10 and mn.x == -192 and mn.y == -32 and mn.z == 128
 				and mx.x >= synthetic_rect.x1 and mn.x <= synthetic_rect.x2
 				and mx.z >= synthetic_rect.z1 and mn.z <= synthetic_rect.z2 then
@@ -383,6 +393,7 @@ if settlements then
 
 	local plan_wrapper = function(maxp, minp, pr)
 		wt({kind = "wt_planner", state = "enter", minp = vec_table(minp), maxp = vec_table(maxp)})
+		if model_a10 then model_a10.planner(vec_table(minp), vec_table(maxp)) end
 		if CONTROLLED_A10 then
 			wt({kind="wt_synthetic", state="planner_entry", reserved=synthetic_reserved, minp=vec_table(minp), maxp=vec_table(maxp)})
 			-- A deliberately unrelated, fresh map position lets the probe observe

@@ -9,6 +9,44 @@ center scenario, a center-column check, planner timing marks); they are verifica
 
 ## Gate status
 
+### Scratch synchronous state model (fixture version 2)
+
+A10 remains **UNVERIFIED**. A new disposable fixture feeds the real `auto_state` with
+callback-local heights through a scratch-only synchronous adapter, using `auto_sites`
+and `auto_bounds.new` with the actual Towns and Living Villages assets. This models
+delivery; it does not establish the ordering of a production adapter or exercise a guard.
+The fresh and inactive cases use separate sessions. An inactive session models old trigger
+terrain by deliberately not receiving the earlier generated events. Before the planner's
+first terrain request, it declines the overlapping site, then requests a fresh surface
+chunk within the site's actual activation rectangle. Events, site descriptors, geometry,
+and state are written through; the validator checks missing, stale, misordered and
+nonmatching events. An after-planner callback is useful evidence but does not satisfy
+the unobserved in-planner case. Inclusive boundary and one-node near-miss validation is
+covered by the fixture's Python and Lua tests; this is not an engine test of all map edges.
+The trigger surface-validity count spans the whole chunk, and an earlier chunk may have
+activated the site. The evidence establishes that the state was inspecting before planner
+entry, not that the trigger caused activation or had valid heights in the footprint.
+
+All runs used Luanti 5.17.0, VoxeLibre 0.92.3, Living Villages 668c5fc, v7,
+chunksize 5, four emerge threads, no connected player, and Towns base `cee83b8` plus
+this fixture. The copied source and exact fixture are retained in each scratch world.
+Parallel runs are scripted demand and not player-loading measurements. No probe errors
+occurred. The final validator was also rerun against each retained event stream.
+
+| Seed | Command (from repository root) | Scratch directory in `$TMPDIR` | Observation |
+| --- | --- | --- | --- |
+| 2014 | `python3 tools/auto_towns_probe/run.py --scenario villages --mg-name v7 --seed 2014 --duration 60 --port 39521 --model-a10` | `towns-auto-probe-8bu8bx2w` | One matching planner, entry 10448 ms, exit 30525 ms; declined at 10449 ms. Fresh callback at 31133 ms with 5961 valid heights, after planner; session remained declined, zero activations. Trace complete, gate inconclusive. |
+| 98765 | `python3 tools/auto_towns_probe/run.py --scenario villages --mg-name v7 --seed 98765 --duration 75 --port 39522 --model-a10` | `towns-auto-probe-j3n7ybng` | One matching planner, entry 10482 ms, exit 50540 ms; declined at 10482 ms. Fresh callback at 51345 ms with 6400 valid heights, after planner; session remained declined, zero activations. Trace complete, gate inconclusive. |
+| 7777 | `python3 tools/auto_towns_probe/run.py --scenario villages --mg-name v7 --seed 7777 --duration 60 --port 39523 --model-a10` | `towns-auto-probe-c1ml1hp_` | Zero opportunities and no planner; required trace missing, runner exits 1 and evidence is inconclusive. |
+
+The actual model geometry in these runs was maximum ±245, village reach 178 and
+activation rectangle ±423. The fresh session was already inspecting the matching site
+when the planner began in both complete traces, and the matching trigger's valid surface
+callback preceded planner entry. Both competing requests finished after planner exit;
+neither run reproduces a generated activation callback inside the planner call. An
+in-window event, the actual engine adapter and the eventual production guard still need
+validation; this fixture does not change the #400 gate or #404's assembled-pipeline checks.
+
 Not closed. The epic requires every correctness assumption to be PASS before this gate passes.
 A10 (activation-halo ordering) and A14 (player-visible loading) are still UNVERIFIED, so #392 stays
 open. A12 (containment) was tested with a write-capable scratch-world test and is **PASS (tested scope)**,
