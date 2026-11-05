@@ -453,5 +453,11 @@ else
 	eq(lenv.village_reach, 178, "measured village reach (LV 668c5fc)")
 	eq(lenv.max_rect.x2, 245, "measured max rect east edge (LV 668c5fc)")
 	eq(lenv.fit.fits, true, "measured 1,024 cell fit (LV 668c5fc)")
+	local production = dofile("src/auto_environment.lua")
+	local runtime = production({modpath = ".", catalog = catalog}, minetest,
+		{schematic_table = lv.assets.village}, {terrain = {volume = lv.volume.terrain, boundary_volume = lv.volume.boundary}})
+	eq(runtime.village_reach, lenv.village_reach, "production providers use real Living Villages reach")
+	eq(runtime.max_rect.x2, lenv.max_rect.x2, "production providers use shared town bounds")
+
 	minetest = saved_minetest
 end
