@@ -19,6 +19,13 @@ local function valid_volume(v)
 	return true
 end
 
+local function contains_box(outer, inner)
+	return type(outer) == "table" and type(outer.min) == "table" and type(outer.max) == "table"
+		and valid_volume({minp = outer.min, maxp = outer.max}) and valid_volume({minp = inner.min, maxp = inner.max})
+		and inner.min.x >= outer.min.x and inner.min.y >= outer.min.y and inner.min.z >= outer.min.z
+		and inner.max.x <= outer.max.x and inner.max.y <= outer.max.y and inner.max.z <= outer.max.z
+end
+
 function M.apply(out, env, opts)
 	opts = opts or {}
 	assert(type(out) == "table" and type(out.plots) == "table", "outskirts result is required")
@@ -33,13 +40,48 @@ function M.apply(out, env, opts)
 	end
 	local entries, plots, attempted, placement_attempted, skipped, warnings, boxes, terrain_results =
 		out.entries, {}, {}, {}, {}, {}, {}, {}
+	local omitted, approved_volumes = {}, {}
 	if type(entries) ~= "table" or type(opts.bounds) ~= "table"
 			or type(opts.structures) ~= "table" or #opts.structures ~= #out.plots then
 		return nil, "outskirts entries, urban bounds and composed structures are required",
 			"write_failed", {attempted = {}, placement_attempted = {}, boxes = {}}
 	end
 	local bounds = opts.bounds
+	if opts.automatic_context then
+		for i, plot in ipairs(out.plots) do
+			local st, entry = opts.structures[i], entries[plot.asset]
+			if not st or st.plot ~= plot.id or not entry then
+				return nil, "composed outskirts structures do not match plots", "write_failed",
+					{attempted = {}, placement_attempted = {}, boxes = {}}
+			end
+			local plan, schematic, protected = terrain_adapter.mapping(plot, entry, bounds,
+				contract.CONSTANTS.PROTECT_MARGIN)
+			local protected_regions = {protected}
+			for _, feature in ipairs(opts.feature_footprints or {}) do
+				protected_regions[#protected_regions + 1] = {x0 = feature.x1, z0 = feature.z1,
+					x1 = feature.x2, z1 = feature.z2, margin = 0}
+			end
+			local ok, volume = pcall(terrain_adapter.volume, terrain, plan, schematic,
+				{protected = protected_regions})
+			if not ok or not valid_volume(volume) then
+				omitted[i] = true
+				skipped[#skipped + 1] = {plot = plot.id, code = "unbounded_volume",
+					reason = "plot terrain volume unavailable: " .. tostring(ok and "invalid volume" or volume)}
+			else
+				local declared = {min = volume.minp, max = volume.maxp}
+				if not contains_box(opts.automatic_context.write_bounds, declared)
+					or not contains_box(opts.automatic_context.read_bounds, declared)
+					or not contains_box(opts.automatic_context.write_bounds, box(st))
+					or not contains_box(opts.automatic_context.read_bounds, box(st)) then
+					omitted[i] = true
+					skipped[#skipped + 1] = {plot = plot.id, code = "automatic_envelope",
+						reason = "plot terrain volume exceeds the approved automatic-town envelope"}
+				else approved_volumes[i] = volume end
+			end
+		end
+	end
 	for i, plot in ipairs(out.plots) do
+	if not omitted[i] then
 		local st = opts.structures[i]
 		if not st or st.plot ~= plot.id then
 			return nil, "composed outskirts structures do not match plots", "write_failed",
@@ -55,8 +97,10 @@ function M.apply(out, env, opts)
 			protected_regions[#protected_regions + 1] = {x0 = feature.x1, z0 = feature.z1,
 				x1 = feature.x2, z1 = feature.z2, margin = 0}
 		end
-		local volume_ok, volume = pcall(terrain_adapter.volume, terrain, plan, schematic,
-			{protected = protected_regions})
+		local volume_ok, volume
+		if opts.automatic_context then volume_ok, volume = true, approved_volumes[i]
+		else volume_ok, volume = pcall(terrain_adapter.volume, terrain, plan, schematic,
+			{protected = protected_regions}) end
 		local attempted_box = volume_ok and valid_volume(volume)
 			and {min = volume.minp, max = volume.maxp} or box(st)
 		attempted[#attempted + 1] = attempted_box -- known even if terraform throws
@@ -89,6 +133,7 @@ function M.apply(out, env, opts)
 				plots[#plots + 1] = {plot = plot, structure = st, entry = entry, stats = stats}
 			end
 		end
+	end
 	end
 	local placed, doors = {}, {}
 	local setup_report

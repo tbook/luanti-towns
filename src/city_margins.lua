@@ -120,6 +120,10 @@ return function(terrain)
 		if not ok then skip("boundary volume failed: " .. tostring(box)); return end
 		local bounds = volume_bounds(box)
 		if not bounds then skip(reason or "boundary volume was invalid or unavailable"); return end
+		if type(env.authorize_write) == "function" then
+			local authorized, why = env.authorize_write({min = bounds.minp, max = bounds.maxp})
+			if not authorized then skip(why or "boundary volume exceeds the approved write envelope"); return end
+		end
 
 		if type(env.emerge) ~= "function" or type(env.after) ~= "function" then
 			skip("emerge environment is unavailable")

@@ -16,6 +16,9 @@ local eq, factory = ...
 				if behavior and behavior.after_throw then error("timer boom") end
 			end,
 		}
+		if behavior and behavior.deny_volume then
+			env.authorize_write = function() return false, "outside approved envelope" end
+		end
 		local api = terrain or {
 			boundary_structure_protection = 1,
 			boundary_volume = function(rects, ground, options)
@@ -81,6 +84,10 @@ local eq, factory = ...
 	check_skipped({emerge_throw = true}, "emerge exception")
 	check_skipped({emerge_late = true, after_throw = true}, "timer exception")
 	check_skipped({bad_volume = true}, "malformed volume")
+	local denied, _, _, denied_summary = fixture(nil, {deny_volume = true})
+	eq(denied_summary().status, "skipped", "unapproved margins are skipped")
+	eq(denied.emerge, 0, "unapproved margins do not load terrain")
+	eq(denied.smooth, 0, "unapproved margins do not write terrain")
 
 	local malformed_inputs = {
 		{value = nil, label = "nil result"},

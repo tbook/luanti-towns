@@ -132,10 +132,70 @@ local function blocker_text(b)
 	return " blocker=unknown node=" .. tostring(b.node or "unknown")
 end
 
-local function build_urban(result)
+local function integer(n)
+	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge and n == math.floor(n)
+end
+
+local function valid_box(box)
+	return type(box) == "table" and type(box.min) == "table" and type(box.max) == "table"
+		and integer(box.min.x) and integer(box.min.y) and integer(box.min.z)
+		and integer(box.max.x) and integer(box.max.y) and integer(box.max.z)
+		and box.min.x <= box.max.x and box.min.y <= box.max.y and box.min.z <= box.max.z
+end
+
+local function contains_box(outer, inner)
+	return valid_box(outer) and valid_box(inner)
+		and inner.min.x >= outer.min.x and inner.min.y >= outer.min.y and inner.min.z >= outer.min.z
+		and inner.max.x <= outer.max.x and inner.max.y <= outer.max.y and inner.max.z <= outer.max.z
+end
+
+local function automatic_env(base, automatic_context)
+	if not automatic_context then return base end
+	local env = {}
+	for k, v in pairs(base) do env[k] = v end
+	env.emerge = function(minp, maxp, done)
+		local box = {min = minp, max = maxp}
+		if not contains_box(automatic_context.read_bounds, box) then
+			return done(false)
+		end
+		local settled = false
+		local function finish(ok)
+			if settled then return end
+			settled = true
+			local called, err = pcall(done, ok == true)
+			if not called and automatic_context.log then
+				pcall(automatic_context.log, "error", "automatic stage callback failed: " .. tostring(err))
+			end
+		end
+		local ok, err = pcall(automatic_context.ensure_loaded, minp, maxp, finish)
+		if not ok then
+			if automatic_context.log then pcall(automatic_context.log, "error", "approved town load failed: " .. tostring(err)) end
+			return finish(false)
+		end
+	end
+	return env
+end
+
+local function automatic_context_ok(context)
+	return context == nil or (type(context) == "table" and valid_box(context.read_bounds)
+		and valid_box(context.write_bounds) and type(context.ensure_loaded) == "function"
+		and type(context.before_write) == "function")
+end
+
+local function build_urban(result, automatic_context, done)
 	local walls = towns.medieval_walls
+	if automatic_context then result.automatic_wall_omission = nil end
 	if walls and result.plan.town_type == "medieval" then
 		result.wall = walls.plan(result.plan, result.force_walls)
+		if result.wall and automatic_context then
+			local b = walls.bounds(result.wall, result.ground_y)
+			if not contains_box(automatic_context.read_bounds, b)
+					or not contains_box(automatic_context.write_bounds, b) then
+				core.log("warning", "towns: walls omitted: declared volume exceeds the approved automatic-town envelope")
+				result.automatic_wall_omission = "declared volume exceeds the approved automatic-town envelope"
+				result.wall = nil
+			end
+		end
 		if result.wall then
 			local wall_bounds = walls.bounds(result.wall, result.ground_y)
 			if wall_bounds then
@@ -191,12 +251,40 @@ local function build_urban(result)
 	if not pre then
 		return nil, msg, "inspection_failed", {reason = reason}
 	end
+	if automatic_context then
+		if not contains_box(automatic_context.write_bounds, pre.volume) then
+			return nil, "Urban build volume exceeds the approved automatic-town write envelope.",
+				"inspection_failed", {reason = "automatic_envelope"}
+		end
+		local read_box = bounds_union({pre.volume, towns.builder.read_bounds(result)})
+		if not contains_box(automatic_context.read_bounds, read_box) then
+			return nil, "Urban inspection exceeds the approved automatic-town read envelope.",
+				"inspection_failed", {reason = "automatic_envelope"}
+		end
+		pre.automatic_read_bounds = read_box
+	end
 	if result.wall and towns.medieval_wall_features then
 		local features = towns.medieval_wall_features
 		local valid_entries = valid_wall_entries()
   local candidates = features.candidates(result.wall, result.ground_y, valid_entries, walls,
    function(candidate) core.log("warning", "towns: " .. candidate.asset
 		.. " omitted: missing adjoining wall columns") end)
+		if automatic_context then
+			local bounded = {}
+			for _, feature in ipairs(candidates) do
+				local boxes = {{min = {x = feature.min.x,
+					y = feature.min.y - features.FOUNDATION_DEPTH, z = feature.min.z}, max = feature.max},
+					walls.feature_clearance_bounds(feature, result.ground_y)}
+				if feature.outside_approach then
+					boxes[#boxes + 1] = walls.approach_bounds(feature.outside_approach, result.ground_y)
+				end
+				local box = bounds_union(boxes)
+				if contains_box(automatic_context.read_bounds, box)
+						and contains_box(automatic_context.write_bounds, box) then bounded[#bounded + 1] = feature
+				else core.log("warning", "towns: " .. feature.asset .. " omitted: automatic-town envelope") end
+			end
+			candidates = bounded
+		end
 		local rejected
 		result.wall_features, result.wall_feature_footprints, rejected = features.select(candidates,
 			pre.structures, result.plan.streets, function(pos) return core.is_protected(pos, "") end)
@@ -221,31 +309,94 @@ local function build_urban(result)
 		node_setup = towns.node_setup,
 		globals = {itemframes = rawget(_G, "mcl_itemframes"), chests = rawget(_G, "mcl_chests")},
 	})
-	local summary, bmsg, bcode, extra = towns.builder.build_town(
-		result, {entries = towns.catalog.entries}, env)
-	if not summary then
-		if bcode == "write_failed" then
-			extra = extra or {}
-			extra.urban_bounds = extra.bounds or result.write_bounds or result.build_bounds
-			extra.bounds = extra.bounds or extra.urban_bounds
-			extra.terrain_attempts, extra.placement_attempts = {}, {}
+	if automatic_context then
+		local get_node, open_region = env.get_node, env.open_region
+		env.get_node = function(x, y, z)
+			local p = {x = x, y = y, z = z}
+			if not contains_box(automatic_context.read_bounds, {min = p, max = p}) then return "ignore" end
+			return get_node(x, y, z)
 		end
-		return nil, bmsg, bcode, extra
+		if open_region then env.open_region = function(minp, maxp)
+			if not contains_box(automatic_context.read_bounds, {min = minp, max = maxp}) then
+				return nil, "region exceeds approved automatic-town read envelope"
+			end
+			return open_region(minp, maxp)
+		end end
 	end
-	return {summary = summary, message = bmsg, terrain = terrain, env = env,
-		preflight_env = env_preflight}
+	local write_started = false
+	local function write_urban()
+		local summary, bmsg, bcode, extra = towns.builder.build_town(
+			result, {entries = towns.catalog.entries, before_write = automatic_context and function()
+				local ok, why = automatic_context.before_write()
+				if ok then write_started = true end
+				return ok, why
+			end}, env)
+		if not summary then
+			if bcode == "write_failed" then
+				extra = extra or {}
+				extra.urban_bounds = extra.bounds or result.write_bounds or result.build_bounds
+				extra.bounds = extra.bounds or extra.urban_bounds
+				extra.terrain_attempts, extra.placement_attempts = {}, {}
+			end
+			if done then done(nil, bmsg, bcode, extra) end
+			return nil, bmsg, bcode, extra
+		end
+		local built = {summary = summary, message = bmsg, terrain = terrain, env = env,
+			preflight_env = env_preflight}
+		if done then done(built) end
+		return built
+	end
+	if not automatic_context then return write_urban() end
+	local settled = false
+	local function after_load(ok)
+		if settled then return end
+		settled = true
+		if ok ~= true then
+			if done then done(nil, "Approved urban build volume could not be loaded.", "emerge_failed") end
+			return
+		end
+		local called, err = pcall(write_urban)
+		if not called and done then
+			done(nil, "Urban build callback failed: " .. tostring(err), write_started and "write_failed" or "inspection_failed",
+				write_started and {bounds = pre.volume, urban_bounds = pre.volume, reason = "urban_callback"} or nil)
+		end
+	end
+	local box = pre.automatic_read_bounds
+	local ok, err = pcall(automatic_context.ensure_loaded, box.min, box.max, after_load)
+	if not ok then after_load(false) end
+	if not settled then
+		local timer_ok = pcall(core.after, 30, function() after_load(false) end)
+		if not timer_ok then after_load(false) end
+	end
+	return nil, nil, nil, nil
 end
 
-local function build(result, done)
+local function build(result, done, automatic_context)
 	local completed = false
 	local function finish(summary, message, code, extra)
 		if completed then return end
 		completed = true
 		done(summary, message, code, extra)
 	end
-	local built, message, code, extra = build_urban(result)
+	if not automatic_context_ok(automatic_context) then
+		return finish(nil, "Invalid automatic town build context.", "invalid_automatic_context")
+	end
+	local function continue_build(built, message, code, extra)
+	if completed then return end
 	if not built then finish(nil, message, code, extra); return end
 	local summary, terrain, env = built.summary, built.terrain, built.env
+	if automatic_context and result.automatic_wall_omission then
+		warning(summary, "walls omitted: " .. result.automatic_wall_omission)
+		summary.wall = {skipped = true, reason = result.automatic_wall_omission}
+	end
+	if automatic_context then
+		local urban_box = summary.write_bounds or summary.town.bounds
+		if not contains_box(automatic_context.write_bounds, urban_box) then
+			finish(nil, "Urban builder exceeded the approved automatic-town write envelope.", "write_failed",
+				{reason = "automatic_envelope", urban_bounds = urban_box, bounds = urban_box})
+			return
+		end
+	end
 	local margin_api
 	local margin_ok, margin_err = pcall(function()
 		margin_api = towns.city_margins and towns.city_margins(terrain)
@@ -268,6 +419,9 @@ local function build(result, done)
 			for _, b in ipairs(rural.boxes or {}) do boxes[#boxes + 1] = b end
 		end
 		summary.write_bounds = bounds_union(boxes) or urban_bounds
+		if automatic_context and not contains_box(automatic_context.write_bounds, summary.write_bounds) then
+			summary.automatic_envelope_excess = summary.write_bounds
+		end
 	end
 	local rural_called = false
 	local writer_started = false
@@ -298,6 +452,7 @@ local function build(result, done)
 		extra.terrain_attempts = extra.attempted or {}
 		extra.placement_attempts = extra.placement_attempted or {}
 		local combined = {}
+		if extra.bounds then combined[#combined + 1] = extra.bounds end
 		if urban_bounds then combined[#combined + 1] = urban_bounds end
 		if extra.margin_bounds then combined[#combined + 1] = extra.margin_bounds end
 		if rural_bounds then combined[#combined + 1] = rural_bounds end
@@ -312,6 +467,13 @@ local function build(result, done)
 		extra.bounds = bounds_union(combined) or urban_bounds
 		finish(nil, reason, "write_failed", extra)
 	end
+	local function finish_build(message)
+		if summary.automatic_envelope_excess then
+			return fail_writer("Automatic town build exceeded its approved write envelope.", nil,
+				{reason = "automatic_envelope", bounds = summary.automatic_envelope_excess})
+		end
+		return finish(finalize(summary, result), message or "", nil)
+	end
 	local function searched(out, search_message)
 		if rural_called or completed then return end
 		rural_called = true
@@ -319,7 +481,7 @@ local function build(result, done)
 		if not out then
 			warning(summary, "outskirts search failed after urban build: " .. tostring(search_message))
 			update_write_bounds()
-			return finish(finalize(summary, result), "", nil)
+			return finish_build("")
 		end
 		result.outskirts = out
 		local ok, outskirts_pre, outskirts_msg = pcall(
@@ -331,7 +493,7 @@ local function build(result, done)
 			warning(summary, "outskirts preflight failed after urban build: "
 				.. tostring(ok and outskirts_msg or outskirts_pre))
 			update_write_bounds()
-			return finish(finalize(summary, result), "", nil)
+			return finish_build("")
 		end
 		rural_structures = outskirts_pre.structures
 		local apply_ok, outskirts_summary, outskirts_error, _, outskirts_extra = pcall(
@@ -342,7 +504,8 @@ local function build(result, done)
 					node_info = env.node_info, check_door = towns.builder.check_door,
 					setup_nodes = env.setup_nodes,
 				}, {bounds = result.plan.bounds, structures = outskirts_pre.structures,
-					feature_footprints = result.wall_feature_footprints})
+					feature_footprints = result.wall_feature_footprints,
+					automatic_context = automatic_context})
 			end)
 		if not apply_ok or not outskirts_summary then
 			return fail_writer(apply_ok and outskirts_error or outskirts_summary,
@@ -358,16 +521,18 @@ local function build(result, done)
 		summary.town.urban_placed = summary.town.placed
 		summary.town.placed = summary.town.placed + outskirts_summary.placed
 		update_write_bounds(outskirts_summary)
-		finish(finalize(summary, result), built.message, nil)
+		finish_build(built.message)
 		end)
 		if not ok and not completed then
 			if writer_started then
 				fail_writer("outskirts callback failed after writes began: " .. tostring(err),
 					rural_structures, rural_write_summary)
+			elseif automatic_context then
+				fail_writer("outskirts callback failed after urban build: " .. tostring(err), nil)
 			else
 				warning(summary, "outskirts callback failed after urban build: " .. tostring(err))
 				update_write_bounds()
-				finish(finalize(summary, result), "", nil)
+				finish_build("")
 			end
 		end
 	end
@@ -385,7 +550,8 @@ local function build(result, done)
 			local search_ok, search_err = pcall(towns.outskirts.search, result, {
 				assets = towns.catalog.entries, terrain = terrain, player_pos = result.player_pos,
 				feature_footprints = result.wall_feature_footprints,
-			}, searched, towns.site_search.core_env(core))
+				automatic_context = automatic_context,
+			}, searched, automatic_env(towns.site_search.core_env(core), automatic_context))
 			if not search_ok then searched(nil, "outskirts search failed: " .. tostring(search_err)) end
 		end
 		local walls = towns.medieval_walls
@@ -400,6 +566,12 @@ local function build(result, done)
 				boxes[#boxes + 1] = roads.approach_bounds(columns, result.ground_y)
 			end
 			local bounds = bounds_union(boxes)
+			if automatic_context and not contains_box(automatic_context.write_bounds, bounds) then
+				local reason = "declared volume exceeds the approved automatic-town envelope"
+				summary.roads = {skipped = true, reason = reason}
+				warning(summary, "outside roads omitted: " .. reason)
+				start_outskirts(); return
+			end
 			local settled = false
 			local function graded_inner(success)
 				if settled or completed then return end
@@ -449,7 +621,7 @@ local function build(result, done)
 						{bounds = bounds, reason = "road_callback"})
 				end
 			end
-			local road_env = towns.site_search.core_env(core)
+			local road_env = automatic_env(towns.site_search.core_env(core), automatic_context)
 			local started, emerge_err = pcall(road_env.emerge, bounds.min, bounds.max, graded)
 			if not started then warning(summary, "road exit emerge failed: " .. tostring(emerge_err)); graded(false)
 			elseif not settled then
@@ -477,6 +649,13 @@ local function build(result, done)
 		end
 		local bounds = bounds_union(boxes)
 		if not bounds then start_outskirts(); return end
+		if automatic_context and not contains_box(automatic_context.write_bounds, bounds) then
+			local reason = "declared volume exceeds the approved automatic-town envelope"
+			summary.wall = {skipped = true, reason = reason}
+			warning(summary, "walls and wall features omitted: " .. reason)
+			result.wall, result.wall_features, result.wall_feature_footprints = nil, nil, nil
+			start_outskirts(); return
+		end
 		local settled = false
 		local function after_emerge_inner(success)
 			if settled or completed then return end
@@ -733,7 +912,7 @@ local function build(result, done)
 					{bounds = bounds, reason = "wall_callback"})
 			end
 		end
-		local wall_env = towns.site_search.core_env(core)
+		local wall_env = automatic_env(towns.site_search.core_env(core), automatic_context)
 		local started, emerge_err = pcall(wall_env.emerge, bounds.min, bounds.max, after_emerge)
 		if not started then warning(summary, "wall emerge failed: " .. tostring(emerge_err)); after_emerge(false)
 		elseif not settled then
@@ -744,10 +923,12 @@ local function build(result, done)
 		if not ok and not completed then
 			if writer_started then
 				fail_writer("city-margin callback failed after rural writes began: " .. tostring(err), nil)
+			elseif automatic_context then
+				fail_writer("city-margin callback failed after urban build: " .. tostring(err), nil)
 			else
 				warning(summary, "city-margin callback failed: " .. tostring(err))
 				update_write_bounds()
-				finish(finalize(summary, result), "", nil)
+				finish_build("")
 			end
 		end
 	end
@@ -759,13 +940,24 @@ local function build(result, done)
 		if not env_ok then
 			after_margin({status = "incomplete", reason = "city-margin environment failed: " .. tostring(api_env)})
 		else
+			api_env = automatic_env(api_env, automatic_context)
 			api_env.is_protected = type(core.is_protected) == "function" and function(pos)
 				return core.is_protected(pos, "")
 			end or nil
+			if automatic_context then
+				api_env.authorize_write = function(box)
+					return contains_box(automatic_context.write_bounds, box),
+						"boundary volume exceeds the approved automatic-town write envelope"
+				end
+			end
 			local ok, err = pcall(margin_api.attempt, result, after_margin, api_env, summary)
 			if not ok then after_margin({status = "incomplete", reason = "city-margin attempt failed: " .. tostring(err)}) end
 		end
 	end
+	end
+	local built, message, code, extra = build_urban(result, automatic_context,
+		automatic_context and continue_build or nil)
+	if not automatic_context or built or message then continue_build(built, message, code, extra) end
 end
 
 towns.populated = {search = search, build = build, store = store}

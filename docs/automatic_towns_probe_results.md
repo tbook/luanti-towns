@@ -651,3 +651,24 @@ The #391 README now states this (updated in this ticket).
 
 The epic and the #393-#405 blocker texts were not updated in this ticket. The senior developer should decide that
 update, now that the verdicts above are known.
+
+## #401 populated-builder context containment sample
+
+On 2026-11-05, the disposable containment runner exercised `towns.populated.build` with the #401
+automatic context for one Roman town (`mg_name=v7`, seed 1, center `(40,-88)`). The harness computed
+the approved read/write boxes from `auto_bounds.plan_envelope`, routed stage loads through its
+read-bounded `ensure_loaded` adapter, and accepted the single `before_write` call. The result was
+`contained`: 168 chunks, `reads_beyond_slack=false`, zero stage-overrun nodes, and zero interval-outside
+nodes. Scratch report: `/var/folders/nf/h9p5hfvs7jj6vs6q252mzhw00000gn/T/towns-containment-taucbqfo/containment-sample-1.json`.
+
+This checks the assembled Roman builder, margins, roads, and rural pipeline against the declared
+envelope. The harness adapter does not model the production freshness session, player-distance
+denial, or the medieval wall-feature context assembled inside `generate_command.lua`; the sample
+therefore supports stage containment only.
+
+After moving the write gate behind the urban inspection and bounding its read halo, two additional
+scratch-world runs used `--settle 1` and the automatic context. Roman seed 1 was contained with
+107,954 changed nodes and no outside or stage-overrun nodes. Medieval-walled seed 1 was contained
+with 117,086 changed nodes, no outside or stage-overrun nodes, and 25 selected wall features; its
+approved envelope included all prospective features before selection. Both invoked `before_write`
+once. These samples support containment, not the production freshness or player-distance checks.

@@ -10,6 +10,7 @@ local rural = assert(outskirts.assets(catalog.entries))
 local assets = dofile("schematics/outskirts/catalog.lua")
 
 local nodes, metadata, storage_values, constructed = {}, {}, {}, 0
+local terraform_calls = 0
 local cleared_metadata, stopped_timers = {}, {}
 local stage_order = {}
 local margin_mode = "success"
@@ -31,6 +32,7 @@ local defs = {
 }
 local core = {
 	registered_nodes = defs, EMERGE_CANCELLED = 1, EMERGE_ERRORED = 2,
+	after = function(_, fn) core_watchdog = fn end,
 	get_mod_storage = function()
 		return {get_string = function(_, k) return storage_values[k] or "" end,
 			set_string = function(_, k, v) storage_values[k] = v end}
@@ -96,7 +98,7 @@ _G.living_villages = {terrain = {volume = function(plan)
 		local p = plan[1].pos
 		return {minp = {x = p.x - 10, y = p.y - 10, z = p.z - 10},
 			maxp = {x = p.x + 20, y = p.y + 20, z = p.z + 20}}
-	end, terraform = function() return true, {unloaded_blocks = 0} end}}
+	end, terraform = function() terraform_calls = terraform_calls + 1; return true, {unloaded_blocks = 0} end}}
 
 local urban_bounds = {x1 = 0, z1 = 0, x2 = 20, z2 = 20}
 local plots = {
@@ -152,6 +154,7 @@ local towns = {
 	site_search = {WET_DEFAULTS = {}, core_env = function() return {} end},
 	generate = dofile("src/generate.lua")(dofile("src/planner.lua"), dofile("src/generation_lock.lua")),
 	builder = {
+		read_bounds = function() return {min = {x = -1, y = 0, z = -1}, max = {x = 21, y = 20, z = 21}} end,
 		check_door = function() return {approach = {x = 90, z = 40}, steps = 1} end,
 		core_env = function()
 			return {
@@ -177,7 +180,11 @@ local towns = {
 				end,
 			}
 		end,
-	build_town = function()
+	build_town = function(_, opts)
+			if opts.before_write then
+				local ok, why = opts.before_write()
+				if not ok then return nil, why, "before_write_denied" end
+			end
 		stage_order[#stage_order + 1] = "urban"
 			town_calls[#town_calls + 1] = "urban_build"
 			return {write_bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
@@ -187,7 +194,8 @@ local towns = {
 		end,
 	},
 }
-towns.preflight.check = function() return {} end
+towns.preflight.check = function() return {volume = {min = {x = 0, y = 0, z = 0},
+	max = {x = 20, y = 20, z = 20}}} end
 local function read_schematic(path)
 	if path:find("farm", 1, true) then
 		return {size = assets.farm.size, data = {{name = "mcl_composters:composter"}}}
@@ -238,6 +246,116 @@ eq(constructed, 1, "farm composter constructor runs")
 eq(summary.town.beds.count, 1, "real resident enumeration counts the hut bed and no farm bed")
 eq(summary.town.beds.by_structure[1].valid, 0, "farm has no resident bed")
 eq(summary.town.beds.by_structure[2].valid, 1, "hut contributes one resident bed")
+
+-- Automatic builder integration keeps the approved urban write gate between
+-- zero-write preflight and the first urban mutation.
+local auto_box = {min = {x = -500, y = -500, z = -500}, max = {x = 500, y = 500, z = 500}}
+local before_writes = #town_calls
+local before_calls, ensured = 0, {}
+local denied_code
+towns.populated.build(result, function(_, _, code) denied_code = code end, {
+	read_bounds = auto_box, write_bounds = auto_box,
+	ensure_loaded = function(minp, maxp, cb)
+		ensured[#ensured + 1] = {min = minp, max = maxp}; cb(true)
+	end,
+	before_write = function() before_calls = before_calls + 1; return false, "player entered" end,
+})
+eq(denied_code, "before_write_denied", "automatic urban write gate reports denial")
+eq(before_calls, 1, "automatic urban write gate is called once")
+eq(#town_calls, before_writes, "denied automatic build performs no urban write")
+eq(#ensured, 1, "automatic builder requests the approved urban volume once")
+
+before_calls, ensured = 0, {}
+local overflow_code
+towns.populated.build(result, function(_, _, code) overflow_code = code end, {
+	read_bounds = auto_box,
+	write_bounds = {min = {x = -10, y = -10, z = -10}, max = {x = 10, y = 10, z = 10}},
+	ensure_loaded = function(minp, maxp, cb) ensured[#ensured + 1] = true; cb(true) end,
+	before_write = function() before_calls = before_calls + 1; return true end,
+})
+eq(overflow_code, "inspection_failed", "urban overflow declines before construction")
+eq(before_calls, 0, "urban overflow does not call the write gate")
+eq(#ensured, 0, "urban overflow is rejected before requesting additional terrain")
+eq(#town_calls, before_writes, "urban overflow performs no urban write")
+
+local read_code
+towns.populated.build(result, function(_, _, c) read_code = c end, {
+	read_bounds = result.build_volume, write_bounds = auto_box,
+	ensure_loaded = function() error("out-of-envelope load") end,
+	before_write = function() error("unexpected write") end,
+})
+eq(read_code, "inspection_failed", "urban inspection halo must fit the approved read envelope")
+eq(#town_calls, before_writes, "read overflow performs no urban write")
+
+local late, timed_out, timeout_code
+towns.populated.build(result, function(_, _, c) timed_out = (timed_out or 0) + 1; timeout_code = c end, {
+	read_bounds = auto_box, write_bounds = auto_box,
+	ensure_loaded = function(_, _, cb) late = cb end,
+	before_write = function() error("timed-out load must not write") end,
+})
+core_watchdog()
+late(true)
+eq(timeout_code, "emerge_failed", "urban load watchdog reports failure")
+eq(timed_out, 1, "late urban load cannot resume a timed-out build")
+eq(#town_calls, before_writes, "timed-out urban load performs no writes")
+
+local pending_load, async_done = nil, 0
+towns.populated.build(result, function(s) async_done = async_done + 1; auto_summary = s end, {
+	read_bounds = auto_box, write_bounds = auto_box,
+	ensure_loaded = function(_, _, cb) pending_load = cb end,
+	before_write = function() before_calls = before_calls + 1; return true end,
+})
+eq(async_done, 0, "automatic build waits for bounded loading")
+pending_load(true)
+eq(auto_summary ~= nil, true, "automatic build resumes after bounded loading")
+eq(async_done, 1, "automatic async completion fires once")
+
+before_calls, ensured = 0, {}
+local auto_summary
+towns.populated.build(result, function(s) auto_summary = s end, {
+	read_bounds = auto_box, write_bounds = auto_box,
+	ensure_loaded = function(minp, maxp, cb)
+		ensured[#ensured + 1] = {min = minp, max = maxp}; cb(true)
+	end,
+	before_write = function() before_calls = before_calls + 1; return true end,
+})
+eq(auto_summary ~= nil, true, "automatic context reuses the populated builder")
+eq(before_calls, 1, "accepted automatic build enters the write gate once")
+eq(#ensured > 0, true, "automatic context routes declared loading through its adapter")
+
+local composition = assert(preflight.compose_outskirts(out, rural))
+local apply_env = towns.builder.core_env()
+apply_env.terrain = living_villages.terrain
+apply_env.check_door = towns.builder.check_door
+local before_terraform = terraform_calls
+local partial_outskirts = outskirts_build.apply(out, apply_env, {
+	bounds = urban_bounds, structures = composition.structures,
+	automatic_context = {read_bounds = auto_box, write_bounds = {min = {x = -100, y = -100, z = -100},
+		max = {x = 65, y = 100, z = 100}}},
+})
+eq(partial_outskirts ~= nil, true, "escaping automatic rural plot is omitted without failing the town")
+eq(terraform_calls - before_terraform, 1, "only the in-envelope rural plot is terraformed")
+eq(#partial_outskirts.skipped, 1, "omitted rural plot records its reason")
+eq(partial_outskirts.skipped[1].code, "automatic_envelope", "rural omission identifies envelope overflow")
+local real_volume = apply_env.terrain.volume
+for _, failure in ipairs({"invalid", "throw"}) do
+	apply_env.terrain.volume = function(plan, ...)
+		if plan[1].pos.x == plots[1].rect.x1 then
+			if failure == "throw" then error("volume unavailable") end
+			return nil
+		end
+		return real_volume(plan, ...)
+	end
+	local prior = terraform_calls
+	local mixed = outskirts_build.apply(out, apply_env, {bounds = urban_bounds,
+		structures = composition.structures, automatic_context = {read_bounds = auto_box, write_bounds = auto_box}})
+	eq(mixed ~= nil, true, failure .. " optional volume does not fail the town")
+	eq(mixed.skipped[1].code, "unbounded_volume", failure .. " volume records omission")
+	eq(mixed.skipped[1].plot, plots[1].id, failure .. " volume identifies the omitted plot")
+	eq(terraform_calls - prior, 1, failure .. " volume leaves the bounded plot eligible")
+	eq(mixed.structures[1].plot, plots[2].id, failure .. " volume places the bounded plot")
+end
+apply_env.terrain.volume = real_volume
 eq(summary.town.residents.spawned, 1, "unchanged resident initialization spawns for the hut bed")
 eq(summary.margins.status, "smoothed", "margin outcome is retained for reporting")
 local report = report_text(summary, towns.generate)
@@ -321,7 +439,11 @@ _G.living_villages = {terrain = {volume = function(plan)
 	return {minp = {x = p.x - 10, y = p.y - 10, z = p.z - 10},
 		maxp = {x = p.x + 20, y = p.y + 20, z = p.z + 20}}
 end, terraform = function() error("terraform runtime failure") end}}
-towns.builder.build_town = function()
+towns.builder.build_town = function(_, opts)
+	if opts.before_write then
+		local ok, why = opts.before_write()
+		if not ok then return nil, why, "before_write_denied" end
+	end
 	return {write_bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
 		town = {bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
 			structures = {}, placed = 0, doors = {}}}
@@ -524,9 +646,41 @@ do
 	eq(summary ~= nil, true, "inline tower path completes generation")
 	eq(placed, 1, "supported inline tower is placed")
 	eq(#summary.wall.features, 1, "placed inline tower is reported")
+	local bounded_summary, gated = nil, 0
+	local prior_placed = placed
+	towns.populated.build(test_result, function(s) bounded_summary = s end, {
+		read_bounds = auto_box, write_bounds = auto_box,
+		ensure_loaded = function(_, _, cb) cb(true) end,
+		before_write = function() gated = gated + 1; return true end,
+	})
+	eq(bounded_summary ~= nil, true, "bounded automatic wall and feature build succeeds")
+	eq(placed, prior_placed + 1, "bounded automatic build places the approved wall feature")
+	eq(gated, 1, "bounded wall build enters the urban write gate once")
 	eq(#test_result.wall_feature_footprints, 1, "placed inline tower stays reserved from outskirts")
 	eq(wall_count, ordinary_wall_count - masked_wall_count,
 		"successful inline tower removes only wall columns inside its footprint")
+	local original_max_y, original_log = candidate.max.y, core.log
+	local loads, logs, omitted_summary = {}, {}, nil
+	candidate.max.y = auto_box.max.y + 1
+	core.log = function(_, message) logs[#logs + 1] = message end
+	prior_placed = placed
+	towns.populated.build(test_result, function(s) omitted_summary = s end, {
+		read_bounds = auto_box, write_bounds = auto_box,
+		ensure_loaded = function(minp, maxp, cb) loads[#loads + 1] = {min = minp, max = maxp}; cb(true) end,
+		before_write = function() return true end,
+	})
+	candidate.max.y, core.log = original_max_y, original_log
+	eq(omitted_summary ~= nil and #omitted_summary.wall.features == 0, true,
+		"out-of-envelope wall feature is omitted while ordinary walls build")
+	eq(placed, prior_placed, "out-of-envelope wall feature is never placed")
+	local feature_load = false
+	for _, load in ipairs(loads) do if load.max.y > auto_box.max.y then feature_load = true end end
+	eq(feature_load, false, "out-of-envelope feature requests no expanded load")
+	local omission_logged = false
+	for _, message in ipairs(logs) do
+		if message:find("wall_tower_inline omitted: automatic%-town envelope") then omission_logged = true end
+	end
+	eq(omission_logged, true, "out-of-envelope feature records its omission reason")
 	protected, blocked, placed = true, false, 0
 	wall_count = nil
 	towns.populated.build(test_result, function(s) summary = s end)
@@ -926,6 +1080,25 @@ do
 	eq(#medieval.exits, 20, "exits are recorded on the result")
 	eq(s.roads.graded, 4, "the four exit crossings are graded")
 	eq(s.roads.failed, 0, "no exit fails on flat ground")
+	local saved_margins, saved_footprints = towns.city_margins, search_footprints
+	towns.city_margins = function() return {attempt = function(_, cb) cb({status = "skipped", reason = "fixture"}) end} end
+	for _, kind in ipairs({"medieval", "roman"}) do
+		local bounded = fixture(kind, {{id = 1, kind = "principal",
+			rect = {x1 = 0, z1 = 7, x2 = 19, z2 = 12}}})
+		local completed, loads, bounded_sets = nil, {}, #sets
+		towns.populated.build(bounded, function(value) completed = value end, {
+			read_bounds = auto_box,
+			write_bounds = {min = {x = -1, y = -500, z = -1}, max = {x = 21, y = 500, z = 21}},
+			ensure_loaded = function(a, b, cb) loads[#loads + 1] = {a, b}; cb(true) end,
+			before_write = function() return true end,
+		})
+		eq(completed ~= nil and completed.roads and completed.roads.skipped, true,
+			kind .. " road outside the approved envelope is omitted")
+		eq(#sets, bounded_sets, kind .. " omitted roads perform no writes")
+		eq(#loads, 1, kind .. " omitted roads request no additional load")
+	end
+	towns.city_margins = saved_margins
+	search_footprints = saved_footprints
 	local zs, xs = {}, {}
 	for _, c in ipairs(sets) do
 		if c.x >= 20 then zs[c.z] = true end

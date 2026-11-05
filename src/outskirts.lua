@@ -264,6 +264,12 @@ local function volume_box(volume)
 	return volume.minp, volume.maxp
 end
 
+local function contains_box(outer, minp, maxp)
+	return type(outer) == "table" and type(outer.min) == "table" and type(outer.max) == "table"
+		and minp.x >= outer.min.x and minp.y >= outer.min.y and minp.z >= outer.min.z
+		and maxp.x <= outer.max.x and maxp.y <= outer.max.y and maxp.z <= outer.max.z
+end
+
 -- M.search(urban_result, opts, done, env)
 --
 -- Read-only async outskirts search after site_search has accepted an urban
@@ -425,6 +431,10 @@ function M.search(result, opts, done, env)
 	local function process(candidate)
 		local minp, maxp = terrain_volume(candidate)
 		if finished then return end
+		if opts.automatic_context and not contains_box(opts.automatic_context.write_bounds, minp, maxp) then
+			reject(candidate, "automatic_envelope", "plot terrain volume exceeds the approved automatic-town write envelope")
+			return
+		end
 		emerge(minp, maxp, function(status)
 			if emerge_failure(status, candidate) then return end
 			local heights, ground_or_code, detail = inspect(candidate)
