@@ -9,7 +9,7 @@ local b = {id = "B", center = {x = 80, z = 0}, cell = {x = 1, z = 0}, seed = 10,
 	activation_rect = {x1 = 48, z1 = -32, x2 = 127, z2 = 47}}
 local box = {min = {x = 48, y = 48, z = -32}, max = {x = 127, y = 127, z = 47}}
 
-local function fixture()
+local function fixture(mode)
 	local f = {timers = {}, requests = {}, reports = {}, reads = 0, writes = 0, begins = 0}
 	local current, height, locked
 	local core = {settings = {get = function() return "survey" end},
@@ -18,7 +18,10 @@ local function fixture()
 		log = function() end, write_json = function(t) f.reports[#f.reports + 1] = t; return "result" end,
 		register_on_generated = function(fn) f.generated = fn end,
 		get_mapgen_object = function() f.reads = f.reads + 1; return height end,
-		after = function(delay, fn) f.timers[#f.timers + 1] = {delay = delay, fn = fn} end,
+		after = function(delay, fn)
+			if mode == "scheduling" and delay == 0 then error("schedule failed") end
+			f.timers[#f.timers + 1] = {delay = delay, fn = fn}
+		end,
 		set_node = function() f.writes = f.writes + 1 end}
 	local function emit(minp, maxp, h)
 		height = {}; for i = 1, 6400 do height[i] = h end
@@ -29,14 +32,19 @@ local function fixture()
 	local lock = {acquire = function() if locked then return nil end; locked = {}; return locked end,
 		release = function(t) if t == locked then locked = nil end end}
 	f.locked = function() return locked ~= nil end
-	local env = {plan_envelope = function() return {read = box, write = box, chunks = 1,
+	local env = {plan_envelope = function()
+		if mode == "envelope" then return nil, "bad envelope", "envelope_failed" end
+		return {read = box, write = box, chunks = mode == "cap" and 257 or 1,
 		snapshot_voxels = 512000, stages = {urban = {kind = "write", box = box}}} end}
-	local search = {WET_DEFAULTS = {}, core_env = function() return {
+	local search = {WET_DEFAULTS = {}, core_env = function()
+		if mode == "initialization" then error("environment failed") end
+		return {
 		after = core.after, emerge = function(minp, maxp, cb)
 			f.requests[#f.requests + 1] = {minp = minp, maxp = maxp, cb = cb}
 		end} end,
 		inspect_site = function(center, ref, seed, opts, done, io)
 			f.reference = ref
+			if mode == "inspection" then return done(nil, "inspection failed", {reason = "inspection_failed"}) end
 			io.emerge(box.min, box.max, function(ok)
 				if not ok then return done(nil, "failed") end
 				done({plan = {}, ground_y = 64, build_bounds = box})
@@ -57,9 +65,10 @@ local function fixture()
 	chunk()(towns, core, {mg_overworld_min = 0, mg_overworld_max = 1000, mg_end_max = -2000})
 	f.session = towns.auto_session
 	f.start = function() local timer = table.remove(f.timers, 1); assert(timer.delay == 0); timer.fn() end
-	f.complete = function(ok)
+	f.complete = function(ok, record)
 		local req = table.remove(f.requests, 1)
-		if ok then emit(req.minp, req.maxp, 64) end
+		if ok and record ~= false then emit(req.minp, req.maxp, 64) end
+		f.last_complete = req.cb
 		req.cb(ok)
 	end
 	f.timeout = function() for _, timer in ipairs(f.timers) do if timer.delay == 30 then timer.fn(); return end end end
@@ -68,6 +77,39 @@ end
 
 local min = {x = -32, y = 48, z = -32}
 local max = {x = 47, y = 127, z = 47}
+-- Exercise the coordinator around real loader failures, checking site A.
+for _, mode in ipairs({"missing_center", "inspection", "envelope", "cap", "freshness", "scheduling", "initialization"}) do
+	local f = fixture(mode)
+	if mode == "missing_center" then
+		-- Activate A from its outer chunk, leaving its centre unavailable.
+		f.emit({x = 48, y = 48, z = -32}, {x = 127, y = 127, z = 47}, 64)
+	else
+		f.emit(min, max, 64)
+	end
+	if mode ~= "scheduling" then f.start() end
+	if mode == "missing_center" or mode == "freshness" then
+		f.complete(true, false)
+	elseif mode == "envelope" or mode == "cap" then
+		f.complete(true)
+	end
+	local matching, report = 0
+	for _, r in ipairs(f.reports) do if r.id == "A" then matching = matching + 1; report = r end end
+	eq(matching, 1, mode .. " reports site exactly once")
+	eq(report and report.outcome, "declined", mode .. " reports decline")
+	local reasons = {missing_center = "center_ground_missing", inspection = "inspection_failed",
+		envelope = "envelope_failed", cap = "envelope_cap", freshness = "not_fresh",
+		scheduling = "schedule_failed", initialization = "initialization_failed"}
+	eq(report and report.reason, reasons[mode], mode .. " reports its actual failure")
+	eq(f.session:state("A"), "declined", mode .. " releases reservation")
+	eq(f.locked(), false, mode .. " releases lock")
+	eq(f.writes + f.begins, 0, mode .. " performs no town writes or record begin")
+	if f.last_complete then f.last_complete(true) end
+	for _, timer in ipairs(f.timers) do if timer.delay == 30 then timer.fn() end end
+	local after = 0
+	for _, r in ipairs(f.reports) do if r.id == "A" then after = after + 1 end end
+	eq(after, 1, mode .. " ignores late completions and watchdogs")
+end
+
 local function activated(f)
 	f.emit({x = -32, y = 128, z = -32}, {x = 47, y = 207, z = 47}, 31000)
 	eq(f.session:state("A"), "contacted", "sky first contacts real state")
