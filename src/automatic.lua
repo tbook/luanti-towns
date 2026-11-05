@@ -180,7 +180,7 @@ return function(towns, core, vars)
 				if job.done then return end
 				local town = summary and summary.town
 				local residents = town and town.residents
-				local population_ok = town and not town.beds_error and not town.residents_error and residents
+				local population_ok = town and town.complete == true and not town.beds_error and not town.residents_error and residents
 					and #(residents.failures or {}) == 0 and #(residents.interrupted_beds or {}) == 0
 				if not job.accepted or not towns.generation_lock.owns(job.token) or not summary or not population_ok then
 					return settle(nil, message, build_code or (summary and "population_failed" or "build_failed"), summary, extra)

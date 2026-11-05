@@ -188,7 +188,7 @@ local towns = {
 		stage_order[#stage_order + 1] = "urban"
 			town_calls[#town_calls + 1] = "urban_build"
 			return {write_bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
-				town = {bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
+				town = {complete = true, bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
 					structures = {}, placed = 0, doors = {}, setup = {initialized = 0, placements = 0, unhandled = {}}}},
 				"", nil
 		end,
@@ -1270,6 +1270,12 @@ end
 -- Its urban terrain writer is the recording fake used throughout this group.
 do
  local saved_search, saved_world = towns.outskirts.search, towns.site_search.core_env
+ local saved_builder = towns.builder.build_town
+ towns.builder.build_town = function(...)
+  local summary, message, code, extra = saved_builder(...)
+  if summary and summary.town then summary.town.complete = true end
+  return summary, message, code, extra
+ end
  local saved_add = core.add_entity
  local registry_module = dofile("src/auto_records.lua")
  local original_dofile = dofile
@@ -1342,6 +1348,7 @@ do
  run_controller(false, true)
  run_controller(false, false, true)
  towns.outskirts.search, towns.site_search.core_env = saved_search, saved_world
+ towns.builder.build_town = saved_builder
  core.add_entity = saved_add
 end
 

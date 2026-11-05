@@ -58,7 +58,7 @@ local function fixture(case, kind)
    f.begin_count = f.begin_count + 1; f.writes = f.writes + 1
    if case == "crash" then return end
    local failures = case == "population" and {{reason = "failure"}} or {}
-   done({town = {residents = {failures = failures, interrupted_beds = {}}}, write_bounds = box})
+   done({town = {complete = case ~= "incomplete", residents = {failures = failures, interrupted_beds = {}}}, write_bounds = box})
   end}}
  site.town_type = kind or "roman"
  local env = setmetatable({dofile = function(path) return mods[path:gsub("^%./", "")] or real_dofile(path) end}, {__index = _G})
@@ -86,6 +86,8 @@ end
 local f = fixture("population")
 eq(f.registry:lookup(site.cell).state, "interrupted", "population failure retains interrupted reservation")
 eq(f.lock.current(), nil, "population failure releases lock")
+local incomplete = fixture("incomplete")
+eq(incomplete.registry:lookup(site.cell).state, "interrupted", "incomplete urban construction retains interrupted reservation")
 local crash = fixture("crash")
 eq(crash.registry:lookup(site.cell).state, "building", "record persisted before first write")
 crash.pending(nil, "duplicate while building")
@@ -105,7 +107,7 @@ local actions = assert(resumed:on_generated({minp = {x = -32, y = -32, z = -32},
 	maxp = {x = 47, y = 47, z = 47}, heights = {[0] = {[0] = 5}}}))
 eq(#actions, 0, "reloaded interrupted reservation does not start a second build")
 eq(resumed:state(site.id), "accepted", "reloaded reservation remains protected")
-crash.callback({town = {residents = {failures = {}, interrupted_beds = {}}}, write_bounds = box})
+crash.callback({town = {complete = true, residents = {failures = {}, interrupted_beds = {}}}, write_bounds = box})
 eq(crash.registry:lookup(site.cell).state, "complete", "actual completion finishes the pending build")
 eq(crash.lock.current(), nil, "actual completion releases the lock")
 crash.pending(nil, "late")
