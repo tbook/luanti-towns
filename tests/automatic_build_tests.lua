@@ -4,6 +4,10 @@ local real_dofile = dofile
 local records = real_dofile("src/auto_records.lua")
 local lock_factory = real_dofile("src/generation_lock.lua")
 local box = {min = {x = -1, y = 0, z = -1}, max = {x = 1, y = 10, z = 1}}
+local function copy(value)
+ if type(value) ~= "table" then return value end
+ local out = {}; for k, v in pairs(value) do out[k] = copy(v) end; return out
+end
 local site = {id = "one", version = 1, seed = 10, town_type = "roman", cell = {x = 0, z = 0},
  center = {x = 0, z = 0}, max_rect = {x1 = -10, z1 = -10, x2 = 10, z2 = 10},
  activation_rect = {x1 = -10, z1 = -10, x2 = 10, z2 = 10}}
@@ -13,10 +17,10 @@ local function fixture(case, kind)
  local registry = records.new({store = {get = function() return f.saved end, set = function(_, v)
    if case == "storage" then return false end; f.saved = v end},
   serialize = function(v) serial = serial + 1; saved_objects[tostring(serial)] = v; return tostring(serial) end,
-  deserialize = function(v) return saved_objects[v] end})
+  deserialize = function(v) return copy(saved_objects[v]) end})
  f.reload = function() return records.new({store = {get = function() return f.saved end,
   set = function(_, v) f.saved = v end}, serialize = function(v) serial = serial + 1; saved_objects[tostring(serial)] = v; return tostring(serial) end,
-  deserialize = function(v) return saved_objects[v] end}) end
+  deserialize = function(v) return copy(saved_objects[v]) end}) end
  local state, covered = nil, true
  local session = {state = function() return state end, covers = function() return covered end,
   finish = function() state = "complete" end, decline = function() state = "declined" end,
@@ -59,7 +63,7 @@ local function fixture(case, kind)
  generated({x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0}); table.remove(f.timers, 1)()
  if case == "old" then covered = false end
  if case == "clearance" then player = true end
- pending(result); f.pending = pending; f.callback = function(...) if callback then callback(...) end end
+ pending(result); f.pending = pending; f.result = result; f.callback = function(...) if callback then callback(...) end end
  f.state = function() return state end; f.lock = towns.generation_lock; f.registry = registry
  return f
 end
@@ -80,6 +84,12 @@ eq(f.registry:lookup(site.cell).state, "interrupted", "population failure retain
 eq(f.lock.current(), nil, "population failure releases lock")
 local crash = fixture("crash")
 eq(crash.registry:lookup(site.cell).state, "building", "record persisted before first write")
+crash.pending(nil, "duplicate while building")
+crash.pending(crash.result)
+eq(crash.build_count, 1, "duplicate loader callback cannot start or settle a pending build")
+eq(crash.lock.current() ~= nil, true, "duplicate loader callback retains the build lock")
+eq(crash.registry:lookup(site.cell).state, "building", "duplicate callback keeps the building record")
+eq(#crash.reports, 0, "duplicate callback does not report an unfinished build")
 local reloaded = crash.reload()
 eq(reloaded:lookup(site.cell).state, "interrupted", "restart marks unfinished build interrupted")
 local state_mod = real_dofile("src/auto_state.lua")
@@ -91,3 +101,9 @@ local actions = assert(resumed:on_generated({minp = {x = -32, y = -32, z = -32},
 	maxp = {x = 47, y = 47, z = 47}, heights = {[0] = {[0] = 5}}}))
 eq(#actions, 0, "reloaded interrupted reservation does not start a second build")
 eq(resumed:state(site.id), "accepted", "reloaded reservation remains protected")
+crash.callback({town = {residents = {failures = {}, interrupted_beds = {}}}, write_bounds = box})
+eq(crash.registry:lookup(site.cell).state, "complete", "actual completion finishes the pending build")
+eq(crash.lock.current(), nil, "actual completion releases the lock")
+crash.pending(nil, "late")
+crash.callback(nil, "late")
+eq(#crash.reports, 1, "late callbacks cannot settle a completed build twice")

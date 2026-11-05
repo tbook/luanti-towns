@@ -179,6 +179,8 @@ return function(towns, core, vars)
 			if not built_ok then settle(nil, tostring(failure), "build_exception") end
 		end
 		local function handoff(...)
+			if job.handed_off or job.done then return end
+			job.handed_off = true
 			local ok, err = pcall(loaded, ...)
 			if not ok then settle(nil, tostring(err), "handoff_exception") end
 		end
