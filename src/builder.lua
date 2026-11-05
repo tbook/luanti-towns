@@ -88,6 +88,13 @@ local function load_sibling(name)
 end
 local TL = load_sibling("town_layout.lua")
 local preflight = load_sibling("preflight.lua")
+
+-- Region opened by the terrain inspection, including its liquid-neighbour halo.
+function M.read_bounds(result)
+	local bb, g = result.build_bounds, result.ground_y
+	return {min = {x = bb.min.x - 1, y = math.min(bb.min.y, g - TL.FILL_DIRT_DEPTH), z = bb.min.z - 1},
+		max = {x = bb.max.x + 1, y = bb.max.y, z = bb.max.z + 1}}
+end
 local plan_sites = load_sibling("plan_sites.lua")
 M.layout = TL
 M.preflight = preflight
@@ -363,8 +370,8 @@ local function build_impl(result, opts, env, st)
 	local function read_phase()
 		-- One node wider in X/Z so liquids just outside the town can be
 		-- seen (read only; nothing outside wbounds is ever written).
-		local rmin = {x = wbounds.min.x - 1, y = wbounds.min.y, z = wbounds.min.z - 1}
-		local rmax = {x = wbounds.max.x + 1, y = wbounds.max.y, z = wbounds.max.z + 1}
+		local read_bounds = M.read_bounds(result)
+		local rmin, rmax = read_bounds.min, read_bounds.max
 		local region, err = env.open_region(rmin, rmax)
 		if not region then
 			return fail("inspection_failed", "cannot read the build area: " .. tostring(err))
@@ -526,6 +533,11 @@ local function build_impl(result, opts, env, st)
 			by_kind.pave))
 
 	-- 7. Write (the only phase that changes the world).
+	if opts.before_write then
+		local called, allowed, reason = pcall(opts.before_write)
+		if not called then reason, allowed = allowed, false end
+		if not allowed then return nil, reason or "Construction denied before writing", "before_write_denied" end
+	end
 	log("action", ("towns builder: [5/6] writing %d nodes inside %s"):format(n_changed, fmt_bounds(wbounds)))
 	if n_changed > 0 then
 		st.writing, st.planned = true, n_changed

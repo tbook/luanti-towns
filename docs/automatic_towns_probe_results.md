@@ -665,3 +665,10 @@ This checks the assembled Roman builder, margins, roads, and rural pipeline agai
 envelope. The harness adapter does not model the production freshness session, player-distance
 denial, or the medieval wall-feature context assembled inside `generate_command.lua`; the sample
 therefore supports stage containment only.
+
+After moving the write gate behind the urban inspection and bounding its read halo, two additional
+scratch-world runs used `--settle 1` and the automatic context. Roman seed 1 was contained with
+107,954 changed nodes and no outside or stage-overrun nodes. Medieval-walled seed 1 was contained
+with 117,086 changed nodes, no outside or stage-overrun nodes, and 25 selected wall features; its
+approved envelope included all prospective features before selection. Both invoked `before_write`
+once. These samples support containment, not the production freshness or player-distance checks.

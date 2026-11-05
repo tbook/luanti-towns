@@ -14,11 +14,10 @@ never written: `run.py` copies `world.mt` / `map_meta.txt` of a source world (de
 1. `towns.populated.search` (production site search, forced walls on/off for the medieval families).
 2. Emerges a window (envelope plus the snapshot ring plus one more chunk), then waits `--settle`
    seconds (default 30) so deferred mapgen work (geodes, liquid queues) settles.
-3. Calls `towns.populated.build`. Roman samples pass the #401 automatic context with the exact
-   approved read/write boxes and a bounded `ensure_loaded` adapter; its `before_write` hook accepts
-   once. The adapter uses the engine's emerge callback and does not model the production freshness
-   session or player-distance denial. Medieval samples retain the legacy invocation because their
-   wall feature selection happens inside the build pipeline.
+3. Calls `towns.populated.build` with an automatic context and bounded `ensure_loaded` adapter;
+   its `before_write` hook accepts once. For walled samples the approved envelope includes all
+   prospective wall features, before the builder selects eligible ones. The adapter uses the
+   engine's emerge callback and does not model the production freshness session or player-distance denial.
    When `builder.build_town` is entered, nothing has been written
    yet; the harness computes `plan_envelope` from the same plan, wall, wall features and ground,
    and takes a VoxelManip snapshot (content id and param2 of every node, one fresh VoxelManip per

@@ -535,11 +535,18 @@ run_sample = function(index, done_sample, attempt)
 					return unpack(values)
 				end
 				local automatic_context
-				if family == "roman" then
-					-- Exercise the #401 optional context on the unwalled Roman pipeline. Its
-					-- exact envelope is available before build from the accepted plan.
+				do
+					-- Include every prospective feature in the approved envelope; the
+					-- production selection may omit overlapping or protected candidates.
 					local state = {plan = result.plan, center = result.center, ground_y = result.ground_y,
 						reference_y = result.ground_y, build_bounds = result.build_bounds}
+					if family ~= "roman" then
+						state.wall = towns.medieval_walls.plan(result.plan, result.force_walls)
+						if state.wall then
+							state.wall_features = towns.medieval_wall_features.candidates(state.wall, result.ground_y,
+								towns.catalog.entries, towns.medieval_walls)
+						end
+					end
 					local approved, why, code = as_towns(env_cache.plan_envelope, state)
 					if not approved then error("automatic context envelope failed: " .. tostring(code) .. ": " .. tostring(why)) end
 					sample.automatic_context = {read = approved.read, write = approved.write, before_write_calls = 0}

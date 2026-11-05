@@ -40,7 +40,7 @@ function M.apply(out, env, opts)
 	end
 	local entries, plots, attempted, placement_attempted, skipped, warnings, boxes, terrain_results =
 		out.entries, {}, {}, {}, {}, {}, {}, {}
-	local omitted = {}
+	local omitted, approved_volumes = {}, {}
 	if type(entries) ~= "table" or type(opts.bounds) ~= "table"
 			or type(opts.structures) ~= "table" or #opts.structures ~= #out.plots then
 		return nil, "outskirts entries, urban bounds and composed structures are required",
@@ -68,11 +68,14 @@ function M.apply(out, env, opts)
 					{attempted = {}, placement_attempted = {}, boxes = {}}
 			end
 			local declared = {min = volume.minp, max = volume.maxp}
-			if not contains_box(opts.automatic_context.write_bounds, declared) then
+			if not contains_box(opts.automatic_context.write_bounds, declared)
+					or not contains_box(opts.automatic_context.read_bounds, declared)
+					or not contains_box(opts.automatic_context.write_bounds, box(st))
+					or not contains_box(opts.automatic_context.read_bounds, box(st)) then
 				omitted[i] = true
 				skipped[#skipped + 1] = {plot = plot.id, code = "automatic_envelope",
 					reason = "plot terrain volume exceeds the approved automatic-town write envelope"}
-			end
+			else approved_volumes[i] = volume end
 		end
 	end
 	for i, plot in ipairs(out.plots) do
@@ -92,8 +95,10 @@ function M.apply(out, env, opts)
 			protected_regions[#protected_regions + 1] = {x0 = feature.x1, z0 = feature.z1,
 				x1 = feature.x2, z1 = feature.z2, margin = 0}
 		end
-		local volume_ok, volume = pcall(terrain_adapter.volume, terrain, plan, schematic,
-			{protected = protected_regions})
+		local volume_ok, volume
+		if opts.automatic_context then volume_ok, volume = true, approved_volumes[i]
+		else volume_ok, volume = pcall(terrain_adapter.volume, terrain, plan, schematic,
+			{protected = protected_regions}) end
 		local attempted_box = volume_ok and valid_volume(volume)
 			and {min = volume.minp, max = volume.maxp} or box(st)
 		attempted[#attempted + 1] = attempted_box -- known even if terraform throws

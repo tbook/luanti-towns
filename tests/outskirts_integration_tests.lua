@@ -32,6 +32,7 @@ local defs = {
 }
 local core = {
 	registered_nodes = defs, EMERGE_CANCELLED = 1, EMERGE_ERRORED = 2,
+	after = function(_, fn) core_watchdog = fn end,
 	get_mod_storage = function()
 		return {get_string = function(_, k) return storage_values[k] or "" end,
 			set_string = function(_, k, v) storage_values[k] = v end}
@@ -153,6 +154,7 @@ local towns = {
 	site_search = {WET_DEFAULTS = {}, core_env = function() return {} end},
 	generate = dofile("src/generate.lua")(dofile("src/planner.lua"), dofile("src/generation_lock.lua")),
 	builder = {
+		read_bounds = function() return {min = {x = -1, y = 0, z = -1}, max = {x = 21, y = 20, z = 21}} end,
 		check_door = function() return {approach = {x = 90, z = 40}, steps = 1} end,
 		core_env = function()
 			return {
@@ -178,7 +180,11 @@ local towns = {
 				end,
 			}
 		end,
-	build_town = function()
+	build_town = function(_, opts)
+			if opts.before_write then
+				local ok, why = opts.before_write()
+				if not ok then return nil, why, "before_write_denied" end
+			end
 		stage_order[#stage_order + 1] = "urban"
 			town_calls[#town_calls + 1] = "urban_build"
 			return {write_bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
@@ -272,6 +278,27 @@ eq(before_calls, 0, "urban overflow does not call the write gate")
 eq(#ensured, 0, "urban overflow is rejected before requesting additional terrain")
 eq(#town_calls, before_writes, "urban overflow performs no urban write")
 
+local read_code
+towns.populated.build(result, function(_, _, c) read_code = c end, {
+	read_bounds = result.build_volume, write_bounds = auto_box,
+	ensure_loaded = function() error("out-of-envelope load") end,
+	before_write = function() error("unexpected write") end,
+})
+eq(read_code, "inspection_failed", "urban inspection halo must fit the approved read envelope")
+eq(#town_calls, before_writes, "read overflow performs no urban write")
+
+local late, timed_out, timeout_code
+towns.populated.build(result, function(_, _, c) timed_out = (timed_out or 0) + 1; timeout_code = c end, {
+	read_bounds = auto_box, write_bounds = auto_box,
+	ensure_loaded = function(_, _, cb) late = cb end,
+	before_write = function() error("timed-out load must not write") end,
+})
+core_watchdog()
+late(true)
+eq(timeout_code, "emerge_failed", "urban load watchdog reports failure")
+eq(timed_out, 1, "late urban load cannot resume a timed-out build")
+eq(#town_calls, before_writes, "timed-out urban load performs no writes")
+
 local pending_load, async_done = nil, 0
 towns.populated.build(result, function(s) async_done = async_done + 1; auto_summary = s end, {
 	read_bounds = auto_box, write_bounds = auto_box,
@@ -303,7 +330,7 @@ apply_env.check_door = towns.builder.check_door
 local before_terraform = terraform_calls
 local partial_outskirts = outskirts_build.apply(out, apply_env, {
 	bounds = urban_bounds, structures = composition.structures,
-	automatic_context = {write_bounds = {min = {x = -100, y = -100, z = -100},
+	automatic_context = {read_bounds = auto_box, write_bounds = {min = {x = -100, y = -100, z = -100},
 		max = {x = 65, y = 100, z = 100}}},
 })
 eq(partial_outskirts ~= nil, true, "escaping automatic rural plot is omitted without failing the town")
@@ -393,7 +420,11 @@ _G.living_villages = {terrain = {volume = function(plan)
 	return {minp = {x = p.x - 10, y = p.y - 10, z = p.z - 10},
 		maxp = {x = p.x + 20, y = p.y + 20, z = p.z + 20}}
 end, terraform = function() error("terraform runtime failure") end}}
-towns.builder.build_town = function()
+towns.builder.build_town = function(_, opts)
+	if opts.before_write then
+		local ok, why = opts.before_write()
+		if not ok then return nil, why, "before_write_denied" end
+	end
 	return {write_bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
 		town = {bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
 			structures = {}, placed = 0, doors = {}}}
@@ -596,6 +627,16 @@ do
 	eq(summary ~= nil, true, "inline tower path completes generation")
 	eq(placed, 1, "supported inline tower is placed")
 	eq(#summary.wall.features, 1, "placed inline tower is reported")
+	local bounded_summary, gated = nil, 0
+	local prior_placed = placed
+	towns.populated.build(test_result, function(s) bounded_summary = s end, {
+		read_bounds = auto_box, write_bounds = auto_box,
+		ensure_loaded = function(_, _, cb) cb(true) end,
+		before_write = function() gated = gated + 1; return true end,
+	})
+	eq(bounded_summary ~= nil, true, "bounded automatic wall and feature build succeeds")
+	eq(placed, prior_placed + 1, "bounded automatic build places the approved wall feature")
+	eq(gated, 1, "bounded wall build enters the urban write gate once")
 	eq(#test_result.wall_feature_footprints, 1, "placed inline tower stays reserved from outskirts")
 	eq(wall_count, ordinary_wall_count - masked_wall_count,
 		"successful inline tower removes only wall columns inside its footprint")
@@ -998,6 +1039,25 @@ do
 	eq(#medieval.exits, 20, "exits are recorded on the result")
 	eq(s.roads.graded, 4, "the four exit crossings are graded")
 	eq(s.roads.failed, 0, "no exit fails on flat ground")
+	local saved_margins, saved_footprints = towns.city_margins, search_footprints
+	towns.city_margins = function() return {attempt = function(_, cb) cb({status = "skipped", reason = "fixture"}) end} end
+	for _, kind in ipairs({"medieval", "roman"}) do
+		local bounded = fixture(kind, {{id = 1, kind = "principal",
+			rect = {x1 = 0, z1 = 7, x2 = 19, z2 = 12}}})
+		local completed, loads, bounded_sets = nil, {}, #sets
+		towns.populated.build(bounded, function(value) completed = value end, {
+			read_bounds = auto_box,
+			write_bounds = {min = {x = -1, y = -500, z = -1}, max = {x = 21, y = 500, z = 21}},
+			ensure_loaded = function(a, b, cb) loads[#loads + 1] = {a, b}; cb(true) end,
+			before_write = function() return true end,
+		})
+		eq(completed ~= nil and completed.roads and completed.roads.skipped, true,
+			kind .. " road outside the approved envelope is omitted")
+		eq(#sets, bounded_sets, kind .. " omitted roads perform no writes")
+		eq(#loads, 1, kind .. " omitted roads request no additional load")
+	end
+	towns.city_margins = saved_margins
+	search_footprints = saved_footprints
 	local zs, xs = {}, {}
 	for _, c in ipairs(sets) do
 		if c.x >= 20 then zs[c.z] = true end

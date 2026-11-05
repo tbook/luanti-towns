@@ -315,6 +315,24 @@ local function build(result, world, opts)
 	return builder.build_town(result, opts or {entries = entries, log = false}, world.env)
 end
 
+do
+	local result, w, calls = make_result(), new_world(), 0
+	local _, _, code = build(result, w, {entries = entries, log = false, before_write = function()
+		calls = calls + 1
+		eq(w.opened, 1, "write gate follows terrain inspection")
+		eq(#w.writes, 0, "write gate precedes terrain mutations")
+		return false, "denied"
+	end})
+	eq(code, "before_write_denied", "builder reports denied write gate")
+	eq(calls, 1, "builder invokes write gate once")
+	eq(#w.writes, 0, "denied gate leaves terrain unchanged")
+	eq(#w.placed, 0, "denied gate places no structures")
+	local bad = new_world({open_error = "unavailable"})
+	calls = 0
+	build(result, bad, {entries = entries, log = false, before_write = function() calls = calls + 1; return true end})
+	eq(calls, 0, "failed inspection never invokes write gate")
+end
+
 ------------------------------------------------------------------------
 -- End to end on the fake world
 ------------------------------------------------------------------------
