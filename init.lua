@@ -37,6 +37,18 @@ towns.node_setup = dofile(modpath .. "/src/node_setup.lua")
 towns.generation_lock_factory = dofile(modpath .. "/src/generation_lock.lua")
 towns.generation_lock = towns.generation_lock_factory()
 
+-- Accepted automatic-town records (#399). No automatic job is started here.
+towns.auto_records_factory = dofile(modpath .. "/src/auto_records.lua")
+local auto_serialize, auto_deserialize = towns.auto_records_factory.core_serializers(core)
+towns.auto_records = towns.auto_records_factory.new({
+	store = towns.auto_records_factory.core_store(core.get_mod_storage()),
+	serialize = auto_serialize,
+	deserialize = auto_deserialize,
+	log = function(level, message) core.log(level, message) end,
+})
+towns.auto_records_command = dofile(modpath .. "/src/auto_records_command.lua")
+towns.auto_records_command.register(core, towns.auto_records)
+
 -- Valid-bed enumeration inside placed buildings (#47); read-only, used by
 -- /towns_generate only.
 towns.residents = dofile(modpath .. "/src/residents.lua")
