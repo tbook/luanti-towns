@@ -74,9 +74,19 @@ local eq = ...
 	eq(duplicate, false, "accepted cell suppresses descriptor from a later version")
 	eq(reg:lookup({x = 1, z = 0}).version, 1, "stored version identity remains unchanged")
 	local overlap = record(7, 7, 1, 100)
-	overlap.envelope = clone(reg:lookup({x = 1, z = 0}).envelope)
+	local accepted_envelope = clone(reg:lookup({x = 1, z = 0}).envelope)
+	overlap.center = clone(reg:lookup({x = 1, z = 0}).center)
+	overlap.envelope = accepted_envelope
 	local overlap_ok = reg:begin(overlap)
 	eq(overlap_ok, false, "accepted envelope suppresses a descriptor from another cell")
+	local vertical_overlap = record(8, 8, 1, 101)
+	vertical_overlap.center = {x = accepted_envelope.min.x, y = accepted_envelope.max.y + 20,
+		z = accepted_envelope.min.z}
+	vertical_overlap.envelope = {
+		min = {x = accepted_envelope.min.x, y = vertical_overlap.center.y - 5, z = accepted_envelope.min.z},
+		max = {x = accepted_envelope.max.x, y = vertical_overlap.center.y + 5, z = accepted_envelope.max.z},
+	}
+	eq(reg:begin(vertical_overlap), false, "horizontal reservation overlaps even when envelopes are vertically separate")
 
 	local failed_values, failed_store = store()
 	failed_values.fail = true
@@ -131,3 +141,8 @@ local eq = ...
 	eq(message:find("online", 1, true) ~= nil, true, "offline caller gets a clear message")
 	local online = registered.def.func("online", "")
 	eq(online, true, "online server caller can use lookup")
+	fake_core.get_player_by_name = function(name)
+		if name == "fractional" then return {get_pos = function() return {x = 0.5, y = 22.25, z = -0.75} end} end
+	end
+	local fractional = registered.def.func("fractional", "")
+	eq(fractional, true, "fractional player coordinates work in nearest lookup")

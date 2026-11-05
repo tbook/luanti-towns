@@ -2,6 +2,10 @@
 -- Pure registry with an injected key/value store and serializer. It does not
 -- inspect terrain or start construction. Call begin immediately before the
 -- first permitted write; failure to save must prevent that write.
+-- Future orchestration builds a record from the site descriptor and accepted
+-- inspection: copy descriptor cell/version/seed/town_type, promote descriptor
+-- center {x,z} to {x,y,z} using the inspected reference ground for y, and pass
+-- the accepted absolute XYZ write envelope. Then call begin before any writer.
 
 local M = {}
 local KEY = "towns.auto_records.v1"
@@ -11,6 +15,10 @@ Registry.__index = Registry
 
 local function integer(v)
 	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge and v == math.floor(v)
+end
+
+local function finite_number(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
 end
 
 local function valid_point(p, three)
@@ -28,7 +36,6 @@ end
 
 local function overlaps(a, b)
 	return a.min.x <= b.max.x and b.min.x <= a.max.x
-		and a.min.y <= b.max.y and b.min.y <= a.max.y
 		and a.min.z <= b.max.z and b.min.z <= a.max.z
 end
 
@@ -174,7 +181,9 @@ end
 
 function Registry:nearest(pos)
 	if self.disabled then return nil, self.disabled, "disabled" end
-	if not valid_point(pos, true) then return nil, "position must have integer x, y and z", "invalid_position" end
+	if type(pos) ~= "table" or not finite_number(pos.x) or not finite_number(pos.y) or not finite_number(pos.z) then
+		return nil, "position must have finite x, y and z", "invalid_position"
+	end
 	local best, best_d
 	for _, r in pairs(self.records) do
 		local dx, dz = pos.x - r.center.x, pos.z - r.center.z
