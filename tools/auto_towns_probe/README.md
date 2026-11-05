@@ -27,6 +27,18 @@ controlled planner call accounts for the reported suppression; it does not
 establish A10. These are flat, player-free scratch-world samples, not the #404
 assembled correctness gate.
 
+Add `--observe-build` to install a scratch-only dependent mod that snapshots
+content IDs, param2 and node metadata around the real builder handoff. It
+compares loaded mapblocks within the approved write box and a 16-node ring
+(rounded to mapblocks), reports ignore blocks and checks for changes outside
+the box. It cannot observe identical rewrites or changes beyond the window.
+Snapshots and diffs run on the main thread and alter timing. Add
+`--repeat-fixture-on-restart` with `--fixture` to run the same request in a
+second server process and check the accepted record survives without a
+duplicate. The repeated request is already generated and is not a test of
+every possible neighboring first-touch callback. See
+`docs/automatic_towns_validation.md` for concrete runs and remaining gaps.
+
 `python3 tools/auto_towns_probe/protection_benchmark.py` starts a disposable
 server with automatic mode off, computes representative approved write envelopes,
 and calls the installed protection provider once per voxel without writing terrain.

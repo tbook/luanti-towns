@@ -7,9 +7,9 @@ remains `off`; operators may opt into `survey` or `on`. In `on` mode accepted
 sites may overwrite existing structures, as the product owner requested. Do not
 infer from the observations below that the complete matrix has passed.
 
-The missing evidence is an independent changed-node **and metadata** comparison
-around construction through the production coordinator, including rejected
-sites and optional omissions; and assembled-engine tests of command contention,
+The missing evidence includes independent changed-node and metadata comparisons
+around additional production coordinator cases, including rejected sites and
+optional omissions; and assembled-engine tests of command contention,
 storage and required-stage failures, accepted-record restart and duplicates.
 Actual pending/planning village contention and unsupported-wrapper disablement
 also need to be observed through the assembled pipeline. A10 (callback ordering
@@ -74,6 +74,36 @@ player was present.
 
 The expanded Lua 5.1 suite with the installed Living Villages checkout passed
 64,645 checks with zero failures; the probe validators passed 18 Python tests.
+The final-cap sweep (`TOWNS_LIVING_VILLAGES=<living_villages> lua5.1
+tools/auto_towns_containment/cap_sweep.lua 300 8`) exercised 300 plans per
+family at all sampled chunk alignments: the maximum was 210 chunks, below
+the frozen cap of 256. This is a planner-envelope sweep, not a substitute for
+observing the assembled pipeline's actual writes.
+
+For the production Roman sample, the scratch-only `--observe-build` observer
+snapshotted loaded nodes (content ID and param2) and node metadata immediately
+before the real builder handoff and after its callback. It observed 111,159
+changed nodes and 1,752 changed metadata positions; none were outside the
+approved write box. No mapblocks in the observed window were ungenerated.
+The window extends 16 nodes beyond the box, rounded to mapblocks; writes beyond
+that window and identical rewrites are invisible, and changes are not attributed
+to individual stages. The observer runs its snapshot and diff on the main thread,
+so its pauses are instrumentation overhead. Scratch world:
+`towns-auto-probe-w6b29k64`. Command:
+
+```sh
+python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --observe-build --repeat-fixture-on-restart --fixture remote:10752,0,10751,10752,0,10751 --duration 70 --timeout 300 --port 39811
+python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --observe-build --repeat-fixture-on-restart --fixture remote:11776,0,10752,11776,0,10752 --duration 70 --timeout 300 --port 39812
+```
+
+The equivalent medieval sample (`towns-auto-probe-5ostj5x9`) observed
+118,444 changed nodes and 1,728 changed metadata positions, with none outside
+the approved box and no ungenerated mapblocks in the observed window. Both
+samples use flat terrain and do not independently exercise all required stage
+and omission cases. The first fixture version wrote the empty startup record
+list as JSON `null`, so its overall restart validator fails the initial-empty
+assertion despite the node and metadata observations above. The fixture now
+writes `[]` explicitly; the failed report remains in the scratch world.
 
 The guard startup probe passed its accepted-reservation suppression and near
 miss, using a stub as the saved planner; it did not exercise the real planner.

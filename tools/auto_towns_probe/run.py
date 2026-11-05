@@ -494,6 +494,8 @@ def main():
     ap.add_argument('--model-a10', action='store_true', help='run the scratch-only pure-state A10 model')
     ap.add_argument('--production-survey', action='store_true', help='load Towns in survey mode in the scratch world')
     ap.add_argument('--production-build', action='store_true', help='load Towns in on mode in the scratch world')
+    ap.add_argument('--observe-build', action='store_true', help='snapshot nodes and metadata around a production build')
+    ap.add_argument('--repeat-fixture-on-restart', action='store_true', help='repeat the supplied fixture in a second server process')
     ap.add_argument('--inactive-trigger-a10', action='store_true',
                     help='forceload one inactive village structblock after fixture generation (villages scenario only)')
     ap.add_argument('--route', type=Path,
@@ -516,7 +518,11 @@ def main():
         raise SystemExit('--inactive-trigger-a10 uses the villages scenario fixture; do not pass --fixture')
     if args.inactive_trigger_a10 and args.controlled_a10:
         raise SystemExit('choose one controlled A10 mode per run')
-    phases = [args.fixture] if args.fixture else scenario['phases']
+    if args.observe_build and not args.production_build:
+        raise SystemExit('--observe-build requires --production-build')
+    if args.repeat_fixture_on_restart and not (args.fixture and args.observe_build):
+        raise SystemExit('--repeat-fixture-on-restart requires --fixture and --observe-build')
+    phases = ([args.fixture, args.fixture] if args.repeat_fixture_on_restart else [args.fixture]) if args.fixture else scenario['phases']
     duration = args.duration or scenario['duration']
     forceload = scenario.get('forceload', False)
     for fixture in phases:
@@ -563,6 +569,12 @@ def main():
         with (work / 'worldmods' / 'towns' / 'mod.conf').open('a') as config:
             config.write('\noptional_depends = auto_towns_probe\n')
         world_lines.append('load_mod_towns = worldmods/towns')
+    if args.observe_build:
+        observer = work / 'worldmods' / 'auto_towns_build_observer'
+        observer.mkdir()
+        shutil.copy2(HELPER / 'build_observer.lua', observer / 'init.lua')
+        (observer / 'mod.conf').write_text('name = auto_towns_build_observer\ndepends = towns\n')
+        world_lines.append('load_mod_auto_towns_build_observer = worldmods/auto_towns_build_observer')
     world_lines.append('load_mod_auto_towns_probe = worldmods/auto_towns_probe')
     (work / 'world.mt').write_text('\n'.join(world_lines) + '\n')
     print('Scratch world:', work, flush=True)
@@ -663,6 +675,32 @@ def main():
             'ok': observation['required_events_observed_in_order'],
             'label': 'inactive-trigger A10: structblock, one forceload, and matching planner observed',
         })
+    if args.observe_build:
+        path = work / 'build-observation.json'
+        observation = json.loads(path.read_text()) if path.exists() else None
+        report['build_observation'] = observation
+        report['checks'].append({'ok': bool(observation), 'label': 'production build observation completed'})
+        if observation:
+            for key, expected in [('ignored_approved', 0), ('ignored_after', 0),
+                                  ('outside_nodes', 0), ('outside_metadata', 0)]:
+                report['checks'].append({'ok': observation.get(key) == expected,
+                                         'label': 'production build %s = %s' % (key, expected)})
+            report['checks'].append({'ok': observation.get('changed_nodes', 0) > 0,
+                                     'label': 'production build changed nodes observed'})
+    if args.repeat_fixture_on_restart:
+        def records(phase, when):
+            path = work / ('records-%d-%s.json' % (phase, when))
+            return json.loads(path.read_text()) if path.exists() else None
+        before, completed, reloaded, after = (records(1, 'start'), records(1, 'end'),
+                                               records(2, 'start'), records(2, 'end'))
+        report['restart_records'] = {'initial': before, 'completed': completed,
+                                     'reloaded': reloaded, 'after': after}
+        report['checks'].append({'ok': before == [], 'label': 'restart: initial records empty'})
+        report['checks'].append({'ok': isinstance(completed, list) and len(completed) == 1
+                                 and completed[0].get('state') == 'complete',
+                                 'label': 'restart: one complete accepted record'})
+        report['checks'].append({'ok': bool(completed) and completed == reloaded == after,
+                                 'label': 'restart: accepted record survives and no duplicate appears'})
     report['ok'] = bool(report['checks']) and all(c['ok'] for c in report['checks'])
     (work / 'probe-report.json').write_text(json.dumps(report, indent=2))
     for c in report['checks']:
