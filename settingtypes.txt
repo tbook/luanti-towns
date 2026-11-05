@@ -1,3 +1,4 @@
-# Automatic towns developer survey. Survey loads terrain and may suppress villages.
-# Construction is unavailable; on is reserved for a later release.
+# Automatic towns: off disables new jobs; survey loads terrain without building;
+# on permits construction and may overwrite existing structures at accepted sites.
+# Survey and on can suppress villages and load unexplored terrain.
 towns_auto_mode (Automatic towns mode) enum off off,survey,on
