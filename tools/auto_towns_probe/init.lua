@@ -17,6 +17,8 @@ local PHASE = tonumber(settings:get("auto_towns_probe_phase")) or 1
 local DURATION = tonumber(settings:get("auto_towns_probe_duration")) or 60
 local START_DELAY = tonumber(settings:get("auto_towns_probe_start_delay")) or 2
 local FIXTURE_TEXT = settings:get("auto_towns_probe_fixture") or ""
+local CONTROLLED_A10 = settings:get_bool("auto_towns_probe_controlled_a10", false)
+local INACTIVE_TRIGGER_A10 = settings:get_bool("auto_towns_probe_inactive_trigger_a10", false)
 local SCENARIO = settings:get("auto_towns_probe_scenario") or ""
 local INVOCATION = settings:get("auto_towns_probe_invocation") or ""
 -- Forceloading activates fixture blocks so their LBMs (village planning) run
@@ -259,6 +261,10 @@ local function center_check(mn, mx)
 	return out
 end
 
+-- Controlled A10 instrumentation only. This synthetic marker stands in for a
+-- reservation; it is not Towns state and does not test the production guard.
+local synthetic_reserved = false
+local synthetic_rect = {x1=-113, x2=733, z1=-256, z2=590}
 -- on_generated runs in the emerge thread: no world queries beyond mapgen objects.
 core.register_on_generated(function(minp, maxp, blockseed)
 	if not active then
@@ -273,6 +279,12 @@ core.register_on_generated(function(minp, maxp, blockseed)
 	local ok, err = pcall(function()
 		local mn = {x = minp.x, y = minp.y, z = minp.z}
 		local mx = {x = maxp.x, y = maxp.y, z = maxp.z}
+		if CONTROLLED_A10 and mn.x == -192 and mn.y == -32 and mn.z == 128
+				and mx.x >= synthetic_rect.x1 and mn.x <= synthetic_rect.x2
+				and mx.z >= synthetic_rect.z1 and mn.z <= synthetic_rect.z2 then
+			synthetic_reserved = true
+			wt({kind="wt_synthetic", state="reserve", minp=mn, maxp=mx, rect=synthetic_rect})
+		end
 		local rec = {
 			kind = "generated",
 			t_ms = math.floor((core.get_us_time() - t0) / 1000),
@@ -371,6 +383,18 @@ if settlements then
 
 	local plan_wrapper = function(maxp, minp, pr)
 		wt({kind = "wt_planner", state = "enter", minp = vec_table(minp), maxp = vec_table(maxp)})
+		if CONTROLLED_A10 then
+			wt({kind="wt_synthetic", state="planner_entry", reserved=synthetic_reserved, minp=vec_table(minp), maxp=vec_table(maxp)})
+			-- A deliberately unrelated, fresh map position lets the probe observe
+			-- when another emerge completes relative to this planner call. The
+			-- busy wait is controlled instrumentation, not production behavior.
+			local testpos = {x=10000,y=0,z=10000}
+			wt({kind = "wt_control", state = "request"})
+			core.emerge_area(testpos, testpos)
+			local deadline = core.get_us_time() + 3000000
+			while core.get_us_time() < deadline do end
+			wt({kind = "wt_control", state = "wait_end"})
+		end
 		local plan, why = orig.plan(maxp, minp, pr)
 		wt({kind = "wt_planner", state = "exit", planned = type(plan) == "table" and #plan > 0})
 		if type(plan) == "table" and #plan > 0 then
@@ -479,6 +503,7 @@ local function step_route(dtime, now)
 end
 
 local issued = false
+local inactive_trigger_done = false
 local function issue_fixtures()
 	for _, f in ipairs(fixtures) do
 		pending_fixture = f
@@ -591,6 +616,13 @@ core.register_globalstep(function(dtime)
 		issue_fixtures()
 	end
 	if now - player_sample_at >= 0.5 then refresh_players() end
+	if INACTIVE_TRIGGER_A10 and not inactive_trigger_done and issued and fixtures_complete() then
+		inactive_trigger_done = true
+		local pos = {x = -192, y = -32, z = 128}
+		wt({kind = "wt_test", state = "before_forceload", pos = pos, node = core.get_node(pos).name})
+		local ok = core.forceload_block(pos, true)
+		wt({kind = "wt_test", state = "forceload", pos = pos, single_block = true, ok = ok})
+	end
 	if FORCELOAD and not forceload_done and issued and fixtures_complete() then forceload_fixtures() end
 	local ok, err = pcall(step_route, dtime, now)
 	if not ok then observer_error("route", err) end

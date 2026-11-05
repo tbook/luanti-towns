@@ -250,6 +250,151 @@ def scenario_checks(name, phases, events):
     return out
 
 
+def controlled_a10_observation(events):
+    """Validate the controlled A10 instrumentation without promoting A10 to PASS."""
+    reserve_min = {'x': -192, 'y': -32, 'z': 128}
+    test_pos = {'x': 10000, 'y': 0, 'z': 10000}
+    callback_min = {'x': 9968, 'y': -32, 'z': 9968}
+
+    def first(predicate):
+        return next((e for e in events if predicate(e)), None)
+
+    reserve = first(lambda e: e.get('kind') == 'wt_synthetic' and e.get('state') == 'reserve'
+                    and e.get('minp') == reserve_min)
+    planner_enter = first(lambda e: e.get('kind') == 'wt_planner' and e.get('state') == 'enter'
+                          and e.get('minp') == reserve_min)
+    planner_marker = first(lambda e: e.get('kind') == 'wt_synthetic'
+                           and e.get('state') == 'planner_entry' and e.get('reserved') is True
+                           and e.get('minp') == reserve_min)
+    control_request = first(lambda e: e.get('kind') == 'wt_control' and e.get('state') == 'request')
+    emerge_request = first(lambda e: e.get('kind') == 'wt_request'
+                           and e.get('minp') == test_pos and e.get('maxp') == test_pos)
+    wait_end = first(lambda e: e.get('kind') == 'wt_control' and e.get('state') == 'wait_end')
+    planner_exit = first(lambda e: e.get('kind') == 'wt_planner' and e.get('state') == 'exit'
+                         and planner_enter is not None
+                         and isinstance(e.get('t_ms'), (int, float))
+                         and e.get('t_ms') >= planner_enter.get('t_ms', float('inf')))
+    generated = first(lambda e: e.get('kind') == 'wt_generated' and e.get('minp') == callback_min)
+    generated_emerge = first(lambda e: e.get('kind') == 'wt_emerge'
+                             and e.get('action') == 'generated'
+                             and e.get('block') == {'x': 625, 'y': 0, 'z': 625}
+                             and emerge_request is not None
+                             and e.get('request') == emerge_request.get('request'))
+
+    required = {
+        'synthetic reservation marker': reserve,
+        'planner entry': planner_enter,
+        'reserved marker at planner entry': planner_marker,
+        'injected request marker': control_request,
+        'matching unrelated emerge request': emerge_request,
+        'control wait end': wait_end,
+        'planner exit': planner_exit,
+        'competing generated-chunk callback': generated,
+        'matching generated emerge completion': generated_emerge,
+    }
+    missing = [label for label, event in required.items() if event is None]
+    ordered = False
+    relation = 'inconclusive'
+    timestamps = {}
+    if not missing:
+        timestamps = {
+            'reservation_ms': reserve.get('t_ms'),
+            'planner_enter_ms': planner_enter.get('t_ms'),
+            'planner_marker_ms': planner_marker.get('t_ms'),
+            'request_marker_ms': control_request.get('t_ms'),
+            'emerge_request_ms': emerge_request.get('t_ms'),
+            'wait_end_ms': wait_end.get('t_ms'),
+            'planner_exit_ms': planner_exit.get('t_ms'),
+            'generated_callback_ms': generated.get('t_ms'),
+            'generated_emerge_ms': generated_emerge.get('t_ms'),
+        }
+        ordered = all(isinstance(t, (int, float)) for t in timestamps.values())
+        ordered = ordered and (
+            timestamps['reservation_ms'] <= timestamps['planner_enter_ms']
+            <= timestamps['planner_marker_ms'] <= timestamps['request_marker_ms']
+            <= timestamps['emerge_request_ms'] <= timestamps['wait_end_ms']
+            <= timestamps['planner_exit_ms']
+            and timestamps['generated_callback_ms'] >= timestamps['emerge_request_ms']
+            and timestamps['generated_emerge_ms'] >= timestamps['generated_callback_ms'])
+        if not ordered:
+            missing.append('timestamps in reservation/request/callback order')
+        elif generated.get('t_ms') < planner_enter.get('t_ms'):
+            missing.append('competing callback after planner entry')
+            ordered = False
+        elif generated.get('t_ms') <= planner_exit.get('t_ms'):
+            relation = 'during_planner'
+        else:
+            relation = 'after_planner'
+
+    complete = not missing and ordered
+    return {
+        'evidence_status': 'inconclusive',
+        'instrumentation_status': 'complete' if complete else 'incomplete',
+        'callback_relation': relation,
+        'required_events_observed_in_order': complete,
+        'missing_or_invalid': missing,
+        'times_ms': timestamps,
+        'interpretation': 'Synthetic observer instrumentation only; A10 remains UNVERIFIED.',
+    }
+
+
+def inactive_trigger_a10_observation(events):
+    """Validate one inactive structblock's explicit single-block activation."""
+    trigger_pos = {'x': -192, 'y': -32, 'z': 128}
+    before = [e for e in events if e.get('kind') == 'wt_test'
+              and e.get('state') == 'before_forceload']
+    loads = [e for e in events if e.get('kind') == 'wt_test'
+             and e.get('state') == 'forceload']
+    planners = [e for e in events if e.get('kind') == 'wt_planner'
+                and e.get('state') == 'enter' and e.get('minp') == trigger_pos]
+    exit_events = [e for e in events if e.get('kind') == 'wt_planner'
+                   and e.get('state') == 'exit']
+    planner_time = planners[0].get('t_ms') if len(planners) == 1 else None
+    exits = [e for e in exit_events if isinstance(planner_time, (int, float))
+             and isinstance(e.get('t_ms'), (int, float)) and e.get('t_ms') >= planner_time]
+
+    missing = []
+    if len(before) != 1:
+        missing.append('exactly one pre-forceload node observation')
+    elif before[0].get('pos') != trigger_pos or before[0].get('node') != 'mcl_villages:structblock':
+        missing.append('expected structblock at trigger position before forceload')
+    if len(loads) != 1:
+        missing.append('exactly one single-block forceload event')
+    elif loads[0].get('pos') != trigger_pos or loads[0].get('ok') is not True \
+            or loads[0].get('single_block') is not True:
+        missing.append('successful single-block forceload at trigger position')
+    if len(planners) != 1:
+        missing.append('exactly one planner entry matching trigger chunk')
+    if len(exits) != 1 or not exits[0].get('planned'):
+        missing.append('one successful planner exit')
+
+    times = {}
+    if not missing:
+        times = {
+            'structblock_before_forceload_ms': before[0].get('t_ms'),
+            'single_block_forceload_ms': loads[0].get('t_ms'),
+            'matching_planner_entry_ms': planners[0].get('t_ms'),
+            'planner_exit_ms': exits[0].get('t_ms'),
+        }
+        values = list(times.values())
+        if not all(isinstance(t, (int, float)) for t in values) \
+                or not (values[0] <= values[1] <= values[2] <= values[3]) \
+                or events.index(before[0]) >= events.index(loads[0]) \
+                or events.index(loads[0]) >= events.index(planners[0]):
+            missing.append('structblock/forceload/planner timestamps in order')
+
+    complete = not missing
+    return {
+        'evidence_status': 'inconclusive',
+        'instrumentation_status': 'complete' if complete else 'incomplete',
+        'required_events_observed_in_order': complete,
+        'trigger_pos': trigger_pos,
+        'missing_or_invalid': missing,
+        'times_ms': times,
+        'interpretation': 'One direct activation fixture only; A10 remains UNVERIFIED.',
+    }
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--scenario', default='fresh', choices=sorted(SCENARIOS),
@@ -263,6 +408,10 @@ def main():
     ap.add_argument('--duration', type=int, help='seconds per phase (default depends on scenario)')
     ap.add_argument('--start-delay', type=int, default=2, help='seconds before fixture requests are issued')
     ap.add_argument('--fixture', help='override the scenario fixture boxes, "id:x1,y1,z1,x2,y2,z2;..." (one phase)')
+    ap.add_argument('--controlled-a10', action='store_true',
+                    help='enable the synthetic reservation and competing-emerge timing probe (villages scenario only)')
+    ap.add_argument('--inactive-trigger-a10', action='store_true',
+                    help='forceload one inactive village structblock after fixture generation (villages scenario only)')
     ap.add_argument('--route', type=Path,
                     help='walk or fly route JSON {"mode","speed","points"} for one connected client (see README)')
     ap.add_argument('--timeout', type=int, default=900, help='per-phase engine timeout in seconds')
@@ -271,6 +420,16 @@ def main():
     args = ap.parse_args()
 
     scenario = SCENARIOS[args.scenario]
+    if args.controlled_a10 and args.scenario != 'villages':
+        raise SystemExit('--controlled-a10 requires --scenario villages')
+    if args.controlled_a10 and args.fixture:
+        raise SystemExit('--controlled-a10 uses the villages scenario fixture; do not pass --fixture')
+    if args.inactive_trigger_a10 and args.scenario != 'villages':
+        raise SystemExit('--inactive-trigger-a10 requires --scenario villages')
+    if args.inactive_trigger_a10 and args.fixture:
+        raise SystemExit('--inactive-trigger-a10 uses the villages scenario fixture; do not pass --fixture')
+    if args.inactive_trigger_a10 and args.controlled_a10:
+        raise SystemExit('choose one controlled A10 mode per run')
     phases = [args.fixture] if args.fixture else scenario['phases']
     duration = args.duration or scenario['duration']
     forceload = scenario.get('forceload', False)
@@ -318,16 +477,23 @@ def main():
                                  'mineclone2': git_rev(DEFAULT_GAME)},
               'scratch_world': str(work), 'duration_s': duration, 'phases': [], 'checks': [], 'ok': False}
     events = {}
+    write_through_events = {}
     phase_reports = []
     for index, fixture in enumerate(phases, start=1):
         with (work / 'check.conf').open('w') as f:
             f.write('enable_ipv6 = false\nbind_address = 127.0.0.1\nserver_announce = false\n')
             f.write('max_forceloaded_blocks = 4096\n')
+            if args.controlled_a10 or args.inactive_trigger_a10:
+                f.write('num_emerge_threads = 4\n')
             f.write('auto_towns_probe_phase = %d\n' % index)
             f.write('auto_towns_probe_scenario = %s\n' % args.scenario)
             f.write('auto_towns_probe_duration = %d\n' % duration)
             f.write('auto_towns_probe_start_delay = %d\n' % args.start_delay)
-            f.write('auto_towns_probe_forceload = %s\n' % ('true' if forceload else 'false'))
+            f.write('auto_towns_probe_forceload = %s\n' % (
+                'true' if forceload and not args.inactive_trigger_a10 else 'false'))
+            f.write('auto_towns_probe_controlled_a10 = %s\n' % ('true' if args.controlled_a10 else 'false'))
+            f.write('auto_towns_probe_inactive_trigger_a10 = %s\n' % (
+                'true' if args.inactive_trigger_a10 else 'false'))
             f.write('auto_towns_probe_fixture = %s\n' % fixture)
             f.write('auto_towns_probe_invocation = %s\n' % invocation)
         entry = {'phase': index, 'status': None, 'exit_code': None, 'report': None}
@@ -359,6 +525,8 @@ def main():
         events_file = work / ('auto-towns-probe-phase%d.jsonl' % index)
         events[index] = [normalize_event(e) for e in read_events(events_file)]
         write_events(events_file, events[index])
+        write_through_file = work / ('auto-towns-probe-writethrough-phase%d.jsonl' % index)
+        write_through_events[index] = read_events(write_through_file)
         entry['report'] = phase
         phase_reports.append((index, phase))
         print('Phase %d: %s' % (index, json.dumps({
@@ -376,6 +544,20 @@ def main():
         # Scenario expectations describe the preset boxes only; a --fixture override has none.
         for label, ok in scenario_checks(args.scenario, phase_reports, events):
             report['checks'].append({'ok': bool(ok), 'label': label})
+    if args.controlled_a10:
+        observation = controlled_a10_observation(write_through_events.get(1, []))
+        report['controlled_a10'] = observation
+        report['checks'].append({
+            'ok': observation['required_events_observed_in_order'],
+            'label': 'controlled A10: required synthetic events observed in order',
+        })
+    if args.inactive_trigger_a10:
+        observation = inactive_trigger_a10_observation(write_through_events.get(1, []))
+        report['inactive_trigger_a10'] = observation
+        report['checks'].append({
+            'ok': observation['required_events_observed_in_order'],
+            'label': 'inactive-trigger A10: structblock, one forceload, and matching planner observed',
+        })
     report['ok'] = bool(report['checks']) and all(c['ok'] for c in report['checks'])
     (work / 'probe-report.json').write_text(json.dumps(report, indent=2))
     for c in report['checks']:
