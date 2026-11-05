@@ -5,6 +5,13 @@
 --
 -- Usage: local ss = dofile(".../site_search.lua")(placement, planner)
 --
+--   ss.inspect_site(center, ref_y, seed, opts, done [, env]) inspects exactly
+--     one integer x/z centre, using integer ref_y for its surface window.
+--     No player or standing-ground checks apply. Its result and errors use
+--     the same shape and terrain rules as search. Engine reads use a bounded
+--     VoxelManip snapshot; fake environments can provide bulk_reader or use
+--     get_node_name. Wet mode adds a one-node inspection ring.
+--
 --   ss.search(player_pos, seed, opts, done [, env])
 --     player_pos  {x, y, z} the player's position (core player:get_pos()).
 --                 Rounded to nodes; the node below the feet (y rounded - 1)
@@ -521,7 +528,7 @@ M.LAVA_NODES = {
 	["default:lava_source"] = true, ["default:lava_flowing"] = true,
 }
 
-function M.search(player_pos, seed, opts, done, env)
+local function search(player_pos, seed, opts, done, env, explicit_ref)
 	local seed_ok, seed_msg = planner.check_seed(seed)
 	if not seed_ok then
 		error("towns site_search: " .. tostring(seed_msg), 2)
@@ -546,8 +553,8 @@ function M.search(player_pos, seed, opts, done, env)
 	local C = constants(opts)
 	env = env or M.core_env(core)
 	local px, pz = round(player_pos.x), round(player_pos.z)
-	local ref_y = round(player_pos.y) - 1
-	local offsets = M.candidate_offsets(C.STEP, C.MAX_RADIUS)
+	local ref_y = explicit_ref or (round(player_pos.y) - 1)
+	local offsets = explicit_ref and {{dx = 0, dz = 0}} or M.candidate_offsets(C.STEP, C.MAX_RADIUS)
 	local rejections, examples = {}, {}
 	local tried, finished = 0, false
 	local logf = rawget(env, "log") or function() end
@@ -576,24 +583,29 @@ function M.search(player_pos, seed, opts, done, env)
 
 	-- The reference ground must be solid, so a player in
 	-- flight or on water gets a clear failure, not a silently wrong window.
-	local gok, gname = pcall(env.get_node_name, px, ref_y, pz)
-	if not gok then
-		return finish(nil, "internal error: " .. tostring(gname))
-	end
-	local cok, gclass = pcall(placement.classify, gname, env.node_info)
-	if not cok then
-		return finish(nil, "internal error: " .. tostring(gclass))
-	end
-	if gclass ~= "solid" then
-		return finish(nil, ("You must be standing on solid ground (found '%s' below you at (%d,%d,%d)). Nothing was changed."):format(
-			tostring(gname), px, ref_y, pz))
+	if not explicit_ref then
+		local gok, gname = pcall(env.get_node_name, px, ref_y, pz)
+		if not gok then return finish(nil, "internal error: " .. tostring(gname)) end
+		local cok, gclass = pcall(placement.classify, gname, env.node_info)
+		if not cok then return finish(nil, "internal error: " .. tostring(gclass)) end
+		if gclass ~= "solid" then
+			return finish(nil, ("You must be standing on solid ground (found %s below you at (%d,%d,%d)). Nothing was changed."):format(
+				"'" .. tostring(gname) .. "'", px, ref_y, pz))
+		end
 	end
 
 	local wet_mode = C.MAX_WATER_DEPTH > 0
+	local reader = env.get_node_name
+	local class_cache = {}
 	local function class_at(x, y, z)
-		local name = env.get_node_name(x, y, z)
+		local name = reader(x, y, z)
 		if wet_mode and M.LAVA_NODES[name] then return "lava" end
-		return placement.classify(name, env.node_info)
+		local class = class_cache[name]
+		if not class then
+			class = placement.classify(name, env.node_info)
+			class_cache[name] = class
+		end
+		return class
 	end
 
 	-- The layout depends only on the seed and the centre merely translates
@@ -680,7 +692,7 @@ function M.search(player_pos, seed, opts, done, env)
 					if type(k) == "string" and k:upper() == "MAX_RADIUS" then explicit = true end
 				end
 				local target_radius = M.CONSTANTS.MAX_RADIUS + growth
-				if growth > 0 and not explicit and target_radius > C.MAX_RADIUS then
+				if not explicit_ref and growth > 0 and not explicit and target_radius > C.MAX_RADIUS then
 					C.MAX_RADIUS = target_radius
 					offsets = M.candidate_offsets(C.STEP, C.MAX_RADIUS)
 					index = 0
@@ -708,7 +720,7 @@ function M.search(player_pos, seed, opts, done, env)
 					center.x, center.z, C.CENTER_LIMIT))
 			end
 		end
-		if M.player_inside(bounds, px, pz, C.PLAYER_MARGIN) then
+		if not explicit_ref and M.player_inside(bounds, px, pz, C.PLAYER_MARGIN) then
 			return reject("player_inside",
 				("player at (%d,%d) is within the town bounds"):format(px, pz))
 		end
@@ -718,6 +730,8 @@ function M.search(player_pos, seed, opts, done, env)
 
 		emerge_step(volume.min, volume.max, function(status)
 			if emerge_bad(status, center) then return end
+			local bulk_reader = rawget(env, "bulk_reader")
+			if explicit_ref and bulk_reader then reader = bulk_reader(volume.min, volume.max) end
 			local read, wet
 			if wet_mode then
 				read = function(x, z)
@@ -831,11 +845,46 @@ function M.search(player_pos, seed, opts, done, env)
 	pump()
 end
 
+-- Inspect precisely one centre, using the supplied terrain reference independently
+-- of the finished ground selected by the inspection.
+function M.inspect_site(center, ref_y, seed, opts, done, env)
+	if type(center) ~= "table" or type(center.x) ~= "number" or type(center.z) ~= "number"
+			or center.x ~= math.floor(center.x) or center.z ~= math.floor(center.z)
+			or center.x == math.huge or center.x == -math.huge
+			or center.z == math.huge or center.z == -math.huge then
+		error("towns site_search: center must have finite integer x and z", 2)
+	end
+	if type(ref_y) ~= "number" or ref_y ~= math.floor(ref_y)
+			or ref_y == math.huge or ref_y == -math.huge then
+		error("towns site_search: ref_y must be a finite integer", 2)
+	end
+	return search({x = center.x, y = ref_y + 1, z = center.z}, seed, opts, done, env, ref_y)
+end
+
+function M.search(player_pos, seed, opts, done, env)
+	return search(player_pos, seed, opts, done, env)
+end
+
 ------------------------------------------------------------------------
 -- core.* adapter (the only part that touches the engine)
 ------------------------------------------------------------------------
 function M.core_env(c)
 	return {
+		-- One read-only snapshot bounded to the already emerged inspection volume.
+		bulk_reader = function(minp, maxp)
+			local vm = c.get_voxel_manip()
+			local emin, emax = vm:read_from_map(minp, maxp)
+			local data = vm:get_data()
+			local sx, sy = emax.x - emin.x + 1, emax.y - emin.y + 1
+			local names = {}
+			return function(x, y, z)
+				if x < minp.x or x > maxp.x or y < minp.y or y > maxp.y
+						or z < minp.z or z > maxp.z then error("inspection read outside volume") end
+				local id = data[(z - emin.z) * sx * sy + (y - emin.y) * sx + x - emin.x + 1]
+				if names[id] == nil then names[id] = c.get_name_from_content_id(id) end
+				return names[id]
+			end
+		end,
 		node_info = function(name)
 			return placement.node_info(c.registered_nodes, name)
 		end,
