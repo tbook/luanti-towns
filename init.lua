@@ -100,5 +100,5 @@ loadfile(modpath .. "/src/object_command.lua")(towns)
 towns.generate = dofile(modpath .. "/src/generate.lua")(towns.planner, towns.generation_lock_factory)
 loadfile(modpath .. "/src/generate_command.lua")(towns)
 
--- Survey mode only; production construction remains unavailable.
+-- Off by default; survey and construction require explicit configuration.
 dofile(modpath .. "/src/automatic.lua")(towns, core, rawget(_G, "mcl_vars"))

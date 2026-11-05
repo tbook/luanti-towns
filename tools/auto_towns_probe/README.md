@@ -15,6 +15,18 @@ The probe also makes one controlled public village-planner call while a survey
 is active and records `wt_survey_suppression`; this is a synthetic guard check,
 not an observation of natural village ordering.
 
+`--production-build` instead sets `towns_auto_mode = on` in the disposable
+world. It can construct towns and persist their records there. It exercises the
+production coordinator; it does not prove village ordering or player latency.
+On 2026-11-05, flat seed 2014 runs at `remote:10752,0,10751,10752,0,10751`
+(Roman) and `remote:11776,0,10752,11776,0,10752` (medieval) both reported
+`complete`, with 89 urban schematics each and reported final write bounds inside
+the approved envelope. Run with `--scenario fresh --production-build --fixture`
+and either fixture, `--duration 90`, and a free `--port`. The observer's
+controlled planner call accounts for the reported suppression; it does not
+establish A10. These are flat, player-free scratch-world samples, not the #404
+assembled correctness gate.
+
 On 2026-11-05, a production-survey `fresh` run on flat terrain requested 180
 chunks for one Roman site, ran exact inspection, and declined `not_fresh` in
 13.70 seconds. The reported snapshot bound was 92,160,000 voxels. The probe

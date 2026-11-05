@@ -166,6 +166,9 @@ local function automatic_env(base, automatic_context)
 			if not called and automatic_context.log then
 				pcall(automatic_context.log, "error", "automatic stage callback failed: " .. tostring(err))
 			end
+			if not called and automatic_context.callback_failed then
+				pcall(automatic_context.callback_failed, err)
+			end
 		end
 		local ok, err = pcall(automatic_context.ensure_loaded, minp, maxp, finish)
 		if not ok then
