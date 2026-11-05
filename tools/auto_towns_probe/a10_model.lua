@@ -9,6 +9,7 @@ return function(root, wt)
 	end
 	local ok, result = pcall(function()
 		local bounds = dofile(root .. "/src/auto_bounds.lua")
+		local geometry = dofile(core.get_modpath("auto_towns_probe") .. "/a10_geometry.lua")
 		local sites = dofile(root .. "/src/auto_sites.lua")
 		local state = dofile(root .. "/src/auto_state.lua")
 		local catalog = dofile(root .. "/src/catalog.lua")
@@ -41,7 +42,7 @@ return function(root, wt)
 		end
 		local fresh, inactive = new_session(), new_session()
 		local selected, target
-		wt({kind="wt_a10_geometry", fixture_version=1, seed=seed, max_rect=env.max_rect, activation_rect=env.activation_rect,
+		wt({kind="wt_a10_geometry", fixture_version=2, seed=seed, max_rect=env.max_rect, activation_rect=env.activation_rect,
 			village_reach=env.village_reach, fit=env.fit})
 		local function generated(minp, maxp, heightmap)
 			if not heightmap then return end
@@ -76,17 +77,8 @@ return function(root, wt)
 			end
 		end
 		local function planner(minp, maxp)
-			local cx, cz = (minp.x+maxp.x+1)/2, (minp.z+maxp.z+1)/2
-			local reach = env.village_reach
-			local m = env.max_rect
-			local candidates = assert(lookup.lookup(seed, {x1=math.floor(cx-reach-m.x2), z1=math.floor(cz-reach-m.z2),
-				x2=math.ceil(cx+reach-m.x1), z2=math.ceil(cz+reach-m.z1)}))
-			for _, d in ipairs(candidates) do
-				local r=d.max_rect
-				if cx-reach <= r.x2 and cx+reach >= r.x1 and cz-reach <= r.z2 and cz+reach >= r.z1 then
-					selected=d; break
-				end
-			end
+			selected = geometry.select(minp, maxp, env.village_reach, env.max_rect,
+				function(rect) return lookup.lookup(seed, rect) end)
 			if not selected then wt({kind="wt_a10_planner", state="no_candidate", minp=minp}); return end
 			wt({kind="wt_a10_planner", state="entry", minp=minp, site=selected,
 				fresh_state=fresh:state(selected.id), inactive_before=inactive:state(selected.id)})

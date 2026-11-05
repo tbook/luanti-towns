@@ -7,7 +7,7 @@ def trace():
     pos = {'x': -192, 'y': -32, 'z': 128}
     target = {'x': -512, 'y': -32, 'z': 448}
     return [
-        {'kind': 'wt_a10_geometry', 'fixture_version': 1},
+        {'kind': 'wt_a10_geometry', 'fixture_version': 2},
         {'kind': 'wt_a10_surface', 'site': 's', 'minp': pos, 'valid': 1, 'site_state': 'inspecting'},
         {'kind': 'wt_planner', 'state': 'enter', 'minp': pos},
         {'kind': 'wt_a10_planner', 'state': 'entry', 'site': {'id': 's',

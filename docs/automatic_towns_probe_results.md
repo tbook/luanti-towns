@@ -9,7 +9,7 @@ center scenario, a center-column check, planner timing marks); they are verifica
 
 ## Gate status
 
-### Scratch synchronous state model (fixture version 1)
+### Scratch synchronous state model (fixture version 2)
 
 A10 remains **UNVERIFIED**. A new disposable fixture feeds the real `auto_state` with
 callback-local heights through a scratch-only synchronous adapter, using `auto_sites`
@@ -22,7 +22,10 @@ chunk within the site's actual activation rectangle. Events, site descriptors, g
 and state are written through; the validator checks missing, stale, misordered and
 nonmatching events. An after-planner callback is useful evidence but does not satisfy
 the unobserved in-planner case. Inclusive boundary and one-node near-miss validation is
-covered by the fixture's Python tests; this is not an engine test of all map edges.
+covered by the fixture's Python and Lua tests; this is not an engine test of all map edges.
+The trigger surface-validity count spans the whole chunk, and an earlier chunk may have
+activated the site. The evidence establishes that the state was inspecting before planner
+entry, not that the trigger caused activation or had valid heights in the footprint.
 
 All runs used Luanti 5.17.0, VoxeLibre 0.92.3, Living Villages 668c5fc, v7,
 chunksize 5, four emerge threads, no connected player, and Towns base `cee83b8` plus
@@ -32,9 +35,9 @@ occurred. The final validator was also rerun against each retained event stream.
 
 | Seed | Command (from repository root) | Scratch directory in `$TMPDIR` | Observation |
 | --- | --- | --- | --- |
-| 2014 | `python3 tools/auto_towns_probe/run.py --scenario villages --mg-name v7 --seed 2014 --duration 60 --port 39501 --model-a10` | `towns-auto-probe-4sjnxwsz` | One matching planner, entry 20349 ms, exit 40406 ms; declined at 20350 ms. Fresh callback at 41452 ms with 5961 valid heights, after planner; session remained declined, zero activations. Trace complete, gate inconclusive. |
-| 98765 | `python3 tools/auto_towns_probe/run.py --scenario villages --mg-name v7 --seed 98765 --duration 65 --port 39502 --model-a10` | `towns-auto-probe-am7dcwr7` | One matching planner, entry 20319 ms, exit 60452 ms; declined at 20319 ms. Fresh callback at 61288 ms with 6400 valid heights, after planner; session remained declined, zero activations. Trace complete, gate inconclusive. |
-| 7777 | `python3 tools/auto_towns_probe/run.py --scenario villages --mg-name v7 --seed 7777 --duration 60 --port 39503 --model-a10` | `towns-auto-probe-jzutj7v1` | Zero opportunities and no planner; required trace missing, runner exits 1 and evidence is inconclusive. |
+| 2014 | `python3 tools/auto_towns_probe/run.py --scenario villages --mg-name v7 --seed 2014 --duration 60 --port 39521 --model-a10` | `towns-auto-probe-8bu8bx2w` | One matching planner, entry 10448 ms, exit 30525 ms; declined at 10449 ms. Fresh callback at 31133 ms with 5961 valid heights, after planner; session remained declined, zero activations. Trace complete, gate inconclusive. |
+| 98765 | `python3 tools/auto_towns_probe/run.py --scenario villages --mg-name v7 --seed 98765 --duration 75 --port 39522 --model-a10` | `towns-auto-probe-j3n7ybng` | One matching planner, entry 10482 ms, exit 50540 ms; declined at 10482 ms. Fresh callback at 51345 ms with 6400 valid heights, after planner; session remained declined, zero activations. Trace complete, gate inconclusive. |
+| 7777 | `python3 tools/auto_towns_probe/run.py --scenario villages --mg-name v7 --seed 7777 --duration 60 --port 39523 --model-a10` | `towns-auto-probe-c1ml1hp_` | Zero opportunities and no planner; required trace missing, runner exits 1 and evidence is inconclusive. |
 
 The actual model geometry in these runs was maximum ±245, village reach 178 and
 activation rectangle ±423. The fresh session was already inspecting the matching site

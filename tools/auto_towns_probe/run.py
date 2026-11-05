@@ -276,7 +276,7 @@ def _model_a10_observation(events):
         missing.append('exactly one geometry record and one matching planner entry')
     else:
         ei, entry = entries[0]
-        if geometry[0][1].get('fixture_version') != 1:
+        if geometry[0][1].get('fixture_version') != 2:
             missing.append('recognized fixture version')
         planner_entries = [(i, e) for i, e in find('wt_planner', 'enter') if i < ei and e.get('minp') == entry.get('minp')]
         if not planner_entries:
@@ -292,7 +292,7 @@ def _model_a10_observation(events):
                     and e.get('valid', 0) > 0 and e.get('site_state') == 'inspecting']
         exits = [(i, e) for i, e in find('wt_planner', 'exit') if i > ei]
         if not triggers or triggers[0][0] >= ei or entry.get('fresh_state') != 'inspecting':
-            missing.append('matching trigger activated site before planner entry')
+            missing.append('matching surface trigger and inspecting site before planner entry')
         if len(declines) != 1 or len(requests) != 1 or len(callbacks) != 1 or not exits:
             missing.append('decline, competing request, callback, and planner exit')
         else:
@@ -549,6 +549,7 @@ def main():
     shutil.copy2(HELPER / 'mod.conf', probe / 'mod.conf')
     if args.model_a10:
         shutil.copy2(HELPER / 'a10_model.lua', probe / 'a10_model.lua')
+        shutil.copy2(HELPER / 'a10_geometry.lua', probe / 'a10_geometry.lua')
         for directory in ('src', 'schematics'):
             shutil.copytree(ROOT / directory, probe / 'towns_source' / directory)
     if args.route:

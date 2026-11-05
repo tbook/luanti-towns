@@ -55,6 +55,9 @@ scratch model: no production automatic-town adapter or guard exists here.
 
 It uses two independent sessions. The fresh session receives all generated events; a matching
 village trigger must have a valid surface callback and an inspecting site before the planner.
+The height validity test covers the entire trigger chunk, as `auto_state` does; that
+callback can follow an earlier activation and need not contain valid heights inside the
+site's footprint. The trace establishes state at planner entry, not which callback caused it.
 The inactive session has not seen those events, modeling a trigger generated in an earlier
 session. The model declines an overlapping site before requesting a fresh chunk inside its
 activation halo and before calling the actual planner. It observes whether that surface callback
