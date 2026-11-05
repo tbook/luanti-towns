@@ -67,7 +67,7 @@ if env_ok then
 		log = function(reason) core.log("error", "[towns] automatic village guard: " .. reason) end,
 	})
 else
-	towns.auto_disabled = tostring(env)
+	towns.auto_disabled = tostring(env) .. "; accepted reservations are unprotected"
 	core.log("error", "[towns] automatic village guard: " .. towns.auto_disabled)
 end
 

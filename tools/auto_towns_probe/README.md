@@ -220,3 +220,18 @@ On 2026-11-05, Luanti 5.17.0 with the installed Living Villages and VoxeLibre
 0.92.3 reported reach 178, a working startup guard, suppression with zero calls
 to the saved planner, and one pass-through call. The planner's identity remains
 an assumption because Living Villages does not publish an installation marker.
+
+`python3 tools/auto_towns_probe/guard_engine_probe.py --vanilla-fallback`
+turns off Living Villages smoothing in the scratch world. The guard disables
+new automatic jobs but keeps accepted reservations protected using a separate
+fallback bound audited for VoxeLibre 0.92.3 and the installed Living Villages
+church wrapper. The vanilla planner tries at most 20 rings, with at most 19
+five-node radius increases from the belltower; rotated schematic footprints and
+water repair add their width and 20 nodes, with one node for rounding. Vanilla
+paths stay between building positions, and vanilla terraform stays within the
+footprints. The bound assumes that audited game and callable chain: their
+identity is not exposed by a public API. Malformed or unknown dependencies
+leave ordinary villages untouched and cannot guarantee accepted-reservation
+protection. The 2026-11-05 fallback run passed startup with automatic jobs
+disabled, accepted suppression and the near miss; it used the same stubbed
+planner limitation described above.

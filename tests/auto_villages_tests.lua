@@ -69,11 +69,18 @@ local eq = ...
 	local before = s2.create_site_plan
 	eq(villages.install(missing_opts), nil, "missing Living Villages planner prerequisite is unsupported")
 	eq(s2.create_site_plan, before, "unsupported planner leaves existing callable untouched")
-	local disabled_opts = {planner_enabled = false, settlements = s2, disable = function() disabled = disabled + 1 end,
-		log = function() logs = logs + 1 end}
-	eq(villages.install(disabled_opts), nil, "disabled Living Villages planner is unsupported")
-	eq(villages.install(disabled_opts), nil, "unsupported planner is not retried")
-	eq(logs, 3, "unsupported planner reports once")
+	local s3 = {schematic_table = s.schematic_table, find_surface = s.find_surface,
+		check_distance = s.check_distance, terraform = s.terraform, surface_mat = s.surface_mat,
+		create_site_plan = function() return marker end}
+	local disabled_opts = {}; for k, v in pairs(opts) do disabled_opts[k] = v end
+	disabled_opts.planner_enabled, disabled_opts.settlements = false, s3
+	local fallback = assert(villages.install(disabled_opts))
+	eq(fallback:check(), false, "fallback disables new automatic operation")
+	eq(villages.install(disabled_opts), nil, "disabled operation reports only once")
+	registry.records["0:0"] = {envelope = {min = {x = 400, z = 400}, max = {x = 600, z = 600}}}
+	eq(s3.create_site_plan({x = 731, z = 500}, {x = 731, z = 500}, pr), false, "vanilla fallback protects inclusive reach")
+	eq(s3.create_site_plan({x = 732, z = 500}, {x = 732, z = 500}, pr), marker, "vanilla fallback passes near miss")
+	eq(logs, 3, "fallback reports once")
 	local broken = {create_site_plan = function() return marker end}
 	opts.settlements = broken
 	eq(villages.install(opts), nil, "unsupported dependency rejected")

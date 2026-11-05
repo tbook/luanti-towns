@@ -41,7 +41,7 @@ function M.install(opts)
 	local log = type(opts.log) == "function" and opts.log or function() end
 	local notify = {disable = function(why) failed_options[opts] = why; disable(why) end, log = log}
 	local s, env, session, registry = opts.settlements, opts.env, opts.session, opts.registry
-	if opts.planner_enabled ~= true or type(s) ~= "table" or type(s.create_site_plan) ~= "function"
+	if type(opts.planner_enabled) ~= "boolean" or type(s) ~= "table" or type(s.create_site_plan) ~= "function"
 		or type(s.schematic_table) ~= "table" or #s.schematic_table == 0
 		or type(s.find_surface) ~= "function" or type(s.check_distance) ~= "function"
 		or type(s.terraform) ~= "function" or type(s.surface_mat) ~= "table"
@@ -54,28 +54,36 @@ function M.install(opts)
 		or type(opts.lookup) ~= "function" or type(opts.enabled) ~= "function"
 		or type(session) ~= "table" or type(session.state) ~= "function" or type(session.decline) ~= "function"
 		or type(registry) ~= "table" or type(registry.lookup) ~= "function" or type(registry.is_enabled) ~= "function" then
-		return fail(notify, "unsupported Living Villages coordination dependencies")
+		return fail(notify, "unsupported Living Villages coordination dependencies; accepted reservations are unprotected")
 	end
 	if type(s.schematic_table[1]) ~= "table" or s.schematic_table[1].name ~= "belltower" then
-		return fail(notify, "unsupported Living Villages schematic order")
+		return fail(notify, "unsupported Living Villages schematic order; accepted reservations are unprotected")
 	end
+	local largest = 0
 	for _, schem in ipairs(s.schematic_table) do
 		if type(schem) ~= "table" or type(schem.name) ~= "string" or not integer(schem.hwidth)
 			or not integer(schem.hdepth) or not integer(schem.hheight)
-			or type(schem.hsize) ~= "number" or type(schem.max_num) ~= "number" then
-			return fail(notify, "unsupported Living Villages schematic shape")
+			or not integer(schem.hsize) or schem.hsize < 0 or type(schem.max_num) ~= "number"
+			or schem.hwidth < 1 or schem.hdepth < 1 or schem.hheight < 1 then
+			return fail(notify, "unsupported Living Villages schematic shape; accepted reservations are unprotected")
 		end
+		largest = math.max(largest, schem.hwidth, schem.hdepth)
 	end
 	if installed[s] then
 		if s.create_site_plan == installed[s].wrapper then return installed[s] end
-		return fail(notify, "village planner was replaced after guard installation")
+		return fail(notify, "village planner was replaced after guard installation; accepted reservations may be unprotected")
 	end
 	local function suppress(reason)
 		if type(opts.on_suppressed) == "function" then pcall(opts.on_suppressed, reason) end
 		return false
 	end
-	local reach = env.village_reach
-	local guard = {original = s.create_site_plan, failed = false}
+	-- VoxeLibre 0.92.3 vanilla (also LV church wrapper when smoothing is off):
+	-- 20 rings, at most 19 increments of 5 from the belltower; rounded ring
+	-- coordinates, rotated footprint, then water fix extends 20 nodes.
+	-- Current callable identity and this game version remain assumptions.
+	local fallback_reach = s.schematic_table[1].hsize + 95 + largest + 20 + 1
+	local reach = opts.planner_enabled and env.village_reach or math.max(env.village_reach, fallback_reach)
+	local guard = {original = s.create_site_plan, failed = false, reach = reach}
 	local function disable_once(why)
 		if not guard.failed then guard.failed = true; fail(notify, why) end
 	end
@@ -89,7 +97,7 @@ function M.install(opts)
 		return self:check()
 	end
 	function guard:check()
-		if s.create_site_plan ~= self.wrapper then disable_once("village planner was replaced after guard installation") end
+		if s.create_site_plan ~= self.wrapper then disable_once("village planner was replaced after guard installation; accepted reservations may be unprotected") end
 		return not self.failed
 	end
 	guard.wrapper = function(maxp, minp, ...)
@@ -103,7 +111,7 @@ function M.install(opts)
 		local x, z = math.floor((minp.x + maxp.x) / 2), math.floor((minp.z + maxp.z) / 2)
 		local rect = {x1 = x - reach, z1 = z - reach, x2 = x + reach, z2 = z + reach}
 		local healthy = registry:is_enabled()
-		if not healthy then disable_once("automatic town registry unavailable"); return pass() end
+		if not healthy then disable_once("automatic town registry unavailable; accepted reservations are unprotected"); return pass() end
 		-- Accepted records are keyed by cell. Their reserved maximum lies inside
 		-- that cell, even when the currently configured site descriptor changed.
 		for cz = sites.cell_index(rect.z1), sites.cell_index(rect.z2) do
@@ -139,6 +147,9 @@ function M.install(opts)
 	end
 	s.create_site_plan = guard.wrapper
 	installed[s] = guard
+	if not opts.planner_enabled then
+		disable_once("Living Villages planner disabled; accepted towns use assumed VoxeLibre 0.92.3 fallback")
+	end
 	return guard
 end
 return M
