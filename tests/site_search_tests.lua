@@ -1291,6 +1291,39 @@ do
 	eq(calls, 2, "explicit error callback once")
 end
 
+-- Outstanding engine timers must not retain either the bulk snapshot while
+-- the build volume loads, or the search state after the inspection finishes.
+do
+	local w = new_world({deferred = true})
+	local weak = setmetatable({}, {__mode = "v"})
+	local marker = {}
+	weak.marker = marker
+	local opts = {entries = catalog.entries}
+	rawset(w.env, "bulk_reader", function()
+		local snapshot = {}
+		weak.snapshot = snapshot
+		return function(x, y, z)
+			if snapshot then return w.env.get_node_name(x, y, z) end
+		end
+	end)
+	local calls = 0
+	local function completion(value)
+		return function() if value then calls = calls + 1 end end
+	end
+	ss_raw.inspect_site({x = 200, z = -170}, 30, SEED, opts,
+		completion(marker), w.env)
+	table.remove(w.queue, 1)()
+	collectgarbage("collect")
+	eq(weak.snapshot, nil, "bulk snapshot released while build emerge is pending")
+	eq(#w.queue, 1, "build emerge remains pending")
+	table.remove(w.queue, 1)()
+	opts, marker = nil, nil
+	collectgarbage("collect")
+	eq(weak.marker, nil, "settled timers release inspection state")
+	for _, timer in ipairs(w.timers) do timer.fn() end
+	eq(calls, 1, "released watchdogs remain harmless")
+end
+
 -- Engine snapshot uses the returned emerged bounds for indexing and enforces
 -- the requested bounds, even when the engine expands its read area.
 do

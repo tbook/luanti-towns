@@ -565,9 +565,12 @@ local function search(player_pos, seed, opts, done, env, explicit_ref)
 			rejections = rejections, examples = examples,
 		}
 	end
+	local reader, active_emerge
 	local function finish(result, summary)
 		if finished then return end
 		finished = true
+		reader = nil
+		if active_emerge then active_emerge.settle = nil; active_emerge = nil end
 		-- `done` must not throw. If it does, that must never propagate into
 		-- the engine's emerge/timer callbacks (fatal to the server): it is
 		-- logged through env.log and swallowed, on every path.
@@ -595,7 +598,7 @@ local function search(player_pos, seed, opts, done, env, explicit_ref)
 	end
 
 	local wet_mode = C.MAX_WATER_DEPTH > 0
-	local reader = env.get_node_name
+	reader = env.get_node_name
 	local class_cache = {}
 	local function class_at(x, y, z)
 		local name = reader(x, y, z)
@@ -629,17 +632,27 @@ local function search(player_pos, seed, opts, done, env, explicit_ref)
 	-- runs once, from the driver loop; late callbacks are ignored.
 	local function emerge_step(minp, maxp, on_result)
 		waiting = true
-		local settled = false
-		local function settle(status)
-			if settled or finished then return end
-			settled = true
+		-- Timers cannot be cancelled. Leave them holding only this small token
+		-- once the emerge settles, rather than the entire search continuation.
+		local token = {}
+		active_emerge = token
+		token.settle = function(status)
+			token.settle = nil
+			if active_emerge == token then active_emerge = nil end
+			if finished then return end
 			waiting = false
 			cont = function() on_result(status) end
 			pump()
 		end
-		env.emerge(minp, maxp, function(ok) settle(ok and "ok" or "failed") end)
-		if not settled then
-			env.after(C.EMERGE_TIMEOUT, function() settle("timeout") end)
+		env.emerge(minp, maxp, function(ok)
+			local settle = token.settle
+			if settle then settle(ok and "ok" or "failed") end
+		end)
+		if token.settle then
+			env.after(C.EMERGE_TIMEOUT, function()
+				local settle = token.settle
+				if settle then settle("timeout") end
+			end)
 		end
 	end
 
@@ -755,6 +768,7 @@ local function search(player_pos, seed, opts, done, env, explicit_ref)
 			end
 			local info, code, msg = M.inspect_columns(M.boundary_columns(rects), read,
 				top, C.MAX_RANGE, C.OUTLIER_PERCENT, C.MAX_CUT_FILL, wet)
+			reader = env.get_node_name
 			if not info then return reject(code, msg) end
 
 			-- Real plan for the accepted site; its footprint must be exactly
