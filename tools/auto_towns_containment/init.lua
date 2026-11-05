@@ -534,10 +534,45 @@ run_sample = function(index, done_sample, attempt)
 					cur.mark("urban", {urban_build = true})
 					return unpack(values)
 				end
+				local automatic_context
+				if family == "roman" then
+					-- Exercise the #401 optional context on the unwalled Roman pipeline. Its
+					-- exact envelope is available before build from the accepted plan.
+					local state = {plan = result.plan, center = result.center, ground_y = result.ground_y,
+						reference_y = result.ground_y, build_bounds = result.build_bounds}
+					local approved, why, code = as_towns(env_cache.plan_envelope, state)
+					if not approved then error("automatic context envelope failed: " .. tostring(code) .. ": " .. tostring(why)) end
+					sample.automatic_context = {read = approved.read, write = approved.write, before_write_calls = 0}
+					automatic_context = {
+						read_bounds = approved.read, write_bounds = approved.write,
+						ensure_loaded = function(minp, maxp, callback)
+							if not in_box(approved.read, minp.x, minp.y, minp.z)
+									or not in_box(approved.read, maxp.x, maxp.y, maxp.z) then
+								return callback(false)
+							end
+							local settled, failed = false, false
+							core.emerge_area(minp, maxp, function(_, action, remaining)
+								if action == core.EMERGE_CANCELLED or action == core.EMERGE_ERRORED then failed = true end
+								if remaining > 0 or settled then return end
+								settled = true
+								callback(not failed)
+							end)
+						end,
+						before_write = function()
+							sample.automatic_context.before_write_calls = sample.automatic_context.before_write_calls + 1
+							return true
+						end,
+					}
+				end
 				local built_ok, built_err = pcall(towns.populated.build, result, function(summary, bmsg, code, extra)
 					towns.builder.build_town = original_build_town
 					sample.build_ok = summary ~= nil
 					sample.build_message, sample.build_code = bmsg, code
+					if automatic_context and sample.automatic_context.before_write_calls ~= 1 then
+						sample.harness_error = (sample.harness_error or "")
+							.. " automatic before_write call count was "
+							.. tostring(sample.automatic_context.before_write_calls)
+					end
 					local ok2, err2 = pcall(function()
 						if not envelope or not snapshot then
 							sample.status = "no_envelope"
@@ -665,7 +700,7 @@ run_sample = function(index, done_sample, attempt)
 					if not ok2 then sample.status = "harness_error"; sample.harness_error = tostring(err2) end
 					towns.builder.build_town = original_build_town
 					finish_sample()
-				end)
+				end, automatic_context)
 				if not built_ok then
 					towns.builder.build_town = original_build_town
 					sample.status = "build_error"; sample.harness_error = tostring(built_err)

@@ -10,6 +10,7 @@ local rural = assert(outskirts.assets(catalog.entries))
 local assets = dofile("schematics/outskirts/catalog.lua")
 
 local nodes, metadata, storage_values, constructed = {}, {}, {}, 0
+local terraform_calls = 0
 local cleared_metadata, stopped_timers = {}, {}
 local stage_order = {}
 local margin_mode = "success"
@@ -96,7 +97,7 @@ _G.living_villages = {terrain = {volume = function(plan)
 		local p = plan[1].pos
 		return {minp = {x = p.x - 10, y = p.y - 10, z = p.z - 10},
 			maxp = {x = p.x + 20, y = p.y + 20, z = p.z + 20}}
-	end, terraform = function() return true, {unloaded_blocks = 0} end}}
+	end, terraform = function() terraform_calls = terraform_calls + 1; return true, {unloaded_blocks = 0} end}}
 
 local urban_bounds = {x1 = 0, z1 = 0, x2 = 20, z2 = 20}
 local plots = {
@@ -187,7 +188,8 @@ local towns = {
 		end,
 	},
 }
-towns.preflight.check = function() return {} end
+towns.preflight.check = function() return {volume = {min = {x = 0, y = 0, z = 0},
+	max = {x = 20, y = 20, z = 20}}} end
 local function read_schematic(path)
 	if path:find("farm", 1, true) then
 		return {size = assets.farm.size, data = {{name = "mcl_composters:composter"}}}
@@ -238,6 +240,76 @@ eq(constructed, 1, "farm composter constructor runs")
 eq(summary.town.beds.count, 1, "real resident enumeration counts the hut bed and no farm bed")
 eq(summary.town.beds.by_structure[1].valid, 0, "farm has no resident bed")
 eq(summary.town.beds.by_structure[2].valid, 1, "hut contributes one resident bed")
+
+-- Automatic builder integration keeps the approved urban write gate between
+-- zero-write preflight and the first urban mutation.
+local auto_box = {min = {x = -500, y = -500, z = -500}, max = {x = 500, y = 500, z = 500}}
+local before_writes = #town_calls
+local before_calls, ensured = 0, {}
+local denied_code
+towns.populated.build(result, function(_, _, code) denied_code = code end, {
+	read_bounds = auto_box, write_bounds = auto_box,
+	ensure_loaded = function(minp, maxp, cb)
+		ensured[#ensured + 1] = {min = minp, max = maxp}; cb(true)
+	end,
+	before_write = function() before_calls = before_calls + 1; return false, "player entered" end,
+})
+eq(denied_code, "before_write_denied", "automatic urban write gate reports denial")
+eq(before_calls, 1, "automatic urban write gate is called once")
+eq(#town_calls, before_writes, "denied automatic build performs no urban write")
+eq(#ensured, 1, "automatic builder requests the approved urban volume once")
+
+before_calls, ensured = 0, {}
+local overflow_code
+towns.populated.build(result, function(_, _, code) overflow_code = code end, {
+	read_bounds = auto_box,
+	write_bounds = {min = {x = -10, y = -10, z = -10}, max = {x = 10, y = 10, z = 10}},
+	ensure_loaded = function(minp, maxp, cb) ensured[#ensured + 1] = true; cb(true) end,
+	before_write = function() before_calls = before_calls + 1; return true end,
+})
+eq(overflow_code, "inspection_failed", "urban overflow declines before construction")
+eq(before_calls, 0, "urban overflow does not call the write gate")
+eq(#ensured, 0, "urban overflow is rejected before requesting additional terrain")
+eq(#town_calls, before_writes, "urban overflow performs no urban write")
+
+local pending_load, async_done = nil, 0
+towns.populated.build(result, function(s) async_done = async_done + 1; auto_summary = s end, {
+	read_bounds = auto_box, write_bounds = auto_box,
+	ensure_loaded = function(_, _, cb) pending_load = cb end,
+	before_write = function() before_calls = before_calls + 1; return true end,
+})
+eq(async_done, 0, "automatic build waits for bounded loading")
+pending_load(true)
+eq(auto_summary ~= nil, true, "automatic build resumes after bounded loading")
+eq(async_done, 1, "automatic async completion fires once")
+
+before_calls, ensured = 0, {}
+local auto_summary
+towns.populated.build(result, function(s) auto_summary = s end, {
+	read_bounds = auto_box, write_bounds = auto_box,
+	ensure_loaded = function(minp, maxp, cb)
+		ensured[#ensured + 1] = {min = minp, max = maxp}; cb(true)
+	end,
+	before_write = function() before_calls = before_calls + 1; return true end,
+})
+eq(auto_summary ~= nil, true, "automatic context reuses the populated builder")
+eq(before_calls, 1, "accepted automatic build enters the write gate once")
+eq(#ensured > 0, true, "automatic context routes declared loading through its adapter")
+
+local composition = assert(preflight.compose_outskirts(out, rural))
+local apply_env = towns.builder.core_env()
+apply_env.terrain = living_villages.terrain
+apply_env.check_door = towns.builder.check_door
+local before_terraform = terraform_calls
+local partial_outskirts = outskirts_build.apply(out, apply_env, {
+	bounds = urban_bounds, structures = composition.structures,
+	automatic_context = {write_bounds = {min = {x = -100, y = -100, z = -100},
+		max = {x = 65, y = 100, z = 100}}},
+})
+eq(partial_outskirts ~= nil, true, "escaping automatic rural plot is omitted without failing the town")
+eq(terraform_calls - before_terraform, 1, "only the in-envelope rural plot is terraformed")
+eq(#partial_outskirts.skipped, 1, "omitted rural plot records its reason")
+eq(partial_outskirts.skipped[1].code, "automatic_envelope", "rural omission identifies envelope overflow")
 eq(summary.town.residents.spawned, 1, "unchanged resident initialization spawns for the hut bed")
 eq(summary.margins.status, "smoothed", "margin outcome is retained for reporting")
 local report = report_text(summary, towns.generate)
