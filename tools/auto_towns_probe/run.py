@@ -250,6 +250,94 @@ def scenario_checks(name, phases, events):
     return out
 
 
+def controlled_a10_observation(events):
+    """Validate the controlled A10 instrumentation without promoting A10 to PASS."""
+    reserve_min = {'x': -192, 'y': -32, 'z': 128}
+    test_pos = {'x': 10000, 'y': 0, 'z': 10000}
+    callback_min = {'x': 9968, 'y': -32, 'z': 9968}
+
+    def first(predicate):
+        return next((e for e in events if predicate(e)), None)
+
+    reserve = first(lambda e: e.get('kind') == 'wt_synthetic' and e.get('state') == 'reserve'
+                    and e.get('minp') == reserve_min)
+    planner_enter = first(lambda e: e.get('kind') == 'wt_planner' and e.get('state') == 'enter'
+                          and e.get('minp') == reserve_min)
+    planner_marker = first(lambda e: e.get('kind') == 'wt_synthetic'
+                           and e.get('state') == 'planner_entry' and e.get('reserved') is True
+                           and e.get('minp') == reserve_min)
+    control_request = first(lambda e: e.get('kind') == 'wt_control' and e.get('state') == 'request')
+    emerge_request = first(lambda e: e.get('kind') == 'wt_request'
+                           and e.get('minp') == test_pos and e.get('maxp') == test_pos)
+    wait_end = first(lambda e: e.get('kind') == 'wt_control' and e.get('state') == 'wait_end')
+    planner_exit = first(lambda e: e.get('kind') == 'wt_planner' and e.get('state') == 'exit'
+                         and planner_enter is not None
+                         and isinstance(e.get('t_ms'), (int, float))
+                         and e.get('t_ms') >= planner_enter.get('t_ms', float('inf')))
+    generated = first(lambda e: e.get('kind') == 'wt_generated' and e.get('minp') == callback_min)
+    generated_emerge = first(lambda e: e.get('kind') == 'wt_emerge'
+                             and e.get('action') == 'generated'
+                             and e.get('block') == {'x': 625, 'y': 0, 'z': 625}
+                             and emerge_request is not None
+                             and e.get('request') == emerge_request.get('request'))
+
+    required = {
+        'synthetic reservation marker': reserve,
+        'planner entry': planner_enter,
+        'reserved marker at planner entry': planner_marker,
+        'injected request marker': control_request,
+        'matching unrelated emerge request': emerge_request,
+        'control wait end': wait_end,
+        'planner exit': planner_exit,
+        'competing generated-chunk callback': generated,
+        'matching generated emerge completion': generated_emerge,
+    }
+    missing = [label for label, event in required.items() if event is None]
+    ordered = False
+    relation = 'inconclusive'
+    timestamps = {}
+    if not missing:
+        timestamps = {
+            'reservation_ms': reserve.get('t_ms'),
+            'planner_enter_ms': planner_enter.get('t_ms'),
+            'planner_marker_ms': planner_marker.get('t_ms'),
+            'request_marker_ms': control_request.get('t_ms'),
+            'emerge_request_ms': emerge_request.get('t_ms'),
+            'wait_end_ms': wait_end.get('t_ms'),
+            'planner_exit_ms': planner_exit.get('t_ms'),
+            'generated_callback_ms': generated.get('t_ms'),
+            'generated_emerge_ms': generated_emerge.get('t_ms'),
+        }
+        ordered = all(isinstance(t, (int, float)) for t in timestamps.values())
+        ordered = ordered and (
+            timestamps['reservation_ms'] <= timestamps['planner_enter_ms']
+            <= timestamps['planner_marker_ms'] <= timestamps['request_marker_ms']
+            <= timestamps['emerge_request_ms'] <= timestamps['wait_end_ms']
+            <= timestamps['planner_exit_ms']
+            and timestamps['generated_callback_ms'] >= timestamps['emerge_request_ms']
+            and timestamps['generated_emerge_ms'] >= timestamps['generated_callback_ms'])
+        if not ordered:
+            missing.append('timestamps in reservation/request/callback order')
+        elif generated.get('t_ms') < planner_enter.get('t_ms'):
+            missing.append('competing callback after planner entry')
+            ordered = False
+        elif generated.get('t_ms') <= planner_exit.get('t_ms'):
+            relation = 'during_planner'
+        else:
+            relation = 'after_planner'
+
+    complete = not missing and ordered
+    return {
+        'evidence_status': 'inconclusive',
+        'instrumentation_status': 'complete' if complete else 'incomplete',
+        'callback_relation': relation,
+        'required_events_observed_in_order': complete,
+        'missing_or_invalid': missing,
+        'times_ms': timestamps,
+        'interpretation': 'Synthetic observer instrumentation only; A10 remains UNVERIFIED.',
+    }
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--scenario', default='fresh', choices=sorted(SCENARIOS),
@@ -324,6 +412,7 @@ def main():
                                  'mineclone2': git_rev(DEFAULT_GAME)},
               'scratch_world': str(work), 'duration_s': duration, 'phases': [], 'checks': [], 'ok': False}
     events = {}
+    write_through_events = {}
     phase_reports = []
     for index, fixture in enumerate(phases, start=1):
         with (work / 'check.conf').open('w') as f:
@@ -368,6 +457,8 @@ def main():
         events_file = work / ('auto-towns-probe-phase%d.jsonl' % index)
         events[index] = [normalize_event(e) for e in read_events(events_file)]
         write_events(events_file, events[index])
+        write_through_file = work / ('auto-towns-probe-writethrough-phase%d.jsonl' % index)
+        write_through_events[index] = read_events(write_through_file)
         entry['report'] = phase
         phase_reports.append((index, phase))
         print('Phase %d: %s' % (index, json.dumps({
@@ -385,6 +476,13 @@ def main():
         # Scenario expectations describe the preset boxes only; a --fixture override has none.
         for label, ok in scenario_checks(args.scenario, phase_reports, events):
             report['checks'].append({'ok': bool(ok), 'label': label})
+    if args.controlled_a10:
+        observation = controlled_a10_observation(write_through_events.get(1, []))
+        report['controlled_a10'] = observation
+        report['checks'].append({
+            'ok': observation['required_events_observed_in_order'],
+            'label': 'controlled A10: required synthetic events observed in order',
+        })
     report['ok'] = bool(report['checks']) and all(c['ok'] for c in report['checks'])
     (work / 'probe-report.json').write_text(json.dumps(report, indent=2))
     for c in report['checks']:

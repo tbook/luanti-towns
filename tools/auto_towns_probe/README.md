@@ -51,7 +51,9 @@ the planner wrapper before a deliberate three-second busy wait. This tests one c
 It does not load Towns, create a production reservation, or establish activation-halo ordering. The busy wait
 adds an artificial pause, so do not use this mode for player loading or performance measurements. The exact
 fixture, result, and limitations are recorded in `docs/automatic_towns_probe_results.md` under "Controlled
-synthetic contention run".
+synthetic contention run". The runner validates the reservation, planner, injected request, and matching
+generated callback in timestamp order. Missing or misordered events fail the probe and are recorded as an
+incomplete observation. A complete sequence is still reported as inconclusive for production A10.
 
 The source world's mapgen is `flat` (superflat). VoxeLibre's
 `settlements.evaluate_heightmap` returns `max_height_difference + 1` whenever a
