@@ -1,5 +1,5 @@
 -- Center-first automatic town loading (#397).
-local eq = ...
+local eq, placement, planner = ...
 local loader_mod = dofile("src/auto_loader.lua")
 
 local ORIGIN, SIZE = -32, 80
@@ -12,8 +12,9 @@ local function chunk_key(minp)
 end
 
 local function session_fixture()
-	local s = {fresh = {}, ground = nil, states = {}}
+	local s = {fresh = {}, ground = nil, states = {site = "inspecting"}}
 	function s:center() return self.ground end
+	function s:state(id) return self.states[id] end
 	function s:covers(_, b)
 		local x1, y1, z1 = math.floor((b.min.x - ORIGIN) / SIZE), math.floor((b.min.y - ORIGIN) / SIZE),
 			math.floor((b.min.z - ORIGIN) / SIZE)
@@ -25,7 +26,6 @@ local function session_fixture()
 		return true
 	end
 	function s:decline(id) self.states[id] = "declined"; return "declined" end
-	function s:finish(id) self.states[id] = "complete"; return "complete" end
 	return s
 end
 
@@ -71,7 +71,9 @@ local function make_fixture(opts)
 		end)
 	end}
 	local outer = box(48, 48, 48, 127, 127, 127)
-	local env_calc = function()
+	local env_calc = function(result, _, ref_y)
+		eq(ref_y, opts.ref_y or 64, "envelope receives center reference height")
+		eq(result.reference_y, opts.ref_y or 64, "result carries center reference height")
 		return {read = outer, write = outer, chunks = 5, snapshot_voxels = 5 * SIZE * SIZE * SIZE,
 			stages = {
 				urban_read = {kind = "read", box = outer},
@@ -105,7 +107,7 @@ do
 	eq(f.done_calls[1] and f.done_calls[1].result ~= nil, true, "loader returns accepted inspection")
 	eq(f.done_calls[1] and f.done_calls[1].result.read_envelope ~= nil, true, "read envelope is returned")
 	eq(f.done_calls[1] and f.done_calls[1].result.write_envelope ~= nil, true, "write envelope is returned")
-	eq(f.state.states.site, nil, "session remains inspecting for the later build handoff")
+	eq(f.state:state("site"), "inspecting", "session remains inspecting for the later build handoff")
 	local seen = {}
 	for _, r in ipairs(f.requests) do
 		eq(r.max.x - r.min.x + 1, SIZE, "requests stay one mapchunk wide")
@@ -125,6 +127,7 @@ end
 do
 	local f = make_fixture({async = true})
 	f.start()
+	local active_job = f.loader.jobs.site
 	eq(#f.pending, 1, "one request is in flight")
 	while #f.pending > 0 do
 		local cb = table.remove(f.pending, 1)
@@ -133,6 +136,16 @@ do
 	end
 	eq(#f.done_calls, 1, "async job completes once")
 	eq(f.done_calls[1].result ~= nil, true, "async job accepts fresh site")
+	eq(f.loader.jobs.site, true, "successful handoff keeps only a duplicate-suppression marker")
+	eq(active_job.done, nil, "terminal job releases its completion closure")
+	eq(active_job.site, nil, "terminal job releases its site descriptor")
+	eq(active_job.requested, nil, "terminal job releases request history")
+	eq(active_job.completed, nil, "terminal job releases completion history")
+	local before = #f.requests
+	local accepted, duplicate = f.loader:start(site, trigger, function() end)
+	eq(accepted, false, "successful site cannot start twice")
+	eq(duplicate, "already_started", "successful site reports duplicate start")
+	eq(#f.requests, before, "duplicate start submits no terrain requests")
 end
 
 -- A copied center from ordinary exploration is reused without requesting that chunk again.
@@ -171,6 +184,74 @@ do
 	eq(f.inspections(), 0, "missing center ground does not invoke inspector")
 	eq(f.done_calls[1] and f.done_calls[1].code, "center_ground_missing", "missing center ground is terminal")
 	eq(f.state.states.site, "declined", "missing center ground declines session")
+	eq(f.loader.jobs.site, nil, "failed job is removed from the loader")
+	local before = #f.requests
+	local accepted, duplicate = f.loader:start(site, trigger, function() end)
+	eq(accepted, false, "declined site cannot start twice")
+	eq(duplicate, "terminal", "declined site is suppressed by session state")
+	eq(#f.requests, before, "terminal suppression submits no terrain requests")
+end
+
+-- Real site_search integration: sequential chunks may take longer than its ordinary 30-second
+-- area watchdog while each request completes within the loader's per-chunk timeout.
+do
+	local search = dofile("src/site_search.lua")(placement, planner)
+	local state = session_fixture()
+	state.ground = {chunk = {minp = {x = -32, y = -32, z = -32}, maxp = {x = 47, y = 47, z = 47}},
+		values = {20}, valid = 1}
+	state.fresh["0:0:0"] = true
+	local queue, timers, clock = {}, {}, 0
+	local request_count, inspector_deadlines, calls = 0, {}, 0
+	local catalog = dofile("src/catalog.lua")
+	local profile = assert(planner.landmark_profile(catalog.snapshot()))
+	local env = {
+		emerge = function(_, _, cb) request_count = request_count + 1; queue[#queue + 1] = cb end,
+		after = function(seconds, fn)
+			timers[#timers + 1] = {at = clock + seconds, fn = fn}
+			if seconds > 30 then inspector_deadlines[#inspector_deadlines + 1] = seconds end
+		end,
+		get_node_name = function() return "air" end,
+		node_info = function() return {walkable = false, liquid = false, clearable = true} end,
+		log = function() end,
+	}
+	local loader = assert(loader_mod.new({session = state, site_search = search,
+		envelope = function() error("rejected terrain has no envelope") end,
+		env = env, origin = ORIGIN, size = SIZE, seed = 1, request_timeout = 5,
+		inspect_opts = {entries = catalog.entries, planner_opts = {landmarks = profile}}}))
+	loader:start(site, trigger, function(result, reason, code)
+		calls = calls + 1
+		eq(result, nil, "real exact inspector rejects all-air terrain")
+		eq(reason ~= nil, true, "real exact inspector reports its rejection")
+		eq(code, "inspection_failed", "real exact inspector terminates through loader once")
+	end)
+	local guard = 0
+	while (#queue > 0 or #timers > 0) and calls == 0 and guard < 500 do
+		guard = guard + 1
+		if #queue > 0 then
+			local complete = table.remove(queue, 1)
+			clock = clock + 2
+			complete(true)
+		else
+			table.sort(timers, function(a, b) return a.at < b.at end)
+			local timer = table.remove(timers, 1)
+			clock = math.max(clock, timer.at)
+			timer.fn()
+		end
+		local i = 1
+		while i <= #timers do
+			if timers[i].at <= clock then
+				local timer = table.remove(timers, i)
+				timer.fn()
+			else
+				i = i + 1
+			end
+		end
+	end
+	eq(calls, 1, "real site_search callback settles once")
+	eq(clock > 30, true, "serialized urban loading takes over 30 simulated seconds")
+	eq(request_count > 15, true, "real inspector volume spans enough chunks to exceed 30 seconds")
+	eq(#inspector_deadlines > 0 and inspector_deadlines[1] > 30, true,
+		"real inspector watchdog is extended to bound the serialized queue")
 end
 
 -- Old neighboring terrain can satisfy the emerge API but cannot authorize a possible write.
@@ -185,6 +266,7 @@ end
 do
 	local f = make_fixture({async = true})
 	f.start()
+	local active_job = f.loader.jobs.site
 	local cb = table.remove(f.pending, 1)
 	cb(false)
 	eq(#f.done_calls, 1, "failed request completes once")
@@ -192,6 +274,9 @@ do
 	cb(true)
 	eq(#f.done_calls, 1, "late request callback is ignored")
 	eq(f.inspections(), 0, "failed center request never inspects")
+	eq(f.loader.jobs.site, nil, "failed job is removed from the loader")
+	eq(active_job.done, nil, "failed job releases its completion closure")
+	eq(active_job.requested, nil, "failed job releases request history")
 end
 
 -- Frozen cap checks reject a broad request before it reaches env.emerge.

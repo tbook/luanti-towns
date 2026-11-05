@@ -482,7 +482,7 @@ run_group("tests/auto_sites_tests.lua", eq)
 run_group("tests/auto_state_tests.lua", eq)
 
 -- Automatic town bounded center-first loading (#397).
-run_group("tests/auto_loader_tests.lua", eq)
+run_group("tests/auto_loader_tests.lua", eq, placement, dofile("src/planner.lua"))
 
 if only_group and not only_group_ran then
 	print("TOWNS_TEST_ONLY matched no group: " .. only_group)

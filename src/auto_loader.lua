@@ -3,6 +3,14 @@
 -- injected. Every emerge is split into deduplicated engine chunks and only one is in flight.
 -- Heightmap early rejection is intentionally omitted: A9 does not establish terrain-height
 -- semantics that match the exact inspector, so all urban candidates reach inspect_site.
+--
+-- API: loader = auto_loader.new({
+--   session, site_search, env, origin, size, seed, inspect_opts, caps, request_timeout,
+--   envelope = function(result, site, reference_y) -> auto_bounds envelope | nil, reason, code
+-- })
+-- loader:start(site, trigger_event, done) -> true | false, reason
+-- done(result, nil) hands an accepted inspection and active freshness session to the builder;
+-- done(nil, reason, code) means the site was declined. `env.emerge` accepts exactly one chunk.
 
 local M = {}
 
@@ -81,6 +89,21 @@ local function valid_envelope(e)
 	return true
 end
 
+local function with_loader_deadline(opts, seconds)
+	local out, previous = {}, 0
+	for k, v in pairs(opts) do
+		if type(k) == "string" and k:upper() == "EMERGE_TIMEOUT" then
+			if type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge then
+				previous = math.max(previous, v)
+			end
+		else
+			out[k] = v
+		end
+	end
+	out.emerge_timeout = math.max(previous, seconds)
+	return out
+end
+
 local function stage_names(stages)
 	local names = {}
 	for name in pairs(stages) do names[#names + 1] = name end
@@ -92,8 +115,8 @@ function M.new(opts)
 	if type(opts) ~= "table" then return nil, "options are required", "invalid_options" end
 	local state, search, env = opts.session, opts.site_search, opts.env
 	if type(state) ~= "table" or type(state.center) ~= "function" or type(state.covers) ~= "function"
-		or type(state.decline) ~= "function" or type(state.finish) ~= "function" then
-		return nil, "session must provide center, covers, decline and finish", "invalid_options"
+		or type(state.state) ~= "function" or type(state.decline) ~= "function" then
+		return nil, "session must provide center, covers, state and decline", "invalid_options"
 	end
 	if type(search) ~= "table" or type(search.inspect_site) ~= "function" then
 		return nil, "site_search.inspect_site is required", "invalid_options"
@@ -116,6 +139,9 @@ function M.new(opts)
 			or timeout == math.huge or timeout == -math.huge then
 		return nil, "request_timeout must be positive", "invalid_options"
 	end
+	if timeout > math.huge / (caps.MAX_REQUEST_CHUNKS + 1) then
+		return nil, "request_timeout and chunk cap exceed the finite inspector deadline", "invalid_options"
+	end
 	if type(env.after) ~= "function" then return nil, "env.after is required for bounded requests", "invalid_options" end
 	return setmetatable({
 		session = state, site_search = search, envelope = opts.envelope, env = env,
@@ -137,6 +163,9 @@ function M:start(site, trigger, done)
 		error("auto_loader: trigger bounds and done callback are required", 2)
 	end
 	if self.jobs[site.id] then return false, "already_started" end
+	local state = self.session:state(site.id)
+	if state == "declined" or state == "complete" or state == "accepted" then return false, "terminal" end
+	if state ~= "inspecting" then return false, "not_inspecting" end
 	local job = {id = site.id, site = copy(site), done = done, terminal = false,
 		requested = {}, completed = {}, in_flight = false, serial = 0, ref_y = nil}
 	self.jobs[site.id] = job
@@ -149,9 +178,15 @@ function M:start(site, trigger, done)
 		if not result then
 			self.session:decline(job.id)
 		end
+		local callback = job.done
+		-- Keep only a tiny marker for successful inspection handoff (the session remains
+		-- inspecting until the builder finishes); declined/failed sites are suppressed by session state.
+		self.jobs[job.id] = result and true or nil
+		job.done, job.site, job.requested, job.completed = nil, nil, nil, nil
+		job.ref_y, job.load_failure = nil, nil
 		-- Successful loading is a handoff to the future builder. Keep session freshness alive
 		-- until that owner records the eventual build or decline.
-		local ok, err = pcall(job.done, result, reason, code)
+		local ok, err = pcall(callback, result, reason, code)
 		if not ok and self.env.log then pcall(self.env.log, "error", "auto_loader completion raised: " .. tostring(err)) end
 	end
 
@@ -265,7 +300,8 @@ function M:start(site, trigger, done)
 			if called or job.terminal then return end
 			called = true
 			if not result then return fail(reason, job.load_failure or (details and details.reason) or "inspection_failed") end
-			local ok, envelope, why, code = pcall(self.envelope, result, site)
+			result.reference_y = ref_y
+			local ok, envelope, why, code = pcall(self.envelope, result, site, ref_y)
 			if not ok then return fail("Could not calculate the approved site envelope: " .. tostring(envelope), "envelope_failed") end
 			if not valid_envelope(envelope) then return fail(why or "The approved site envelope is invalid.", code or "envelope_failed") end
 			if envelope.chunks > self.caps.MAX_REQUEST_CHUNKS
@@ -298,8 +334,12 @@ function M:start(site, trigger, done)
 			end
 			next_stage()
 		end
+		-- site_search's own watchdog covers a whole env.emerge call. Since this adapter
+		-- serializes mapchunks, bound it by the maximum chunk count times the per-chunk timeout.
+		local total_timeout = (self.caps.MAX_REQUEST_CHUNKS + 1) * self.timeout
+		local inspect_opts = with_loader_deadline(self.inspect_opts, total_timeout)
 		local ok, err = pcall(self.site_search.inspect_site, copy(site.center), ref_y, self.seed,
-			copy(self.inspect_opts), inspected, wrapped)
+			inspect_opts, inspected, wrapped)
 		if not ok then fail("Exact site inspection failed: " .. tostring(err), "inspection_failed") end
 	end
 
