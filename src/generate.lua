@@ -35,7 +35,7 @@
 --   command_name             optional text such as "/towns_generate", shown
 --                            in the success report (default /towns_generate)
 
-return function(planner)
+return function(planner, lock_factory)
 
 local M = {}
 
@@ -495,14 +495,16 @@ end
 -- The controller. See the deps contract in the header.
 function M.new(deps)
 	local C = {}
-	local active -- {name, seed, started}
+	local lock = deps.lock or (lock_factory and lock_factory())
+	assert(lock, "generate.new requires a generation lock or lock factory")
 
 	local function now()
 		return deps.now and deps.now() or 0
 	end
 
 	function C.busy()
-		return active ~= nil, active and active.name
+		local active = lock.current()
+		return active ~= nil, active and active.owner
 	end
 
 	-- Runs the command. Returns ok, message for the command return value.
@@ -510,18 +512,21 @@ function M.new(deps)
 	function C.run(name, param)
 		local args, err = M.parse_args(param)
 		if not args then return false, err end
-		if active then
-			if active.phase == "search" and now() - active.started > M.STALE_SECONDS then
-				deps.log("warning", "towns_generate: dropping stale search started by "
-					.. active.name)
-				active = nil
-			else
-				return false, "A town search or build is already in progress (started by "
-					.. active.name .. "); wait for it to finish."
-			end
+		local before = lock.current()
+		local token, owner = lock.acquire(name, "search", now(), M.STALE_SECONDS)
+		if not token then
+			return false, "A town search or build is already in progress (started by "
+				.. tostring(owner) .. "); wait for it to finish."
+		end
+		if before then
+			deps.log("warning", "towns_generate: dropping stale search started by "
+				.. tostring(before.owner))
 		end
 		local pos = deps.get_player_pos(name)
-		if not pos then return false, "You must be in game to use this command." end
+		if not pos then
+			lock.release(token)
+			return false, "You must be in game to use this command."
+		end
 
 		local seed = args.seed
 		local generated = false
@@ -531,7 +536,7 @@ function M.new(deps)
 		end
 
 		local town = args.town_type
-		local mine = {name = name, seed = seed, started = now(), phase = "search"}
+		local mine = token
 		local returning, sync_ok, sync_msg = true
 		local function finish(ok, lines)
 			deps.log(ok and "action" or "warning", "towns_generate (" .. name .. "): "
@@ -550,16 +555,15 @@ function M.new(deps)
 			end
 		end
 
-		active = mine
 		local function release()
-			if active == mine then active = nil end
+			lock.release(mine)
 		end
 
 		local search_done = false
 		local function on_done(result, message)
 			if search_done then return end
 			search_done = true
-			local replaced = active ~= mine
+			local replaced = not lock.owns(mine)
 			if replaced then
 				-- A stale takeover started a newer search; never build for this one.
 				return finish(false, {"A newer /towns_generate replaced this search; "
@@ -570,7 +574,7 @@ function M.new(deps)
 				return finish(false, {M.format_search_failure(message)})
 			end
 			result.force_walls = args.force_walls
-			mine.phase = "build"
+			lock.set_phase(mine, "build")
 			local build_done = false
 			local function on_build(summary, bmsg, code, extra)
 				if build_done then return end

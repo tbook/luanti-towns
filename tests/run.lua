@@ -446,7 +446,7 @@ run_group("tests/residents_tests.lua", eq, fails, catalog, dofile("src/residents
 
 -- /towns_generate command logic (ticket #16): args, seeds, report, fakes.
 run_group("tests/generate_tests.lua", eq, fails, dofile("src/planner.lua"),
-	dofile("src/generate.lua"))
+	dofile("src/generate.lua"), dofile("src/generation_lock.lua"))
 
 -- Castle verification (ticket #30): dimensions, header parsing, placement at all rotations.
 run_group("tests/shared_sites_tests.lua", eq)

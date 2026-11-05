@@ -771,6 +771,7 @@ end
 towns.populated = {search = search, build = build, store = store}
 
 local controller = towns.generate.new({
+	lock = towns.generation_lock,
 	get_player_pos = function(name)
 		local p = core.get_player_by_name(name)
 		return p and p:get_pos() or nil

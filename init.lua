@@ -33,6 +33,10 @@ towns.outskirts_build = dofile(modpath .. "/src/outskirts_build.lua")
 -- /towns_generate only.
 towns.node_setup = dofile(modpath .. "/src/node_setup.lua")
 
+-- Shared in-memory ownership for command and automatic town operations.
+towns.generation_lock_factory = dofile(modpath .. "/src/generation_lock.lua")
+towns.generation_lock = towns.generation_lock_factory()
+
 -- Valid-bed enumeration inside placed buildings (#47); read-only, used by
 -- /towns_generate only.
 towns.residents = dofile(modpath .. "/src/residents.lua")
@@ -58,5 +62,5 @@ loadfile(modpath .. "/src/object_command.lua")(towns)
 
 -- Privileged populated-town command: search near the player and build at once
 -- (overwrites its site; disposable Creative worlds only).
-towns.generate = dofile(modpath .. "/src/generate.lua")(towns.planner)
+towns.generate = dofile(modpath .. "/src/generate.lua")(towns.planner, towns.generation_lock_factory)
 loadfile(modpath .. "/src/generate_command.lua")(towns)
