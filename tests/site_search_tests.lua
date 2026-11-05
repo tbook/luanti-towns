@@ -1307,3 +1307,15 @@ do
 	eq(read(1,1,1), "id:42", "bulk reader indexes opposite corner")
 	eq(pcall(read, -1, 0, 0), false, "bulk reader rejects outside requested bounds")
 end
+
+-- Explicit references near the vertical limit reject before any emerge.
+do
+	for _, ref in ipairs({31000, -31000}) do
+		local w, calls, details = new_world({}), 0, nil
+		ss_raw.inspect_site({x = 200, z = -170}, ref, SEED, {entries = catalog.entries},
+			function(_, _, d) calls, details = calls + 1, d end, w.env)
+		eq(calls, 1, "out-of-range reference settles once")
+		eq(details.rejections.out_of_range, 1, "out-of-range reference rejected")
+		eq(#w.emerges, 0, "out-of-range inspection never emerges")
+	end
+end

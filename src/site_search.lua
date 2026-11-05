@@ -727,6 +727,11 @@ local function search(player_pos, seed, opts, done, env, explicit_ref)
 		local rects = {}
 		for k, r in ipairs(base.boundary.rects) do rects[k] = shifted(r, sx, sz) end
 		local volume, top, bottom = M.inspection_volume(bounds, ref_y, C)
+		if explicit_ref and (volume.min.y < -C.CENTER_LIMIT or volume.max.y > C.CENTER_LIMIT
+				or volume.min.x < -C.CENTER_LIMIT or volume.max.x > C.CENTER_LIMIT
+				or volume.min.z < -C.CENTER_LIMIT or volume.max.z > C.CENTER_LIMIT) then
+			return reject("out_of_range", "inspection volume extends beyond map limits")
+		end
 
 		emerge_step(volume.min, volume.max, function(status)
 			if emerge_bad(status, center) then return end
