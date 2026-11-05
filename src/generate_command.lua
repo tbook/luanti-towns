@@ -471,6 +471,10 @@ local function build(result, done, automatic_context)
 		finish(nil, reason, "write_failed", extra)
 	end
 	local function finish_build(message)
+		if automatic_context and automatic_context.recheck_write then
+			local allowed, why = automatic_context.recheck_write()
+			if not allowed then return fail_writer("Protection recheck failed: " .. tostring(why), nil) end
+		end
 		if summary.automatic_envelope_excess then
 			return fail_writer("Automatic town build exceeded its approved write envelope.", nil,
 				{reason = "automatic_envelope", bounds = summary.automatic_envelope_excess})
@@ -499,6 +503,10 @@ local function build(result, done, automatic_context)
 			return finish_build("")
 		end
 		rural_structures = outskirts_pre.structures
+		if automatic_context and automatic_context.recheck_write then
+			local allowed, why = automatic_context.recheck_write()
+			if not allowed then return fail_writer("Protection recheck failed: " .. tostring(why), nil) end
+		end
 		local apply_ok, outskirts_summary, outskirts_error, _, outskirts_extra = pcall(
 			function()
 				writer_started = true
@@ -545,6 +553,9 @@ local function build(result, done, automatic_context)
 		margin_called = true
 		local ok, err = pcall(function()
 		summary.margins = margin
+		if margin and margin.protection_denied then
+			return fail_writer("Protection recheck failed: " .. tostring(margin.reason), nil)
+		end
 		if not margin or margin.status ~= "smoothed" then
 			warning(summary, "city margins " .. tostring(margin and margin.status or "failed")
 				.. ": " .. tostring(margin and margin.reason or "margin attempt failed"))
@@ -582,6 +593,10 @@ local function build(result, done, automatic_context)
 				if not success then
 					warning(summary, "road exit emerge failed or timed out")
 					start_outskirts(); return
+				end
+				if automatic_context and automatic_context.recheck_write then
+					local allowed, why = automatic_context.recheck_write()
+					if not allowed then return fail_writer("Protection recheck failed: " .. tostring(why), nil) end
 				end
 				local report = {attempted_bounds = bounds, graded = 0, failed = 0}
 				summary.roads = report
@@ -667,6 +682,10 @@ local function build(result, done, automatic_context)
 				warning(summary, "wall emerge failed or timed out")
 				result.wall_feature_footprints = {}
 				start_outskirts(); return
+			end
+			if automatic_context and automatic_context.recheck_write then
+				local allowed, why = automatic_context.recheck_write()
+				if not allowed then return fail_writer("Protection recheck failed: " .. tostring(why), nil) end
 			end
 			local report = {attempted_bounds = bounds}
 			summary.wall = report
@@ -948,6 +967,7 @@ local function build(result, done, automatic_context)
 				return core.is_protected(pos, "")
 			end or nil
 			if automatic_context then
+				api_env.recheck_write = automatic_context.recheck_write
 				api_env.authorize_write = function(box)
 					return contains_box(automatic_context.write_bounds, box),
 						"boundary volume exceeds the approved automatic-town write envelope"

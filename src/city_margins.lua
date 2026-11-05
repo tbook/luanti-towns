@@ -137,6 +137,14 @@ return function(terrain)
 				skip(emerge_reason or "boundary volume emerge failed")
 				return
 			end
+			if type(env.recheck_write) == "function" then
+				local allowed, why = env.recheck_write()
+				if not allowed then
+					summary.status, summary.reason, summary.protection_denied = "incomplete", tostring(why), true
+					complete()
+					return
+				end
+			end
 			-- Preserve the attempted envelope even when the writer throws or declines.
 			summary.attempted_bounds = bounds
 			local write_ok, wrote, stats_or_reason = pcall(terrain.smooth_boundary,

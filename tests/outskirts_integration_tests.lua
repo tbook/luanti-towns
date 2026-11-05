@@ -1277,10 +1277,11 @@ do
   center = {x = 0, z = 0}, max_rect = {x1 = -500, z1 = -500, x2 = 500, z2 = 500},
   activation_rect = {x1 = -500, z1 = -500, x2 = 500, z2 = 500}}
  local box = {min = {x = -10, y = -20, z = -10}, max = {x = 240, y = 40, z = 240}}
- local function run_controller(population_failure, protected)
+ local function run_controller(population_failure, protected, later_protection)
   storage_values = {}; nodes = {}; metadata = {}; node_state = {}; stage_order = {}; town_calls = {}
   margin_mode = "success"
   local report, pending, generated, active_state, raw, serialized, n = nil, nil, nil, nil, nil, {}, 0
+  local protection_active, before_rural = protected, nil
   local registry = assert(registry_module.new({store = {get = function() return raw end,
    set = function(_, v) raw = v end}, serialize = function(v) n = n + 1; serialized[tostring(n)] = v; return tostring(n) end,
    deserialize = function(v) return serialized[v] end}))
@@ -1290,7 +1291,7 @@ do
   local adapter_core = {settings = {get = function() return "on" end},
    get_mapgen_setting = function(k) return ({mg_name = "flat", chunksize = "5", seed = "42"})[k] end,
    get_connected_players = function() return {} end, get_us_time = function() return 0 end,
-   is_protected = function(p) return protected and p.x == 220 and p.y == 20 and p.z == 220 or false end,
+   is_protected = function(p) return protection_active and p.x == 220 and p.y == 20 and p.z == 220 or false end,
    log = function() end, write_json = function(v) report = v; return "report" end,
    register_on_generated = function(fn) generated = fn end, get_mapgen_object = function() return {5} end,
    after = function(delay, fn) if delay == 0 then fn() end end}
@@ -1302,7 +1303,10 @@ do
   towns.auto_village_guard = {check = function() return true end, bind = function() return true end}
   towns.generation_lock = dofile("src/generation_lock.lua")()
   towns.site_search.core_env = function() return {emerge = function(_, _, cb) cb(true) end} end
-  towns.outskirts.search = function(_, _, done) if population_failure then done(out) else done(nil, "optional omitted") end end
+  towns.outskirts.search = function(_, _, done)
+   if later_protection then before_rural = #town_calls; protection_active = true; return done(out) end
+   if population_failure then done(out) else done(nil, "optional omitted") end
+  end
   core.add_entity = population_failure and function() return nil end or saved_add
   local chunk_env = setmetatable({dofile = function(path) return modules[path:gsub("^%./", "")] or original_dofile(path) end}, {__index = _G})
   local chunk = assert(loadfile("src/automatic.lua")); setfenv(chunk, chunk_env)
@@ -1320,6 +1324,14 @@ do
    eq(towns.generation_lock.current(), nil, "protected site releases controller lock")
    return
   end
+  if later_protection then
+   eq(before_rural ~= nil, true, "protection changed after the urban stage")
+   eq(registry:lookup(site.cell).state, "interrupted", "new protection interrupts an accepted build")
+   eq(#town_calls, before_rural, "new protection prevents rural placement")
+   eq(report.outcome, "interrupted", "new protection reports interrupted")
+   eq(towns.generation_lock.current(), nil, "new protection releases controller lock")
+   return
+  end
   eq(registry:lookup(site.cell).state, population_failure and "interrupted" or "complete",
    population_failure and "real resident failure interrupts accepted town" or "optional rural omission completes accepted town")
   eq(towns.generation_lock.current(), nil, "real populated pipeline releases controller lock")
@@ -1328,6 +1340,7 @@ do
  run_controller(false)
  run_controller(true)
  run_controller(false, true)
+ run_controller(false, false, true)
  towns.outskirts.search, towns.site_search.core_env = saved_search, saved_world
  core.add_entity = saved_add
 end

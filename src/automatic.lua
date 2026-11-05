@@ -138,12 +138,16 @@ return function(towns, core, vars)
 			local context = {read_bounds = result.read_envelope, write_bounds = result.write_envelope,
 				log = function(level, msg) core.log(level, "[towns] " .. msg) end}
 			context.callback_failed = function(err) settle(nil, tostring(err), "build_callback_failed") end
+			context.recheck_write = function()
+				if job.done or not towns.generation_lock.owns(job.token) then return false, "ownership lost" end
+				return protection.check({approved = {kind = "write", box = result.write_envelope}},
+					core.is_protected, 2 ^ 53 - 1)
+			end
 			context.before_write = function()
 				if job.accepted then return false, "write gate already used" end
 				local passed, allowed, message = pcall(checked)
 				if not passed or not allowed then return false, tostring(message or allowed) end
-				local safe, reason = protection.check({approved = {kind = "write", box = result.write_envelope}},
-					core.is_protected, 2 ^ 53 - 1)
+				local safe, reason = context.recheck_write()
 				if not safe then return false, "protection check: " .. tostring(reason) end
 				-- Protection providers may have side effects; recheck the other gate
 				-- conditions immediately before recording the write commitment.

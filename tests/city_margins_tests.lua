@@ -19,6 +19,9 @@ local eq, factory = ...
 		if behavior and behavior.deny_volume then
 			env.authorize_write = function() return false, "outside approved envelope" end
 		end
+		if behavior and behavior.deny_recheck then
+			env.recheck_write = function() return false, "protected" end
+		end
 		local api = terrain or {
 			boundary_structure_protection = 1,
 			boundary_volume = function(rects, ground, options)
@@ -88,6 +91,10 @@ local eq, factory = ...
 	eq(denied_summary().status, "skipped", "unapproved margins are skipped")
 	eq(denied.emerge, 0, "unapproved margins do not load terrain")
 	eq(denied.smooth, 0, "unapproved margins do not write terrain")
+	local late_denied, _, _, late_summary = fixture(nil, {deny_recheck = true})
+	eq(late_denied.emerge, 1, "protection rechecked after emerge")
+	eq(late_denied.smooth, 0, "new protection prevents smoothing")
+	eq(late_summary().protection_denied, true, "protection denial is propagated")
 
 	local malformed_inputs = {
 		{value = nil, label = "nil result"},
