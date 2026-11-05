@@ -337,6 +337,25 @@ eq(partial_outskirts ~= nil, true, "escaping automatic rural plot is omitted wit
 eq(terraform_calls - before_terraform, 1, "only the in-envelope rural plot is terraformed")
 eq(#partial_outskirts.skipped, 1, "omitted rural plot records its reason")
 eq(partial_outskirts.skipped[1].code, "automatic_envelope", "rural omission identifies envelope overflow")
+local real_volume = apply_env.terrain.volume
+for _, failure in ipairs({"invalid", "throw"}) do
+	apply_env.terrain.volume = function(plan, ...)
+		if plan[1].pos.x == plots[1].rect.x1 then
+			if failure == "throw" then error("volume unavailable") end
+			return nil
+		end
+		return real_volume(plan, ...)
+	end
+	local prior = terraform_calls
+	local mixed = outskirts_build.apply(out, apply_env, {bounds = urban_bounds,
+		structures = composition.structures, automatic_context = {read_bounds = auto_box, write_bounds = auto_box}})
+	eq(mixed ~= nil, true, failure .. " optional volume does not fail the town")
+	eq(mixed.skipped[1].code, "unbounded_volume", failure .. " volume records omission")
+	eq(mixed.skipped[1].plot, plots[1].id, failure .. " volume identifies the omitted plot")
+	eq(terraform_calls - prior, 1, failure .. " volume leaves the bounded plot eligible")
+	eq(mixed.structures[1].plot, plots[2].id, failure .. " volume places the bounded plot")
+end
+apply_env.terrain.volume = real_volume
 eq(summary.town.residents.spawned, 1, "unchanged resident initialization spawns for the hut bed")
 eq(summary.margins.status, "smoothed", "margin outcome is retained for reporting")
 local report = report_text(summary, towns.generate)
@@ -640,6 +659,28 @@ do
 	eq(#test_result.wall_feature_footprints, 1, "placed inline tower stays reserved from outskirts")
 	eq(wall_count, ordinary_wall_count - masked_wall_count,
 		"successful inline tower removes only wall columns inside its footprint")
+	local original_max_y, original_log = candidate.max.y, core.log
+	local loads, logs, omitted_summary = {}, {}, nil
+	candidate.max.y = auto_box.max.y + 1
+	core.log = function(_, message) logs[#logs + 1] = message end
+	prior_placed = placed
+	towns.populated.build(test_result, function(s) omitted_summary = s end, {
+		read_bounds = auto_box, write_bounds = auto_box,
+		ensure_loaded = function(minp, maxp, cb) loads[#loads + 1] = {min = minp, max = maxp}; cb(true) end,
+		before_write = function() return true end,
+	})
+	candidate.max.y, core.log = original_max_y, original_log
+	eq(omitted_summary ~= nil and #omitted_summary.wall.features == 0, true,
+		"out-of-envelope wall feature is omitted while ordinary walls build")
+	eq(placed, prior_placed, "out-of-envelope wall feature is never placed")
+	local feature_load = false
+	for _, load in ipairs(loads) do if load.max.y > auto_box.max.y then feature_load = true end end
+	eq(feature_load, false, "out-of-envelope feature requests no expanded load")
+	local omission_logged = false
+	for _, message in ipairs(logs) do
+		if message:find("wall_tower_inline omitted: automatic%-town envelope") then omission_logged = true end
+	end
+	eq(omission_logged, true, "out-of-envelope feature records its omission reason")
 	protected, blocked, placed = true, false, 0
 	wall_count = nil
 	towns.populated.build(test_result, function(s) summary = s end)

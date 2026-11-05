@@ -64,18 +64,20 @@ function M.apply(out, env, opts)
 			local ok, volume = pcall(terrain_adapter.volume, terrain, plan, schematic,
 				{protected = protected_regions})
 			if not ok or not valid_volume(volume) then
-				return nil, "outskirts terrain volume failed during containment preflight", "write_failed",
-					{attempted = {}, placement_attempted = {}, boxes = {}}
-			end
-			local declared = {min = volume.minp, max = volume.maxp}
-			if not contains_box(opts.automatic_context.write_bounds, declared)
+				omitted[i] = true
+				skipped[#skipped + 1] = {plot = plot.id, code = "unbounded_volume",
+					reason = "plot terrain volume unavailable: " .. tostring(ok and "invalid volume" or volume)}
+			else
+				local declared = {min = volume.minp, max = volume.maxp}
+				if not contains_box(opts.automatic_context.write_bounds, declared)
 					or not contains_box(opts.automatic_context.read_bounds, declared)
 					or not contains_box(opts.automatic_context.write_bounds, box(st))
 					or not contains_box(opts.automatic_context.read_bounds, box(st)) then
-				omitted[i] = true
-				skipped[#skipped + 1] = {plot = plot.id, code = "automatic_envelope",
-					reason = "plot terrain volume exceeds the approved automatic-town write envelope"}
-			else approved_volumes[i] = volume end
+					omitted[i] = true
+					skipped[#skipped + 1] = {plot = plot.id, code = "automatic_envelope",
+						reason = "plot terrain volume exceeds the approved automatic-town envelope"}
+				else approved_volumes[i] = volume end
+			end
 		end
 	end
 	for i, plot in ipairs(out.plots) do
