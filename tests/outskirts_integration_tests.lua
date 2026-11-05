@@ -1276,8 +1276,8 @@ do
  local site = {id = "controller", version = 1, seed = 8, town_type = "roman", cell = {x = 0, z = 0},
   center = {x = 0, z = 0}, max_rect = {x1 = -500, z1 = -500, x2 = 500, z2 = 500},
   activation_rect = {x1 = -500, z1 = -500, x2 = 500, z2 = 500}}
- local box = {min = {x = -500, y = -500, z = -500}, max = {x = 500, y = 500, z = 500}}
- local function run_controller(population_failure)
+ local box = {min = {x = -10, y = -20, z = -10}, max = {x = 240, y = 40, z = 240}}
+ local function run_controller(population_failure, protected)
   storage_values = {}; nodes = {}; metadata = {}; node_state = {}; stage_order = {}; town_calls = {}
   margin_mode = "success"
   local report, pending, generated, active_state, raw, serialized, n = nil, nil, nil, nil, nil, {}, 0
@@ -1290,6 +1290,7 @@ do
   local adapter_core = {settings = {get = function() return "on" end},
    get_mapgen_setting = function(k) return ({mg_name = "flat", chunksize = "5", seed = "42"})[k] end,
    get_connected_players = function() return {} end, get_us_time = function() return 0 end,
+   is_protected = function(p) return protected and p.x == 220 and p.y == 20 and p.z == 220 or false end,
    log = function() end, write_json = function(v) report = v; return "report" end,
    register_on_generated = function(fn) generated = fn end, get_mapgen_object = function() return {5} end,
    after = function(delay, fn) if delay == 0 then fn() end end}
@@ -1309,8 +1310,16 @@ do
   generated({x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
   local inspected = {center = site.center, ground_y = 10, plan = {seed = 8, town_type = "roman", bounds = urban_bounds},
    build_bounds = result.build_bounds, build_volume = result.build_volume, read_envelope = box, write_envelope = box,
-   envelope = {stages = {urban = {kind = "write", box = box}}}}
+   envelope = {stages = {urban = {kind = "write", box = {min = {x = 0, y = 0, z = 0},
+    max = {x = 225, y = 30, z = 225}}}}}}
   pending(inspected)
+  if protected then
+   eq(registry:lookup(site.cell), nil, "protected write envelope creates no record")
+   eq(#town_calls, 0, "protected write envelope performs no urban writes")
+   eq(report.outcome, "declined", "protected write envelope is declined")
+   eq(towns.generation_lock.current(), nil, "protected site releases controller lock")
+   return
+  end
   eq(registry:lookup(site.cell).state, population_failure and "interrupted" or "complete",
    population_failure and "real resident failure interrupts accepted town" or "optional rural omission completes accepted town")
   eq(towns.generation_lock.current(), nil, "real populated pipeline releases controller lock")
@@ -1318,6 +1327,7 @@ do
  end
  run_controller(false)
  run_controller(true)
+ run_controller(false, true)
  towns.outskirts.search, towns.site_search.core_env = saved_search, saved_world
  core.add_entity = saved_add
 end

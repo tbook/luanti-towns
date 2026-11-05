@@ -1,6 +1,5 @@
 -- Exhaustive, synchronous protection check for approved write stages.
--- Deliberately not connected to automatic construction: generic protection
--- has no region query, and structure detection and runtime remain unresolved.
+-- The generic provider exposes no region query, so this checks every position.
 local M = {}
 
 local function integer(n)

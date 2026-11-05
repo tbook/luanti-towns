@@ -27,6 +27,15 @@ controlled planner call accounts for the reported suppression; it does not
 establish A10. These are flat, player-free scratch-world samples, not the #404
 assembled correctness gate.
 
+`python3 tools/auto_towns_probe/protection_benchmark.py` starts a disposable
+server with automatic mode off, computes representative approved write envelopes,
+and calls the installed protection provider once per voxel without writing terrain.
+On 2026-11-05 its installed default no-op provider checked 44,815,680 Roman
+positions in 0.0134 seconds and 42,641,640 medieval positions in 0.0112 seconds.
+These timings do not predict the cost of protection mods, which may implement
+substantially more expensive checks. The synthetic envelopes use the sample seeds
+and estimated build heights, not the exact inspected production handoffs.
+
 On 2026-11-05, a production-survey `fresh` run on flat terrain requested 180
 chunks for one Roman site, ran exact inspection, and declined `not_fresh` in
 13.70 seconds. The reported snapshot bound was 92,160,000 voxels. The probe

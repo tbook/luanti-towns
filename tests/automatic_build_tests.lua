@@ -32,6 +32,10 @@ local function fixture(case, kind)
  local core = {settings = {get = function() return "on" end}, get_mapgen_setting = function(k)
    return ({mg_name = "flat", chunksize = "5", seed = "42"})[k] end,
   get_connected_players = function() return player and {{get_pos = function() return {x = 17, z = 0} end}} or {} end,
+  is_protected = function(p)
+   if case == "protection_error" then error("provider failed") end
+   return case == "protected" and p.x == 0 and p.y == 5 and p.z == 0
+  end,
   get_us_time = function() return 0 end, log = function() end,
   write_json = function(v) f.reports[#f.reports + 1] = v; return "report" end,
   register_on_generated = function(fn) generated = fn end, get_mapgen_object = function() return {5} end,
@@ -74,7 +78,7 @@ for _, kind in ipairs({"roman", "medieval"}) do
  f.pending(nil, "late"); f.callback(nil, "late")
  eq(#f.reports, 1, kind .. " ignores duplicate callbacks")
 end
-for _, case in ipairs({"storage", "throw", "old", "clearance", "late_clearance", "late_freshness"}) do
+for _, case in ipairs({"storage", "throw", "old", "clearance", "late_clearance", "late_freshness", "protected", "protection_error"}) do
  local f = fixture(case)
  eq(f.writes, 0, case .. " prevents writes"); eq(f.registry:lookup(site.cell), nil, case .. " has no accepted record")
  eq(f.lock.current(), nil, case .. " releases lock")
