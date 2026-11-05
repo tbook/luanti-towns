@@ -20,6 +20,10 @@ A10 and A14 remain open.
 - Center ground (A9): **PASS** for the design's method (capture the center chunk's heightmap inside its own
   generation callback, no search). **FAIL** for reading the heightmap at request time: that read is not nil,
   as the bundled API says, but returns stale or zero data.
+- Early rejection (#397): omitted. A9 verifies that center values can be copied during their generation
+  callback, but does not establish that heightmap values elsewhere have the same top-solid-ground semantics
+  as the exact inspector. Urban terrain therefore always reaches the exact test; clipped, ambiguous, and
+  unknown height data cannot reject a site.
 - Cancellation and late completion (A13): **PASS** for delivery and for write-through records after finish.
   Cancelled is not evidence of "not generated".
 - Village ordering and activation halo (A10): **UNVERIFIED**. The planner's own terrain requests complete only
