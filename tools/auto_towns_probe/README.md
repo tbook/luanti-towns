@@ -41,7 +41,17 @@ Options: `--engine` (default `/Applications/luanti.app/Contents/MacOS/luanti`),
 `--port` (default 39490), `--seed N` and `--mg-name NAME` (written into the
 scratch `map_meta.txt` only), `--duration`, `--start-delay`,
 `--fixture "id:x1,y1,z1,x2,y2,z2;..."` (one phase, no scenario checks),
-`--route route.json`, `--cleanup`.
+`--route route.json`, `--controlled-a10` (controlled synthetic A10 probe; see below), `--cleanup`.
+
+## Controlled A10 probe
+
+`--controlled-a10` is valid only with `--scenario villages`. It uses four emerge threads, records an
+observer-only synthetic reservation for a fixed generated chunk, and requests an unrelated fresh position from
+the planner wrapper before a deliberate three-second busy wait. This tests one controlled callback ordering.
+It does not load Towns, create a production reservation, or establish activation-halo ordering. The busy wait
+adds an artificial pause, so do not use this mode for player loading or performance measurements. The exact
+fixture, result, and limitations are recorded in `docs/automatic_towns_probe_results.md` under "Controlled
+synthetic contention run".
 
 The source world's mapgen is `flat` (superflat). VoxeLibre's
 `settlements.evaluate_heightmap` returns `max_height_difference + 1` whenever a

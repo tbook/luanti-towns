@@ -263,6 +263,8 @@ def main():
     ap.add_argument('--duration', type=int, help='seconds per phase (default depends on scenario)')
     ap.add_argument('--start-delay', type=int, default=2, help='seconds before fixture requests are issued')
     ap.add_argument('--fixture', help='override the scenario fixture boxes, "id:x1,y1,z1,x2,y2,z2;..." (one phase)')
+    ap.add_argument('--controlled-a10', action='store_true',
+                    help='enable the synthetic reservation and competing-emerge timing probe (villages scenario only)')
     ap.add_argument('--route', type=Path,
                     help='walk or fly route JSON {"mode","speed","points"} for one connected client (see README)')
     ap.add_argument('--timeout', type=int, default=900, help='per-phase engine timeout in seconds')
@@ -271,6 +273,10 @@ def main():
     args = ap.parse_args()
 
     scenario = SCENARIOS[args.scenario]
+    if args.controlled_a10 and args.scenario != 'villages':
+        raise SystemExit('--controlled-a10 requires --scenario villages')
+    if args.controlled_a10 and args.fixture:
+        raise SystemExit('--controlled-a10 uses the villages scenario fixture; do not pass --fixture')
     phases = [args.fixture] if args.fixture else scenario['phases']
     duration = args.duration or scenario['duration']
     forceload = scenario.get('forceload', False)
@@ -323,11 +329,14 @@ def main():
         with (work / 'check.conf').open('w') as f:
             f.write('enable_ipv6 = false\nbind_address = 127.0.0.1\nserver_announce = false\n')
             f.write('max_forceloaded_blocks = 4096\n')
+            if args.controlled_a10:
+                f.write('num_emerge_threads = 4\n')
             f.write('auto_towns_probe_phase = %d\n' % index)
             f.write('auto_towns_probe_scenario = %s\n' % args.scenario)
             f.write('auto_towns_probe_duration = %d\n' % duration)
             f.write('auto_towns_probe_start_delay = %d\n' % args.start_delay)
             f.write('auto_towns_probe_forceload = %s\n' % ('true' if forceload else 'false'))
+            f.write('auto_towns_probe_controlled_a10 = %s\n' % ('true' if args.controlled_a10 else 'false'))
             f.write('auto_towns_probe_fixture = %s\n' % fixture)
             f.write('auto_towns_probe_invocation = %s\n' % invocation)
         entry = {'phase': index, 'status': None, 'exit_code': None, 'report': None}
