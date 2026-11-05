@@ -2,11 +2,10 @@
 -- Pure registry with an injected key/value store and serializer. It does not
 -- inspect terrain or start construction. Call begin immediately before the
 -- first permitted write; failure to save must prevent that write.
--- Future orchestration builds a record from the site descriptor and accepted
--- inspection: copy descriptor cell/version/seed/town_type, promote descriptor
--- center {x,z} to {x,y,z} using inspected ground_y for y, and copy
--- result.read_envelope (the union of read and write stages) into envelope so
--- read-only reach remains reserved. Then call begin before any writer.
+-- Future orchestration calls record_for_site(descriptor, result), then begin
+-- before any writer. The reservation uses descriptor.max_rect horizontally,
+-- matching the temporary reservation and activation contract. Its vertical
+-- bounds come from the inspected union read envelope.
 
 local M = {}
 local KEY = "towns.auto_records.v1"
@@ -60,6 +59,32 @@ local function valid_record(r)
 		or r.center.z < r.envelope.min.z or r.center.z > r.envelope.max.z
 		or (r.state ~= "building" and r.state ~= "complete" and r.state ~= "interrupted") then return false end
 	return true
+end
+
+-- Convert the accepted loader handoff to the persistent reservation shape.
+-- Reject a plan outside the maximum rather than silently shrinking protection.
+function M.record_for_site(site, result)
+	if type(site) ~= "table" or type(result) ~= "table" or not valid_point(site.center, false)
+		or not valid_point(result.center, false) or result.center.x ~= site.center.x
+		or result.center.z ~= site.center.z or not integer(result.ground_y)
+		or type(site.max_rect) ~= "table" or type(result.read_envelope) ~= "table" then
+		return nil, "invalid site or inspection", "invalid_record"
+	end
+	local m, read = site.max_rect, result.read_envelope
+	if not integer(m.x1) or not integer(m.z1) or not integer(m.x2) or not integer(m.z2)
+		or m.x1 > m.x2 or m.z1 > m.z2 or not valid_point(read.min, true)
+		or not valid_point(read.max, true) or read.min.x > read.max.x
+		or read.min.y > read.max.y or read.min.z > read.max.z
+		or read.min.x < m.x1 or read.max.x > m.x2
+		or read.min.z < m.z1 or read.max.z > m.z2 then
+		return nil, "inspection exceeds or has invalid reservation bounds", "invalid_record"
+	end
+	local r = {cell = site.cell, version = site.version, seed = site.seed, town_type = site.town_type,
+		center = {x = site.center.x, y = result.ground_y, z = site.center.z},
+		envelope = {min = {x = m.x1, y = read.min.y, z = m.z1},
+			max = {x = m.x2, y = read.max.y, z = m.z2}}, state = "building"}
+	if not valid_record(r) then return nil, "invalid automatic town record", "invalid_record" end
+	return copy(r)
 end
 
 local function valid_records(records)

@@ -217,8 +217,8 @@ local function check_envelope(label, e)
 	eq(e.snapshot_voxels, e.chunks * ab.CHUNK_VOXELS, label .. " snapshot voxels follow distinct chunks")
 end
 
--- The accepted-town reservation stores the loader's union read envelope,
--- including read-only inspection reach, and accepts an inspected-ground centre.
+-- The accepted reservation retains the descriptor's maximum horizontal reach,
+-- with vertical bounds from the loader's union read envelope.
 do
 	local original_scan_up = env.config.scan_up
 	env.config.scan_up = 80 -- real read-only inspection reach crosses the next engine chunk
@@ -244,18 +244,32 @@ do
 		or envelope.read.min.x < envelope.write.min.x or envelope.read.max.x > envelope.write.max.x
 		or envelope.read.min.z < envelope.write.min.z or envelope.read.max.z > envelope.write.max.z,
 		true, "real envelope union preserves reach excluded by the write union")
-	local accepted = registry:begin({cell = {x = 0, z = 0}, version = 1, seed = 20260101,
-		town_type = "medieval", center = {x = plan.center.x, y = state.ground_y, z = plan.center.z},
-		envelope = envelope.read, state = "building"})
-	eq(accepted, true, "real auto_bounds read union accepts the inspected ground centre")
+	local descriptor = {cell = {x = 0, z = 0}, version = 1, seed = 20260101,
+		town_type = "medieval", center = plan.center, max_rect = env.max_rect}
+	local inspection = {center = plan.center, ground_y = state.ground_y, read_envelope = envelope.read}
+	local record = assert(auto_records.record_for_site(descriptor, inspection))
+	eq(envelope.read.min.x > env.max_rect.x1 or envelope.read.max.x < env.max_rect.x2
+		or envelope.read.min.z > env.max_rect.z1 or envelope.read.max.z < env.max_rect.z2,
+		true, "fixture's actual read envelope is smaller than the maximum reservation")
+	local accepted = registry:begin(record)
+	eq(accepted, true, "maximum reservation accepts the inspected ground centre")
 	local saved = registry:lookup({x = 0, z = 0})
 	eq(saved ~= nil and saved.center.y == state.ground_y, true, "record center y is inspected ground_y")
-	for _, axis in ipairs({"x", "y", "z"}) do
-		eq(saved and saved.envelope.min[axis] == envelope.read.min[axis], true,
-			"record reserves read-envelope min " .. axis)
-		eq(saved and saved.envelope.max[axis] == envelope.read.max[axis], true,
-			"record reserves read-envelope max " .. axis)
+	for _, axis in ipairs({"x", "z"}) do
+		eq(saved.envelope.min[axis], env.max_rect[axis .. "1"], "record reserves maximum min " .. axis)
+		eq(saved.envelope.max[axis], env.max_rect[axis .. "2"], "record reserves maximum max " .. axis)
 	end
+	eq(saved.envelope.min.y, envelope.read.min.y, "record retains read min y")
+	eq(saved.envelope.max.y, envelope.read.max.y, "record retains read max y")
+	local outside = {center = plan.center, ground_y = state.ground_y,
+		read_envelope = {min = {x = env.max_rect.x1 - 1, y = envelope.read.min.y, z = envelope.read.min.z},
+			max = envelope.read.max}}
+	eq(auto_records.record_for_site(descriptor, outside), nil, "read outside maximum declines")
+	local neighbor = {cell = {x = 1, z = 0}, version = 1, seed = 1, town_type = "medieval",
+		center = {x = env.max_rect.x2, y = state.ground_y, z = 0},
+		envelope = {min = {x = env.max_rect.x2, y = state.ground_y, z = 0},
+			max = {x = env.max_rect.x2 + 1, y = state.ground_y, z = 1}}, state = "building"}
+	eq(registry:begin(neighbor), false, "maximum edge remains reserved against overlap")
 	eq(stored ~= nil, true, "real accepted reservation is persisted")
 	env.config.scan_up = original_scan_up
 end
