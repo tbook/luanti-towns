@@ -83,9 +83,17 @@ still needs a measured work budget and bulk reader.
 
 Initial exact limits remain: middle 95% height range <=16, every column within
 24 nodes of finished ground, water/ice depth <=6, and wet fraction <=25%.
-Retain lava, unknown-ground, protection, and structure rejection. Water gets
+Retain lava, unknown-ground, and protection rejection. Automatic towns may
+overwrite existing structures (product decision, 2026-11-05). Water gets
 no positive score; there is no score to optimize. Inspect the single position
 once, then build or decline.
+
+Check every voxel in the approved write envelope immediately before the first
+write and again before later write phases that follow asynchronous loading.
+These synchronous checks assume the protection provider is side-effect-free and
+that ordinary Lua callbacks cannot interleave with each following write phase.
+Protection changes concurrent with a running phase cannot be excluded by the
+pointwise provider API. A newly protected site interrupts an accepted build.
 
 Reuse `towns.populated.build` for urban terrain, margins, walls, outside roads,
 outskirts, node setup, and residents. Outskirts already accepts a nil player
@@ -100,7 +108,7 @@ teleport, fast travel, and simultaneous exploration can still cause rejection.
 Once building starts, a player arriving later needs no special handling.
 
 Site identity and layout are deterministic. Acceptance can depend on load,
-existing structures, freshness, and player arrival. Do not promise identical
+protection, freshness, and player arrival. Do not promise identical
 accepted towns for every exploration order.
 
 ## 4. Village coordination without a game patch
@@ -130,7 +138,7 @@ If the wrapper encounters a potentially overlapping candidate site that never
 activated (for example, its surrounding trigger terrain predates Towns), mark
 that site declined for this session before calling the original village planner.
 It must not activate midway through that planner's own terrain requests.
-Completed existing structures still reject towns. There is no need to inspect
+Completed existing structures do not reject towns. There is no need to inspect
 private pending-village tables or retain their plans.
 
 On a town rejection, release the temporary reservation; subsequent villages

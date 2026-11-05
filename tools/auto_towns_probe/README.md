@@ -15,6 +15,27 @@ The probe also makes one controlled public village-planner call while a survey
 is active and records `wt_survey_suppression`; this is a synthetic guard check,
 not an observation of natural village ordering.
 
+`--production-build` instead sets `towns_auto_mode = on` in the disposable
+world. It can construct towns and persist their records there. It exercises the
+production coordinator; it does not prove village ordering or player latency.
+On 2026-11-05, flat seed 2014 runs at `remote:10752,0,10751,10752,0,10751`
+(Roman) and `remote:11776,0,10752,11776,0,10752` (medieval) both reported
+`complete`, with 89 urban schematics each and reported final write bounds inside
+the approved envelope. Run with `--scenario fresh --production-build --fixture`
+and either fixture, `--duration 90`, and a free `--port`. The observer's
+controlled planner call accounts for the reported suppression; it does not
+establish A10. These are flat, player-free scratch-world samples, not the #404
+assembled correctness gate.
+
+`python3 tools/auto_towns_probe/protection_benchmark.py` starts a disposable
+server with automatic mode off, computes representative approved write envelopes,
+and calls the installed protection provider once per voxel without writing terrain.
+On 2026-11-05 its installed default no-op provider checked 44,815,680 Roman
+positions in 0.0134 seconds and 42,641,640 medieval positions in 0.0112 seconds.
+These timings do not predict the cost of protection mods, which may implement
+substantially more expensive checks. The synthetic envelopes use the sample seeds
+and estimated build heights, not the exact inspected production handoffs.
+
 On 2026-11-05, a production-survey `fresh` run on flat terrain requested 180
 chunks for one Roman site, ran exact inspection, and declined `not_fresh` in
 13.70 seconds. The reported snapshot bound was 92,160,000 voxels. The probe

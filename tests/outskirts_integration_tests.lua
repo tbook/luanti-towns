@@ -188,7 +188,7 @@ local towns = {
 		stage_order[#stage_order + 1] = "urban"
 			town_calls[#town_calls + 1] = "urban_build"
 			return {write_bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
-				town = {bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
+				town = {complete = true, bounds = {min = {x = 0, y = 0, z = 0}, max = {x = 20, y = 20, z = 20}},
 					structures = {}, placed = 0, doors = {}, setup = {initialized = 0, placements = 0, unhandled = {}}}},
 				"", nil
 		end,
@@ -1264,6 +1264,92 @@ do
 	obstructed = false
 	towns.builder.core_env, towns.site_search.core_env = previous_env, previous_core_env
 	towns.medieval_walls, towns.medieval_wall_features = previous_walls, previous_features
+end
+
+-- Controller driving the real populated pipeline, real residents and real record registry.
+-- Its urban terrain writer is the recording fake used throughout this group.
+do
+ local saved_search, saved_world = towns.outskirts.search, towns.site_search.core_env
+ local saved_builder = towns.builder.build_town
+ towns.builder.build_town = function(...)
+  local summary, message, code, extra = saved_builder(...)
+  if summary and summary.town then summary.town.complete = true end
+  return summary, message, code, extra
+ end
+ local saved_add = core.add_entity
+ local registry_module = dofile("src/auto_records.lua")
+ local original_dofile = dofile
+ local site = {id = "controller", version = 1, seed = 8, town_type = "roman", cell = {x = 0, z = 0},
+  center = {x = 0, z = 0}, max_rect = {x1 = -500, z1 = -500, x2 = 500, z2 = 500},
+  activation_rect = {x1 = -500, z1 = -500, x2 = 500, z2 = 500}}
+ local box = {min = {x = -10, y = -20, z = -10}, max = {x = 240, y = 40, z = 240}}
+ local function run_controller(population_failure, protected, later_protection)
+  storage_values = {}; nodes = {}; metadata = {}; node_state = {}; stage_order = {}; town_calls = {}
+  margin_mode = "success"
+  local report, pending, generated, active_state, raw, serialized, n = nil, nil, nil, nil, nil, {}, 0
+  local protection_active, before_rural = protected, nil
+  local registry = assert(registry_module.new({store = {get = function() return raw end,
+   set = function(_, v) raw = v end}, serialize = function(v) n = n + 1; serialized[tostring(n)] = v; return tostring(n) end,
+   deserialize = function(v) return serialized[v] end}))
+  local session = {state = function() return active_state end, covers = function() return true end,
+   finish = function() active_state = "complete" end, decline = function() active_state = "declined" end,
+   on_generated = function() active_state = "inspecting"; return {{site = site}} end}
+  local adapter_core = {settings = {get = function() return "on" end},
+   get_mapgen_setting = function(k) return ({mg_name = "flat", chunksize = "5", seed = "42"})[k] end,
+   get_connected_players = function() return {} end, get_us_time = function() return 0 end,
+   is_protected = function(p) return protection_active and p.x == 220 and p.y == 20 and p.z == 220 or false end,
+   log = function() end, write_json = function(v) report = v; return "report" end,
+   register_on_generated = function(fn) generated = fn end, get_mapgen_object = function() return {5} end,
+   after = function(delay, fn) if delay == 0 then fn() end end}
+  local modules = { ["src/auto_bounds.lua"] = {PLAN_EXTENT = {}, CHUNK_ORIGIN = -32, CHUNKSIZE = 80, CAPS = {}},
+   ["src/auto_sites.lua"] = {new = function() return {lookup = function() return {site} end} end},
+   ["src/auto_state.lua"] = {new = function() return session end, classify = function() return "valid" end},
+   ["src/auto_loader.lua"] = {new = function() return {start = function(_, _, _, cb) pending = cb; return true end} end}}
+  towns.auto_environment = {}; towns.auto_records = registry; towns.auto_records_factory = registry_module
+  towns.auto_village_guard = {check = function() return true end, bind = function() return true end}
+  towns.generation_lock = dofile("src/generation_lock.lua")()
+  towns.site_search.core_env = function() return {emerge = function(_, _, cb) cb(true) end} end
+  towns.outskirts.search = function(_, _, done)
+   if later_protection then before_rural = #town_calls; protection_active = true; return done(out) end
+   if population_failure then done(out) else done(nil, "optional omitted") end
+  end
+  core.add_entity = population_failure and function() return nil end or saved_add
+  local chunk_env = setmetatable({dofile = function(path) return modules[path:gsub("^%./", "")] or original_dofile(path) end}, {__index = _G})
+  local chunk = assert(loadfile("src/automatic.lua")); setfenv(chunk, chunk_env)
+  chunk()(towns, adapter_core, {mg_overworld_min = -1000, mg_overworld_max = 1000, mg_end_max = -2000})
+  generated({x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
+  local inspected = {center = site.center, ground_y = 10, plan = {seed = 8, town_type = "roman", bounds = urban_bounds},
+   build_bounds = result.build_bounds, build_volume = result.build_volume, read_envelope = box, write_envelope = box,
+   envelope = {stages = {urban = {kind = "write", box = {min = {x = 0, y = 0, z = 0},
+    max = {x = 225, y = 30, z = 225}}}}}}
+  pending(inspected)
+  if protected then
+   eq(registry:lookup(site.cell), nil, "protected write envelope creates no record")
+   eq(#town_calls, 0, "protected write envelope performs no urban writes")
+   eq(report.outcome, "declined", "protected write envelope is declined")
+   eq(towns.generation_lock.current(), nil, "protected site releases controller lock")
+   return
+  end
+  if later_protection then
+   eq(before_rural ~= nil, true, "protection changed after the urban stage")
+   eq(registry:lookup(site.cell).state, "interrupted", "new protection interrupts an accepted build")
+   eq(#town_calls, before_rural, "new protection prevents rural placement")
+   eq(report.outcome, "interrupted", "new protection reports interrupted")
+   eq(towns.generation_lock.current(), nil, "new protection releases controller lock")
+   return
+  end
+  eq(registry:lookup(site.cell).state, population_failure and "interrupted" or "complete",
+   population_failure and "real resident failure interrupts accepted town" or "optional rural omission completes accepted town")
+  eq(towns.generation_lock.current(), nil, "real populated pipeline releases controller lock")
+  eq(report.outcome, population_failure and "interrupted" or "complete", "controller reports real pipeline outcome")
+ end
+ run_controller(false)
+ run_controller(true)
+ run_controller(false, true)
+ run_controller(false, false, true)
+ towns.outskirts.search, towns.site_search.core_env = saved_search, saved_world
+ towns.builder.build_town = saved_builder
+ core.add_entity = saved_add
 end
 
 _G.core, _G.towns, _G.living_villages = nil, nil, nil

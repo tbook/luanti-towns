@@ -87,6 +87,3 @@ registered = nil
 core.settings.get = function() return "off" end
 chunk()(towns, core, {})
 eq(registered, nil, "off mode does not register generation")
-core.settings.get = function() return "on" end
-chunk()(towns, core, {})
-eq(registered, nil, "on mode remains disabled")
