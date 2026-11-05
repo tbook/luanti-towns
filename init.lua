@@ -99,3 +99,6 @@ loadfile(modpath .. "/src/object_command.lua")(towns)
 -- (overwrites its site; disposable Creative worlds only).
 towns.generate = dofile(modpath .. "/src/generate.lua")(towns.planner, towns.generation_lock_factory)
 loadfile(modpath .. "/src/generate_command.lua")(towns)
+
+-- Survey mode only; production construction remains unavailable.
+dofile(modpath .. "/src/automatic.lua")(towns, core, rawget(_G, "mcl_vars"))

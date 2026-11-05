@@ -1,0 +1,3 @@
+# Automatic towns developer survey. Survey loads terrain and may suppress villages.
+# Construction is unavailable; on is reserved for a later release.
+towns_auto_mode (Automatic towns mode) enum off off,survey,on

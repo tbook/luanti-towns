@@ -492,6 +492,7 @@ def main():
     ap.add_argument('--controlled-a10', action='store_true',
                     help='enable the synthetic reservation and competing-emerge timing probe (villages scenario only)')
     ap.add_argument('--model-a10', action='store_true', help='run the scratch-only pure-state A10 model')
+    ap.add_argument('--production-survey', action='store_true', help='load Towns in survey mode in the scratch world')
     ap.add_argument('--inactive-trigger-a10', action='store_true',
                     help='forceload one inactive village structblock after fixture generation (villages scenario only)')
     ap.add_argument('--route', type=Path,
@@ -555,6 +556,12 @@ def main():
     if args.route:
         shutil.copy2(args.route, work / 'route.json')
     world_lines = copy_source_mods(args.settings_from / 'world.mt', work)
+    if args.production_survey:
+        shutil.copytree(ROOT, work / 'worldmods' / 'towns',
+                        ignore=shutil.ignore_patterns('.git', '__pycache__'))
+        with (work / 'worldmods' / 'towns' / 'mod.conf').open('a') as config:
+            config.write('\noptional_depends = auto_towns_probe\n')
+        world_lines.append('load_mod_towns = worldmods/towns')
     world_lines.append('load_mod_auto_towns_probe = worldmods/auto_towns_probe')
     (work / 'world.mt').write_text('\n'.join(world_lines) + '\n')
     print('Scratch world:', work, flush=True)
@@ -572,6 +579,8 @@ def main():
         with (work / 'check.conf').open('w') as f:
             f.write('enable_ipv6 = false\nbind_address = 127.0.0.1\nserver_announce = false\n')
             f.write('max_forceloaded_blocks = 4096\n')
+            if args.production_survey:
+                f.write('towns_auto_mode = survey\n')
             if args.controlled_a10 or args.inactive_trigger_a10 or args.model_a10:
                 f.write('num_emerge_threads = 4\n')
             f.write('auto_towns_probe_phase = %d\n' % index)

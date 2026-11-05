@@ -6,6 +6,18 @@ public village functions and one connected player do, so that later slices can
 measure first-touch geometry, generation freshness and village success before
 any town is built. It builds nothing, enables nothing and never loads Towns.
 
+The optional `--production-survey` switch copies the current Towns checkout
+into the scratch world and sets `towns_auto_mode = survey`. The probe loads
+before Towns so its village observer is inside the guard. This mode can load
+additional terrain and suppress villages; use it only in disposable worlds.
+Survey results are recorded in the engine log. A10 remains unverified.
+
+On 2026-11-05, a production-survey `fresh` run on flat terrain requested 180
+chunks for one Roman site, ran exact inspection, and declined `not_fresh` in
+13.70 seconds. The reported snapshot bound was 92,160,000 voxels. The probe
+reported no errors and no suppressed villages; it does not verify suppression
+under contention. Scratch report: `towns-auto-probe-icnx5tgt/probe-report.json`.
+
 Files:
 
 - `run.py`: copies `world.mt` and `map_meta.txt` from a source world into a
