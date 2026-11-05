@@ -39,6 +39,39 @@ return function(planner, lock_factory)
 
 local M = {}
 
+-- Keep the original generate.new(deps) factory usage working for command-only
+-- callers that do not inject a shared lock. Production wiring passes the
+-- module factory and the command controller receives the shared instance.
+local function local_lock()
+	local active
+	return {
+		acquire = function(owner, phase, started, stale_seconds)
+			if active then
+				local stale = stale_seconds ~= nil and active.phase == "search"
+					and started - active.started > stale_seconds
+				if not stale then return nil, active.owner, active.phase end
+			end
+			active = {owner = owner, phase = phase, started = started}
+			return active
+		end,
+		owns = function(token) return active == token end,
+		set_phase = function(token, phase)
+			if active ~= token then return false end
+			token.phase = phase
+			return true
+		end,
+		release = function(token)
+			if active ~= token then return false end
+			active = nil
+			return true
+		end,
+		current = function()
+			if not active then return nil end
+			return {owner = active.owner, phase = active.phase, started = active.started}
+		end,
+	}
+end
+
 local LIMIT = planner.SEED_LIMIT
 M.SEED_LIMIT = LIMIT
 M.STALE_SECONDS = 600
@@ -495,8 +528,7 @@ end
 -- The controller. See the deps contract in the header.
 function M.new(deps)
 	local C = {}
-	local lock = deps.lock or (lock_factory and lock_factory())
-	assert(lock, "generate.new requires a generation lock or lock factory")
+	local lock = deps.lock or (lock_factory and lock_factory()) or local_lock()
 
 	local function now()
 		return deps.now and deps.now() or 0
@@ -518,25 +550,37 @@ function M.new(deps)
 			return false, "A town search or build is already in progress (started by "
 				.. tostring(owner) .. "); wait for it to finish."
 		end
-		if before then
-			deps.log("warning", "towns_generate: dropping stale search started by "
-				.. tostring(before.owner))
+		local mine = token
+		local function release()
+			lock.release(mine)
 		end
-		local pos = deps.get_player_pos(name)
+		local pos, seed, generated
+		local initialized, init_err = pcall(function()
+			if before then
+				deps.log("warning", "towns_generate: dropping stale search started by "
+					.. tostring(before.owner))
+			end
+			pos = deps.get_player_pos(name)
+			if not pos then return end
+			seed = args.seed
+			generated = false
+			if not seed then
+				seed = M.random_seed(deps.entropy and deps.entropy() or 0, deps.rng)
+				generated = true
+			end
+			deps.log("action", ("towns_generate (%s): %s seed %d%s, searching near (%.1f,%.1f,%.1f)"):format(
+				name, args.town_type, seed, generated and " (generated)" or "", pos.x, pos.y, pos.z))
+		end)
+		if not initialized then
+			release()
+			error(init_err, 0)
+		end
 		if not pos then
-			lock.release(token)
+			release()
 			return false, "You must be in game to use this command."
 		end
 
-		local seed = args.seed
-		local generated = false
-		if not seed then
-			seed = M.random_seed(deps.entropy and deps.entropy() or 0, deps.rng)
-			generated = true
-		end
-
 		local town = args.town_type
-		local mine = token
 		local returning, sync_ok, sync_msg = true
 		local function finish(ok, lines)
 			deps.log(ok and "action" or "warning", "towns_generate (" .. name .. "): "
@@ -553,10 +597,6 @@ function M.new(deps)
 					end
 				end
 			end
-		end
-
-		local function release()
-			lock.release(mine)
 		end
 
 		local search_done = false
@@ -597,8 +637,6 @@ function M.new(deps)
 			end
 		end
 
-		deps.log("action", ("towns_generate (%s): %s seed %d%s, searching near (%.1f,%.1f,%.1f)"):format(
-			name, town, seed, generated and " (generated)" or "", pos.x, pos.y, pos.z))
 		local searched, serr = pcall(deps.search, pos, seed, town, on_done, args.force_walls)
 		if not searched and not search_done then
 			search_done = true

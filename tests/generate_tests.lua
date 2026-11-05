@@ -290,8 +290,37 @@ local function fakes(opts)
 		rng = opts.rng,
 		now = function() return f.t end,
 	}
-	f.c = generate.new(f.deps)
+	f.c = (opts.generate or generate).new(f.deps)
 	return f
+end
+
+-- The original factory signature keeps a controller-local lock by default.
+do
+	local legacy_generate = dofile("src/generate.lua")(planner)
+	local f = fakes({generate = legacy_generate})
+	local ok = f.c.run("legacy", "20")
+	eq(ok, true, "legacy generate factory signature starts")
+	eq(f.c.busy(), true, "legacy generate factory has a local lock")
+	f.searches[1].done(nil, "no site")
+	eq(f.c.busy(), false, "legacy local lock releases on rejection")
+end
+
+-- Exceptions during synchronous setup must never strand the operation lock.
+for _, setup_failure in ipairs({"player position", "entropy", "rng", "initial log"}) do
+	local lock = lock_factory()
+	local f = fakes({lock = lock})
+	if setup_failure == "player position" then
+		f.deps.get_player_pos = function() error("position failed") end
+	elseif setup_failure == "entropy" then
+		f.deps.entropy = function() error("entropy failed") end
+	elseif setup_failure == "rng" then
+		f.deps.rng = function() error("rng failed") end
+	else
+		f.deps.log = function() error("log failed") end
+	end
+	local ok = pcall(f.c.run, "alice", "")
+	eq(ok, false, setup_failure .. " exception propagates")
+	eq(lock.current(), nil, setup_failure .. " failure releases acquired token")
 end
 
 local function sent_text(f)
