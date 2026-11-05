@@ -104,6 +104,16 @@ and omission cases. The first fixture version wrote the empty startup record
 list as JSON `null`, so its overall restart validator fails the initial-empty
 assertion despite the node and metadata observations above. The fixture now
 writes `[]` explicitly; the failed report remains in the scratch world.
+The corrected Roman run passed all observer and restart checks:
+
+```sh
+python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --observe-build --repeat-fixture-on-restart --fixture remote:10752,0,10751,10752,0,10751 --duration 50 --timeout 300 --port 39813
+```
+
+Its scratch world is `towns-auto-probe-sy_35n82`. One complete record was
+present after the first process, reloaded unchanged in the second, and remained
+the only record after repeating the already-generated request. This does not
+exercise every possible first-touch request in neighboring chunks.
 
 The guard startup probe passed its accepted-reservation suppression and near
 miss, using a stub as the saved planner; it did not exercise the real planner.
