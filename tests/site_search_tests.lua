@@ -1228,3 +1228,94 @@ do
 	local notched_control = search_with((wrapped(nil, notched_base)), ROMAN_PLAYER, 101, ROMAN, 48)
 	eq(notched_control ~= nil, true, "footprint control: unmutated two-rect search accepted")
 end
+
+
+-- Explicit inspection uses the same terrain rules without a player or fallback.
+do
+	local center = {x = 200, z = -170}
+	local cases = {
+		{label = "dry", spec = {}},
+		{label = "wet", spec = {water = function(x) if x == 200 then return 22 end end}, wet = true},
+		{label = "uneven", spec = {surface = function(x) return 20 + (x % 3) end}},
+		{label = "unknown", spec = {unloaded = function() return true end}, rejected = "unknown"},
+	}
+	for _, c in ipairs(cases) do
+		local w = new_world(c.spec)
+		local result, summary, details, calls
+		calls = 0
+		local opts = {entries = catalog.entries, max_water_depth = c.wet and 6 or 0,
+			max_wet_fraction = c.wet and 0.25 or 0}
+		ss_raw.inspect_site(center, 30, SEED, opts, function(r, s, d)
+			result, summary, details, calls = r, s, d, calls + 1
+		end, w.env)
+		eq(calls, 1, c.label .. ": explicit callback once")
+		eq(details.candidates_tried, 1, c.label .. ": only one candidate")
+		if c.rejected then
+			eq(result, nil, c.label .. ": rejected")
+			eq(details.rejections[c.rejected], 1, c.label .. ": rejection code")
+		else
+			eq(result ~= nil, true, c.label .. ": accepted " .. tostring(summary))
+			if result then
+				eq(result.center.x, center.x, c.label .. ": exact x")
+				eq(result.center.z, center.z, c.label .. ": exact z")
+				eq(result.inspection_volume.min.y, 30 - ss.CONSTANTS.SCAN_DOWN, c.label .. ": reference window")
+				eq(result.ground_y < 30, true, c.label .. ": finished ground differs from reference")
+				local rects = result.plan.boundary.rects
+				local top, bottom = result.inspection_volume.max.y, result.inspection_volume.min.y
+				local function class(x, y, z) return placement.classify(w.env.get_node_name(x, y, z), w.env.node_info) end
+				local function read(x, z)
+					if c.wet then return ss.scan_column_wet(function(y) return class(x, y, z) end, top, bottom, 6) end
+					return placement.scan_column(function(y) return class(x, y, z) end, top, bottom)
+				end
+				local wet = c.wet and {max_depth = 6, max_fraction = 0.25, ring = ss.ring_columns(rects),
+					read_ring = function(x,z) return ss.ring_surface(function(y) return class(x,y,z) end, top, bottom) end} or nil
+				local expected = ss.inspect_columns(ss.boundary_columns(rects), read, top, 16, 5, 24, wet)
+				eq(result.ground_y, expected.ground_y, c.label .. ": exact inspector ground")
+				eq(result.min_height, expected.min_height, c.label .. ": exact inspector minimum")
+				eq(result.max_height, expected.max_height, c.label .. ": exact inspector maximum")
+			end
+		end
+	end
+	local w = new_world({deferred = true})
+	local calls = 0
+	ss_raw.inspect_site(center, 30, SEED, {entries = catalog.entries}, function() calls = calls + 1 end, w.env)
+	while #w.queue > 0 do table.remove(w.queue, 1)() end
+	for _, timer in ipairs(w.timers) do timer.fn() end
+	eq(calls, 1, "explicit async completion and late timeout settle once")
+	local bad = new_world({})
+	bad.env.get_node_name = function() error("read failure") end
+	ss_raw.inspect_site(center, 30, SEED, {entries = catalog.entries}, function(_, why)
+		calls = calls + 1
+		eq(why:find("internal error", 1, true) ~= nil, true, "explicit read error contained")
+	end, bad.env)
+	eq(calls, 2, "explicit error callback once")
+end
+
+-- Engine snapshot uses the returned emerged bounds for indexing and enforces
+-- the requested bounds, even when the engine expands its read area.
+do
+	local data = {}
+	for z = -1, 2 do for y = -1, 2 do for x = -1, 2 do
+		data[#data + 1] = (z + 1) * 16 + (y + 1) * 4 + x + 1
+	end end end
+	local fake = {registered_nodes = {}, get_voxel_manip = function() return {
+		read_from_map = function() return {x=-1,y=-1,z=-1}, {x=2,y=2,z=2} end,
+		get_data = function() return data end,
+	} end, get_name_from_content_id = function(id) return "id:" .. id end}
+	local read = ss.core_env(fake).bulk_reader({x=0,y=0,z=0}, {x=1,y=1,z=1})
+	eq(read(0,0,0), "id:21", "bulk reader indexes expanded bounds")
+	eq(read(1,1,1), "id:42", "bulk reader indexes opposite corner")
+	eq(pcall(read, -1, 0, 0), false, "bulk reader rejects outside requested bounds")
+end
+
+-- Explicit references near the vertical limit reject before any emerge.
+do
+	for _, ref in ipairs({31000, -31000}) do
+		local w, calls, details = new_world({}), 0, nil
+		ss_raw.inspect_site({x = 200, z = -170}, ref, SEED, {entries = catalog.entries},
+			function(_, _, d) calls, details = calls + 1, d end, w.env)
+		eq(calls, 1, "out-of-range reference settles once")
+		eq(details.rejections.out_of_range, 1, "out-of-range reference rejected")
+		eq(#w.emerges, 0, "out-of-range inspection never emerges")
+	end
+end
