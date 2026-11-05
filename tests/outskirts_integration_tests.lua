@@ -150,7 +150,7 @@ local towns = {
 		end}
 	end,
 	site_search = {WET_DEFAULTS = {}, core_env = function() return {} end},
-	generate = dofile("src/generate.lua")(dofile("src/planner.lua")),
+	generate = dofile("src/generate.lua")(dofile("src/planner.lua"), dofile("src/generation_lock.lua")),
 	builder = {
 		check_door = function() return {approach = {x = 90, z = 40}, steps = 1} end,
 		core_env = function()

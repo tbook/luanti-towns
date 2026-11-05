@@ -2,8 +2,8 @@
 -- report formatting and the controller driven by fakes.
 -- Loaded by tests/run.lua:
 --   loadfile("tests/generate_tests.lua")(eq, fails, planner, generate_factory)
-local eq, fails, planner, generate_factory = ...
-local generate = generate_factory(planner)
+local eq, fails, planner, generate_factory, lock_factory = ...
+local generate = generate_factory(planner, lock_factory)
 local medieval_profile = assert(planner.landmark_profile(dofile("src/catalog.lua").snapshot()))
 local LIMIT = planner.SEED_LIMIT
 
@@ -265,6 +265,7 @@ local function fakes(opts)
 	local f = {logs = {}, sent = {}, searches = {}, builds = {}, t = 0}
 	f.pos = opts.pos ~= nil and opts.pos or {x = 10.4, y = 21, z = -5.6}
 	f.deps = {
+		lock = opts.lock,
 		get_player_pos = function(name)
 			if f.offline then return nil end
 			if name == "ghost" then return nil end
@@ -289,8 +290,37 @@ local function fakes(opts)
 		rng = opts.rng,
 		now = function() return f.t end,
 	}
-	f.c = generate.new(f.deps)
+	f.c = (opts.generate or generate).new(f.deps)
 	return f
+end
+
+-- The original factory signature keeps a controller-local lock by default.
+do
+	local legacy_generate = dofile("src/generate.lua")(planner)
+	local f = fakes({generate = legacy_generate})
+	local ok = f.c.run("legacy", "20")
+	eq(ok, true, "legacy generate factory signature starts")
+	eq(f.c.busy(), true, "legacy generate factory has a local lock")
+	f.searches[1].done(nil, "no site")
+	eq(f.c.busy(), false, "legacy local lock releases on rejection")
+end
+
+-- Exceptions during synchronous setup must never strand the operation lock.
+for _, setup_failure in ipairs({"player position", "entropy", "rng", "initial log"}) do
+	local lock = lock_factory()
+	local f = fakes({lock = lock})
+	if setup_failure == "player position" then
+		f.deps.get_player_pos = function() error("position failed") end
+	elseif setup_failure == "entropy" then
+		f.deps.entropy = function() error("entropy failed") end
+	elseif setup_failure == "rng" then
+		f.deps.rng = function() error("rng failed") end
+	else
+		f.deps.log = function() error("log failed") end
+	end
+	local ok = pcall(f.c.run, "alice", "")
+	eq(ok, false, setup_failure .. " exception propagates")
+	eq(lock.current(), nil, setup_failure .. " failure releases acquired token")
 end
 
 local function sent_text(f)
@@ -302,6 +332,70 @@ local function logs_text(f)
 	local t = {}
 	for _, m in ipairs(f.logs) do t[#t + 1] = m[2] end
 	return table.concat(t, "\n")
+end
+
+-- A future automatic orchestrator shares this instance, acquiring before
+-- reservation/loading and switching to build only when it hands off to build.
+do
+	local lock = lock_factory()
+	local automatic = assert(lock.acquire("auto-site-1", "loading", 10))
+	local f = fakes({lock = lock})
+	local ok, msg = f.c.run("alice", "11")
+	eq(ok, false, "command declines while automatic loading owns shared lock")
+	eq(has(msg, "auto-site-1"), true, "command contention names automatic owner")
+	eq(#f.searches, 0, "command contention starts no search")
+	eq(lock.set_phase(automatic, "build"), true, "automatic owner can enter build phase")
+	eq(lock.current().phase, "build", "shared phase is visible")
+	lock.release(automatic)
+	ok = f.c.run("alice", "11")
+	eq(ok, true, "command starts after automatic terminal release")
+	eq(lock.current().owner, "alice", "command owns the shared lock")
+	eq(lock.current().phase, "search", "command begins in search phase")
+	f.searches[1].done(nil, "no site")
+	eq(lock.current(), nil, "zero-write search rejection releases shared lock")
+end
+
+-- Command ownership also blocks automatic acquisition, and an obsolete token
+-- cannot release the newer operation that replaced its stale search.
+do
+	local lock = lock_factory()
+	local f = fakes({lock = lock})
+	f.c.run("alice", "12")
+	local denied, owner = lock.acquire("auto-site-2", "loading", 1)
+	eq(denied, nil, "automatic site declines while command search owns lock")
+	eq(owner, "alice", "automatic contention identifies command owner")
+	f.t = generate.STALE_SECONDS + 1
+	f.c.run("bob", "13")
+	eq(lock.current().owner, "bob", "stale search is replaced by new command")
+	f.searches[1].done({})
+	eq(#f.builds, 0, "replaced search callback constructs nothing")
+	eq(lock.current().owner, "bob", "late old callback leaves new owner intact")
+	f.searches[2].done(nil, "no site")
+	eq(lock.current(), nil, "new operation releases normally")
+	local old = assert(lock.acquire("old", "search", 20))
+	local newer = assert(lock.acquire("new", "search", 621, generate.STALE_SECONDS))
+	eq(lock.release(old), false, "obsolete token cannot release replacement")
+	eq(lock.current().owner, "new", "obsolete release preserves newer owner")
+	lock.release(newer)
+end
+
+-- The local default remains isolated when a caller does not inject the shared
+-- server instance, and an asynchronous build retains shared ownership.
+do
+	local shared = lock_factory()
+	local first = fakes({lock = shared, build_delay = true})
+	first.c.run("alice", "14")
+	first.searches[1].done({})
+	eq(shared.current().phase, "build", "async build keeps shared token in build phase")
+	eq(shared.current().owner, "alice", "async build retains command owner")
+	first.build_done(nil, "rejected", "inspection_failed")
+	eq(shared.current(), nil, "zero-write build rejection releases shared token")
+	local second = fakes()
+	local third = fakes()
+	second.c.run("one", "1")
+	third.c.run("two", "2")
+	eq(second.c.busy(), true, "local default controller remains busy")
+	eq(third.c.busy(), true, "local default is independent across controllers")
 end
 
 do
