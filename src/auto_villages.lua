@@ -41,10 +41,12 @@ function M.install(opts)
 	local log = type(opts.log) == "function" and opts.log or function() end
 	local notify = {disable = function(why) failed_options[opts] = why; disable(why) end, log = log}
 	local s, env, session, registry = opts.settlements, opts.env, opts.session, opts.registry
-	if type(s) ~= "table" or type(s.create_site_plan) ~= "function"
+	if opts.planner_enabled ~= true or type(s) ~= "table" or type(s.create_site_plan) ~= "function"
 		or type(s.schematic_table) ~= "table" or #s.schematic_table == 0
 		or type(s.find_surface) ~= "function" or type(s.check_distance) ~= "function"
 		or type(s.terraform) ~= "function" or type(s.surface_mat) ~= "table"
+		or type(opts.mcl_vars) ~= "table" or type(opts.mcl_vars.get_chunk_number) ~= "function"
+		or type(opts.max_height_difference) ~= "number"
 		or type(env) ~= "table" or not integer(env.village_reach) or env.village_reach < 0
 		or type(env.config) ~= "table" or type(env.config.village) ~= "table"
 		or type(env.providers) ~= "table" or type(env.providers.volume) ~= "table"
@@ -54,9 +56,13 @@ function M.install(opts)
 		or type(registry) ~= "table" or type(registry.lookup) ~= "function" or type(registry.is_enabled) ~= "function" then
 		return fail(notify, "unsupported Living Villages coordination dependencies")
 	end
+	if type(s.schematic_table[1]) ~= "table" or s.schematic_table[1].name ~= "belltower" then
+		return fail(notify, "unsupported Living Villages schematic order")
+	end
 	for _, schem in ipairs(s.schematic_table) do
 		if type(schem) ~= "table" or type(schem.name) ~= "string" or not integer(schem.hwidth)
-			or not integer(schem.hdepth) or not integer(schem.hheight) then
+			or not integer(schem.hdepth) or not integer(schem.hheight)
+			or type(schem.hsize) ~= "number" or type(schem.max_num) ~= "number" then
 			return fail(notify, "unsupported Living Villages schematic shape")
 		end
 	end

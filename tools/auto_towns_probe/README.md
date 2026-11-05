@@ -203,3 +203,20 @@ reported `no_player`.
 - The `on_generated` callback cannot be unregistered. After exit the queued events stop; the
   write-through file still records generations, and the wrapped globals are restored; `instrumentation_restored`
   checks that.
+
+## Production village guard startup probe (#400)
+
+Run `python3 tools/auto_towns_probe/guard_engine_probe.py`. It copies the source
+world settings, enabled mods, and this Towns checkout into a fresh scratch world;
+it never opens the source world's map. A scratch-only dependent mod creates an
+accepted record and calls the installed guard in automatic mode off. It checks
+startup, suppression at the accepted reservation, and pass-through one node
+outside the measured village reach. For the calls it replaces the guard's saved
+original with a stub, so argument, return and random-object forwarding are
+observable; this does not exercise a real village plan or establish A10. The
+script prints the scratch path and keeps the engine log and fixture there.
+
+On 2026-11-05, Luanti 5.17.0 with the installed Living Villages and VoxeLibre
+0.92.3 reported reach 178, a working startup guard, suppression with zero calls
+to the saved planner, and one pass-through call. The planner's identity remains
+an assumption because Living Villages does not publish an installation marker.

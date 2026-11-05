@@ -10,14 +10,14 @@ local eq = ...
 		lookup = function(self, c) return self.records[c.x .. ":" .. c.z] end}
 	local calls, disabled, logs, active = 0, 0, 0, true
 	local suppressed = {} 
-	local s = {schematic_table = {{name = "belltower", hwidth = 10, hdepth = 10, hheight = 10}}, find_surface = function() end, check_distance = function() end, terraform = function() end, surface_mat = {} }
+	local s = {schematic_table = {{name = "belltower", hwidth = 10, hdepth = 10, hheight = 10, hsize = 5, max_num = 1}}, find_surface = function() end, check_distance = function() end, terraform = function() end, surface_mat = {} }
 	local marker = {}
 	s.create_site_plan = function(a, b, pr, extra)
 		calls = calls + 1
 		pr.count = pr.count + 1
 		return marker, nil, extra
 	end
-	local opts = {settlements = s, env = {village_reach = 100, config = {village = {}}, providers = {volume = {terrain = function() end}}},
+	local opts = {planner_enabled = true, mcl_vars = {get_chunk_number = function() end}, max_height_difference = 5, settlements = s, env = {village_reach = 100, config = {village = {}}, providers = {volume = {terrain = function() end}}},
 		lookup = lookup, session = session, registry = registry, enabled = function() return active end,
 		disable = function() disabled = disabled + 1 end, log = function() logs = logs + 1 end,
 		on_suppressed = function(reason) suppressed[#suppressed + 1] = reason end}
@@ -63,6 +63,17 @@ local eq = ...
 	eq(guard:check(), false, "replacement remains disabled")
 	eq(disabled, 1, "replacement disables once")
 	eq(logs, 1, "replacement reports once")
+	local missing_opts = {}
+	for k, v in pairs(opts) do missing_opts[k] = v end
+	missing_opts.mcl_vars = {}
+	local before = s2.create_site_plan
+	eq(villages.install(missing_opts), nil, "missing Living Villages planner prerequisite is unsupported")
+	eq(s2.create_site_plan, before, "unsupported planner leaves existing callable untouched")
+	local disabled_opts = {planner_enabled = false, settlements = s2, disable = function() disabled = disabled + 1 end,
+		log = function() logs = logs + 1 end}
+	eq(villages.install(disabled_opts), nil, "disabled Living Villages planner is unsupported")
+	eq(villages.install(disabled_opts), nil, "unsupported planner is not retried")
+	eq(logs, 3, "unsupported planner reports once")
 	local broken = {create_site_plan = function() return marker end}
 	opts.settlements = broken
 	eq(villages.install(opts), nil, "unsupported dependency rejected")

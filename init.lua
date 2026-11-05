@@ -59,6 +59,8 @@ if env_ok then
 	local inactive_session = {state = function() end, decline = function() end}
 	towns.auto_village_guard = towns.auto_villages.install({
 		settlements = rawget(_G, "settlements"), env = env, session = inactive_session,
+		mcl_vars = rawget(_G, "mcl_vars"), max_height_difference = rawget(_G, "max_height_difference"),
+		planner_enabled = not core.settings or core.settings:get_bool("living_villages_smooth_villages", true) ~= false,
 		lookup = function() return {} end, enabled = function() return false end,
 		registry = towns.auto_records,
 		disable = function(reason) towns.auto_disabled = reason end,
