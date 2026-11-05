@@ -4,8 +4,9 @@
 -- first permitted write; failure to save must prevent that write.
 -- Future orchestration builds a record from the site descriptor and accepted
 -- inspection: copy descriptor cell/version/seed/town_type, promote descriptor
--- center {x,z} to {x,y,z} using the inspected reference ground for y, and pass
--- the accepted absolute XYZ write envelope. Then call begin before any writer.
+-- center {x,z} to {x,y,z} using inspected ground_y for y, and copy
+-- result.read_envelope (the union of read and write stages) into envelope so
+-- read-only reach remains reserved. Then call begin before any writer.
 
 local M = {}
 local KEY = "towns.auto_records.v1"

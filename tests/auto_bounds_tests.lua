@@ -9,6 +9,7 @@ local walls = dofile("src/medieval_walls.lua")
 local features = dofile("src/medieval_wall_features.lua")
 local roads = dofile("src/town_roads.lua")
 local rural = dofile("schematics/outskirts/catalog.lua")
+local auto_records = dofile("src/auto_records.lua")
 
 local SLACK = ab.SLACK
 local S = SLACK
@@ -214,6 +215,49 @@ local function check_envelope(label, e)
 	eq(ab.contains_box(e.read, e.stages.urban_read.box), true, label .. " urban read is covered")
 	eq(e.chunks >= 1, true, label .. " counts chunks")
 	eq(e.snapshot_voxels, e.chunks * ab.CHUNK_VOXELS, label .. " snapshot voxels follow distinct chunks")
+end
+
+-- The accepted-town reservation stores the loader's union read envelope,
+-- including read-only inspection reach, and accepts an inspected-ground centre.
+do
+	local original_scan_up = env.config.scan_up
+	env.config.scan_up = 80 -- real read-only inspection reach crosses the next engine chunk
+	local plan = planner.plan({x = 0, z = 0}, 20260101, {landmarks = profile})
+	plan.center = {x = 0, z = 0}
+	local state = state_for(plan, nil, nil)
+	local envelope = assert(env.plan_envelope(state))
+	local stored
+	local registry = assert(auto_records.new({
+		store = {get = function() return nil end, set = function(_, value) stored = value end},
+		serialize = function() return "saved" end,
+		deserialize = function() return nil end,
+	}))
+	local urban_read = envelope.stages.urban_read.box
+	eq(urban_read ~= nil and ab.contains_box(envelope.read, urban_read), true,
+		"read union contains the real urban read-only stage")
+	eq(ab.contains_box(envelope.write, urban_read), false,
+		"write union excludes the read-only inspection reach")
+	eq(urban_read.min.y < envelope.stages.urban_build.box.min.y
+		or urban_read.max.y > envelope.stages.urban_build.box.max.y, true,
+		"real read-only stage extends beyond the urban write stage vertically")
+	eq(envelope.read.min.y < envelope.write.min.y or envelope.read.max.y > envelope.write.max.y
+		or envelope.read.min.x < envelope.write.min.x or envelope.read.max.x > envelope.write.max.x
+		or envelope.read.min.z < envelope.write.min.z or envelope.read.max.z > envelope.write.max.z,
+		true, "real envelope union preserves reach excluded by the write union")
+	local accepted = registry:begin({cell = {x = 0, z = 0}, version = 1, seed = 20260101,
+		town_type = "medieval", center = {x = plan.center.x, y = state.ground_y, z = plan.center.z},
+		envelope = envelope.read, state = "building"})
+	eq(accepted, true, "real auto_bounds read union accepts the inspected ground centre")
+	local saved = registry:lookup({x = 0, z = 0})
+	eq(saved ~= nil and saved.center.y == state.ground_y, true, "record center y is inspected ground_y")
+	for _, axis in ipairs({"x", "y", "z"}) do
+		eq(saved and saved.envelope.min[axis] == envelope.read.min[axis], true,
+			"record reserves read-envelope min " .. axis)
+		eq(saved and saved.envelope.max[axis] == envelope.read.max[axis], true,
+			"record reserves read-envelope max " .. axis)
+	end
+	eq(stored ~= nil, true, "real accepted reservation is persisted")
+	env.config.scan_up = original_scan_up
 end
 
 for _, seed in ipairs({20260101, 7, -123456}) do
