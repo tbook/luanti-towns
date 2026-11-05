@@ -49,6 +49,29 @@ towns.auto_records = towns.auto_records_factory.new({
 towns.auto_records_command = dofile(modpath .. "/src/auto_records_command.lua")
 towns.auto_records_command.register(core, towns.auto_records)
 
+-- Village guard factory; the automatic coordinator installs it when its bounds
+-- environment and session are available.
+towns.auto_villages = dofile(modpath .. "/src/auto_villages.lua")
+local env_ok, env = pcall(dofile(modpath .. "/src/auto_environment.lua"),
+	towns, core, rawget(_G, "settlements"), rawget(_G, "living_villages"))
+if env_ok then
+	towns.auto_environment = env
+	local inactive_session = {state = function() end, decline = function() end}
+	towns.auto_village_guard = towns.auto_villages.install({
+		settlements = rawget(_G, "settlements"), env = env, session = inactive_session,
+		mcl_vars = rawget(_G, "mcl_vars"), max_height_difference = rawget(_G, "max_height_difference"),
+		planner_enabled = not core.settings or core.settings:get_bool("living_villages_smooth_villages", true) ~= false,
+		lookup = function() return {} end, enabled = function() return false end,
+		registry = towns.auto_records,
+		disable = function(reason) towns.auto_disabled = reason end,
+		log = function(reason) core.log("error", "[towns] automatic village guard: " .. reason) end,
+	})
+else
+	towns.auto_disabled = tostring(env) .. "; accepted reservations are unprotected"
+	core.log("error", "[towns] automatic village guard: " .. towns.auto_disabled)
+end
+
+
 -- Valid-bed enumeration inside placed buildings (#47); read-only, used by
 -- /towns_generate only.
 towns.residents = dofile(modpath .. "/src/residents.lua")
