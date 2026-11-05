@@ -338,6 +338,63 @@ def controlled_a10_observation(events):
     }
 
 
+def inactive_trigger_a10_observation(events):
+    """Validate one inactive structblock's explicit single-block activation."""
+    trigger_pos = {'x': -192, 'y': -32, 'z': 128}
+    before = [e for e in events if e.get('kind') == 'wt_test'
+              and e.get('state') == 'before_forceload']
+    loads = [e for e in events if e.get('kind') == 'wt_test'
+             and e.get('state') == 'forceload']
+    planners = [e for e in events if e.get('kind') == 'wt_planner'
+                and e.get('state') == 'enter' and e.get('minp') == trigger_pos]
+    exit_events = [e for e in events if e.get('kind') == 'wt_planner'
+                   and e.get('state') == 'exit']
+    planner_time = planners[0].get('t_ms') if len(planners) == 1 else None
+    exits = [e for e in exit_events if isinstance(planner_time, (int, float))
+             and isinstance(e.get('t_ms'), (int, float)) and e.get('t_ms') >= planner_time]
+
+    missing = []
+    if len(before) != 1:
+        missing.append('exactly one pre-forceload node observation')
+    elif before[0].get('pos') != trigger_pos or before[0].get('node') != 'mcl_villages:structblock':
+        missing.append('expected structblock at trigger position before forceload')
+    if len(loads) != 1:
+        missing.append('exactly one single-block forceload event')
+    elif loads[0].get('pos') != trigger_pos or loads[0].get('ok') is not True \
+            or loads[0].get('single_block') is not True:
+        missing.append('successful single-block forceload at trigger position')
+    if len(planners) != 1:
+        missing.append('exactly one planner entry matching trigger chunk')
+    if len(exits) != 1 or not exits[0].get('planned'):
+        missing.append('one successful planner exit')
+
+    times = {}
+    if not missing:
+        times = {
+            'structblock_before_forceload_ms': before[0].get('t_ms'),
+            'single_block_forceload_ms': loads[0].get('t_ms'),
+            'matching_planner_entry_ms': planners[0].get('t_ms'),
+            'planner_exit_ms': exits[0].get('t_ms'),
+        }
+        values = list(times.values())
+        if not all(isinstance(t, (int, float)) for t in values) \
+                or not (values[0] <= values[1] <= values[2] <= values[3]) \
+                or events.index(before[0]) >= events.index(loads[0]) \
+                or events.index(loads[0]) >= events.index(planners[0]):
+            missing.append('structblock/forceload/planner timestamps in order')
+
+    complete = not missing
+    return {
+        'evidence_status': 'inconclusive',
+        'instrumentation_status': 'complete' if complete else 'incomplete',
+        'required_events_observed_in_order': complete,
+        'trigger_pos': trigger_pos,
+        'missing_or_invalid': missing,
+        'times_ms': times,
+        'interpretation': 'One direct activation fixture only; A10 remains UNVERIFIED.',
+    }
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--scenario', default='fresh', choices=sorted(SCENARIOS),
@@ -353,6 +410,8 @@ def main():
     ap.add_argument('--fixture', help='override the scenario fixture boxes, "id:x1,y1,z1,x2,y2,z2;..." (one phase)')
     ap.add_argument('--controlled-a10', action='store_true',
                     help='enable the synthetic reservation and competing-emerge timing probe (villages scenario only)')
+    ap.add_argument('--inactive-trigger-a10', action='store_true',
+                    help='forceload one inactive village structblock after fixture generation (villages scenario only)')
     ap.add_argument('--route', type=Path,
                     help='walk or fly route JSON {"mode","speed","points"} for one connected client (see README)')
     ap.add_argument('--timeout', type=int, default=900, help='per-phase engine timeout in seconds')
@@ -365,6 +424,12 @@ def main():
         raise SystemExit('--controlled-a10 requires --scenario villages')
     if args.controlled_a10 and args.fixture:
         raise SystemExit('--controlled-a10 uses the villages scenario fixture; do not pass --fixture')
+    if args.inactive_trigger_a10 and args.scenario != 'villages':
+        raise SystemExit('--inactive-trigger-a10 requires --scenario villages')
+    if args.inactive_trigger_a10 and args.fixture:
+        raise SystemExit('--inactive-trigger-a10 uses the villages scenario fixture; do not pass --fixture')
+    if args.inactive_trigger_a10 and args.controlled_a10:
+        raise SystemExit('choose one controlled A10 mode per run')
     phases = [args.fixture] if args.fixture else scenario['phases']
     duration = args.duration or scenario['duration']
     forceload = scenario.get('forceload', False)
@@ -418,14 +483,17 @@ def main():
         with (work / 'check.conf').open('w') as f:
             f.write('enable_ipv6 = false\nbind_address = 127.0.0.1\nserver_announce = false\n')
             f.write('max_forceloaded_blocks = 4096\n')
-            if args.controlled_a10:
+            if args.controlled_a10 or args.inactive_trigger_a10:
                 f.write('num_emerge_threads = 4\n')
             f.write('auto_towns_probe_phase = %d\n' % index)
             f.write('auto_towns_probe_scenario = %s\n' % args.scenario)
             f.write('auto_towns_probe_duration = %d\n' % duration)
             f.write('auto_towns_probe_start_delay = %d\n' % args.start_delay)
-            f.write('auto_towns_probe_forceload = %s\n' % ('true' if forceload else 'false'))
+            f.write('auto_towns_probe_forceload = %s\n' % (
+                'true' if forceload and not args.inactive_trigger_a10 else 'false'))
             f.write('auto_towns_probe_controlled_a10 = %s\n' % ('true' if args.controlled_a10 else 'false'))
+            f.write('auto_towns_probe_inactive_trigger_a10 = %s\n' % (
+                'true' if args.inactive_trigger_a10 else 'false'))
             f.write('auto_towns_probe_fixture = %s\n' % fixture)
             f.write('auto_towns_probe_invocation = %s\n' % invocation)
         entry = {'phase': index, 'status': None, 'exit_code': None, 'report': None}
@@ -482,6 +550,13 @@ def main():
         report['checks'].append({
             'ok': observation['required_events_observed_in_order'],
             'label': 'controlled A10: required synthetic events observed in order',
+        })
+    if args.inactive_trigger_a10:
+        observation = inactive_trigger_a10_observation(write_through_events.get(1, []))
+        report['inactive_trigger_a10'] = observation
+        report['checks'].append({
+            'ok': observation['required_events_observed_in_order'],
+            'label': 'inactive-trigger A10: structblock, one forceload, and matching planner observed',
         })
     report['ok'] = bool(report['checks']) and all(c['ok'] for c in report['checks'])
     (work / 'probe-report.json').write_text(json.dumps(report, indent=2))

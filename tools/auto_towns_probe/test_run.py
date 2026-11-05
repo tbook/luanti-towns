@@ -1,7 +1,7 @@
 """Focused checks for controlled A10 event validation."""
 import unittest
 
-from run import controlled_a10_observation
+from run import controlled_a10_observation, inactive_trigger_a10_observation
 
 
 def complete_events(callback_ms=30):
@@ -22,6 +22,18 @@ def complete_events(callback_ms=30):
         {'kind': 'wt_generated', 'minp': chunk, 't_ms': callback_ms},
         {'kind': 'wt_emerge', 'action': 'generated', 'block': {'x': 625, 'y': 0, 'z': 625},
          'request': request, 't_ms': callback_ms},
+    ]
+
+
+def inactive_trigger_events():
+    pos = {'x': -192, 'y': -32, 'z': 128}
+    return [
+        {'kind': 'wt_test', 'state': 'before_forceload', 'pos': pos,
+         'node': 'mcl_villages:structblock', 't_ms': 10},
+        {'kind': 'wt_test', 'state': 'forceload', 'pos': pos,
+         'single_block': True, 'ok': True, 't_ms': 10},
+        {'kind': 'wt_planner', 'state': 'enter', 'minp': pos, 't_ms': 11},
+        {'kind': 'wt_planner', 'state': 'exit', 'planned': True, 't_ms': 30},
     ]
 
 
@@ -57,6 +69,40 @@ class ControlledA10ObservationTests(unittest.TestCase):
         observation = controlled_a10_observation(events)
         self.assertEqual(observation['instrumentation_status'], 'incomplete')
         self.assertIn('timestamps in reservation/request/callback order', observation['missing_or_invalid'])
+
+
+class InactiveTriggerA10ObservationTests(unittest.TestCase):
+    def test_structblock_single_forceload_and_matching_planner_pass(self):
+        observation = inactive_trigger_a10_observation(inactive_trigger_events())
+        self.assertEqual(observation['instrumentation_status'], 'complete')
+        self.assertTrue(observation['required_events_observed_in_order'])
+        self.assertEqual(observation['evidence_status'], 'inconclusive')
+
+    def test_missing_structblock_fails_inconclusive(self):
+        events = inactive_trigger_events()
+        events[0]['node'] = 'air'
+        observation = inactive_trigger_a10_observation(events)
+        self.assertEqual(observation['instrumentation_status'], 'incomplete')
+        self.assertFalse(observation['required_events_observed_in_order'])
+        self.assertIn('expected structblock at trigger position before forceload', observation['missing_or_invalid'])
+
+    def test_no_matching_planner_entry_fails(self):
+        events = inactive_trigger_events()
+        events[2]['minp'] = {'x': -112, 'y': -32, 'z': 128}
+        observation = inactive_trigger_a10_observation(events)
+        self.assertIn('exactly one planner entry matching trigger chunk', observation['missing_or_invalid'])
+
+    def test_multiple_forceloads_fail_single_block_contract(self):
+        events = inactive_trigger_events()
+        events.append(dict(events[1]))
+        observation = inactive_trigger_a10_observation(events)
+        self.assertIn('exactly one single-block forceload event', observation['missing_or_invalid'])
+
+    def test_failed_forceload_is_incomplete(self):
+        events = inactive_trigger_events()
+        events[1]['ok'] = False
+        observation = inactive_trigger_a10_observation(events)
+        self.assertIn('successful single-block forceload at trigger position', observation['missing_or_invalid'])
 
 
 if __name__ == '__main__':

@@ -18,6 +18,7 @@ local DURATION = tonumber(settings:get("auto_towns_probe_duration")) or 60
 local START_DELAY = tonumber(settings:get("auto_towns_probe_start_delay")) or 2
 local FIXTURE_TEXT = settings:get("auto_towns_probe_fixture") or ""
 local CONTROLLED_A10 = settings:get_bool("auto_towns_probe_controlled_a10", false)
+local INACTIVE_TRIGGER_A10 = settings:get_bool("auto_towns_probe_inactive_trigger_a10", false)
 local SCENARIO = settings:get("auto_towns_probe_scenario") or ""
 local INVOCATION = settings:get("auto_towns_probe_invocation") or ""
 -- Forceloading activates fixture blocks so their LBMs (village planning) run
@@ -502,6 +503,7 @@ local function step_route(dtime, now)
 end
 
 local issued = false
+local inactive_trigger_done = false
 local function issue_fixtures()
 	for _, f in ipairs(fixtures) do
 		pending_fixture = f
@@ -614,6 +616,13 @@ core.register_globalstep(function(dtime)
 		issue_fixtures()
 	end
 	if now - player_sample_at >= 0.5 then refresh_players() end
+	if INACTIVE_TRIGGER_A10 and not inactive_trigger_done and issued and fixtures_complete() then
+		inactive_trigger_done = true
+		local pos = {x = -192, y = -32, z = 128}
+		wt({kind = "wt_test", state = "before_forceload", pos = pos, node = core.get_node(pos).name})
+		local ok = core.forceload_block(pos, true)
+		wt({kind = "wt_test", state = "forceload", pos = pos, single_block = true, ok = ok})
+	end
 	if FORCELOAD and not forceload_done and issued and fixtures_complete() then forceload_fixtures() end
 	local ok, err = pcall(step_route, dtime, now)
 	if not ok then observer_error("route", err) end

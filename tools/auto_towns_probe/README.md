@@ -41,7 +41,8 @@ Options: `--engine` (default `/Applications/luanti.app/Contents/MacOS/luanti`),
 `--port` (default 39490), `--seed N` and `--mg-name NAME` (written into the
 scratch `map_meta.txt` only), `--duration`, `--start-delay`,
 `--fixture "id:x1,y1,z1,x2,y2,z2;..."` (one phase, no scenario checks),
-`--route route.json`, `--controlled-a10` (controlled synthetic A10 probe; see below), `--cleanup`.
+`--route route.json`, `--controlled-a10` (controlled synthetic A10 probe; see below),
+`--inactive-trigger-a10` (single inactive-trigger fixture; see below), `--cleanup`.
 
 ## Controlled A10 probe
 
@@ -54,6 +55,16 @@ fixture, result, and limitations are recorded in `docs/automatic_towns_probe_res
 synthetic contention run". The runner validates the reservation, planner, injected request, and matching
 generated callback in timestamp order. Missing or misordered events fail the probe and are recorded as an
 incomplete observation. A complete sequence is still reported as inconclusive for production A10.
+
+## Inactive-trigger A10 probe
+
+`--inactive-trigger-a10` is valid only with `--scenario villages`, and cannot be combined with
+`--controlled-a10`. It waits for the bounded village fixture to complete, records the node at
+`(-192,-32,128)`, and issues exactly one `core.forceload_block` request at that position. It disables the
+scenario's usual whole-fixture forceload. The runner requires the expected `mcl_villages:structblock`, one
+successful single-block forceload, and one matching planner entry and successful exit in order. Missing or
+misordered events fail the run and leave the evidence inconclusive. This tests one inactive trigger in one
+disposable world; it does not exercise a Towns reservation or settle A10.
 
 The source world's mapgen is `flat` (superflat). VoxeLibre's
 `settlements.evaluate_heightmap` returns `max_height_difference + 1` whenever a
@@ -90,7 +101,8 @@ Each phase writes two files into the scratch world (path printed at the start):
   (action per mapblock, plus `mapgen_heightmap_in_callback`), `wt_generated` (chunk
   bounds, class, valid heights, and the center-column check: heightmap values under two
   index layouts and the top solid node of the VoxelManip, which is a verification-only scan),
-  `wt_planner` (`enter`/`exit` of `settlements.create_site_plan`), and `wt_finish`. It is not
+  `wt_planner` (`enter`/`exit` of `settlements.create_site_plan`), `wt_test` (controlled A10 fixture
+  observations), and `wt_finish`. It is not
   drained by the main thread, so it keeps records after the observer finishes and during shutdown.
 
 `probe-report.json` (in the scratch world) combines the phases with the exact

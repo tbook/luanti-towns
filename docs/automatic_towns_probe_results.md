@@ -134,7 +134,7 @@ terrain came from scripted fixtures, planner requests, or structure placement.
 | A7 | Supported chunk settings | **PARTIAL**: chunksize 5 is the only supported setting for the village gate. chunksize 4 was observed for generation only. | chunksize 4 generated normally with the same callbacks. VoxeLibre's `evaluate_heightmap` (`mcl_villages/utils.lua`, lines 213 and 245) hard-codes 80-wide rows; `half_map_chunk_size = 40` (`const.lua:76`) also assumes 80 nodes. So villages are not supported for other sizes (code reading, not run). | Constrains #393 to chunksize 5 |
 | A8 | Surface-bearing callback can be identified, and valid, clipped, and sentinel heights are distinguishable | **PASS** for the classes below; exact sentinel value **UNVERIFIED** | See "Heightmap classes". | Sets #395 rules |
 | A9 | Center ground is obtained from the center request without a vertical search | **PASS** for the design's method: capture inside the center chunk's own generation callback. **FAIL** sub-finding: request-time heightmap reads are unusable. | Fresh center (v7): the callback that generated the chunk recorded its heightmap (4 of 4 generated blocks matched the chunk record). Request-time callbacks for old chunks returned a non-nil table that was all zero (`from_disk`, 108 of 108) or the heightmap of the most recently generated chunk (`from_memory`, 16 of 104 matched a different chunk, see "Callback heightmap"). Design consequence: the center reference must be read only inside the on_generated call for that chunk, and old centers decline. Center-column semantics (heightmap vs top solid node) are UNVERIFIED, see "Callback heightmap". | #397 must capture only in on_generated; the bundled API note must not be relied on |
-| A10 | Activation-halo ordering: the village planner runs only after the town reservation exists, and a town-activation chunk cannot arrive midway through the planner's terrain requests | **UNVERIFIED** (partial positive) | The original village run and a controlled synthetic-contention run both had competing generated callbacks arrive after the planner returned. In the controlled run, an observer-only synthetic reservation marker preceded planner entry; it was not a Towns reservation. No generated callback landed inside the planner window. See "Planner window timing". | #400, #402, #403, #404 |
+| A10 | Activation-halo ordering: the village planner runs only after the town reservation exists, and a town-activation chunk cannot arrive midway through the planner's terrain requests | **UNVERIFIED** (partial positive) | The original village run and a controlled synthetic-contention run both had competing generated callbacks arrive after the planner returned. A separate same-session inactive-trigger fixture observed a real structblock before a single-block forceload and its matching planner entry. Neither experiment uses a Towns reservation, and neither reproduces an activation chunk arriving during planner work. See "Planner window timing". | #400, #402, #403, #404 |
 | A11 | Village trigger reaches the guarded planner (`settlements.create_site_plan`) | **PASS** | The probe's wrapper recorded `planned` and `placed` in both v7 runs. The chain is `structblock LBM -> emerge_area(footprint) -> ecb_village -> create_site_plan`. | Not blocked |
 | A12 | Containment feasibility (writes stay inside the envelope) | **PASS (tested scope)**: 36 evaluated plans (3 families, flat and relief terrain), 0 nodes written outside the envelope write boxes (aggregate) and 0 outside a stage's own boxes in the stage intervals; builder-reported write bounds inside the envelope in 36 of 36. | Write-capable scratch-world test, `tools/auto_towns_containment/`; numbers, commands and caveats in "Containment (A12)". Cap sweep: 900 plans, worst case 210 chunks (cap 256). **PM accepted A12; caps frozen (`PROVISIONAL = false`).** | #393 (cap freeze, done), #397, #403 |
 | A13 | Cancelled or late completions are delivered and recorded; cancelled does not mean ungenerated | **PASS** | cancel after fix: 1019 `cancelled` callbacks delivered after `wt_finish` (2159 to 2560 ms), 2 chunks generated after finish with `after_finish` records, and 31 cancelled blocks lying inside those generated chunks. See "Cancellation". | #398 may keep the rule that `EMERGE_CANCELLED` requires proof and records |
@@ -231,6 +231,39 @@ This reproduces delayed competing generation under the controlled fixture and co
 marker preceded planner entry. Since the marker is not production state and no generated callback landed inside
 the planner window, this does not establish A10. The deliberate busy wait also makes this run unsuitable for
 player-loading or performance conclusions. A10 remains **UNVERIFIED**.
+
+### Same-session inactive-trigger fixture
+
+The separate opt-in `--inactive-trigger-a10` mode disables the usual whole-fixture forceload. Once the bounded
+fixture completes, it reads the node at `(-192,-32,128)`, requests one single-block forceload at that position,
+and records whether the matching village planner runs. This tests an inactive mapblock's structblock trigger in
+the same server session without a player or a Towns reservation.
+
+Reproduction command:
+
+```sh
+python3 tools/auto_towns_probe/run.py --scenario villages --mg-name v7 --seed 2014 --duration 50 --port 39598 --inactive-trigger-a10
+```
+
+The investigator's initial run is retained at
+`/var/folders/nf/h9p5hfvs7jj6vs6q252mzhw00000gn/T/towns-auto-probe-5mlqnz10/`; the runner lacked the final
+position/count fields. It recorded `mcl_villages:structblock` at the trigger point before forceload at
+**8735 ms**, successful forceload at **8735 ms**, matching planner entry at **10017 ms**, planner exit at
+**30057 ms**, and one village placed.
+
+The validated rerun is retained locally at
+`/var/folders/nf/h9p5hfvs7jj6vs6q252mzhw00000gn/T/towns-auto-probe-2vjt9k0r/`. Its `probe-report.json` records
+the full command and a complete strict validation; the write-through log is
+`auto-towns-probe-writethrough-phase1.jsonl`. The node observation and single-block forceload were both at
+**5819 ms**; the matching planner entered at **6163 ms** and exited with a plan at **26200 ms**. The fixture
+recorded 62 generated chunks, two opportunities, and one village placed; there were no connected players. The
+ordinary whole-fixture forceload was disabled. The report explicitly labels instrumentation complete while
+keeping A10 evidence inconclusive.
+
+This establishes the observed path for one structblock in one seed: it remained present before the explicit
+forceload and then reached the matching planner in the same server session. It does not establish town
+reservation ordering or whether an activation chunk can arrive during another planner window. The result is
+scoped evidence; A10 remains **UNVERIFIED**.
 
 ## Containment (A12)
 
