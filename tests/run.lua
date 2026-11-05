@@ -488,6 +488,7 @@ run_group("tests/auto_loader_tests.lua", eq, placement, dofile("src/planner.lua"
 run_group("tests/auto_records_tests.lua", eq)
 run_group("tests/auto_villages_tests.lua", eq)
 run_group("tests/automatic_tests.lua", eq)
+run_group("tests/automatic_integration_tests.lua", eq)
 
 if only_group and not only_group_ran then
 	print("TOWNS_TEST_ONLY matched no group: " .. only_group)

@@ -11,12 +11,22 @@ into the scratch world and sets `towns_auto_mode = survey`. The probe loads
 before Towns so its village observer is inside the guard. This mode can load
 additional terrain and suppress villages; use it only in disposable worlds.
 Survey results are recorded in the engine log. A10 remains unverified.
+The probe also makes one controlled public village-planner call while a survey
+is active and records `wt_survey_suppression`; this is a synthetic guard check,
+not an observation of natural village ordering.
 
 On 2026-11-05, a production-survey `fresh` run on flat terrain requested 180
 chunks for one Roman site, ran exact inspection, and declined `not_fresh` in
 13.70 seconds. The reported snapshot bound was 92,160,000 voxels. The probe
 reported no errors and no suppressed villages; it does not verify suppression
 under contention. Scratch report: `towns-auto-probe-icnx5tgt/probe-report.json`.
+The controlled run `towns-auto-probe-flysvv0g` suppressed that planner call
+and the survey result counted one suppressed village before declining as not fresh.
+After correcting underground freshness recording, the remote fresh-site run
+`towns-auto-probe-g55ysqvn` surveyed successfully in 13.80 seconds after 179
+chunk requests; the controlled call was suppressed and counted once. Command:
+`python3 tools/auto_towns_probe/run.py --production-survey --scenario fresh
+--fixture 'remote:10752,0,10751,10752,0,10751' --duration 50 --port 39624`.
 
 Files:
 

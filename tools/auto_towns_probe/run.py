@@ -581,6 +581,7 @@ def main():
             f.write('max_forceloaded_blocks = 4096\n')
             if args.production_survey:
                 f.write('towns_auto_mode = survey\n')
+                f.write('auto_towns_probe_survey_suppression = true\n')
             if args.controlled_a10 or args.inactive_trigger_a10 or args.model_a10:
                 f.write('num_emerge_threads = 4\n')
             f.write('auto_towns_probe_phase = %d\n' % index)

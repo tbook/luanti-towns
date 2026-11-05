@@ -16,7 +16,8 @@ return function(towns, core, vars)
 	if towns.auto_disabled or not env or not guard or not guard:check() or not towns.auto_records:is_enabled()
 		or (mg ~= "v7" and mg ~= "flat") or size ~= 5 or not seed or seed == ""
 		or type(vars) ~= "table" or type(vars.mg_overworld_min) ~= "number"
-		or type(vars.mg_overworld_max) ~= "number" then
+		or type(vars.mg_overworld_max) ~= "number" or type(vars.mg_end_max) ~= "number"
+		or vars.mg_end_max >= vars.mg_overworld_min then
 		return disabled(towns.auto_disabled or "unsupported mapgen, dimension or village integration")
 	end
 	local bounds = dofile(towns.modpath .. "/src/auto_bounds.lua")
@@ -26,7 +27,7 @@ return function(towns, core, vars)
 	local function lookup(rect) return sites.lookup(seed, rect) end
 	local session = assert(state_mod.new({lookup = lookup, footprint = bounds.PLAN_EXTENT,
 		adapter = {origin = bounds.CHUNK_ORIGIN, size = bounds.CHUNKSIZE, accepts = function(e)
-			return e.maxp.y >= vars.mg_overworld_min and e.minp.y <= vars.mg_overworld_max
+			return e.maxp.y > vars.mg_end_max and e.minp.y <= vars.mg_overworld_max
 		end},
 		accepted = function(d) return towns.auto_records:lookup(d.cell) ~= nil end}))
 	local active
@@ -112,6 +113,21 @@ return function(towns, core, vars)
 	end
 	core.register_on_generated(function(minp, maxp)
 		if towns.auto_disabled then return end
+		if maxp.y <= vars.mg_end_max or minp.y > vars.mg_overworld_max then return end
+		local rect = {x1 = minp.x, z1 = minp.z, x2 = maxp.x, z2 = maxp.z}
+		local candidates, why = lookup(rect)
+		if not candidates then return disabled(why) end
+		local relevant = false
+		for _, site in ipairs(candidates) do
+			local a = site.activation_rect
+			local state = session:state(site.id)
+			if state ~= "declined" and state ~= "complete" and state ~= "accepted"
+				and a and rect.x1 <= a.x2 and a.x1 <= rect.x2 and rect.z1 <= a.z2 and a.z1 <= rect.z2 then
+				relevant = true
+				break
+			end
+		end
+		if not relevant then return end
 		local heights, hm = {}, core.get_mapgen_object("heightmap")
 		if hm then
 			local i = 1
@@ -119,7 +135,8 @@ return function(towns, core, vars)
 				local row = {}; heights[z] = row
 				for x = minp.x, maxp.x do
 					local h = hm[i]; i = i + 1
-					if state_mod.classify(h, minp.y, maxp.y) == "valid" then row[x] = h end
+					if state_mod.classify(h, minp.y, maxp.y) == "valid"
+						and h >= vars.mg_overworld_min and h <= vars.mg_overworld_max then row[x] = h end
 				end
 			end
 		end

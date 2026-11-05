@@ -20,6 +20,7 @@ local FIXTURE_TEXT = settings:get("auto_towns_probe_fixture") or ""
 local CONTROLLED_A10 = settings:get_bool("auto_towns_probe_controlled_a10", false)
 local INACTIVE_TRIGGER_A10 = settings:get_bool("auto_towns_probe_inactive_trigger_a10", false)
 local MODEL_A10 = settings:get_bool("auto_towns_probe_model_a10", false)
+local SURVEY_SUPPRESSION = settings:get_bool("auto_towns_probe_survey_suppression", false)
 local SCENARIO = settings:get("auto_towns_probe_scenario") or ""
 local INVOCATION = settings:get("auto_towns_probe_invocation") or ""
 -- Forceloading activates fixture blocks so their LBMs (village planning) run
@@ -51,6 +52,31 @@ local function wt(rec)
 	rec.t_ms = math.floor((core.get_us_time() - t0) / 1000)
 	wt_file:write(core.write_json(rec), "\n")
 	wt_file:flush()
+end
+
+-- One controlled village attempt during an active survey. This intentionally
+-- invokes only the guarded public planner in a disposable world; it is not a
+-- natural-ordering experiment and provides no A10 evidence.
+if SURVEY_SUPPRESSION then
+	local function try_suppression()
+		local t = rawget(_G, "towns")
+		local session = t and t.auto_session
+		if session then
+			for id, rec in pairs(session.records) do
+				if rec.state == "inspecting" then
+					local site = session:descriptor(id)
+					if site then
+						local pos = {x = site.center.x, y = 0, z = site.center.z}
+						local result = settlements.create_site_plan(pos, pos, PseudoRandom(1))
+						wt({kind = "wt_survey_suppression", id = id, suppressed = result == false})
+						return
+					end
+				end
+			end
+		end
+		if elapsed() < DURATION - 1 then core.after(0.1, try_suppression) end
+	end
+	core.after(0.1, try_suppression)
 end
 
 local model_a10

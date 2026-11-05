@@ -3,8 +3,10 @@ local real_dofile = dofile
 local registered, pending, reports, events, jobs = nil, {}, {}, {}, {}
 local states, lock = {}, nil
 local site = {id = "one", center = {x = 0, z = 0}, cell = {x = 0, z = 0}, seed = 12,
-	town_type = "roman", max_rect = {x1 = -10, z1 = -10, x2 = 10, z2 = 10}}
+	town_type = "roman", max_rect = {x1 = -10, z1 = -10, x2 = 10, z2 = 10},
+	activation_rect = {x1 = -20, z1 = -20, x2 = 20, z2 = 20}}
 local session = {}
+function session:state(id) return states[id] end
 function session:on_generated(event)
 	events[#events + 1] = event
 	if event.heights[0] and event.heights[0][0] then
@@ -18,7 +20,7 @@ function session:decline(id) states[id] = "declined" end
 function session:finish(id) states[id] = "complete" end
 local modules = {
 	["src/auto_bounds.lua"] = {PLAN_EXTENT = {}, CHUNK_ORIGIN = -32, CHUNKSIZE = 80, CAPS = {}},
-	["src/auto_sites.lua"] = {new = function() return {lookup = function() return {} end} end},
+	["src/auto_sites.lua"] = {new = function() return {lookup = function() return {site} end} end},
 	["src/auto_state.lua"] = {new = function() return session end,
 		classify = function(h, min, max) return h and h > min and h < max and "valid" or "sentinel" end},
 	["src/auto_loader.lua"] = {new = function(opts) return {start = function(_, s, trigger, done)
@@ -43,7 +45,7 @@ local towns = {modpath = ".", auto_environment = {}, auto_village_guard = guard,
 		release = function(token) if lock == token then lock = nil end end}}
 local env = setmetatable({dofile = function(path) return modules[path:gsub("^%./", "")] or real_dofile(path) end}, {__index = _G})
 local chunk = assert(loadfile("src/automatic.lua")); setfenv(chunk, env)
-chunk()(towns, core, {mg_overworld_min = -100, mg_overworld_max = 100})
+chunk()(towns, core, {mg_overworld_min = -100, mg_overworld_max = 100, mg_end_max = -2000})
 eq(type(registered), "function", "survey registers callback")
 registered({x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
 eq(events[1].heights[0][0], 5, "callback copies valid height")
@@ -69,7 +71,8 @@ suppressed("accepted")
 suppressed("inspecting")
 local first = site
 site = {id = "two", center = {x = 50, z = 0}, cell = {x = 1, z = 0}, seed = 13,
-	town_type = "roman", max_rect = {x1 = 40, z1 = -10, x2 = 60, z2 = 10}}
+	town_type = "roman", max_rect = {x1 = 40, z1 = -10, x2 = 60, z2 = 10},
+	activation_rect = {x1 = -20, z1 = -20, x2 = 60, z2 = 20}}
 registered({x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
 eq(states.two, "declined", "nested activation is declined while survey is active")
 eq(#events, 4, "nested callback is still recorded")
