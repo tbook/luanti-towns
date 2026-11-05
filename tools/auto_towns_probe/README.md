@@ -42,7 +42,31 @@ Options: `--engine` (default `/Applications/luanti.app/Contents/MacOS/luanti`),
 scratch `map_meta.txt` only), `--duration`, `--start-delay`,
 `--fixture "id:x1,y1,z1,x2,y2,z2;..."` (one phase, no scenario checks),
 `--route route.json`, `--controlled-a10` (controlled synthetic A10 probe; see below),
-`--inactive-trigger-a10` (single inactive-trigger fixture; see below), `--cleanup`.
+`--inactive-trigger-a10` (single inactive-trigger fixture; see below),
+`--model-a10` (scratch state adapter below), `--cleanup`.
+
+## Scratch state A10 model
+
+`--scenario villages --mg-name v7 --model-a10` copies the Towns source and assets into
+the disposable probe mod. It calculates bounds from the actual Towns modules and installed
+Living Villages providers, and feeds callback-local heightmaps synchronously into the pure
+`auto_state` module using the real `auto_sites` lookup. This synchronous adapter is a
+scratch model: no production automatic-town adapter or guard exists here.
+
+It uses two independent sessions. The fresh session receives all generated events; a matching
+village trigger must have a valid surface callback and an inspecting site before the planner.
+The inactive session has not seen those events, modeling a trigger generated in an earlier
+session. The model declines an overlapping site before requesting a fresh chunk inside its
+activation halo and before calling the actual planner. It observes whether that surface callback
+arrives inside or after the planner window and whether the declined session activates. The
+strict validator reports missing, misordered, previously generated, non-surface or non-overlapping
+events as incomplete. An incomplete trace exits nonzero; a complete trace is still inconclusive
+for A10. The model does not test production event delivery, registry reservations, wrapper
+installation, or actual guard behavior. It does not prove any universal engine ordering.
+
+Reports include the exact command and revision, and each scratch world retains its copied probe,
+Towns source, engine logs, write-through events and report. Fixture version is in the
+`wt_a10_geometry` record. Run under `caffeinate -i` on hosts prone to idle sleep.
 
 ## Controlled A10 probe
 
