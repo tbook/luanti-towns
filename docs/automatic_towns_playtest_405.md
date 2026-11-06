@@ -36,6 +36,26 @@ trial. The active provider's synchronous scan is a serious usability problem.
 The exhaustive check was subsequently removed by product decision; automatic
 towns do not honor protection-mod claims.
 
+After that change, two flat seed-2014 production builds used a scratch provider
+that reports every position protected. Both completed with one accepted record
+and passed the bounded independent node/metadata observer. Roman requested 224
+chunks and completed in 30.83 seconds; medieval requested 254 and completed in
+36.56 seconds. Their reported snapshot bounds were 92,160,000 and 107,520,000
+voxels. Observer longest steps were 4.40 and 3.80 seconds, respectively. These
+runs overlapped and the observer's full snapshots and diffs add main-thread
+work; they are not matched benchmarks or player-visible latency measurements.
+The controlled provider tests the intended behavior, not a real claims mod.
+
+```sh
+python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --observe-build --protected-provider --fixture remote:10752,0,10751,10752,0,10751 --duration 100 --timeout 300 --port 39908
+python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --observe-build --protected-provider --fixture remote:11776,0,10752,11776,0,10752 --duration 110 --timeout 300 --port 39909
+```
+
+Scratch reports: `towns-auto-probe-ps7oe8fw` and `towns-auto-probe-2255jxi7`
+under the system temporary directory. The observer covers the approved box and
+a 16-node ring rounded to mapblocks; it cannot detect identical rewrites or
+changes beyond that window. No connected player participated.
+
 A separate scratch fixture measured one Areas `getAreasIntersectingArea` query
 over a representative write box: an empty database returned in 7 microseconds;
 one claim touching the box boundary was found, and a one-node near miss was

@@ -1324,17 +1324,16 @@ do
     max = {x = 225, y = 30, z = 225}}}}}}
   pending(inspected)
   if protected then
-   eq(registry:lookup(site.cell), nil, "protected write envelope creates no record")
-   eq(#town_calls, 0, "protected write envelope performs no urban writes")
-   eq(report.outcome, "declined", "protected write envelope is declined")
+   eq(registry:lookup(site.cell).state, "complete", "protected write envelope completes")
+   eq(report.outcome, "complete", "protected write envelope is accepted")
    eq(towns.generation_lock.current(), nil, "protected site releases controller lock")
    return
   end
   if later_protection then
    eq(before_rural ~= nil, true, "protection changed after the urban stage")
-   eq(registry:lookup(site.cell).state, "interrupted", "new protection interrupts an accepted build")
-   eq(#town_calls, before_rural, "new protection prevents rural placement")
-   eq(report.outcome, "interrupted", "new protection reports interrupted")
+   eq(registry:lookup(site.cell).state, "complete", "new protection does not interrupt an accepted build")
+   eq(#town_calls > before_rural, true, "new protection does not prevent rural placement")
+   eq(report.outcome, "complete", "new protection reports completion")
    eq(towns.generation_lock.current(), nil, "new protection releases controller lock")
    return
   end
