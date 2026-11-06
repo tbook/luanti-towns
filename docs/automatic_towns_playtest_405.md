@@ -33,7 +33,8 @@ The settings copy added Areas to TownsWorkshop's mod list. The previous #404
 no-op-provider benchmark reported 44,815,680 positions in about 0.013 seconds;
 it was a separate run and synthetic envelope, not a matched connected-player
 trial. The active provider's synchronous scan is a serious usability problem.
-The exhaustive check remains in place pending a protection-preserving solution.
+The exhaustive check was subsequently removed by product decision; automatic
+towns do not honor protection-mod claims.
 
 A separate scratch fixture measured one Areas `getAreasIntersectingArea` query
 over a representative write box: an empty database returned in 7 microseconds;

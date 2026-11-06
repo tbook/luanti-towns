@@ -20,7 +20,7 @@ local eq, factory = ...
 			env.authorize_write = function() return false, "outside approved envelope" end
 		end
 		if behavior and behavior.deny_recheck then
-			env.recheck_write = function() return false, "protected" end
+			env.check_ownership = function() return false, "ownership lost" end
 		end
 		local api = terrain or {
 			boundary_structure_protection = 1,
@@ -92,9 +92,9 @@ local eq, factory = ...
 	eq(denied.emerge, 0, "unapproved margins do not load terrain")
 	eq(denied.smooth, 0, "unapproved margins do not write terrain")
 	local late_denied, _, _, late_summary = fixture(nil, {deny_recheck = true})
-	eq(late_denied.emerge, 1, "protection rechecked after emerge")
-	eq(late_denied.smooth, 0, "new protection prevents smoothing")
-	eq(late_summary().protection_denied, true, "protection denial is propagated")
+	eq(late_denied.emerge, 1, "ownership rechecked after emerge")
+	eq(late_denied.smooth, 0, "lost ownership prevents smoothing")
+	eq(late_summary().write_denied, true, "ownership denial is propagated")
 
 	local malformed_inputs = {
 		{value = nil, label = "nil result"},

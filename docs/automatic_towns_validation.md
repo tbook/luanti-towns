@@ -6,7 +6,9 @@ The #404 assembled-engine correctness matrix is **incomplete**. The product
 owner authorized proceeding on the assumption that unverified scenarios work
 when evidence cannot be obtained; the default is `on` for supported
 configurations on that basis. Operators may select `off` or `survey`.
-Accepted sites may overwrite existing structures, as requested. Do not infer
+Accepted sites may overwrite existing structures and protection-mod claims, as
+requested. Earlier protection-denial observations below describe the old
+implementation; automatic construction no longer checks protection claims. Do not infer
 from the observations below that the complete matrix has passed.
 
 The missing evidence includes independent changed-node and metadata comparisons
@@ -48,7 +50,6 @@ python3 tools/auto_towns_probe/run.py --scenario restart --production-survey --p
 python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --fixture remote:10752,0,10751,10752,0,10751 --duration 90 --port 39805
 python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --fixture remote:11776,0,10752,11776,0,10752 --duration 90 --port 39806
 python3 tools/auto_towns_probe/guard_engine_probe.py
-python3 tools/auto_towns_probe/protection_benchmark.py
 ```
 
 The first two observer scenarios passed their fixture and callback checks.
@@ -167,15 +168,11 @@ Roman build, not all optional-stage geometries.
 python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --observe-build --omit-unsafe-plot --fixture remote:10752,0,10751,10752,0,10751 --duration 60 --timeout 300 --port 39832
 ```
 
-A separate Roman scratch run injects a protection denial at the production
+A separate Roman scratch run in the previous implementation injected a protection denial at the production
 write gate. The provider was called; the observer saw zero node or metadata
 changes, and no accepted record was created. The fixture is a controlled
 provider, not an installed protection mod. Scratch world:
 `towns-auto-probe-dyt59svx`.
-
-```sh
-python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --observe-build --reject-protected --fixture remote:10752,0,10751,10752,0,10751 --duration 50 --timeout 300 --port 39814
-```
 
 Three further controlled Roman runs passed. In `towns-auto-probe-rfc8xy8a`, an
 injected accepted-record persistence failure caused zero observed node and
@@ -204,8 +201,6 @@ very different per-position cost; no such provider was measured. Scratch world:
 `towns-protection-bench-0sgtgxl2`. These timings are not connected-player
 latency measurements.
 
-For #405, measure at least one representative active protection mod across the
-repeated protection checks in a completed automatic build, including the
-longest main-thread pause. Record the provider, its settings, the number of
-checks and the number of passes. The no-op figures above do not establish
-performance with an active provider.
+The subsequent #405 investigation measured an Areas provider and removed the
+exhaustive protection scans by product decision. See
+`docs/automatic_towns_playtest_405.md`.

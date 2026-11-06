@@ -121,7 +121,8 @@ prepares those nodes and never reimplements villager behaviour.
 
 `towns_auto_mode` defaults to `on`: eligible unexplored sites on supported
 VoxeLibre v7 and flat overworlds can become towns. Automatic construction can
-overwrite existing structures at accepted sites. Set `towns_auto_mode = off`
+overwrite existing structures at accepted sites and does not honor protection-mod
+claims. Set `towns_auto_mode = off`
 to disable new automatic towns, or `towns_auto_mode = survey` to inspect sites
 without building. Survey and on can load unexplored terrain and suppress nearby
 village planning. Unsupported mapgens and integrations disable automatic jobs.

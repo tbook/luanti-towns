@@ -24,7 +24,6 @@ return function(towns, core, vars)
 	local sites = assert(dofile(towns.modpath .. "/src/auto_sites.lua").new(env))
 	local state_mod = dofile(towns.modpath .. "/src/auto_state.lua")
 	local loader_mod = dofile(towns.modpath .. "/src/auto_loader.lua")
-	local protection = mode == "on" and dofile(towns.modpath .. "/src/auto_protection.lua")
 	local function lookup(rect) return sites.lookup(seed, rect) end
 	local session = assert(state_mod.new({lookup = lookup, footprint = bounds.PLAN_EXTENT,
 		adapter = {origin = bounds.CHUNK_ORIGIN, size = bounds.CHUNKSIZE, accepts = function(e)
@@ -138,20 +137,13 @@ return function(towns, core, vars)
 			local context = {read_bounds = result.read_envelope, write_bounds = result.write_envelope,
 				log = function(level, msg) core.log(level, "[towns] " .. msg) end}
 			context.callback_failed = function(err) settle(nil, tostring(err), "build_callback_failed") end
-			context.recheck_write = function()
+			context.check_ownership = function()
 				if job.done or not towns.generation_lock.owns(job.token) then return false, "ownership lost" end
-				return protection.check({approved = {kind = "write", box = result.write_envelope}},
-					core.is_protected, 2 ^ 53 - 1)
+				return true
 			end
 			context.before_write = function()
 				if job.accepted then return false, "write gate already used" end
 				local passed, allowed, message = pcall(checked)
-				if not passed or not allowed then return false, tostring(message or allowed) end
-				local safe, reason = context.recheck_write()
-				if not safe then return false, "protection check: " .. tostring(reason) end
-				-- Protection providers may have side effects; recheck the other gate
-				-- conditions immediately before recording the write commitment.
-				passed, allowed, message = pcall(checked)
 				if not passed or not allowed then return false, tostring(message or allowed) end
 				local record, err = towns.auto_records_factory.record_for_site(site, result)
 				if not record then return false, err end

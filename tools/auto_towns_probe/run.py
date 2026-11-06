@@ -497,7 +497,7 @@ def main():
     ap.add_argument('--use-default-mode', action='store_true', help='omit the mode override for a production build')
     ap.add_argument('--observe-build', action='store_true', help='snapshot nodes and metadata around a production build')
     ap.add_argument('--repeat-fixture-on-restart', action='store_true', help='repeat the supplied fixture in a second server process')
-    ap.add_argument('--reject-protected', action='store_true', help='inject a protection denial at the builder write gate')
+    ap.add_argument('--protected-provider', action='store_true', help='inject an always-protected provider during the automatic build')
     ap.add_argument('--reject-storage', action='store_true', help='inject an accepted-record persistence failure')
     ap.add_argument('--fail-required-stage', action='store_true', help='inject failure after accepting the record')
     ap.add_argument('--check-command-contention', action='store_true', help='call the registered generate command while the automatic job owns the lock')
@@ -535,12 +535,14 @@ def main():
     if args.assert_guard_suppression and not (args.production_build or args.production_survey):
         raise SystemExit('--assert-guard-suppression requires a production mode')
     if args.omit_unsafe_plot and (not args.observe_build or args.break_guard or any(
-            (args.reject_protected, args.reject_storage, args.fail_required_stage))):
+            (args.protected_provider, args.reject_storage, args.fail_required_stage))):
         raise SystemExit('--omit-unsafe-plot requires an uninhibited --observe-build')
     if args.break_guard and (not args.observe_build or args.repeat_fixture_on_restart or any(
-            (args.reject_protected, args.reject_storage, args.fail_required_stage, args.check_command_contention))):
+            (args.protected_provider, args.reject_storage, args.fail_required_stage, args.check_command_contention))):
         raise SystemExit('--break-guard requires --observe-build and no other injected scenario')
-    failures = [args.reject_protected, args.reject_storage, args.fail_required_stage]
+    failures = [args.reject_storage, args.fail_required_stage]
+    if args.protected_provider and (not args.observe_build or args.repeat_fixture_on_restart or any(failures)):
+        raise SystemExit('--protected-provider requires --observe-build, a single phase and no failure injection')
     if any(failures) and (not args.observe_build or args.repeat_fixture_on_restart or sum(failures) > 1):
         raise SystemExit('rejection probes require --observe-build, a single phase and one injected failure')
     if args.repeat_fixture_on_restart and not (args.fixture and args.observe_build):
@@ -619,8 +621,8 @@ def main():
                 if not args.use_default_mode:
                     f.write('towns_auto_mode = ' + ('on' if args.production_build else 'survey') + '\n')
                 f.write('auto_towns_probe_survey_suppression = true\n')
-            if args.reject_protected:
-                f.write('auto_towns_probe_reject_protected = true\n')
+            if args.protected_provider:
+                f.write('auto_towns_probe_protected_provider = true\n')
             if args.reject_storage:
                 f.write('auto_towns_probe_reject_storage = true\n')
             if args.fail_required_stage:
@@ -728,8 +730,7 @@ def main():
                                          'label': 'production build %s = %s' % (key, expected)})
             if any(failures):
                 engine_log = work / 'engine-phase1.log'
-                marker = ('[auto-towns-build-observer] injected protection denial' if args.reject_protected
-                          else '[auto-towns-build-observer] injected record failure' if args.reject_storage
+                marker = ('[auto-towns-build-observer] injected record failure' if args.reject_storage
                           else '[auto-towns-build-observer] injected required stage failure')
                 report['checks'].append({'ok': engine_log.exists() and
                                          marker in engine_log.read_text(),
@@ -746,6 +747,11 @@ def main():
                 else:
                     report['checks'].append({'ok': records == [], 'label': 'rejection created no accepted record'})
             else:
+                if args.protected_provider:
+                    engine_log = work / 'engine-phase1.log'
+                    report['checks'].append({'ok': engine_log.exists() and
+                                             '[auto-towns-build-observer] installed protected provider' in engine_log.read_text(),
+                                             'label': 'always-protected provider installed for construction'})
                 report['checks'].append({'ok': observation.get('changed_nodes', 0) > 0,
                                          'label': 'production build changed nodes observed'})
                 path = work / 'records-1-end.json'

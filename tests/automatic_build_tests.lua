@@ -78,10 +78,15 @@ for _, kind in ipairs({"roman", "medieval"}) do
  f.pending(nil, "late"); f.callback(nil, "late")
  eq(#f.reports, 1, kind .. " ignores duplicate callbacks")
 end
-for _, case in ipairs({"storage", "throw", "old", "clearance", "late_clearance", "late_freshness", "protected", "protection_error"}) do
+for _, case in ipairs({"storage", "throw", "old", "clearance", "late_clearance", "late_freshness"}) do
  local f = fixture(case)
  eq(f.writes, 0, case .. " prevents writes"); eq(f.registry:lookup(site.cell), nil, case .. " has no accepted record")
  eq(f.lock.current(), nil, case .. " releases lock")
+end
+for _, case in ipairs({"protected", "protection_error"}) do
+ local f = fixture(case)
+ eq(f.writes, 1, case .. " does not block automatic construction")
+ eq(f.registry:lookup(site.cell).state, "complete", case .. " completes")
 end
 local f = fixture("population")
 eq(f.registry:lookup(site.cell).state, "interrupted", "population failure retains interrupted reservation")
