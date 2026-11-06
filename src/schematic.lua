@@ -85,6 +85,8 @@ end
 -- inventories only. The caller runs the node setup adapter (node_setup.lua,
 -- ticket #46) afterwards instead of the blanket constructors and displays
 -- below. The default is the single-building import path (/towns_import_roman).
+-- opts.swaps = {[node name] = replacement name}: placed nodes with a listed
+-- name are replaced (Roman towns turn trunks and planks into terracotta).
 function M.place(entry, pos, rotation, modpath, opts)
  local initialize = not (opts and opts.initialize == false)
  local ok, reason = M.validate(entry, modpath)
@@ -104,6 +106,11 @@ function M.place(entry, pos, rotation, modpath, opts)
  for z = 0, s.size.z - 1 do for y = 0, s.size.y - 1 do for x = 0, s.size.x - 1 do
   local p = vector.add(pos, M.rotate_offset(s.size, {x=x,y=y,z=z}, rotation))
   local node = core.get_node(p)
+  local swap = opts and opts.swaps and opts.swaps[node.name]
+  if swap then
+   core.swap_node(p, {name = swap, param2 = 0})
+   node = core.get_node(p)
+  end
   if node.name ~= 'air' then
    positions[#positions + 1] = p
    if core.get_item_group(node.name, 'wall') > 0 then
