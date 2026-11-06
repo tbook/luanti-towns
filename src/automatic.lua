@@ -1,6 +1,6 @@
--- First-touch automatic town coordinator. Construction requires explicit mode "on".
+-- First-touch automatic town coordinator.
 return function(towns, core, vars)
-	local mode = core.settings:get("towns_auto_mode") or "off"
+	local mode = core.settings:get("towns_auto_mode") or "on"
 	if mode ~= "survey" and mode ~= "on" then
 		if mode ~= "off" then core.log("warning", "[towns] automatic mode " .. mode .. " is disabled") end
 		return

@@ -87,3 +87,10 @@ registered = nil
 core.settings.get = function() return "off" end
 chunk()(towns, core, {})
 eq(registered, nil, "off mode does not register generation")
+core.settings.get = function() return nil end
+chunk()(towns, core, {mg_overworld_min = -100, mg_overworld_max = 100, mg_end_max = -2000})
+eq(type(registered), "function", "default mode registers automatic generation for supported mapgen")
+registered = nil
+core.get_mapgen_setting = function(k) return ({mg_name = "singlenode", chunksize = "5", seed = "42"})[k] end
+chunk()(towns, core, {mg_overworld_min = -100, mg_overworld_max = 100, mg_end_max = -2000})
+eq(registered, nil, "default mode does not register generation on unsupported mapgen")

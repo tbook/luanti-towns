@@ -102,6 +102,15 @@ local function compare(s, box)
 	return r
 end
 core.register_on_mods_loaded(function()
+	local original_inspect = towns.site_search.inspect_site
+	towns.site_search.inspect_site = function(center, height, seed, options, done, env)
+		return original_inspect(center, height, seed, options, function(result, reason, details)
+			core.log("action", "[auto-towns-build-observer] inspection " .. core.write_json({
+				center = center, accepted = result ~= nil, reason = reason,
+				code = type(details) == "table" and details.reason or nil}, false))
+			return done(result, reason, details)
+		end, env)
+	end
 	local phase = core.settings:get("auto_towns_probe_phase") or "1"
 	local function records(when)
 		local file = assert(io.open(core.get_worldpath() .. "/records-" .. phase .. "-" .. when .. ".json", "w"))
@@ -122,7 +131,7 @@ core.register_on_mods_loaded(function()
 	local original = towns.populated.build
 	towns.populated.build = function(result, done, context)
 		core.after(0, function()
-			local saved_protection, saved_begin, saved_builder
+			local saved_protection, saved_begin, saved_builder, saved_outskirts, omission
 			local ok, err = pcall(function()
 				local command_check
 				if core.settings:get_bool("auto_towns_probe_command_contention", false) then
@@ -161,10 +170,34 @@ core.register_on_mods_loaded(function()
 						return nil, "injected required stage failure", "write_failed"
 					end
 				end
+				if core.settings:get_bool("auto_towns_probe_omit_unsafe", false) then
+					saved_outskirts = towns.outskirts_build.apply
+					towns.outskirts_build.apply = function(out, env, opts)
+						if #opts.structures == 0 then
+							omission = {fixture_available = false}
+							return saved_outskirts(out, env, opts)
+						end
+						local st = opts.structures[1]
+						local id = st.plot
+						st.min.x, st.max.x = opts.automatic_context.write_bounds.max.x + 1,
+							opts.automatic_context.write_bounds.max.x + 2
+						local report, reason, code, extra = saved_outskirts(out, env, opts)
+						local skipped, placed = false, false
+						for _, s in ipairs(report and report.skipped or {}) do
+							if s.plot == id and s.code == "automatic_envelope" then skipped = true end
+						end
+						for _, s in ipairs(report and report.structures or {}) do
+							if s.plot == id then placed = true end
+						end
+						omission = {fixture_available = true, plot = id, skipped = skipped, placed = placed}
+						return report, reason, code, extra
+					end
+				end
 				original(result, function(...)
 					if saved_protection then core.is_protected = saved_protection end
 					if saved_begin then towns.auto_records.begin = saved_begin end
 					if saved_builder then towns.builder.build_town = saved_builder end
+					if saved_outskirts then towns.outskirts_build.apply = saved_outskirts end
 					local args, count = {...}, select("#", ...)
 					core.after(0, function()
 						local success, failure = pcall(function()
@@ -172,6 +205,7 @@ core.register_on_mods_loaded(function()
 							local t = core.get_us_time()
 							local observation = compare(before, result.write_envelope)
 							observation.command_contention = command_check
+							observation.unsafe_plot = omission
 							observation.snapshot_seconds = snapshot_seconds
 							observation.diff_seconds = (core.get_us_time() - t) / 1e6
 							local file = assert(io.open(core.get_worldpath() .. "/build-observation.json", "w"))
@@ -190,6 +224,7 @@ core.register_on_mods_loaded(function()
 				if saved_protection then core.is_protected = saved_protection end
 				if saved_begin then towns.auto_records.begin = saved_begin end
 				if saved_builder then towns.builder.build_town = saved_builder end
+				if saved_outskirts then towns.outskirts_build.apply = saved_outskirts end
 				core.log("error", "[auto-towns-build-observer] snapshot/build failed: " .. tostring(err))
 				context.callback_failed(err)
 			end

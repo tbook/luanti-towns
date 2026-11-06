@@ -2,10 +2,12 @@
 
 ## Status
 
-The #404 assembled-engine correctness gate is **incomplete**. The startup default
-remains `off`; operators may opt into `survey` or `on`. In `on` mode accepted
-sites may overwrite existing structures, as the product owner requested. Do not
-infer from the observations below that the complete matrix has passed.
+The #404 assembled-engine correctness matrix is **incomplete**. The product
+owner authorized proceeding on the assumption that unverified scenarios work
+when evidence cannot be obtained; the default is `on` for supported
+configurations on that basis. Operators may select `off` or `survey`.
+Accepted sites may overwrite existing structures, as requested. Do not infer
+from the observations below that the complete matrix has passed.
 
 The missing evidence includes independent changed-node and metadata comparisons
 around additional production coordinator cases, including rejected sites and
@@ -32,7 +34,7 @@ scratch samples completed one Roman and one medieval town, but their bounds
 were self-reported; see `tools/auto_towns_probe/README.md`. Their controlled
 planner call is not a natural village race.
 
-## 2026-11-05 engine observations
+## 2026-11-05 and 2026-11-06 engine observations
 
 These disposable worlds used Towns at `8bf16a2`, Luanti 5.17.0 (LuaJIT
 2.1.1764270282), the installed VoxeLibre and Living Villages, flat mapgen,
@@ -71,8 +73,9 @@ concurrent, so timings do not represent isolated performance. The observer's
 longest main-loop steps were 2.33 and 4.09 seconds, respectively; no connected
 player was present.
 
-The expanded Lua 5.1 suite with the installed Living Villages checkout passed
-64,645 checks with zero failures; the probe validators passed 18 Python tests.
+After enabling the default, the expanded Lua 5.1 suite with the installed
+Living Villages checkout passed 64,647 checks with zero failures; the probe
+validators passed 18 Python tests.
 The final-cap sweep (`TOWNS_LIVING_VILLAGES=<living_villages> lua5.1
 tools/auto_towns_containment/cap_sweep.lua 300 8`) exercised 300 plans per
 family at all sampled chunk alignments: the maximum was 210 chunks, below
@@ -103,6 +106,29 @@ and omission cases. The first fixture version wrote the empty startup record
 list as JSON `null`, so its overall restart validator fails the initial-empty
 assertion despite the node and metadata observations above. The fixture now
 writes `[]` explicitly; the failed report remains in the scratch world.
+On 2026-11-06, eight handpicked remote coordinates on v7 seed 2014 all
+declined at exact inspection before the observer's builder handoff. Each run
+used the `--observe-build` command above with `--mg-name v7`, duration 25, a
+distinct port and the corresponding point as `--fixture remote:x,0,z,x,0,z`.
+Reruns with scratch-only inspection reason logging produced:
+
+| Fixture x, z | Actual site type | Rejection | Scratch world suffix |
+| --- | --- | --- | --- |
+| 10752, 10751 | Roman | no_ground | d8p3w18q |
+| 11776, 10752 | medieval | too_deep_water | vvymdq7m |
+| 4608, 2560 | medieval | too_deep_water | 7dvacdal |
+| 7680, 2560 | Roman | too_deep_water | ug8ekkar |
+| 8704, 2560 | Roman | too_deep_water | r7kf__q3 |
+| 9728, 2560 | Roman | too_high | g0yxgjqb |
+| 10752, 2560 | Roman | too_deep_water | 0c1qc42m |
+| 11776, 2560 | Roman | too_deep_water | a_v7j5vo |
+
+Scratch directories are `towns-auto-probe-<suffix>` in the system temporary
+directory. Their observer reports fail the required-build assertion because
+none reached the builder, and supply no containment result. The zero-for-eight
+outcome is a real observation, but handpicked nearby sites on one seed are not
+an ordinary exploration sample or a density estimate. #405 should measure
+acceptance and discovery with its specified routes and baseline.
 The corrected Roman run passed all observer and restart checks:
 
 ```sh
@@ -113,6 +139,33 @@ Its scratch world is `towns-auto-probe-sy_35n82`. One complete record was
 present after the first process, reloaded unchanged in the second, and remained
 the only record after repeating the already-generated request. This does not
 exercise every possible first-touch request in neighboring chunks.
+
+In the corrected Roman run a controlled call through the guarded public village
+planner at the active inspection site returned false; its write-through event
+is `wt_survey_suppression`. It demonstrates suppression of that injected call,
+not natural pending/planning callback ordering or A10.
+
+After changing the default, `towns-auto-probe-qj5qeibz` ran with no
+`towns_auto_mode` setting and completed a Roman build. The independent observer
+found no node or metadata changes outside the approved envelope, and the
+accepted record was complete at shutdown. Its controlled planner call was
+suppressed during inspection. Command:
+
+```sh
+python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --use-default-mode --observe-build --assert-guard-suppression --fixture remote:10752,0,10751,10752,0,10751 --duration 60 --timeout 300 --port 39838
+```
+
+In `towns-auto-probe-0icr_k6j`, a scratch-only hook moved one proposed rural
+structure box just outside the approved envelope before the real outskirts
+writer ran. The writer reported plot `f01` skipped for the envelope and did
+not place it. The independent comparison observed 110,749 node changes and
+1,618 metadata changes, all within the approved envelope; no observed
+mapblocks were ungenerated. This tests one controlled omission in a flat
+Roman build, not all optional-stage geometries.
+
+```sh
+python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --observe-build --omit-unsafe-plot --fixture remote:10752,0,10751,10752,0,10751 --duration 60 --timeout 300 --port 39832
+```
 
 A separate Roman scratch run injects a protection denial at the production
 write gate. The provider was called; the observer saw zero node or metadata

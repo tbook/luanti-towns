@@ -26,6 +26,8 @@ and either fixture, `--duration 90`, and a free `--port`. The observer's
 controlled planner call accounts for the reported suppression; it does not
 establish A10. These are flat, player-free scratch-world samples, not the #404
 assembled correctness gate.
+Add `--use-default-mode` with `--production-build` to omit the explicit mode
+setting and exercise the current startup default.
 
 Add `--observe-build` to install a scratch-only dependent mod that snapshots
 content IDs, param2 and node metadata around the real builder handoff. It
@@ -47,6 +49,11 @@ injects an urban-stage failure immediately after acceptance. Add
 automatic job owns the lock. `--break-guard` replaces the installed planner
 before mapgen and checks that automatic processing disables. These are
 controlled scenarios; they do not represent all real failures or races.
+`--omit-unsafe-plot` moves one composed rural structure outside the approved
+write box and asserts that the real writer skips it. Add
+`--assert-guard-suppression` in a production mode to require the controlled
+planner call described above to be suppressed during inspection; it does not
+establish natural planner ordering.
 
 `python3 tools/auto_towns_probe/protection_benchmark.py` starts a disposable
 server with automatic mode off, computes representative approved write envelopes,
