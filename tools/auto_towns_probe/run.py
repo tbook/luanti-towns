@@ -496,6 +496,11 @@ def main():
     ap.add_argument('--production-build', action='store_true', help='load Towns in on mode in the scratch world')
     ap.add_argument('--observe-build', action='store_true', help='snapshot nodes and metadata around a production build')
     ap.add_argument('--repeat-fixture-on-restart', action='store_true', help='repeat the supplied fixture in a second server process')
+    ap.add_argument('--reject-protected', action='store_true', help='inject a protection denial at the builder write gate')
+    ap.add_argument('--reject-storage', action='store_true', help='inject an accepted-record persistence failure')
+    ap.add_argument('--fail-required-stage', action='store_true', help='inject failure after accepting the record')
+    ap.add_argument('--check-command-contention', action='store_true', help='call the registered generate command while the automatic job owns the lock')
+    ap.add_argument('--break-guard', action='store_true', help='replace the planner after guard installation')
     ap.add_argument('--inactive-trigger-a10', action='store_true',
                     help='forceload one inactive village structblock after fixture generation (villages scenario only)')
     ap.add_argument('--route', type=Path,
@@ -520,6 +525,14 @@ def main():
         raise SystemExit('choose one controlled A10 mode per run')
     if args.observe_build and not args.production_build:
         raise SystemExit('--observe-build requires --production-build')
+    if args.check_command_contention and not args.observe_build:
+        raise SystemExit('--check-command-contention requires --observe-build')
+    if args.break_guard and (not args.observe_build or args.repeat_fixture_on_restart or any(
+            (args.reject_protected, args.reject_storage, args.fail_required_stage, args.check_command_contention))):
+        raise SystemExit('--break-guard requires --observe-build and no other injected scenario')
+    failures = [args.reject_protected, args.reject_storage, args.fail_required_stage]
+    if any(failures) and (not args.observe_build or args.repeat_fixture_on_restart or sum(failures) > 1):
+        raise SystemExit('rejection probes require --observe-build, a single phase and one injected failure')
     if args.repeat_fixture_on_restart and not (args.fixture and args.observe_build):
         raise SystemExit('--repeat-fixture-on-restart requires --fixture and --observe-build')
     phases = ([args.fixture, args.fixture] if args.repeat_fixture_on_restart else [args.fixture]) if args.fixture else scenario['phases']
@@ -595,6 +608,16 @@ def main():
             if args.production_survey or args.production_build:
                 f.write('towns_auto_mode = ' + ('on' if args.production_build else 'survey') + '\n')
                 f.write('auto_towns_probe_survey_suppression = true\n')
+            if args.reject_protected:
+                f.write('auto_towns_probe_reject_protected = true\n')
+            if args.reject_storage:
+                f.write('auto_towns_probe_reject_storage = true\n')
+            if args.fail_required_stage:
+                f.write('auto_towns_probe_fail_required = true\n')
+            if args.check_command_contention:
+                f.write('auto_towns_probe_command_contention = true\n')
+            if args.break_guard:
+                f.write('auto_towns_probe_break_guard = true\n')
             if args.controlled_a10 or args.inactive_trigger_a10 or args.model_a10:
                 f.write('num_emerge_threads = 4\n')
             f.write('auto_towns_probe_phase = %d\n' % index)
@@ -675,7 +698,7 @@ def main():
             'ok': observation['required_events_observed_in_order'],
             'label': 'inactive-trigger A10: structblock, one forceload, and matching planner observed',
         })
-    if args.observe_build:
+    if args.observe_build and not args.break_guard:
         path = work / 'build-observation.json'
         observation = json.loads(path.read_text()) if path.exists() else None
         report['build_observation'] = observation
@@ -685,8 +708,41 @@ def main():
                                   ('outside_nodes', 0), ('outside_metadata', 0)]:
                 report['checks'].append({'ok': observation.get(key) == expected,
                                          'label': 'production build %s = %s' % (key, expected)})
-            report['checks'].append({'ok': observation.get('changed_nodes', 0) > 0,
-                                     'label': 'production build changed nodes observed'})
+            if any(failures):
+                engine_log = work / 'engine-phase1.log'
+                marker = ('[auto-towns-build-observer] injected protection denial' if args.reject_protected
+                          else '[auto-towns-build-observer] injected record failure' if args.reject_storage
+                          else '[auto-towns-build-observer] injected required stage failure')
+                report['checks'].append({'ok': engine_log.exists() and
+                                         marker in engine_log.read_text(),
+                                         'label': 'rejection reached injected failure'})
+                for key in ('changed_nodes', 'changed_metadata'):
+                    report['checks'].append({'ok': observation.get(key) == 0,
+                                             'label': 'rejection %s = 0' % key})
+                path = work / 'records-1-end.json'
+                records = json.loads(path.read_text()) if path.exists() else None
+                if args.fail_required_stage:
+                    report['checks'].append({'ok': isinstance(records, list) and len(records) == 1
+                                             and records[0].get('state') == 'interrupted',
+                                             'label': 'required stage failure retains interrupted record'})
+                else:
+                    report['checks'].append({'ok': records == [], 'label': 'rejection created no accepted record'})
+            else:
+                report['checks'].append({'ok': observation.get('changed_nodes', 0) > 0,
+                                         'label': 'production build changed nodes observed'})
+            if args.check_command_contention:
+                check = observation.get('command_contention') or {}
+                report['checks'].append({'ok': all(check.get(key) is True for key in
+                                                    ('busy_before', 'denied', 'busy_message', 'owner_preserved')),
+                                         'label': 'registered generation command respects automatic lock'})
+    if args.break_guard:
+        status_path, records_path = work / 'guard-status.json', work / 'records-1-end.json'
+        status = (json.loads(status_path.read_text()) or {}) if status_path.exists() else {}
+        records = json.loads(records_path.read_text()) if records_path.exists() else None
+        report['guard_status'] = status
+        report['checks'].append({'ok': 'planner was replaced' in (status.get('disabled') or ''),
+                                 'label': 'replaced village planner disables automatic processing'})
+        report['checks'].append({'ok': records == [], 'label': 'replaced planner created no accepted record'})
     if args.repeat_fixture_on_restart:
         def records(phase, when):
             path = work / ('records-%d-%s.json' % (phase, when))

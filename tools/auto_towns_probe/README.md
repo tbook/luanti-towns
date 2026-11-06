@@ -38,6 +38,15 @@ second server process and check the accepted record survives without a
 duplicate. The repeated request is already generated and is not a test of
 every possible neighboring first-touch callback. See
 `docs/automatic_towns_validation.md` for concrete runs and remaining gaps.
+Use `--reject-protected` with `--observe-build` to temporarily inject a
+protecting provider at the write gate and check for zero observed changes and
+zero accepted records. This is a controlled provider, not a protection mod.
+`--reject-storage` injects a record-begin failure; `--fail-required-stage`
+injects an urban-stage failure immediately after acceptance. Add
+`--check-command-contention` to invoke the registered command while the
+automatic job owns the lock. `--break-guard` replaces the installed planner
+before mapgen and checks that automatic processing disables. These are
+controlled scenarios; they do not represent all real failures or races.
 
 `python3 tools/auto_towns_probe/protection_benchmark.py` starts a disposable
 server with automatic mode off, computes representative approved write envelopes,

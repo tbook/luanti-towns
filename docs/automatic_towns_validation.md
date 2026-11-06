@@ -9,10 +9,9 @@ infer from the observations below that the complete matrix has passed.
 
 The missing evidence includes independent changed-node and metadata comparisons
 around additional production coordinator cases, including rejected sites and
-optional omissions; and assembled-engine tests of command contention,
-storage and required-stage failures, accepted-record restart and duplicates.
-Actual pending/planning village contention and unsupported-wrapper disablement
-also need to be observed through the assembled pipeline. A10 (callback ordering
+optional omissions; and broader assembled-engine tests of contention and
+lifecycle failures. Actual pending/planning village contention also needs to
+be observed through the assembled pipeline. A10 (callback ordering
 relative to a village planner) remains an explicitly authorized working
 assumption, not a verified result. A14 (connected-player loading observation)
 is also open.
@@ -114,6 +113,34 @@ Its scratch world is `towns-auto-probe-sy_35n82`. One complete record was
 present after the first process, reloaded unchanged in the second, and remained
 the only record after repeating the already-generated request. This does not
 exercise every possible first-touch request in neighboring chunks.
+
+A separate Roman scratch run injects a protection denial at the production
+write gate. The provider was called; the observer saw zero node or metadata
+changes, and no accepted record was created. The fixture is a controlled
+provider, not an installed protection mod. Scratch world:
+`towns-auto-probe-dyt59svx`.
+
+```sh
+python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --observe-build --reject-protected --fixture remote:10752,0,10751,10752,0,10751 --duration 50 --timeout 300 --port 39814
+```
+
+Three further controlled Roman runs passed. In `towns-auto-probe-rfc8xy8a`, an
+injected accepted-record persistence failure caused zero observed node and
+metadata changes and created no record; the actual registered generation
+command also reported busy and left the automatic job's lock owner intact.
+In `towns-auto-probe-v2u_7wew`, a required urban stage failed immediately
+after the record was accepted; the record became interrupted and no changes
+were observed. These injected failures do not reproduce every storage or
+partial-write failure. In `towns-auto-probe-ktd6oync`, replacing the planner
+callable immediately after guard installation disabled automatic processing and
+created no accepted record. It does not establish accepted-reservation safety
+when another mod later replaces the guard.
+
+```sh
+python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --observe-build --reject-storage --check-command-contention --fixture remote:10752,0,10751,10752,0,10751 --duration 50 --timeout 300 --port 39817
+python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --observe-build --fail-required-stage --fixture remote:10752,0,10751,10752,0,10751 --duration 50 --timeout 300 --port 39816
+python3 tools/auto_towns_probe/run.py --scenario fresh --production-build --observe-build --break-guard --fixture remote:10752,0,10751,10752,0,10751 --duration 20 --timeout 180 --port 39819
+```
 
 The guard startup probe passed its accepted-reservation suppression and near
 miss, using a stub as the saved planner; it did not exercise the real planner.

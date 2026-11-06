@@ -107,25 +107,71 @@ core.register_on_mods_loaded(function()
 		local file = assert(io.open(core.get_worldpath() .. "/records-" .. phase .. "-" .. when .. ".json", "w"))
 		local all = towns.auto_records:all()
 		file:write(#all == 0 and "[]" or core.write_json(all, true)); file:close()
+		if when == "end" and core.settings:get_bool("auto_towns_probe_break_guard", false) then
+			local status = assert(io.open(core.get_worldpath() .. "/guard-status.json", "w"))
+			status:write(core.write_json({disabled = towns.auto_disabled}, true)); status:close()
+		end
 	end
 	core.after(1, function() records("start") end)
 	core.register_on_shutdown(function() records("end") end)
+	if core.settings:get_bool("auto_towns_probe_break_guard", false) then
+		local original_planner = settlements.create_site_plan
+		settlements.create_site_plan = function(...) return original_planner(...) end
+		core.log("action", "[auto-towns-build-observer] replaced planner after guard installation")
+	end
 	local original = towns.populated.build
 	towns.populated.build = function(result, done, context)
 		core.after(0, function()
+			local saved_protection, saved_begin, saved_builder
 			local ok, err = pcall(function()
+				local command_check
+				if core.settings:get_bool("auto_towns_probe_command_contention", false) then
+					local before = towns.generation_lock.current()
+					local success, message = core.registered_chatcommands.towns_generate.func("fixture", "roman 42")
+					local after = towns.generation_lock.current()
+					command_check = {busy_before = before ~= nil, denied = success == false,
+						busy_message = type(message) == "string" and message:find("already in progress", 1, true) ~= nil,
+						owner_preserved = before ~= nil and after ~= nil and before.owner == after.owner and before.phase == after.phase}
+				end
 				core.log("action", "[auto-towns-build-observer] starting snapshot")
 				local start = core.get_us_time()
 				local before = snapshot(result.write_envelope)
 				local snapshot_seconds = (core.get_us_time() - start) / 1e6
 				core.log("action", "[auto-towns-build-observer] snapshot complete in " .. snapshot_seconds .. " seconds")
+				if core.settings:get_bool("auto_towns_probe_reject_protected", false) then
+					saved_protection = core.is_protected
+					core.is_protected = function()
+						core.log("action", "[auto-towns-build-observer] injected protection denial")
+						return true
+					end
+				end
+				if core.settings:get_bool("auto_towns_probe_reject_storage", false) then
+					saved_begin = towns.auto_records.begin
+					towns.auto_records.begin = function()
+						core.log("action", "[auto-towns-build-observer] injected record failure")
+						return false, "injected record failure"
+					end
+				end
+				if core.settings:get_bool("auto_towns_probe_fail_required", false) then
+					saved_builder = towns.builder.build_town
+					towns.builder.build_town = function(_, opts)
+						local allowed, why = opts.before_write()
+						if not allowed then return nil, why, "before_write_denied" end
+						core.log("action", "[auto-towns-build-observer] injected required stage failure")
+						return nil, "injected required stage failure", "write_failed"
+					end
+				end
 				original(result, function(...)
+					if saved_protection then core.is_protected = saved_protection end
+					if saved_begin then towns.auto_records.begin = saved_begin end
+					if saved_builder then towns.builder.build_town = saved_builder end
 					local args, count = {...}, select("#", ...)
 					core.after(0, function()
 						local success, failure = pcall(function()
 							core.log("action", "[auto-towns-build-observer] starting diff")
 							local t = core.get_us_time()
 							local observation = compare(before, result.write_envelope)
+							observation.command_contention = command_check
 							observation.snapshot_seconds = snapshot_seconds
 							observation.diff_seconds = (core.get_us_time() - t) / 1e6
 							local file = assert(io.open(core.get_worldpath() .. "/build-observation.json", "w"))
@@ -141,6 +187,9 @@ core.register_on_mods_loaded(function()
 				end, context)
 			end)
 			if not ok then
+				if saved_protection then core.is_protected = saved_protection end
+				if saved_begin then towns.auto_records.begin = saved_begin end
+				if saved_builder then towns.builder.build_town = saved_builder end
 				core.log("error", "[auto-towns-build-observer] snapshot/build failed: " .. tostring(err))
 				context.callback_failed(err)
 			end
