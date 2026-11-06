@@ -36,6 +36,19 @@ trial. The active provider's synchronous scan is a serious usability problem.
 The exhaustive check was subsequently removed by product decision; automatic
 towns do not honor protection-mod claims.
 
+The same flat Roman fixture with the real Areas mod and an empty claims
+database was then run without the node observer. Its production log reported
+`complete` in 27.37 seconds after 224 chunk requests; the observer reported a
+2.51-second longest step. This ran while the Lua suite was active and is not a
+matched performance benchmark; the probe validator checks fixture completion,
+while the town completion was read from the production log. No client was
+connected. Scratch report and log: `towns-auto-probe-86yo116m` in the system
+temporary directory. Command:
+
+```sh
+python3 tools/auto_towns_probe/run.py --settings-from /private/tmp/towns-405-areas-settings --scenario fresh --production-build --mg-name flat --seed 2014 --fixture remote:10752,0,10751,10752,0,10751 --duration 80 --timeout 220 --port 39910
+```
+
 After that change, two flat seed-2014 production builds used a scratch provider
 that reports every position protected. Both completed with one accepted record
 and passed the bounded independent node/metadata observer. Roman requested 224
