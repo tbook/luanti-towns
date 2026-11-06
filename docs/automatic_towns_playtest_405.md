@@ -19,8 +19,10 @@ town or a measurement of subsequent passes. The empty claims database does not
 represent a populated server. Instrumentation added one timer read before and
 after the pass, with no per-position wrapper.
 
-The raw scratch world, copied code, `stdout-phase1.log` and report are in
+The raw scratch world, copied code, `stdout-phase1.log` and
+`auto-towns-probe-phase1.json` are in
 `/var/folders/nf/h9p5hfvs7jj6vs6q252mzhw00000gn/T/towns-auto-probe-ote8dc7_`.
+The runner had not written its aggregate `probe-report.json` when observed.
 The probe invocation was:
 
 ```sh
