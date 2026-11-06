@@ -82,7 +82,7 @@ rules. Its existing pump handles asynchronous continuations; its column scan
 still needs a measured work budget and bulk reader.
 
 Automatic placement currently accepts a middle 95% height range <=20, every
-column within 24 nodes of finished ground, water/ice depth <=8, and wet
+column within 24 nodes of finished ground, water/ice depth <=10, and wet
 fraction <=25%. `/towns_generate` keeps its existing range <=16 and water/ice
 depth <=6 limits; both modes retain the 24-node cut/fill and 25% wet-fraction
 limits.

@@ -163,7 +163,7 @@ M.WET_DEFAULTS = {max_water_depth = 6, max_wet_fraction = 0.25}
 
 -- Slightly more permissive terrain acceptance for automatic first-touch sites.
 -- Keep the manual command's wet defaults and terrain range unchanged.
-M.AUTOMATIC_DEFAULTS = {max_range = 20, max_water_depth = 8, max_wet_fraction = 0.25}
+M.AUTOMATIC_DEFAULTS = {max_range = 20, max_water_depth = 10, max_wet_fraction = 0.25}
 
 local function constants(opts)
 	local C = {}
