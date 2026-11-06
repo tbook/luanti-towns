@@ -40,9 +40,9 @@ second server process and check the accepted record survives without a
 duplicate. The repeated request is already generated and is not a test of
 every possible neighboring first-touch callback. See
 `docs/automatic_towns_validation.md` for concrete runs and remaining gaps.
-Use `--reject-protected` with `--observe-build` to temporarily inject a
-protecting provider at the write gate and check for zero observed changes and
-zero accepted records. This is a controlled provider, not a protection mod.
+Use `--protected-provider` with `--observe-build` to inject a provider that
+claims every position and verify that automatic construction still completes.
+This is a controlled provider, not a protection mod.
 `--reject-storage` injects a record-begin failure; `--fail-required-stage`
 injects an urban-stage failure immediately after acceptance. Add
 `--check-command-contention` to invoke the registered command while the
@@ -54,15 +54,6 @@ write box and asserts that the real writer skips it. Add
 `--assert-guard-suppression` in a production mode to require the controlled
 planner call described above to be suppressed during inspection; it does not
 establish natural planner ordering.
-
-`python3 tools/auto_towns_probe/protection_benchmark.py` starts a disposable
-server with automatic mode off, computes representative approved write envelopes,
-and calls the installed protection provider once per voxel without writing terrain.
-On 2026-11-05 its installed default no-op provider checked 44,815,680 Roman
-positions in 0.0134 seconds and 42,641,640 medieval positions in 0.0112 seconds.
-These timings do not predict the cost of protection mods, which may implement
-substantially more expensive checks. The synthetic envelopes use the sample seeds
-and estimated build heights, not the exact inspected production handoffs.
 
 On 2026-11-05, a production-survey `fresh` run on flat terrain requested 180
 chunks for one Roman site, ran exact inspection, and declined `not_fresh` in

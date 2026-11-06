@@ -13,6 +13,13 @@
 
 local towns = ...  -- the global table built by init.lua
 
+-- Automatic towns deliberately ignore protection-mod claims. Commands retain
+-- the existing pointwise checks for walls, roads and margins.
+local function protection_check(context, pos)
+	if context then return false end
+	return core.is_protected(pos, "")
+end
+
 local function profile()
 	return assert(towns.planner.landmark_profile(towns.catalog.snapshot()))
 end
@@ -217,7 +224,7 @@ local function build_urban(result, automatic_context, done)
 					end
 				end
 			end
-			if type(core.is_protected) ~= "function" then
+			if not automatic_context and type(core.is_protected) ~= "function" then
 				return nil, "Wall protection API is unavailable", "inspection_failed"
 			end
 			for _, node in ipairs({walls.BRICK, walls.STAIR}) do
@@ -226,7 +233,7 @@ local function build_urban(result, automatic_context, done)
 				end
 			end
 			local ok, err = pcall(walls.reserve, result.wall, result.ground_y,
-				function(pos) return core.is_protected(pos, "") end)
+				function(pos) return protection_check(automatic_context, pos) end)
 			if not ok then return nil, "Wall protection check failed: " .. tostring(err), "inspection_failed" end
 		end
 	end
@@ -290,7 +297,7 @@ local function build_urban(result, automatic_context, done)
 		end
 		local rejected
 		result.wall_features, result.wall_feature_footprints, rejected = features.select(candidates,
-			pre.structures, result.plan.streets, function(pos) return core.is_protected(pos, "") end)
+			pre.structures, result.plan.streets, function(pos) return protection_check(automatic_context, pos) end)
 		for _, feature in ipairs(result.wall_features) do
 			local apron = walls.feature_clearance_bounds(feature, result.ground_y)
 			if apron then
@@ -300,7 +307,7 @@ local function build_urban(result, automatic_context, done)
 					end
 				end
 			end
-			walls.reserve_feature_clearance(feature, result.ground_y, function(pos) return core.is_protected(pos, "") end)
+			walls.reserve_feature_clearance(feature, result.ground_y, function(pos) return protection_check(automatic_context, pos) end)
 		end
 		for _, r in ipairs(rejected or {}) do
 			core.log("warning", ("towns: %s at (%d,%d) omitted: %s"):format(
@@ -471,9 +478,9 @@ local function build(result, done, automatic_context)
 		finish(nil, reason, "write_failed", extra)
 	end
 	local function finish_build(message)
-		if automatic_context and automatic_context.recheck_write then
-			local allowed, why = automatic_context.recheck_write()
-			if not allowed then return fail_writer("Protection recheck failed: " .. tostring(why), nil) end
+		if automatic_context and automatic_context.check_ownership then
+			local allowed, why = automatic_context.check_ownership()
+			if not allowed then return fail_writer("Write ownership check failed: " .. tostring(why), nil) end
 		end
 		if summary.automatic_envelope_excess then
 			return fail_writer("Automatic town build exceeded its approved write envelope.", nil,
@@ -503,9 +510,9 @@ local function build(result, done, automatic_context)
 			return finish_build("")
 		end
 		rural_structures = outskirts_pre.structures
-		if automatic_context and automatic_context.recheck_write then
-			local allowed, why = automatic_context.recheck_write()
-			if not allowed then return fail_writer("Protection recheck failed: " .. tostring(why), nil) end
+		if automatic_context and automatic_context.check_ownership then
+			local allowed, why = automatic_context.check_ownership()
+			if not allowed then return fail_writer("Write ownership check failed: " .. tostring(why), nil) end
 		end
 		local apply_ok, outskirts_summary, outskirts_error, _, outskirts_extra = pcall(
 			function()
@@ -553,8 +560,8 @@ local function build(result, done, automatic_context)
 		margin_called = true
 		local ok, err = pcall(function()
 		summary.margins = margin
-		if margin and margin.protection_denied then
-			return fail_writer("Protection recheck failed: " .. tostring(margin.reason), nil)
+		if margin and margin.write_denied then
+			return fail_writer("Write ownership check failed: " .. tostring(margin.reason), nil)
 		end
 		if not margin or margin.status ~= "smoothed" then
 			warning(summary, "city margins " .. tostring(margin and margin.status or "failed")
@@ -594,16 +601,16 @@ local function build(result, done, automatic_context)
 					warning(summary, "road exit emerge failed or timed out")
 					start_outskirts(); return
 				end
-				if automatic_context and automatic_context.recheck_write then
-					local allowed, why = automatic_context.recheck_write()
-					if not allowed then return fail_writer("Protection recheck failed: " .. tostring(why), nil) end
+				if automatic_context and automatic_context.check_ownership then
+					local allowed, why = automatic_context.check_ownership()
+					if not allowed then return fail_writer("Write ownership check failed: " .. tostring(why), nil) end
 				end
 				local report = {attempted_bounds = bounds, graded = 0, failed = 0}
 				summary.roads = report
 				local read_ok, changes, failures, footprints, region = pcall(function()
 					local r = assert(env.open_region(bounds.min, bounds.max))
 					local c, f, fp = roads.grade(result.exits, result.ground_y, r, env.node_info,
-						function(pos) return core.is_protected(pos, "") end)
+						function(pos) return protection_check(automatic_context, pos) end)
 					return c, f, fp, r
 				end)
 				if not read_ok then
@@ -683,9 +690,9 @@ local function build(result, done, automatic_context)
 				result.wall_feature_footprints = {}
 				start_outskirts(); return
 			end
-			if automatic_context and automatic_context.recheck_write then
-				local allowed, why = automatic_context.recheck_write()
-				if not allowed then return fail_writer("Protection recheck failed: " .. tostring(why), nil) end
+			if automatic_context and automatic_context.check_ownership then
+				local allowed, why = automatic_context.check_ownership()
+				if not allowed then return fail_writer("Write ownership check failed: " .. tostring(why), nil) end
 			end
 			local report = {attempted_bounds = bounds}
 			summary.wall = report
@@ -696,7 +703,7 @@ local function build(result, done, automatic_context)
 			local stage_ok, stage_err = pcall(function()
 				local region = assert(env.open_region(bounds.min, bounds.max))
 				local changes = walls.inspect(wall, result.ground_y, region, env.node_info,
-					function(pos) return core.is_protected(pos, "") end)
+					function(pos) return protection_check(automatic_context, pos) end)
 				for _, change in ipairs(changes) do
 					if change.clearance then
 						preclear[#preclear + 1] = change
@@ -721,19 +728,19 @@ local function build(result, done, automatic_context)
 					local raw_region = assert(env.open_region(bounds.min, bounds.max))
 					local r = raw_region
 					local ok, detail, clearance = feature_api.inspect(feature, r, env.node_info,
-						function(pos) return core.is_protected(pos, "") end, walls.natural)
+						function(pos) return protection_check(automatic_context, pos) end, walls.natural)
 					if ok and feature.outside_approach then
 						local joins = feature_api.gate_join_cells(feature, wall)
 						if not joins then return nil, "missing adjoining wall columns", r end
 						local _, join_omissions = walls.inspect({cells = joins, openings = {}},
-							result.ground_y, r, env.node_info, function(pos) return core.is_protected(pos, "") end)
+							result.ground_y, r, env.node_info, function(pos) return protection_check(automatic_context, pos) end)
 						for _, omission in ipairs(join_omissions) do
 							if not omission.reason:match("^decoration: ") then
 								return nil, "wall join: " .. omission.reason .. blocker_text(omission.blocker), r
 							end
 						end
 						local changes, omissions, length = walls.approach(feature.outside_approach,
-							result.ground_y, r, env.node_info, function(pos) return core.is_protected(pos, "") end)
+							result.ground_y, r, env.node_info, function(pos) return protection_check(automatic_context, pos) end)
 						if #omissions > 0 then
 							return nil, "outside road: " .. omissions[1].reason .. blocker_text(omissions[1].blocker), r
 						end
@@ -808,7 +815,7 @@ local function build(result, done, automatic_context)
 			remaining.streets = result.plan.streets
 			local read_ok, changes, omissions, region, ramp_footprints = pcall(function()
 				local r = assert(env.open_region(bounds.min, bounds.max))
-				local is_protected = function(pos) return core.is_protected(pos, "") end
+				local is_protected = function(pos) return protection_check(automatic_context, pos) end
 				-- Openings left without a gatehouse/postern get the graded ramp.
 				local c, o, ramp_failures, graded_footprints = walls.inspect_graded(remaining,
 					result.ground_y, r, env.node_info, is_protected)
@@ -963,11 +970,11 @@ local function build(result, done, automatic_context)
 			after_margin({status = "incomplete", reason = "city-margin environment failed: " .. tostring(api_env)})
 		else
 			api_env = automatic_env(api_env, automatic_context)
-			api_env.is_protected = type(core.is_protected) == "function" and function(pos)
-				return core.is_protected(pos, "")
+			api_env.is_protected = (automatic_context or type(core.is_protected) == "function") and function(pos)
+				return protection_check(automatic_context, pos)
 			end or nil
 			if automatic_context then
-				api_env.recheck_write = automatic_context.recheck_write
+				api_env.check_ownership = automatic_context.check_ownership
 				api_env.authorize_write = function(box)
 					return contains_box(automatic_context.write_bounds, box),
 						"boundary volume exceeds the approved automatic-town write envelope"

@@ -147,10 +147,10 @@ core.register_on_mods_loaded(function()
 				local before = snapshot(result.write_envelope)
 				local snapshot_seconds = (core.get_us_time() - start) / 1e6
 				core.log("action", "[auto-towns-build-observer] snapshot complete in " .. snapshot_seconds .. " seconds")
-				if core.settings:get_bool("auto_towns_probe_reject_protected", false) then
+				if core.settings:get_bool("auto_towns_probe_protected_provider", false) then
 					saved_protection = core.is_protected
+					core.log("action", "[auto-towns-build-observer] installed protected provider")
 					core.is_protected = function()
-						core.log("action", "[auto-towns-build-observer] injected protection denial")
 						return true
 					end
 				end

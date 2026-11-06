@@ -137,10 +137,10 @@ return function(terrain)
 				skip(emerge_reason or "boundary volume emerge failed")
 				return
 			end
-			if type(env.recheck_write) == "function" then
-				local allowed, why = env.recheck_write()
+			if type(env.check_ownership) == "function" then
+				local allowed, why = env.check_ownership()
 				if not allowed then
-					summary.status, summary.reason, summary.protection_denied = "incomplete", tostring(why), true
+					summary.status, summary.reason, summary.write_denied = "incomplete", tostring(why), true
 					complete()
 					return
 				end
