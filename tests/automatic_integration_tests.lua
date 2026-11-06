@@ -36,7 +36,8 @@ local function fixture(mode)
 		if mode == "envelope" then return nil, "bad envelope", "envelope_failed" end
 		return {read = box, write = box, chunks = mode == "cap" and 257 or 1,
 		snapshot_voxels = 512000, stages = {urban = {kind = "write", box = box}}} end}
-	local search = {WET_DEFAULTS = {}, core_env = function()
+	local search = {WET_DEFAULTS = {}, AUTOMATIC_DEFAULTS = {max_range = 20, max_water_depth = 8,
+		max_wet_fraction = 0.25}, core_env = function()
 		if mode == "initialization" then error("environment failed") end
 		return {
 		after = core.after, emerge = function(minp, maxp, cb)
@@ -44,7 +45,9 @@ local function fixture(mode)
 		end} end,
 		inspect_site = function(center, ref, seed, opts, done, io)
 			f.reference = ref
-			if mode == "inspection" then return done(nil, "inspection failed", {reason = "inspection_failed"}) end
+			f.inspection_opts = opts
+			if mode == "inspection" then return done(nil, "inspection failed", {reason = "inspection_failed",
+				rejections = {too_deep_water = 1}, examples = {too_deep_water = "water at (12,20) deeper than 8 nodes"}}) end
 			io.emerge(box.min, box.max, function(ok)
 				if not ok then return done(nil, "failed") end
 				done({plan = {}, ground_y = 64, build_bounds = box})
@@ -87,6 +90,11 @@ for _, mode in ipairs({"missing_center", "inspection", "envelope", "cap", "fresh
 		f.emit(min, max, 64)
 	end
 	if mode ~= "scheduling" then f.start() end
+	if mode == "inspection" then
+		eq(f.inspection_opts.max_range, 20, "automatic site inspection uses relaxed slope range")
+		eq(f.inspection_opts.max_water_depth, 8, "automatic site inspection uses relaxed water depth")
+		eq(f.inspection_opts.max_wet_fraction, 0.25, "automatic site inspection keeps wet fraction")
+	end
 	if mode == "missing_center" or mode == "freshness" then
 		f.complete(true, false)
 	elseif mode == "envelope" or mode == "cap" then
@@ -100,6 +108,13 @@ for _, mode in ipairs({"missing_center", "inspection", "envelope", "cap", "fresh
 		envelope = "envelope_failed", cap = "envelope_cap", freshness = "not_fresh",
 		scheduling = "schedule_failed", initialization = "initialization_failed"}
 	eq(report and report.reason, reasons[mode], mode .. " reports its actual failure")
+	if mode == "inspection" then
+		eq(report and report.message, "inspection failed", "automatic report preserves the detailed inspection message")
+		eq(report and report.inspection_rejections and report.inspection_rejections.too_deep_water, 1,
+			"automatic report includes the exact terrain rejection code")
+		eq(report and report.inspection_examples and report.inspection_examples.too_deep_water,
+			"water at (12,20) deeper than 8 nodes", "automatic report includes the inspector example")
+	end
 	eq(f.session:state("A"), "declined", mode .. " releases reservation")
 	eq(f.locked(), false, mode .. " releases lock")
 	eq(f.writes + f.begins, 0, mode .. " performs no town writes or record begin")

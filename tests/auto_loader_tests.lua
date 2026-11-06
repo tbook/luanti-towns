@@ -218,11 +218,15 @@ do
 		envelope = function() error("rejected terrain has no envelope") end,
 		env = env, origin = ORIGIN, size = SIZE, seed = 1, request_timeout = 5,
 		inspect_opts = {entries = catalog.entries, planner_opts = {landmarks = profile}}}))
-	loader:start(site, trigger, function(result, reason, code)
+	loader:start(site, trigger, function(result, reason, code, details)
 		calls = calls + 1
 		eq(result, nil, "real exact inspector rejects all-air terrain")
 		eq(reason ~= nil, true, "real exact inspector reports its rejection")
 		eq(code, "inspection_failed", "real exact inspector terminates through loader once")
+		eq(details and details.rejections and details.rejections.no_ground, 1,
+			"real exact inspector rejection code reaches loader caller")
+		eq(type(details and details.examples and details.examples.no_ground), "string",
+			"real exact inspector rejection example reaches loader caller")
 	end)
 	local guard = 0
 	while (#queue > 0 or #timers > 0) and calls == 0 and guard < 500 do
