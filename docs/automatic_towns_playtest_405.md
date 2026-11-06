@@ -101,7 +101,11 @@ manager reported: “I see the town. Terrain looks good.” They also said:
 “walking is funny - I'm being dragged into the town, but the game looks fine.”
 The scripted movement explains the reported dragging. The route log recorded a
 connected player and movement; the run was still active when this observation
-was recorded, so route completion and access were not established. The server
+was recorded. The product manager later disconnected and said, “Looks good. I've
+playtested the mod a lot, though, so I tend to think you are wasting time and
+tokens unless there was something else you were trying to prove.” This describes
+their broader experience with the mod; it does not establish the results of
+specific automatic-town trials. Route completion and access were not established. The server
 also logged a separate town build near spawn after the first build completed.
 
 This known flat fixture is a qualitative visibility observation, not natural
@@ -110,6 +114,21 @@ client map-ready instrumentation; the user did not report measured timings.
 Scratch world and live logs:
 `/var/folders/nf/h9p5hfvs7jj6vs6q252mzhw00000gn/T/towns-auto-probe-awwcw6w5`.
 
-Natural walking/flying discovery, access, a matched connected-client baseline,
-client loading latency, and broader acceptance measurements remain open. See
-[client trial instructions](automatic_towns_playtest_instructions.md).
+## Remaining measurements and disposition
+
+The product manager asked to stop further trials, citing their substantial prior
+playtesting and the cost of additional testing. Recommend closing #405 with the
+observations in this report and the [paced terrain-demand probe](automatic_towns_paced_probe.md);
+the unmeasured guidance is not a pass or a basis for tuning constants.
+
+The following remain unmeasured: representative isolated-site acceptance and
+rejection rates; actual village opportunities, successful villages, and villages
+lost to failed reservations; town density and type counts across explored area;
+the fraction of ordinary 30-minute walking routes that encounter an accessible
+town; the footprint-distance proxy's visual validity; flying and multiplayer or
+busy-server discovery; and actual connected-client request-to-ready delay,
+including a matched no-Towns baseline and added p95. Completion times, requested
+chunks, snapshot bounds, and longest server steps above are limited to their
+documented fixtures, not representative distributions. Natural village ordering
+(A10) also remains an authorized assumption. The only connected-client check
+used scripted movement through one known flat town and did not measure timing.
