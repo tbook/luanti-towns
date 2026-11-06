@@ -6,10 +6,9 @@ landmarks, and surrounding development. It is intended to work alongside
 [Living Villages](https://github.com/tbook/luanti-villages), which handles
 villager behavior.
 
-The mod currently builds one populated town on demand with
-`/towns_generate` (see below): real cathedral, castle, city hall, jail,
-services and ordinary buildings, and one Living Villages resident per
-valid bed. Natural generation is a later phase. See the [design brief](docs/design_brief.md) for the intended direction
+The mod builds populated towns automatically in newly generated terrain and on
+demand with `/towns_generate` (see below). Towns include landmarks, services,
+ordinary buildings, and Living Villages residents. See the [design brief](docs/design_brief.md) for the intended direction
 and the [engineering design](docs/engineering_design.md) for implementation phases.
 
 To add a building, see the [building workflow](docs/building_workflow.md),
@@ -120,8 +119,16 @@ prepares those nodes and never reimplements villager behaviour.
 
 ## Settings
 
-Towns reads no `minetest.conf` settings. (`towns_enable_place_town` no longer
-exists.) The headless check `python3 tools/place_check/run.py` repeats a
+`towns_auto_mode` defaults to `on`: eligible unexplored sites on supported
+VoxeLibre v7 and flat overworlds can become towns. Automatic construction can
+overwrite existing structures at accepted sites. Set `towns_auto_mode = off`
+to disable new automatic towns, or `towns_auto_mode = survey` to inspect sites
+without building. Survey and on can load unexplored terrain and suppress nearby
+village planning. Unsupported mapgens and integrations disable automatic jobs.
+See [automatic town validation](docs/automatic_towns_validation.md) for tested
+scenarios and remaining assumptions.
+
+The headless check `python3 tools/place_check/run.py` repeats a
 `/towns_generate` build in a scratch superflat world through the command
 controller and re-reads it.
 

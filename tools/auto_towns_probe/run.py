@@ -494,6 +494,16 @@ def main():
     ap.add_argument('--model-a10', action='store_true', help='run the scratch-only pure-state A10 model')
     ap.add_argument('--production-survey', action='store_true', help='load Towns in survey mode in the scratch world')
     ap.add_argument('--production-build', action='store_true', help='load Towns in on mode in the scratch world')
+    ap.add_argument('--use-default-mode', action='store_true', help='omit the mode override for a production build')
+    ap.add_argument('--observe-build', action='store_true', help='snapshot nodes and metadata around a production build')
+    ap.add_argument('--repeat-fixture-on-restart', action='store_true', help='repeat the supplied fixture in a second server process')
+    ap.add_argument('--reject-protected', action='store_true', help='inject a protection denial at the builder write gate')
+    ap.add_argument('--reject-storage', action='store_true', help='inject an accepted-record persistence failure')
+    ap.add_argument('--fail-required-stage', action='store_true', help='inject failure after accepting the record')
+    ap.add_argument('--check-command-contention', action='store_true', help='call the registered generate command while the automatic job owns the lock')
+    ap.add_argument('--break-guard', action='store_true', help='replace the planner after guard installation')
+    ap.add_argument('--omit-unsafe-plot', action='store_true', help='inject one rural structure outside the approved envelope')
+    ap.add_argument('--assert-guard-suppression', action='store_true', help='require a controlled planner call to be suppressed during inspection')
     ap.add_argument('--inactive-trigger-a10', action='store_true',
                     help='forceload one inactive village structblock after fixture generation (villages scenario only)')
     ap.add_argument('--route', type=Path,
@@ -516,7 +526,26 @@ def main():
         raise SystemExit('--inactive-trigger-a10 uses the villages scenario fixture; do not pass --fixture')
     if args.inactive_trigger_a10 and args.controlled_a10:
         raise SystemExit('choose one controlled A10 mode per run')
-    phases = [args.fixture] if args.fixture else scenario['phases']
+    if args.observe_build and not args.production_build:
+        raise SystemExit('--observe-build requires --production-build')
+    if args.use_default_mode and not args.production_build:
+        raise SystemExit('--use-default-mode requires --production-build')
+    if args.check_command_contention and not args.observe_build:
+        raise SystemExit('--check-command-contention requires --observe-build')
+    if args.assert_guard_suppression and not (args.production_build or args.production_survey):
+        raise SystemExit('--assert-guard-suppression requires a production mode')
+    if args.omit_unsafe_plot and (not args.observe_build or args.break_guard or any(
+            (args.reject_protected, args.reject_storage, args.fail_required_stage))):
+        raise SystemExit('--omit-unsafe-plot requires an uninhibited --observe-build')
+    if args.break_guard and (not args.observe_build or args.repeat_fixture_on_restart or any(
+            (args.reject_protected, args.reject_storage, args.fail_required_stage, args.check_command_contention))):
+        raise SystemExit('--break-guard requires --observe-build and no other injected scenario')
+    failures = [args.reject_protected, args.reject_storage, args.fail_required_stage]
+    if any(failures) and (not args.observe_build or args.repeat_fixture_on_restart or sum(failures) > 1):
+        raise SystemExit('rejection probes require --observe-build, a single phase and one injected failure')
+    if args.repeat_fixture_on_restart and not (args.fixture and args.observe_build):
+        raise SystemExit('--repeat-fixture-on-restart requires --fixture and --observe-build')
+    phases = ([args.fixture, args.fixture] if args.repeat_fixture_on_restart else [args.fixture]) if args.fixture else scenario['phases']
     duration = args.duration or scenario['duration']
     forceload = scenario.get('forceload', False)
     for fixture in phases:
@@ -563,6 +592,12 @@ def main():
         with (work / 'worldmods' / 'towns' / 'mod.conf').open('a') as config:
             config.write('\noptional_depends = auto_towns_probe\n')
         world_lines.append('load_mod_towns = worldmods/towns')
+    if args.observe_build:
+        observer = work / 'worldmods' / 'auto_towns_build_observer'
+        observer.mkdir()
+        shutil.copy2(HELPER / 'build_observer.lua', observer / 'init.lua')
+        (observer / 'mod.conf').write_text('name = auto_towns_build_observer\ndepends = towns\n')
+        world_lines.append('load_mod_auto_towns_build_observer = worldmods/auto_towns_build_observer')
     world_lines.append('load_mod_auto_towns_probe = worldmods/auto_towns_probe')
     (work / 'world.mt').write_text('\n'.join(world_lines) + '\n')
     print('Scratch world:', work, flush=True)
@@ -581,8 +616,21 @@ def main():
             f.write('enable_ipv6 = false\nbind_address = 127.0.0.1\nserver_announce = false\n')
             f.write('max_forceloaded_blocks = 4096\n')
             if args.production_survey or args.production_build:
-                f.write('towns_auto_mode = ' + ('on' if args.production_build else 'survey') + '\n')
+                if not args.use_default_mode:
+                    f.write('towns_auto_mode = ' + ('on' if args.production_build else 'survey') + '\n')
                 f.write('auto_towns_probe_survey_suppression = true\n')
+            if args.reject_protected:
+                f.write('auto_towns_probe_reject_protected = true\n')
+            if args.reject_storage:
+                f.write('auto_towns_probe_reject_storage = true\n')
+            if args.fail_required_stage:
+                f.write('auto_towns_probe_fail_required = true\n')
+            if args.check_command_contention:
+                f.write('auto_towns_probe_command_contention = true\n')
+            if args.break_guard:
+                f.write('auto_towns_probe_break_guard = true\n')
+            if args.omit_unsafe_plot:
+                f.write('auto_towns_probe_omit_unsafe = true\n')
             if args.controlled_a10 or args.inactive_trigger_a10 or args.model_a10:
                 f.write('num_emerge_threads = 4\n')
             f.write('auto_towns_probe_phase = %d\n' % index)
@@ -663,6 +711,80 @@ def main():
             'ok': observation['required_events_observed_in_order'],
             'label': 'inactive-trigger A10: structblock, one forceload, and matching planner observed',
         })
+    if args.assert_guard_suppression:
+        suppressed = [event for event in write_through_events.get(1, [])
+                      if event.get('kind') == 'wt_survey_suppression' and event.get('suppressed') is True]
+        report['checks'].append({'ok': len(suppressed) == 1,
+                                 'label': 'controlled planner call suppressed during inspection'})
+    if args.observe_build and not args.break_guard:
+        path = work / 'build-observation.json'
+        observation = json.loads(path.read_text()) if path.exists() else None
+        report['build_observation'] = observation
+        report['checks'].append({'ok': bool(observation), 'label': 'production build observation completed'})
+        if observation:
+            for key, expected in [('ignored_approved', 0), ('ignored_after', 0),
+                                  ('outside_nodes', 0), ('outside_metadata', 0)]:
+                report['checks'].append({'ok': observation.get(key) == expected,
+                                         'label': 'production build %s = %s' % (key, expected)})
+            if any(failures):
+                engine_log = work / 'engine-phase1.log'
+                marker = ('[auto-towns-build-observer] injected protection denial' if args.reject_protected
+                          else '[auto-towns-build-observer] injected record failure' if args.reject_storage
+                          else '[auto-towns-build-observer] injected required stage failure')
+                report['checks'].append({'ok': engine_log.exists() and
+                                         marker in engine_log.read_text(),
+                                         'label': 'rejection reached injected failure'})
+                for key in ('changed_nodes', 'changed_metadata'):
+                    report['checks'].append({'ok': observation.get(key) == 0,
+                                             'label': 'rejection %s = 0' % key})
+                path = work / 'records-1-end.json'
+                records = json.loads(path.read_text()) if path.exists() else None
+                if args.fail_required_stage:
+                    report['checks'].append({'ok': isinstance(records, list) and len(records) == 1
+                                             and records[0].get('state') == 'interrupted',
+                                             'label': 'required stage failure retains interrupted record'})
+                else:
+                    report['checks'].append({'ok': records == [], 'label': 'rejection created no accepted record'})
+            else:
+                report['checks'].append({'ok': observation.get('changed_nodes', 0) > 0,
+                                         'label': 'production build changed nodes observed'})
+                path = work / 'records-1-end.json'
+                records = json.loads(path.read_text()) if path.exists() else None
+                report['checks'].append({'ok': isinstance(records, list) and len(records) == 1
+                                         and records[0].get('state') == 'complete',
+                                         'label': 'production build has one complete accepted record'})
+            if args.check_command_contention:
+                check = observation.get('command_contention') or {}
+                report['checks'].append({'ok': all(check.get(key) is True for key in
+                                                    ('busy_before', 'denied', 'busy_message', 'owner_preserved')),
+                                         'label': 'registered generation command respects automatic lock'})
+            if args.omit_unsafe_plot:
+                check = observation.get('unsafe_plot') or {}
+                report['checks'].append({'ok': check.get('fixture_available') is True and
+                                         check.get('skipped') is True and check.get('placed') is False,
+                                         'label': 'unsafe rural plot omitted'})
+    if args.break_guard:
+        status_path, records_path = work / 'guard-status.json', work / 'records-1-end.json'
+        status = (json.loads(status_path.read_text()) or {}) if status_path.exists() else {}
+        records = json.loads(records_path.read_text()) if records_path.exists() else None
+        report['guard_status'] = status
+        report['checks'].append({'ok': 'planner was replaced' in (status.get('disabled') or ''),
+                                 'label': 'replaced village planner disables automatic processing'})
+        report['checks'].append({'ok': records == [], 'label': 'replaced planner created no accepted record'})
+    if args.repeat_fixture_on_restart:
+        def records(phase, when):
+            path = work / ('records-%d-%s.json' % (phase, when))
+            return json.loads(path.read_text()) if path.exists() else None
+        before, completed, reloaded, after = (records(1, 'start'), records(1, 'end'),
+                                               records(2, 'start'), records(2, 'end'))
+        report['restart_records'] = {'initial': before, 'completed': completed,
+                                     'reloaded': reloaded, 'after': after}
+        report['checks'].append({'ok': before == [], 'label': 'restart: initial records empty'})
+        report['checks'].append({'ok': isinstance(completed, list) and len(completed) == 1
+                                 and completed[0].get('state') == 'complete',
+                                 'label': 'restart: one complete accepted record'})
+        report['checks'].append({'ok': bool(completed) and completed == reloaded == after,
+                                 'label': 'restart: accepted record survives and no duplicate appears'})
     report['ok'] = bool(report['checks']) and all(c['ok'] for c in report['checks'])
     (work / 'probe-report.json').write_text(json.dumps(report, indent=2))
     for c in report['checks']:
