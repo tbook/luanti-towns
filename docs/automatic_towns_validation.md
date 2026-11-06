@@ -203,3 +203,9 @@ installed no-op provider: 44,815,680 Roman positions in 0.0131 seconds and
 very different per-position cost; no such provider was measured. Scratch world:
 `towns-protection-bench-0sgtgxl2`. These timings are not connected-player
 latency measurements.
+
+For #405, measure at least one representative active protection mod across the
+repeated protection checks in a completed automatic build, including the
+longest main-thread pause. Record the provider, its settings, the number of
+checks and the number of passes. The no-op figures above do not establish
+performance with an active provider.
