@@ -81,8 +81,11 @@ Reuse exact terrain classification, height selection, composition, and rejection
 rules. Its existing pump handles asynchronous continuations; its column scan
 still needs a measured work budget and bulk reader.
 
-Initial exact limits remain: middle 95% height range <=16, every column within
-24 nodes of finished ground, water/ice depth <=6, and wet fraction <=25%.
+Automatic placement currently accepts a middle 95% height range <=20, every
+column within 24 nodes of finished ground, water/ice depth <=8, and wet
+fraction <=25%. `/towns_generate` keeps its existing range <=16 and water/ice
+depth <=6 limits; both modes retain the 24-node cut/fill and 25% wet-fraction
+limits.
 Retain lava and unknown-ground rejection. Automatic towns may overwrite existing
 structures and do not honor protection-mod claims (product decision, 2026-11-06). Water gets
 no positive score; there is no score to optimize. Inspect the single position
