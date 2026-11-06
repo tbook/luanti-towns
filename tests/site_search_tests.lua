@@ -860,6 +860,9 @@ do
 	local WET = ss.WET_DEFAULTS
 	eq(WET.max_water_depth, 6, "wet defaults: depth")
 	eq(WET.max_wet_fraction, 0.25, "wet defaults: fraction")
+	eq(ss.AUTOMATIC_DEFAULTS.max_range, 20, "automatic terrain range is modestly relaxed")
+	eq(ss.AUTOMATIC_DEFAULTS.max_water_depth, 10, "automatic permitted water depth is modestly relaxed")
+	eq(ss.AUTOMATIC_DEFAULTS.max_wet_fraction, 0.25, "automatic wet fraction remains unchanged")
 	eq(ss.CONSTANTS.MAX_WATER_DEPTH, 0, "legacy default: no wet columns")
 
 	-- scan_column_wet
@@ -903,6 +906,12 @@ do
 		return function(x) return bed_of(x), nil, 0, surf_of and surf_of(x) or nil end
 	end
 	local cfg = {max_depth = 6, max_fraction = 0.25}
+	local slope20 = ss.inspect_columns(cols, function(x) return x <= 50 and 0 or 20 end,
+		100, 20, 0, 24)
+	eq(slope20 ~= nil, true, "automatic terrain range accepts a twenty-node middle range")
+	local slope21, slope21_code = ss.inspect_columns(cols, function(x) return x <= 50 and 0 or 21 end,
+		100, 20, 0, 24)
+	eq(slope21 == nil and slope21_code == "too_uneven", true, "automatic terrain range rejects a twenty-one-node range")
 	local function pond_cols(n, bed, surf, dry)
 		return rd(function(x) return x <= n and bed or dry end,
 			function(x) return x <= n and surf or nil end)
@@ -920,6 +929,14 @@ do
 	eq(i3 ~= nil, true, "wet inspect: exactly the fraction accepted")
 	local i4 = ss.inspect_columns(cols, pond_cols(5, 22, 26, 20), 100, 16, 5, 24, cfg)
 	eq(i4 ~= nil and i4.ground_y, 26, "wet inspect: ground never below a wet surface")
+	col = {}
+	for y = 20, 11, -1 do col[y] = "water" end
+	col[10] = "solid"
+	local depth10, depth10_problem = ss.scan_column_wet(cls, 30, 0, 10)
+	eq(depth10 == 10 and depth10_problem == nil, true, "automatic water depth accepts ten nodes")
+	col[10], col[9] = "water", "solid"
+	local depth11, depth11_problem = ss.scan_column_wet(cls, 30, 0, 10)
+	eq(depth11 == nil and depth11_problem == "too_deep_water", true, "automatic water depth still rejects eleven nodes")
 	local ring_cfg = {max_depth = 6, max_fraction = 0.25, ring = {{x = 0, z = 0}},
 		read_ring = function() return 23 end}
 	local i5 = ss.inspect_columns(cols, rd(function() return 20 end), 100, 16, 5, 24, ring_cfg)
