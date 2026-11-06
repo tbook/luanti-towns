@@ -116,10 +116,12 @@ Scratch world and live logs:
 
 ## Remaining measurements and disposition
 
-The product manager asked to stop further trials, citing their substantial prior
-playtesting and the cost of additional testing. Recommend closing #405 with the
-observations in this report and the [paced terrain-demand probe](automatic_towns_paced_probe.md);
-the unmeasured guidance is not a pass or a basis for tuning constants.
+In light of the product manager's substantial prior playtesting and feedback on
+the value of further trials, we are concluding this work without more trials.
+Recommend closing #405 as a product-scope decision with the observations in this
+report and the [paced terrain-demand probe](automatic_towns_paced_probe.md); the
+prescribed trials remain incomplete, and unmeasured guidance is not a pass or a
+basis for tuning constants.
 
 The following remain unmeasured: representative isolated-site acceptance and
 rejection rates; actual village opportunities, successful villages, and villages
