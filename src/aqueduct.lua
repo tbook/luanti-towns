@@ -147,8 +147,10 @@ function M.profile(line, surface, footprints)
 		ground[n] = row
 	end
 
+	-- The peak is searched only up to the second-last column, so the source
+	-- box column (peak + 1) always lies inside the strip.
 	local peak, peak_y
-	for n = 0, line.length - 1 do
+	for n = 0, line.length - 2 do
 		local y = ground[n][math.floor(W / 2)].y
 		if y and (not peak_y or y > peak_y) then peak, peak_y = n, y end
 	end
@@ -167,6 +169,14 @@ function M.profile(line, surface, footprints)
 		end
 	end
 
+	-- The source box column must be solid ground clear of footprints. It is
+	-- not trimmed, so a blocked box rejects the candidate.
+	for l = 0, W - 1 do
+		local g = ground[peak + 1][l]
+		if g.kind ~= "solid" then return nil, "source box blocked (" .. g.kind .. ")" end
+		if in_footprint(g.x, g.z, footprints) then return nil, "source box blocked (footprint)" end
+	end
+
 	local town_n, why = 0, nil
 	for n = 0, peak do
 		local r = blocked(n)
@@ -176,6 +186,12 @@ function M.profile(line, surface, footprints)
 	local length = peak - town_n + 1
 	if length < C.MIN_LENGTH then
 		return nil, "length " .. length .. " below MIN_LENGTH" .. (why and (" after trim (" .. why .. ")") or "")
+	end
+	-- MIN_RISE is checked again after the trim: a plateau near the peak height
+	-- may be all that is left at the new town end.
+	local rise = peak_y - ground[town_n][math.floor(W / 2)].y
+	if rise < C.MIN_RISE then
+		return nil, "rise " .. rise .. " after trim below MIN_RISE"
 	end
 
 	local columns = {}
