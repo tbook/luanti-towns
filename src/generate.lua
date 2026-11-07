@@ -455,6 +455,16 @@ function M.format_report(summary, command)
 			add("Resident initialization failed: %s.", s.town.residents_error)
 		end
 	end
+	local aq = s.aqueduct
+	if type(aq) == "table" then
+		if aq.status == "built" then
+			add("Aqueduct built: %s side, %d nodes long, rising %d.", tostring(aq.side),
+				tonumber(aq.length) or 0, tonumber(aq.rise) or 0)
+			if aq.spout_written == false then add("Aqueduct spout could not be written; the channel is dry.") end
+		else
+			add("Aqueduct skipped: %s.", tostring(aq.reason))
+		end
+	end
 	return lines
 end
 

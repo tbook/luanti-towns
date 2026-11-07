@@ -381,6 +381,38 @@ local function build_urban(result, automatic_context, done)
 	return nil, nil, nil, nil
 end
 
+-- Context for towns.aqueduct_step.run. Manual builds get a full environment:
+-- no freshness or clearance checks (manual generation overwrites by design),
+-- but protection is honoured per write position by the adapter. An automatic
+-- town only builds an aqueduct when its context supplies the capability
+-- `automatic_context.aqueduct = {authorize_strip = fn(box), emerge = fn(min,
+-- max, cb) (optional), y_min, y_max (optional clamp), timeout (optional)}`
+-- (step 4 of #417). Without it the aqueduct is skipped and nothing is written.
+local function aqueduct_context(builder_env, automatic_context)
+	local ctx = {log = function(level, msg) core.log(level, msg) end,
+		after = function(seconds, fn) core.after(seconds, fn) end}
+	local cap = automatic_context and automatic_context.aqueduct
+	if automatic_context and (type(cap) ~= "table" or type(cap.authorize_strip) ~= "function"
+			or type(automatic_context.check_ownership) ~= "function") then
+		ctx.skip_reason = "automatic town has no aqueduct capability"
+		return ctx
+	end
+	local base = towns.site_search.core_env(core)
+	local emerge = cap and cap.emerge or base.emerge
+	ctx.env = towns.aqueduct_step.make_env({
+		emerge = emerge,
+		open_region = builder_env.open_region,
+		authorize_strip = cap and cap.authorize_strip,
+		check_ownership = automatic_context and automatic_context.check_ownership or function() return true end,
+		protected = function(pos) return protection_check(automatic_context, pos) end,
+		after = function(seconds, fn) core.after(seconds, fn) end,
+		set_node = function(pos, node) core.set_node(pos, node) end,
+		registered_nodes = core.registered_nodes,
+	})
+	ctx.opts = cap and {y_min = cap.y_min, y_max = cap.y_max, timeout = cap.timeout} or nil
+	return ctx
+end
+
 local function build(result, done, automatic_context)
 	local completed = false
 	local function finish(summary, message, code, extra)
@@ -477,6 +509,7 @@ local function build(result, done, automatic_context)
 		extra.bounds = bounds_union(combined) or urban_bounds
 		finish(nil, reason, "write_failed", extra)
 	end
+	local aqueduct_started = false
 	local function finish_build(message)
 		if automatic_context and automatic_context.check_ownership then
 			local allowed, why = automatic_context.check_ownership()
@@ -486,7 +519,29 @@ local function build(result, done, automatic_context)
 			return fail_writer("Automatic town build exceeded its approved write envelope.", nil,
 				{reason = "automatic_envelope", bounds = summary.automatic_envelope_excess})
 		end
-		return finish(finalize(summary, result), message or "", nil)
+		if aqueduct_started then return end
+		aqueduct_started = true
+		-- The aqueduct (Roman towns only) is a cosmetic extra after the town is
+		-- final: it never fails the town and the continuation runs exactly once.
+		local function proceed()
+			if completed then return end
+			local ok, err = pcall(function() finish(finalize(summary, result), message or "", nil) end)
+			if not ok and not completed then
+				core.log("error", "towns: finalizing the town failed: " .. tostring(err))
+				finish(nil, "Town finalization failed: " .. tostring(err), "write_failed",
+					{bounds = urban_bounds, reason = "finalize"})
+			end
+		end
+		local step = towns.aqueduct_step
+		if not step or not result.plan or result.plan.town_type ~= "roman" then return proceed() end
+		local ok, err = pcall(function()
+			step.run(result, summary, aqueduct_context(env, automatic_context), proceed)
+		end)
+		if not ok then
+			core.log("warning", "towns: aqueduct step failed: " .. tostring(err))
+			summary.aqueduct = summary.aqueduct or {status = "skipped", reason = "error: " .. tostring(err)}
+			proceed()
+		end
 	end
 	local function searched(out, search_message)
 		if rural_called or completed then return end

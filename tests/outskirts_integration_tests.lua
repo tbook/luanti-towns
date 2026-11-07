@@ -1351,4 +1351,105 @@ do
  core.add_entity = saved_add
 end
 
+-- Aqueduct step (#417 step 3): hooked into finish_build for Roman towns only.
+do
+	local real_step = dofile("src/aqueduct_step.lua")
+	local real_enumerate = towns.residents.enumerate
+	local finalized = 0
+	towns.residents.enumerate = function(...) finalized = finalized + 1; return real_enumerate(...) end
+	local function roman_result(kind)
+		local r = {}
+		for k, v in pairs(result) do r[k] = v end
+		r.plan = {seed = 8, town_type = kind, bounds = urban_bounds}
+		return r
+	end
+	local function run_build(r, ctx)
+		local n, summary, code = 0
+		finalized = 0
+		towns.populated.build(r, function(s, _, c) n = n + 1; summary, code = s, c end, ctx)
+		return n, summary, code
+	end
+	local calls
+	towns.aqueduct_step = {run = function(r, s, ctx, continue)
+		calls = calls + 1
+		eq(r.plan.town_type, "roman", "step runs only for roman towns")
+		eq(#s.town.structures, 2, "step sees merged outskirts structures")
+		eq(ctx.env ~= nil, true, "manual context has an environment")
+		eq(type(ctx.env.authorize_strip), "function", "manual env can authorize strips")
+		continue()
+	end, make_env = real_step.make_env}
+
+	calls = 0
+	local n, summary = run_build(roman_result("other"))
+	eq(calls, 0, "non-roman town does not run the aqueduct step")
+	eq(n, 1, "non-roman build completes once")
+	eq(summary.aqueduct, nil, "non-roman summary has no aqueduct")
+
+	calls = 0
+	n, summary = run_build(roman_result("roman"))
+	eq(calls, 1, "roman town runs the aqueduct step once")
+	eq(n, 1, "roman build completes once")
+	eq(finalized, 1, "roman build finalizes once")
+
+	-- Step throwing: the town still finishes once, aqueduct skipped.
+	towns.aqueduct_step = {run = function() error("step exploded") end, make_env = real_step.make_env}
+	n, summary = run_build(roman_result("roman"))
+	eq(n, 1, "throwing step: town finishes once")
+	eq(finalized, 1, "throwing step: exactly one finalize")
+	eq(summary ~= nil, true, "throwing step: town not failed")
+	eq(summary.aqueduct.status, "skipped", "throwing step: aqueduct skipped")
+
+	-- Real step, adapter built: summary.aqueduct set, write bounds untouched.
+	local captured
+	-- Drive the real step with a stub adapter via ctx.build.
+	towns.aqueduct_step = {run = function(r, s, ctx, continue)
+		ctx.build = function(plan, env, opts, done)
+			captured = {env = env, opts = opts}
+			done({status = "built", side = "+x", length = 30, rise = 8, spout = {x = 1, y = 2, z = 3}})
+		end
+		real_step.run(r, s, ctx, continue)
+	end, make_env = real_step.make_env}
+	local _, plain = run_build(roman_result("other"))
+	n, summary = run_build(roman_result("roman"))
+	eq(n, 1, "built: town finishes once")
+	eq(finalized, 1, "built: exactly one finalize")
+	eq(summary.aqueduct.status, "built", "built: summary.aqueduct set")
+	eq(summary.write_bounds.min.x, plain.write_bounds.min.x, "built: write bounds min unchanged")
+	eq(summary.write_bounds.max.x, plain.write_bounds.max.x, "built: write bounds max unchanged")
+	eq(summary.automatic_envelope_excess, nil, "built: no envelope excess")
+	eq(captured.opts.ground_y, 10, "built: town ground_y passed")
+	local plot_seen, bldg_seen = false, false
+	for _, f in ipairs(captured.opts.footprints) do
+		if f.x1 == 40 and f.z1 == 40 and f.x2 == 56 and f.z2 == 52 then plot_seen = true end
+		if f.x1 == summary.town.structures[1].min.x and f.z1 == summary.town.structures[1].min.z then bldg_seen = true end
+	end
+	eq(plot_seen, true, "outskirts plot rect reaches the adapter")
+	eq(bldg_seen, true, "outskirts structure rect reaches the adapter")
+	eq(captured.env.protected({x = 0, y = 0, z = 0}), false, "manual env honours the protection check")
+	eq(captured.env.check_ownership(), true, "manual env ownership check")
+	local report = report_text(summary, towns.generate)
+	eq(report:find("Aqueduct built", 1, true) ~= nil, true, "report mentions the aqueduct")
+	summary.aqueduct = {status = "skipped", reason = "no candidate lines"}
+	eq(report_text(summary, towns.generate):find("Aqueduct skipped: no candidate lines.", 1, true) ~= nil, true,
+		"report explains a skipped aqueduct")
+	eq(#towns.generate.report_problems(summary), 0, "skipped aqueduct is not a report problem")
+
+	-- Automatic context with no aqueduct capability: skipped, step reports why.
+	towns.aqueduct_step = real_step
+	local autobox = {min = {x = -500, y = -500, z = -500}, max = {x = 500, y = 500, z = 500}}
+	n, summary = run_build(roman_result("roman"), {
+		read_bounds = autobox, write_bounds = autobox,
+		ensure_loaded = function(_, _, cb) cb(true) end,
+		before_write = function() return true end,
+		check_ownership = function() return true end,
+	})
+	eq(n, 1, "automatic roman town finishes once")
+	eq(finalized, 1, "automatic roman town finalizes once")
+	eq(summary.aqueduct.status, "skipped", "automatic without capability skips the aqueduct")
+	eq(summary.aqueduct.reason:find("capability", 1, true) ~= nil, true, "skip reason names the capability")
+
+	towns.residents.enumerate = real_enumerate
+	towns.aqueduct_step = nil
+end
+
 _G.core, _G.towns, _G.living_villages = nil, nil, nil
