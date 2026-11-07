@@ -19,9 +19,15 @@ local function make(opts)
 	local env = {log = {}, writes = {}, commits = 0, emerges = 0, set_nodes = {}, opens = {}}
 	local pending_emerge, timer = {}, nil
 	env.timer_fn = nil
+	env.boxes, env.queries = {}, {}
 	local function node(x, y, z)
+		env.queries[#env.queries + 1] = {x = x, y = y, z = z}
+		if opts.column then
+			local c = opts.column(x, y, z)
+			if c then return c end
+		end
 		local sp = opts.special and opts.special(x, z)
-		local gy = ground_at(x)
+		local gy = (opts.ground or ground_at)(x)
 		if sp then gy = sp[1] end
 		if y > gy then
 			if sp and y == gy + 1 and sp[3] then return sp[3] end
@@ -32,8 +38,10 @@ local function make(opts)
 	end
 	function env.emerge(box, cb)
 		env.emerges = env.emerges + 1
+		env.boxes[#env.boxes + 1] = box
 		if opts.emerge_throws then error("emerge boom") end
 		if opts.emerge_manual then pending_emerge[#pending_emerge + 1] = cb; return end
+		if opts.emerge_repeat then cb(true); cb(true); return end
 		cb(opts.emerge_ok ~= false)
 	end
 	function env.flush(ok) for _, cb in ipairs(pending_emerge) do cb(ok) end; pending_emerge = {} end
@@ -69,6 +77,14 @@ local function make(opts)
 		env.set_nodes[#env.set_nodes + 1] = {pos = pos, node = n, after_commit = env.commits, writes = #env.writes}
 	end
 	return env
+end
+
+local function in_box(b, x, y, z)
+	return x >= b.min.x and x <= b.max.x and y >= b.min.y and y <= b.max.y and z >= b.min.z and z <= b.max.z
+end
+local function in_any(boxes, x, y, z)
+	for _, b in ipairs(boxes) do if in_box(b, x, y, z) then return true end end
+	return false
 end
 
 local function run(env, opts)
@@ -177,17 +193,95 @@ env = make({special = function(x, z) if x >= 25 and x <= 90 then return {ground_
 res = run(env)
 eq(res[1].status, "skipped", "water over the strip skips")
 eq(res[1].reason:find("planner", 1, true) ~= nil, true, "planner rejection has a reason")
+eq(env.commits + #env.set_nodes + #env.writes, 0, "water rejection writes, commits and sets nothing")
 env = make()
 res = run(env, {ground_y = 10, footprints = {{x1 = 21, z1 = 0, x2 = 90, z2 = 40}}})
 eq(res[1].status, "skipped", "footprints over the strip skip")
 eq(#env.writes, 0, "footprint skip writes nothing")
 
--- Trees count as solid: a leaf block atop a column does not skip the line.
-env = make({special = function(x, z)
-	if x >= 22 and x <= 24 then return {ground_at(x) + 6, "mcl_core:leaves"} end
-end})
+-- Vegetation is skipped, not ground. A tall tree on flat ground makes no rise.
+local function tree_at(tx, tz, base, height)
+	return function(x, y, z)
+		if x == tx and z == tz and y > base and y <= base + height then
+			return y == base + height and "mcl_core:leaves" or "mcl_core:tree"
+		end
+	end
+end
+env = make({ground = function() return 10 end, column = tree_at(30, 20, 10, 8)})
 res = run(env)
-eq(res[1].status, "built", "tree columns count as solid")
+eq(res[1].status, "skipped", "a tree on flat ground does not make a hill")
+eq(res[1].reason:find("rises", 1, true) ~= nil, true, "tree on flat ground: no rise")
+eq(env.commits + #env.set_nodes, 0, "tree on flat ground writes nothing")
+-- A tree on the real hill builds at the hill's height, not the canopy's.
+env = make({column = tree_at(70, 20, 24, 8)})
+res = run(env)
+eq(res[1].status, "built", "tree on a hill still builds")
+eq(res[1].source.y, 25, "source sits on the hill, not the canopy")
+-- Vegetation words never hide dirt_with_grass ground; env hook takes priority.
+env = make({special = function(x) if x == 40 then return {ground_at(x), "mcl_core:dirt_with_grass"} end end})
+res = run(env)
+eq(res[1].status, "built", "dirt_with_grass is ground")
+env = make({is_vegetation = function(name) return name == "mcl_core:stone" end,
+	ground = function() return 10 end})
+res = run(env)
+eq(res[1].status, "skipped", "is_vegetation hook overrides the name list")
+-- A tree over water reports water.
+env = make({ground = function() return 10 end,
+	special = function(x) if x >= 21 then return {10, "mcl_core:water_source"} end end,
+	column = tree_at(30, 20, 10, 5)})
+res = run(env)
+eq(res[1].status, "skipped", "tree over water is not solid")
+-- Lava and fire are obstructions ("other"), like water.
+env = make({special = function(x) if x >= 25 and x <= 90 then return {ground_at(x), "mcl_core:lava_source"} end end})
+res = run(env)
+eq(res[1].status, "skipped", "lava over the strip skips")
+env = make({special = function(x) if x >= 25 and x <= 90 then return {ground_at(x), "mcl_fire:fire"} end end})
+res = run(env)
+eq(res[1].status, "skipped", "fire over the strip skips")
+
+-- Height range: a hill reaching y_max - 1 does not fit the source box.
+env = make()
+res = run(env, {ground_y = 10, footprints = {}, y_max = 25})
+eq(res[1].status, "skipped", "hill at y_max-1 skips")
+eq(res[1].reason:find("height range", 1, true) ~= nil, true, "height range reason")
+eq(#env.writes + env.commits + #env.set_nodes, 0, "height range skip writes nothing")
+-- Clamped y range is used for the emerge boxes.
+env = make()
+run(env, {ground_y = 10, footprints = {}, y_min = 0, y_max = 40})
+eq(env.boxes[1].min.y, 0, "y_min clamp reaches the emerge box")
+eq(env.boxes[1].max.y, 40, "y_max clamp reaches the emerge box")
+
+-- Reads and writes stay inside the emerged boxes.
+env = make()
+res = run(env)
+local reads_ok = #env.queries > 0
+for _, q in ipairs(env.queries) do
+	if not in_any(env.boxes, q.x, q.y, q.z) then reads_ok = false end
+end
+eq(reads_ok, true, "every surface query lies inside an emerged box")
+local box_ok = false
+for _, b in ipairs(env.boxes) do
+	if in_box(b, res[1].box.min.x, res[1].box.min.y, res[1].box.min.z)
+			and in_box(b, res[1].box.max.x, res[1].box.max.y, res[1].box.max.z) then box_ok = true end
+end
+eq(box_ok, true, "the write box lies inside one emerged box")
+eq(env.boxes[1].min.y, -10, "default emerge range starts ground_y-20")
+eq(env.boxes[1].max.y, 58, "default emerge range ends ground_y+48")
+
+-- A repeated emerge callback for one box is ignored.
+env = make({emerge_repeat = true})
+res = run(env)
+eq(#res, 1, "repeated emerge callbacks complete once")
+eq(env.commits, 1, "repeated emerge callbacks commit once")
+
+-- The plan table is not mutated.
+local plan2 = {bounds = {x1 = 0, z1 = 0, x2 = 20, z2 = 40}}
+env = make()
+ab.build(plan2, env, {ground_y = 10, footprints = {}}, function() end)
+local keys = 0
+for _ in pairs(plan2) do keys = keys + 1 end
+eq(keys, 1, "plan gains no keys")
+eq(plan2.bounds.x1 + plan2.bounds.z1 + plan2.bounds.x2 + plan2.bounds.z2, 60, "plan bounds unchanged")
 
 -- Unloaded ("ignore") columns are nil, not solid: a flat unloaded world skips.
 env = make()

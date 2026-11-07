@@ -23,6 +23,10 @@
 --                               protected write position skips the aqueduct.
 --   env.after(seconds, fn)      timer used for the emerge timeout.
 --   env.set_node(pos, node)     node {name, param2}; writes the spout.
+--   env.is_vegetation(name)     OPTIONAL. When present it decides whether a node
+--                               is skipped as vegetation (e.g. by node groups
+--                               leaves/tree/plant/flora/dig_by_water); the name
+--                               list below is the fallback when it is absent.
 --
 -- API: M.build(plan, env, opts, done)
 --   plan  town plan; only plan.bounds is read (see aqueduct.candidates).
@@ -33,9 +37,13 @@
 --   timeout, late callback, exception, rejection, success).
 --
 -- Surface contract. surface(x, z) scans a column from y_max down to the first
--- non-air node and returns y and a kind: "solid" (terrain and also trees,
--- leaves and plants, since the aqueduct replaces them), "water" (any water
--- node) or "other" (lava and the like, an obstruction). A column that cannot
+-- node that is neither air nor vegetation and returns its y and a kind:
+-- "solid" (terrain), "water" (any water node; a tree over water reports
+-- "water") or "other" (lava, fire, an obstruction). Vegetation (leaves, trees,
+-- vines, grass, flowers, bushes, saplings, mushrooms, ferns, plants) is skipped
+-- like air, so canopies never count as ground; skipped nodes stay in the world
+-- (piers overwrite trunks, leftover canopy over the channel is cosmetic).
+-- Dirt and "_block" nodes are never vegetation. A column that cannot
 -- be resolved (unloaded node, outside the sampled strips, no ground within the
 -- y range) returns nil. nil is conservative everywhere: aqueduct.choose drops a
 -- line whose centre column is nil, and aqueduct.profile marks such a column
@@ -52,19 +60,38 @@ local aqueduct = dofile(modpath .. "/src/aqueduct.lua")
 
 M.DEFAULTS = {TIMEOUT = 30, DOWN = 20, UP = 48}
 
-local function kind_of(name)
+local VEGETATION = {"leaves", "tree", "vine", "grass", "flower", "bush", "sapling",
+	"mushroom", "fern", "plant"}
+-- Ground blocks whose names contain a vegetation word (dirt_with_grass, ...).
+local GROUND = {"dirt", "podzol", "mycelium", "_block"}
+
+local function has_any(name, list)
+	for _, w in ipairs(list) do
+		if name:find(w, 1, true) then return true end
+	end
+	return false
+end
+
+local function is_vegetation(env, name)
+	if env.is_vegetation then return env.is_vegetation(name) and true or false end
+	return has_any(name, VEGETATION) and not has_any(name, GROUND)
+end
+
+local function kind_of(env, name)
 	if name == "air" then return "air" end
+	if is_vegetation(env, name) then return "air" end
 	if name:find("water", 1, true) then return "water" end
 	if name:find("lava", 1, true) or name:find("fire", 1, true) then return "other" end
 	return "solid"
 end
 
--- Node scan of one column. Returns y, kind or nil.
-local function scan(region, x, z, y_min, y_max)
+-- Node scan of one column. Returns y, kind or nil. Vegetation is skipped like
+-- air, so the scan continues down to real ground (or water).
+local function scan(env, region, x, z, y_min, y_max)
 	for y = y_max, y_min, -1 do
 		local name = region.get(x, y, z)
 		if name == nil or name == "ignore" then return nil end
-		local kind = kind_of(name)
+		local kind = kind_of(env, name)
 		if kind ~= "air" then return y, kind end
 	end
 	return nil
@@ -112,7 +139,7 @@ local function plan_and_write(plan, env, opts, boxes, y_min, y_max)
 			for i, b in ipairs(boxes) do
 				local r = b.rect
 				if x >= r.x1 and x <= r.x2 and z >= r.z1 and z <= r.z2 then
-					local y, kind = scan(regions[i], x, z, y_min, y_max)
+					local y, kind = scan(env, regions[i], x, z, y_min, y_max)
 					if y then hit = {y, kind} end
 					break
 				end
@@ -194,7 +221,10 @@ function M.build(plan, env, opts, done)
 		local timed = pcall(env.after, opts.timeout or D.TIMEOUT, function() skip("emerge timed out") end)
 		if not timed then return skip("no timer available") end
 		for _, b in ipairs(boxes) do
+			local seen = false -- emerge_area may call back once per block
 			local cb = function(success)
+				if seen then return end
+				seen = true
 				local cok, cerr = pcall(loaded, success)
 				if not cok then skip("error: " .. tostring(cerr)) end
 			end
