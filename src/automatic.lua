@@ -66,6 +66,9 @@ return function(towns, core, vars)
 				chunks = job.chunks, elapsed_seconds = now() - job.started, load_seconds = job.load_seconds,
 				inspection_seconds = job.inspection_seconds, snapshot_voxels = job.snapshot_voxels,
 				clearance = job.clearance, suppressed_villages = job.suppressed,
+				aqueduct = summary and summary.aqueduct and summary.aqueduct.status or nil,
+				aqueduct_reason = summary and summary.aqueduct and summary.aqueduct.status == "skipped"
+					and summary.aqueduct.reason or nil,
 				write_bounds = summary and summary.write_bounds or extra and extra.bounds,
 				approved_write_bounds = job.write_bounds}, false))
 		end
@@ -168,6 +171,35 @@ return function(towns, core, vars)
 					if not scheduled then finish(false) end
 				end
 			end
+			-- Capability for the cosmetic Roman aqueduct (#417). It runs inside the build, while the
+			-- session is still inspecting, so session:covers is meaningful. Its writes are outside the
+			-- approved write envelope accounting by design; max_rect (checked by covers) is what the
+			-- accepted record reserves against villages. Any failure just skips the aqueduct.
+			local read = result.read_envelope
+			local function strip_authorized(box)
+				if job.done or not towns.generation_lock.owns(job.token) then return false end
+				if type(box) ~= "table" or type(box.min) ~= "table" or type(box.max) ~= "table" then return false end
+				if not session:covers(site.id, box) then return false end
+				return clear({x1 = box.min.x, z1 = box.min.z, x2 = box.max.x, z2 = box.max.z})
+			end
+			context.aqueduct = {
+				authorize_strip = function(box)
+					local ok, allowed = pcall(strip_authorized, box)
+					return ok and allowed == true
+				end,
+				-- Same loader as the town build, but not limited to read_bounds. Newly generated chunks
+				-- in max_rect are recorded fresh by on_generated and villages are suppressed meanwhile.
+				-- Anything outside max_rect is refused so nothing beyond the reservation is generated.
+				emerge = function(minp, maxp, cb)
+					local m = site.max_rect
+					if not (minp.x >= m.x1 and maxp.x <= m.x2 and minp.z >= m.z1 and maxp.z <= m.z2) then
+						return cb(false)
+					end
+					return context.ensure_loaded(minp, maxp, cb)
+				end,
+				y_min = read and read.min and read.min.y,
+				y_max = read and read.max and read.max.y,
+			}
 			local function built(summary, message, build_code, extra)
 				if job.done then return end
 				local town = summary and summary.town
