@@ -140,12 +140,17 @@ held.set_player(true)
 eq(cap.authorize_strip(strip), false, "player clearance failure refuses the strip")
 held.set_player(false)
 eq(cap.authorize_strip({}), false, "malformed strip is refused")
-local emerged
+local loads = {}
+held.context.ensure_loaded = function(a, b, cb) loads[#loads + 1] = {a, b}; cb(true) end
 eq(pcall(cap.emerge, {x = -10, y = 0, z = -10}, {x = 10, y = 5, z = 10}, function(ok) emerged = ok end), true, "emerge runs")
-eq(emerged, true, "emerge inside max_rect uses the town loader even beyond the read envelope")
+eq(emerged, true, "emerge inside max_rect succeeds")
+eq(#loads, 1, "emerge inside max_rect goes through the town's ensure_loaded")
 emerged = nil
 cap.emerge({x = -10, y = 0, z = -10}, {x = 11, y = 5, z = 10}, function(ok) emerged = ok end)
 eq(emerged, false, "emerge outside max_rect is refused")
+eq(#loads, 1, "refused emerge never reaches ensure_loaded")
+eq(cap.in_reservation({x = -10, y = 0, z = -10}, {x = 10, y = 0, z = 10}), true, "in_reservation accepts max_rect")
+eq(cap.in_reservation({x = -10, y = 0, z = -10}, {x = 11, y = 0, z = 10}), false, "in_reservation refuses outside max_rect")
 eq(held.writes, 1, "capability use does not write")
 -- Ownership loss refuses the strip; the town record and write bounds are untouched.
 local summary = {town = {complete = true, residents = {failures = {}, interrupted_beds = {}}}, write_bounds = box,

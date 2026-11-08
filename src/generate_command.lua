@@ -319,6 +319,8 @@ local function build_urban(result, automatic_context, done)
 		node_setup = towns.node_setup,
 		globals = {itemframes = rawget(_G, "mcl_itemframes"), chests = rawget(_G, "mcl_chests")},
 	})
+	-- The aqueduct needs the unrestricted region: its strip lies beyond the town's read envelope.
+	local raw_open_region = env.open_region
 	if automatic_context then
 		local get_node, open_region = env.get_node, env.open_region
 		env.get_node = function(x, y, z)
@@ -352,7 +354,7 @@ local function build_urban(result, automatic_context, done)
 			return nil, bmsg, bcode, extra
 		end
 		local built = {summary = summary, message = bmsg, terrain = terrain, env = env,
-			preflight_env = env_preflight}
+			preflight_env = env_preflight, raw_open_region = raw_open_region}
 		if done then done(built) end
 		return built
 	end
@@ -386,9 +388,9 @@ end
 -- but protection is honoured per write position by the adapter. An automatic
 -- town only builds an aqueduct when its context supplies the capability
 -- `automatic_context.aqueduct = {authorize_strip = fn(box), emerge = fn(min,
--- max, cb) (optional), y_min, y_max (optional clamp), timeout (optional)}`
+-- max, cb) (optional), in_reservation = fn(min, max) (required: guards open_region), y_min, y_max (optional clamp), timeout (optional)}`
 -- (step 4 of #417). Without it the aqueduct is skipped and nothing is written.
-local function aqueduct_context(builder_env, automatic_context)
+local function aqueduct_context(builder_env, automatic_context, raw_open_region)
 	local ctx = {log = function(level, msg) core.log(level, msg) end,
 		after = function(seconds, fn) core.after(seconds, fn) end}
 	local cap = automatic_context and automatic_context.aqueduct
@@ -399,9 +401,21 @@ local function aqueduct_context(builder_env, automatic_context)
 	end
 	local base = towns.site_search.core_env(core)
 	local emerge = cap and cap.emerge or base.emerge
+	-- Automatic: the town's own open_region is limited to its read envelope, so the aqueduct
+	-- uses the raw one, but only inside the capability's reservation (site max_rect).
+	local open_region = builder_env.open_region
+	if automatic_context then
+		local raw = raw_open_region
+		open_region = raw and function(minp, maxp)
+			if type(cap.in_reservation) ~= "function" or not cap.in_reservation(minp, maxp) then
+				return nil, "region outside the aqueduct reservation"
+			end
+			return raw(minp, maxp)
+		end
+	end
 	ctx.env = towns.aqueduct_step.make_env({
 		emerge = emerge,
-		open_region = builder_env.open_region,
+		open_region = open_region,
 		authorize_strip = cap and cap.authorize_strip,
 		check_ownership = automatic_context and automatic_context.check_ownership or function() return true end,
 		protected = function(pos) return protection_check(automatic_context, pos) end,
@@ -538,7 +552,7 @@ local function build(result, done, automatic_context)
 			end
 		end
 		local ok, err = pcall(function()
-			step.run(result, summary, aqueduct_context(env, automatic_context), proceed)
+			step.run(result, summary, aqueduct_context(env, automatic_context, built.raw_open_region), proceed)
 		end)
 		if not ok then
 			core.log("warning", "towns: aqueduct step failed: " .. tostring(err))

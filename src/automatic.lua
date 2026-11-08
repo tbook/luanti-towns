@@ -187,14 +187,17 @@ return function(towns, core, vars)
 					local ok, allowed = pcall(strip_authorized, box)
 					return ok and allowed == true
 				end,
-				-- Same loader as the town build, but not limited to read_bounds. Newly generated chunks
-				-- in max_rect are recorded fresh by on_generated and villages are suppressed meanwhile.
-				-- Anything outside max_rect is refused so nothing beyond the reservation is generated.
-				emerge = function(minp, maxp, cb)
+				-- Horizontal reservation check shared by emerge and the region the aqueduct opens.
+				in_reservation = function(minp, maxp)
 					local m = site.max_rect
-					if not (minp.x >= m.x1 and maxp.x <= m.x2 and minp.z >= m.z1 and maxp.z <= m.z2) then
-						return cb(false)
-					end
+					return type(minp) == "table" and type(maxp) == "table"
+						and minp.x >= m.x1 and maxp.x <= m.x2 and minp.z >= m.z1 and maxp.z <= m.z2
+				end,
+				-- Same ensure_loaded as the town build. Unlike the town's stage emerge (automatic_env) it is
+				-- not clipped to read_bounds; it is limited to max_rect instead. Newly generated chunks there
+				-- are recorded fresh by on_generated and villages are suppressed while the site inspects.
+				emerge = function(minp, maxp, cb)
+					if not context.aqueduct.in_reservation(minp, maxp) then return cb(false) end
 					return context.ensure_loaded(minp, maxp, cb)
 				end,
 				y_min = read and read.min and read.min.y,

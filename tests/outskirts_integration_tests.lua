@@ -1495,6 +1495,72 @@ do
 		eq(asum.aqueduct.status, "built", "async aqueduct: result recorded")
 	end
 
+	-- Automatic capability through the REAL wrapper path: the town's own env stays limited to
+	-- read_bounds, while the aqueduct's region is unrestricted inside the reservation (in_reservation)
+	-- and refused outside it. Uses the real aqueduct_step with a probing adapter.
+	do
+		local read_box = {min = {x = -50, y = -50, z = -50}, max = {x = 50, y = 50, z = 50}}
+		local wide = {min = {x = -500, y = -500, z = -500}, max = {x = 500, y = 500, z = 500}}
+		local raw_calls, town_env = {}, nil
+		local saved_core_env = towns.builder.core_env
+		towns.builder.core_env = function(...)
+			local e = saved_core_env(...)
+			e.open_region = function(a, b) raw_calls[#raw_calls + 1] = {a, b}; return {raw = true} end
+			town_env = e
+			return e
+		end
+		local probes
+		towns.aqueduct_step = {run = function(r, s, ctx, continue)
+			ctx.build = function(_, env, _, done)
+				probes = {
+					inside = env.open_region({min = {x = 100, y = 0, z = 100}, max = {x = 120, y = 5, z = 120}}),
+					outside = {env.open_region({min = {x = 100, y = 0, z = 100}, max = {x = 250, y = 5, z = 120}})},
+					get_node = env.get_node,
+				}
+				done({status = "skipped", reason = "probe"})
+			end
+			ctx.opts = ctx.opts or {}
+			real_step.run(r, s, ctx, continue)
+		end, make_env = real_step.make_env}
+		local reservation = {x1 = -245, z1 = -245, x2 = 245, z2 = 245}
+		core_watchdog = nil
+		local an = 0
+		towns.populated.build(roman_result("roman"), function() an = an + 1 end, {
+			read_bounds = read_box, write_bounds = wide,
+			ensure_loaded = function(_, _, cb) cb(true) end,
+			before_write = function() return true end,
+			check_ownership = function() return true end,
+			aqueduct = {authorize_strip = function() return true end,
+				in_reservation = function(a, b)
+					return a.x >= reservation.x1 and b.x <= reservation.x2 and a.z >= reservation.z1 and b.z <= reservation.z2
+				end},
+		})
+		if core_watchdog then core_watchdog(); core_watchdog = nil end
+		eq(an, 1, "wrapper path: town finishes once")
+		eq(probes ~= nil, true, "wrapper path: the aqueduct adapter ran")
+		eq(probes.inside ~= nil and probes.inside.raw, true, "wrapper path: region beyond read_bounds inside the reservation opens")
+		eq(probes.outside[1], nil, "wrapper path: region outside the reservation is refused")
+		eq(#raw_calls, 1, "wrapper path: only the in-reservation request reached the raw open_region")
+		eq(town_env.open_region({x = 100, y = 0, z = 100}, {x = 120, y = 5, z = 120}), nil,
+			"wrapper path: the town's own open_region is still limited to read_bounds")
+		eq(town_env.get_node(100, 0, 100), "ignore", "wrapper path: the town's get_node is still limited to read_bounds")
+		eq(probes.get_node, nil, "wrapper path: aqueduct env has no restricted get_node")
+		-- No in_reservation guard: every region is refused.
+		probes = nil
+		raw_calls = {}
+		towns.populated.build(roman_result("roman"), function() end, {
+			read_bounds = read_box, write_bounds = wide,
+			ensure_loaded = function(_, _, cb) cb(true) end,
+			before_write = function() return true end,
+			check_ownership = function() return true end,
+			aqueduct = {authorize_strip = function() return true end},
+		})
+		if core_watchdog then core_watchdog(); core_watchdog = nil end
+		eq(probes.inside, nil, "wrapper path: capability without in_reservation never opens a region")
+		eq(#raw_calls, 0, "wrapper path: nothing reached the raw open_region without a guard")
+		towns.builder.core_env = saved_core_env
+	end
+
 	-- Throwing finalize. A summary.town that rejects the `shortages` write makes
 	-- finalize throw after all writes.
 	do
