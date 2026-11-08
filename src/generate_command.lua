@@ -519,21 +519,24 @@ local function build(result, done, automatic_context)
 			return fail_writer("Automatic town build exceeded its approved write envelope.", nil,
 				{reason = "automatic_envelope", bounds = summary.automatic_envelope_excess})
 		end
+		local step = towns.aqueduct_step
+		if not step or not result.plan or result.plan.town_type ~= "roman" then
+			return finish(finalize(summary, result), message or "", nil)
+		end
 		if aqueduct_started then return end
 		aqueduct_started = true
 		-- The aqueduct (Roman towns only) is a cosmetic extra after the town is
 		-- final: it never fails the town and the continuation runs exactly once.
+		-- A finalize error may surface from a timer, outside any caller pcall, so
+		-- it fails the build here with the combined bounds of everything written.
 		local function proceed()
 			if completed then return end
 			local ok, err = pcall(function() finish(finalize(summary, result), message or "", nil) end)
 			if not ok and not completed then
 				core.log("error", "towns: finalizing the town failed: " .. tostring(err))
-				finish(nil, "Town finalization failed: " .. tostring(err), "write_failed",
-					{bounds = urban_bounds, reason = "finalize"})
+				fail_writer("Town finalization failed: " .. tostring(err), nil, {reason = "finalize"})
 			end
 		end
-		local step = towns.aqueduct_step
-		if not step or not result.plan or result.plan.town_type ~= "roman" then return proceed() end
 		local ok, err = pcall(function()
 			step.run(result, summary, aqueduct_context(env, automatic_context), proceed)
 		end)

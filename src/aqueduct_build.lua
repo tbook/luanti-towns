@@ -72,9 +72,15 @@ local function has_any(name, list)
 	return false
 end
 
+-- Name heuristic, exported so callers' env.is_vegetation can combine it with
+-- node groups instead of duplicating the lists.
+function M.is_vegetation_name(name)
+	return has_any(name, VEGETATION) and not has_any(name, GROUND)
+end
+
 local function is_vegetation(env, name)
 	if env.is_vegetation then return env.is_vegetation(name) and true or false end
-	return has_any(name, VEGETATION) and not has_any(name, GROUND)
+	return M.is_vegetation_name(name)
 end
 
 local function kind_of(env, name)

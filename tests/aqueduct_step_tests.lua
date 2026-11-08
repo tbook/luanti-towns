@@ -146,6 +146,21 @@ do
 	eq(env.is_vegetation("flower"), true, "flora group is vegetation")
 	eq(env.is_vegetation("stone"), false, "stone is not vegetation")
 	eq(env.is_vegetation("mystery"), false, "unknown groups are not vegetation")
+	local veg = step.make_env({emerge = function() end, open_region = function() end,
+		registered_nodes = {
+			["x:vines"] = {groups = {vines = 1}}, ["x:sap"] = {groups = {sapling = 1}},
+			["x:torch"] = {groups = {attached_node = 1}}, ["x:rock"] = {groups = {cracky = 1}},
+			["mcl_core:dirt_with_grass"] = {groups = {attached_node = 0}},
+			["mcl_core:vine"] = {}, ["mcl_core:podzol"] = {groups = {plant = 0}}}})
+	eq(veg.is_vegetation("x:vines"), true, "vines group is vegetation")
+	eq(veg.is_vegetation("x:sap"), true, "sapling group is vegetation")
+	eq(veg.is_vegetation("x:torch"), true, "attached_node group is vegetation")
+	eq(veg.is_vegetation("x:rock"), false, "plain stone is not vegetation")
+	eq(veg.is_vegetation("mcl_core:vine"), true, "vine name heuristic applies to registered nodes")
+	eq(veg.is_vegetation("mcl_flowers:tulip"), true, "unregistered names use the name heuristic")
+	eq(veg.is_vegetation("mcl_core:dirt_with_grass"), false, "dirt with grass is never vegetation")
+	eq(veg.is_vegetation("mcl_core:podzol"), false, "podzol is never vegetation")
+	eq(veg.is_vegetation("mcl_core:grass_block"), false, "_block nodes are never vegetation")
 	local plain = step.make_env({emerge = function() end, open_region = function() end})
 	eq(plain.is_vegetation, nil, "no registry: adapter name fallback")
 end

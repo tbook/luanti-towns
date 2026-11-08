@@ -27,7 +27,9 @@ local M = {}
 local source = debug.getinfo(1, "S").source:sub(2)
 local modpath = source:match("^(.*)/src/aqueduct_step.lua$") or "."
 
-local VEGETATION_GROUPS = {"leaves", "tree", "plant", "flora", "dig_by_water"}
+local adapter = dofile(modpath .. "/src/aqueduct_build.lua")
+local VEGETATION_GROUPS = {"leaves", "tree", "plant", "flora", "dig_by_water", "vines", "sapling",
+	"attached_node"}
 
 local function rect_ok(r)
 	return type(r) == "table" and type(r.x1) == "number" and type(r.z1) == "number"
@@ -68,10 +70,12 @@ function M.make_env(d)
 		set_node = d.set_node,
 	}
 	if registered then
+		-- Groups OR the adapter's name heuristic (dirt, podzol, mycelium and
+		-- "_block" nodes never count). Unregistered names use the heuristic alone.
 		env.is_vegetation = function(name)
+			if adapter.is_vegetation_name(name) then return true end
 			local def = registered[name]
-			if not def then return false end
-			local groups = def.groups or {}
+			local groups = def and def.groups or {}
 			for _, g in ipairs(VEGETATION_GROUPS) do
 				if (groups[g] or 0) > 0 then return true end
 			end
@@ -124,7 +128,7 @@ function M.run(result, summary, ctx, continue)
 			pending = {status = "skipped", reason = ctx.skip_reason or "no aqueduct capability"}
 			return
 		end
-		local build = ctx.build or dofile(modpath .. "/src/aqueduct_build.lua").build
+		local build = ctx.build or adapter.build
 		local opts = {ground_y = result.ground_y, footprints = M.footprints(result, summary)}
 		for _, k in ipairs({"y_min", "y_max", "timeout"}) do
 			if ctx.opts and ctx.opts[k] ~= nil then opts[k] = ctx.opts[k] end
