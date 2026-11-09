@@ -27,6 +27,9 @@
 --     bottom-half slab on each side wall at y = cb + 2, where that cell is air.
 --   * Arches: in each gap, a position p = 1..PIER_GAP below the channel bottom
 --     (ARCH below), clipped by the ground.
+--   * Town end: after trimming, the end moves toward the source (never
+--     lengthens) until r = (peak - n) % PIER_PITCH is 2..5: a whole pier, or a
+--     pier with at most a half arch. Never a partial pier or more than half an arch.
 --
 -- API: local aqueduct = dofile("src/aqueduct.lua")
 --   aqueduct.CONSTANTS
@@ -220,6 +223,16 @@ function M.profile(line, surface, footprints)
 		if r then town_n, why = n + 1, r end
 	end
 	if town_n > peak then return nil, "blocked at the source end (" .. why .. ")" end
+	-- The town end finishes with a whole pier (r = 2) or a pier and at most a
+	-- half arch (r = 3..5), where r = (peak - n) % PIER_PITCH counts from the
+	-- source end. Moving the end toward the source only shortens the line, so
+	-- trimmed cells stay trimmed. Applied before the length and rise checks.
+	local function end_ok(n)
+		local r = (peak - n) % P
+		return r >= 2 and r <= 5
+	end
+	while town_n <= peak and not end_ok(town_n) do town_n = town_n + 1 end
+	if town_n > peak then return nil, "no whole pier or half arch at the town end" end
 	local length = peak - town_n + 1
 	if length < C.MIN_LENGTH then
 		return nil, "length " .. length .. " below MIN_LENGTH" .. (why and (" after trim (" .. why .. ")") or "")

@@ -110,7 +110,8 @@ local valley = aq.plan_aqueduct(plan, field(function(x)
 	return y
 end))
 eq(valley ~= nil, true, "valley aqueduct is planned")
-eq(valley.profile.town_n, 0, "valley within MAX_PIER keeps the town end")
+-- Peak 49 has r = 9, so the end moves to column 4 (r = 5): a half arch.
+eq(valley.profile.town_n, 4, "valley end moves to a whole pier or half arch")
 eq(max_pier(valley.profile) > max_pier(flat.profile), true, "valley piers are taller")
 eq(max_pier(valley.profile) >= 12, true, "valley piers reach down into the dip")
 
@@ -132,7 +133,8 @@ local water_hill = aq.plan_aqueduct(plan, water_at({[70] = true}))
 eq(water_hill, nil, "water at the hill end rejects the line")
 local water_town, why_water = aq.plan_aqueduct(plan, water_at({[21] = true}))
 eq(water_town ~= nil, true, "water next to the town is trimmed, not rejected")
-eq(water_town and water_town.profile.town_n, 1, "water at the town end trims one column")
+-- Water trims to column 1 (r = 8), then the end moves outward to column 4 (r = 5).
+eq(water_town and water_town.profile.town_n, 4, "water at the town end moves the end to r = 5")
 eq(why_water, nil, "a trimmed result has no reason")
 
 -- Footprint trims the town end. The footprint sits on the first columns of
@@ -243,9 +245,9 @@ local function hill_on(side, rise, run)
 	end)
 end
 local mirror_cases = {
-	{side = "-x", dir = {x = -1, z = 0}, start = -1, spout = {-1, 1}, plug = {-51, 1}, cell3 = {-4, 1}},
-	{side = "+z", dir = {x = 0, z = 1}, start = 41, spout = {1, 41}, plug = {1, 91}, cell3 = {1, 44}},
-	{side = "-z", dir = {x = 0, z = -1}, start = -1, spout = {1, -1}, plug = {1, -51}, cell3 = {1, -4}},
+	{side = "-x", dir = {x = -1, z = 0}, start = -1, spout = {-5, 1}, plug = {-51, 1}, cell3 = {-4, 1}},
+	{side = "+z", dir = {x = 0, z = 1}, start = 41, spout = {1, 45}, plug = {1, 91}, cell3 = {1, 44}},
+	{side = "-z", dir = {x = 0, z = -1}, start = -1, spout = {1, -5}, plug = {1, -51}, cell3 = {1, -4}},
 }
 for _, case in ipairs(mirror_cases) do
 	local label = case.side .. ": "
@@ -257,7 +259,7 @@ for _, case in ipairs(mirror_cases) do
 		eq(line.dir.x, case.dir.x, label .. "direction x")
 		eq(line.dir.z, case.dir.z, label .. "direction z")
 		eq(line.start, case.start, label .. "start coordinate")
-		eq(r.profile.town_n, 0, label .. "town end kept")
+		eq(r.profile.town_n, 4, label .. "town end moved to r = 5 (peak 49)")
 		local x3, z3 = aq.cell(line, 3, 1)
 		eq(x3, case.cell3[1], label .. "cell x at column 3, lateral 1")
 		eq(z3, case.cell3[2], label .. "cell z at column 3, lateral 1")
@@ -306,7 +308,8 @@ local nil_at_40 = field(function(x)
 end)
 local nil_profile = aq.profile(east_first, nil_at_40)
 eq(nil_profile ~= nil, true, "line with a nil column still profiles")
-eq(nil_profile and nil_profile.town_n, 20, "nil surface value trims past its column")
+-- Trim to column 20 (r = 9), then the end moves outward to column 24 (r = 5).
+eq(nil_profile and nil_profile.town_n, 24, "nil surface value trims past its column, end at r = 5")
 
 -- Trimmed under MIN_RISE: the untrimmed rise is 14, but water on the town side
 -- trims the line to where the ground is 19 and the peak is 24 (a rise of 5).
@@ -321,7 +324,7 @@ local function plateau(water_to)
 	end)
 end
 local plateau_plain = aq.plan_aqueduct(plan, plateau(nil))
-eq(plateau_plain ~= nil and plateau_plain.profile.town_n, 0, "plateau without water plans from the town end")
+eq(plateau_plain ~= nil and plateau_plain.profile.town_n, 4, "plateau without water: end at r = 5")
 local plateau_trim, why_plateau = aq.plan_aqueduct(plan, plateau(69))
 eq(plateau_trim, nil, "trimmed rise below MIN_RISE is rejected")
 eq(why_plateau ~= nil and why_plateau:find("MIN_RISE", 1, true) ~= nil, true, "trimmed rise gives a MIN_RISE reason")
@@ -523,3 +526,65 @@ local deep = aq.plan_aqueduct(plan, east(50, 60))
 eq(deep ~= nil and deep.profile.town_n > 0, true, "pier over MAX_PIER trims the town end")
 eq(deep ~= nil and max_pier(deep.profile) <= C.MAX_PIER, true, "piers stay within MAX_PIER after the trim")
 eq(aq.plan_aqueduct(plan, east(5, 50)), nil, "min rise still enforced for the stepped geometry")
+
+-- Town end rule (PM follow-up): the last column has r = (peak - town_n) % 10
+-- in 2..5 (a whole pier, or a pier with at most a half arch), never a partial
+-- pier or more than half an arch. The end only moves toward the source.
+local function end_r(pr) return (pr.peak - pr.town_n) % C.PIER_PITCH end
+local sweep_plans, sweep_ok = 0, true
+for _, side in ipairs({"+x", "-x", "+z", "-z"}) do
+	for _, run in ipairs({25, 27, 30, 33, 36, 40, 44, 50, 55}) do
+		local r = aq.plan_aqueduct(plan, hill_on(side, 14, run))
+		if r then
+			sweep_plans = sweep_plans + 1
+			local rr = end_r(r.profile)
+			if rr < 2 or rr > 5 then sweep_ok = false end
+		end
+	end
+end
+eq(sweep_plans >= 30, true, "sweep: most sides and peaks plan")
+eq(sweep_ok, true, "sweep: the town end always has r in 2..5 on all four sides")
+
+-- Footprints beside the town trim the end; the moved end never lengthens the
+-- line, so it stays at or beyond the trimmed column (k + 2 for a footprint at
+-- x = 21 + k, whose margin blocks columns k - 1 .. k + 1).
+local fp_ok, fp_outward, fp_n = true, true, 0
+for k = 0, 8 do
+	local pr = aq.profile(east_first, east(14, 50), {{x1 = 21 + k, z1 = 0, x2 = 21 + k, z2 = 4}})
+	if pr then
+		fp_n = fp_n + 1
+		if end_r(pr) < 2 or end_r(pr) > 5 then fp_ok = false end
+		if pr.town_n < k + 2 then fp_outward = false end
+	end
+end
+eq(fp_n, 9, "footprint sweep: every trim still plans")
+eq(fp_ok, true, "footprint sweep: the end has r in 2..5")
+eq(fp_outward, true, "footprint sweep: the end moves only outward")
+
+-- A line already ending on r = 3 (peak 43) keeps its town end.
+local kept = aq.plan_aqueduct(plan, east(14, 44))
+eq(kept ~= nil and kept.profile.town_n, 0, "a line already ending on r = 3 is unchanged")
+
+-- The spout sits at the new town-end centre cell.
+local moved = aq.plan_aqueduct(plan, east(14, 50))
+eq(moved.spout.x, moved.profile.columns[1].x, "spout is at the new town-end column")
+eq(moved.spout.x, 21 + moved.profile.town_n, "spout moved with the end")
+
+-- Shortening below MIN_RISE: the untrimmed end sits on a rise of 14, but the
+-- moved end (column 4, ground 19) leaves a rise of 5 against the peak of 24.
+local shortened = field(function(x)
+	local d = math.min(math.max(x - 20, 0), 50)
+	if d <= 1 then return 10 end
+	if d <= 5 then return 19 end
+	if d < 30 then return 19 + math.floor((d - 5) / 5) end
+	return 24
+end)
+local short_pr, short_why = aq.profile(east_first, shortened)
+eq(short_pr, nil, "shortening to a rise under MIN_RISE rejects the candidate")
+eq(short_why ~= nil and short_why:find("MIN_RISE", 1, true) ~= nil, true, "rise rejection names MIN_RISE")
+eq(aq.plan_aqueduct(plan, shortened), nil, "no other candidate passes either")
+
+-- Shortening below MIN_LENGTH: a peak at column 20 (r = 0) moves the end to
+-- column 5, leaving 16 blocks.
+local short_len = aq.plan_aqueduct(plan, east(14, 21))
+eq(short_len, nil, "shortening below MIN_LENGTH rejects the candidate")
