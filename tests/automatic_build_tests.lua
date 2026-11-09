@@ -12,7 +12,7 @@ local site = {id = "one", version = 1, seed = 10, town_type = "roman", cell = {x
  center = {x = 0, z = 0}, max_rect = {x1 = -10, z1 = -10, x2 = 10, z2 = 10},
  activation_rect = {x1 = -10, z1 = -10, x2 = 10, z2 = 10}}
 local function fixture(case, kind)
- local f = {writes = 0, reports = {}, timers = {}, saved = nil, begin_count = 0, build_count = 0}
+ local f = {covers_calls = {}, writes = 0, reports = {}, timers = {}, saved = nil, begin_count = 0, build_count = 0}
  local saved_objects, serial = {}, 0
  local registry = records.new({store = {get = function() return f.saved end, set = function(_, v)
    if case == "storage" then return false end; f.saved = v end},
@@ -22,7 +22,8 @@ local function fixture(case, kind)
   set = function(_, v) f.saved = v end}, serialize = function(v) serial = serial + 1; saved_objects[tostring(serial)] = v; return tostring(serial) end,
   deserialize = function(v) return copy(saved_objects[v]) end}) end
  local state, covered = nil, true
- local session = {state = function() return state end, covers = function() return covered end,
+ local session = {state = function() return state end,
+  covers = function(_, id, b) f.covers_calls[#f.covers_calls + 1] = {id = id, box = b}; return covered end,
   finish = function() state = "complete" end, decline = function() state = "declined" end,
   on_generated = function() if state then return {} end; state = "inspecting"; return {{site = site}} end}
  local result = {center = site.center, ground_y = 5, plan = {}, read_envelope = box, write_envelope = box,
@@ -51,6 +52,7 @@ local function fixture(case, kind)
   site_search = {WET_DEFAULTS = {}, core_env = function() return {emerge = function(_, _, cb) cb(true) end} end},
   populated = {build = function(_, done, context)
    f.build_count = f.build_count + 1; gate, callback = context.before_write, done
+   f.context = context
    if case == "throw" then error("build failed") end
    if case == "late_clearance" then player = true end
    if case == "late_freshness" then covered = false end
@@ -68,6 +70,7 @@ local function fixture(case, kind)
  if case == "old" then covered = false end
  if case == "clearance" then player = true end
  pending(result); f.pending = pending; f.result = result; f.callback = function(...) if callback then callback(...) end end
+ f.set_covered = function(v) covered = v end; f.set_player = function(v) player = v end
  f.state = function() return state end; f.lock = towns.generation_lock; f.registry = registry
  return f
 end
@@ -118,3 +121,54 @@ eq(crash.lock.current(), nil, "actual completion releases the lock")
 crash.pending(nil, "late")
 crash.callback(nil, "late")
 eq(#crash.reports, 1, "late callbacks cannot settle a completed build twice")
+
+-- Aqueduct capability (#417 step 4).
+local strip = {min = {x = -5, y = 2, z = -5}, max = {x = 5, y = 8, z = 5}}
+local held = fixture("crash")
+local cap = held.context.aqueduct
+eq(type(cap.authorize_strip), "function", "roman automatic build supplies an aqueduct capability")
+eq(cap.y_min, box.min.y, "aqueduct y_min is the read envelope minimum")
+eq(cap.y_max, box.max.y, "aqueduct y_max is the read envelope maximum")
+held.covers_calls = {}
+eq(cap.authorize_strip(strip), true, "strip authorized when owned, covered and clear")
+eq(held.covers_calls[1].id, site.id, "authorize_strip asks the session about this site")
+eq(held.covers_calls[1].box, strip, "authorize_strip asks covers about the exact strip")
+held.set_covered(false)
+eq(cap.authorize_strip(strip), false, "uncovered strip is refused")
+held.set_covered(true)
+held.set_player(true)
+eq(cap.authorize_strip(strip), false, "player clearance failure refuses the strip")
+held.set_player(false)
+eq(cap.authorize_strip({}), false, "malformed strip is refused")
+local loads = {}
+held.context.ensure_loaded = function(a, b, cb) loads[#loads + 1] = {a, b}; cb(true) end
+eq(pcall(cap.emerge, {x = -10, y = 0, z = -10}, {x = 10, y = 5, z = 10}, function(ok) emerged = ok end), true, "emerge runs")
+eq(emerged, true, "emerge inside max_rect succeeds")
+eq(#loads, 1, "emerge inside max_rect goes through the town's ensure_loaded")
+emerged = nil
+cap.emerge({x = -10, y = 0, z = -10}, {x = 11, y = 5, z = 10}, function(ok) emerged = ok end)
+eq(emerged, false, "emerge outside max_rect is refused")
+eq(#loads, 1, "refused emerge never reaches ensure_loaded")
+eq(cap.in_reservation({x = -10, y = 0, z = -10}, {x = 10, y = 0, z = 10}), true, "in_reservation accepts max_rect")
+eq(cap.in_reservation({x = -10, y = 0, z = -10}, {x = 11, y = 0, z = 10}), false, "in_reservation refuses outside max_rect")
+eq(held.writes, 1, "capability use does not write")
+-- Ownership loss refuses the strip; the town record and write bounds are untouched.
+local summary = {town = {complete = true, residents = {failures = {}, interrupted_beds = {}}}, write_bounds = box,
+	aqueduct = {status = "skipped", reason = "strip not authorized"}}
+held.callback(summary)
+eq(held.reports[1].aqueduct, "skipped", "settle log includes the aqueduct status")
+eq(held.reports[1].aqueduct_reason, "strip not authorized", "settle log includes the skip reason")
+eq(held.reports[1].write_bounds, box, "aqueduct leaves write_bounds alone")
+eq(held.registry:lookup(site.cell).state, "complete", "aqueduct skip leaves the town complete")
+eq(cap.authorize_strip(strip), false, "strip refused after the job settled")
+local built = fixture("crash")
+built.callback({town = {complete = true, residents = {failures = {}, interrupted_beds = {}}}, write_bounds = box,
+	aqueduct = {status = "built"}})
+eq(built.reports[1].aqueduct, "built", "built status logged")
+eq(built.reports[1].aqueduct_reason, nil, "no reason when built")
+local lost = fixture("crash")
+local lost_cap = lost.context.aqueduct
+lost.lock.owns = function() return false end
+eq(lost_cap.authorize_strip(strip), false, "lost lock refuses the strip")
+local med = fixture("success", "medieval")
+eq(#med.reports, 1, "medieval automatic town still completes")

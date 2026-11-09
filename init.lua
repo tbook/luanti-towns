@@ -29,6 +29,9 @@ towns.city_margins = dofile(modpath .. "/src/city_margins.lua")
 towns.outskirts = dofile(modpath .. "/src/outskirts.lua")
 towns.outskirts_build = dofile(modpath .. "/src/outskirts_build.lua")
 
+-- Roman aqueduct (#417): pure planner, world adapter, and the build-pipeline step.
+towns.aqueduct_step = dofile(modpath .. "/src/aqueduct_step.lua")
+
 -- Post-placement initialization of functional nodes (#46); used by the
 -- /towns_generate only.
 towns.node_setup = dofile(modpath .. "/src/node_setup.lua")

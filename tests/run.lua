@@ -407,6 +407,11 @@ run_group("tests/outskirts_search_tests.lua", eq)
 run_group("tests/outskirts_build_tests.lua", eq)
 run_group("tests/outskirts_integration_tests.lua", eq)
 
+-- Roman aqueduct planner (issue #417, step 1): pure planning, not wired into the build.
+run_group("tests/aqueduct_tests.lua", eq)
+run_group("tests/aqueduct_build_tests.lua", eq)
+run_group("tests/aqueduct_step_tests.lua", eq)
+
 -- Jail reservation on street frontage (ticket #69).
 run_group("tests/jail_reservation_tests.lua", eq, fails, dofile("src/planner.lua"), catalog, geometry)
 
