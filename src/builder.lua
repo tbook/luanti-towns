@@ -765,8 +765,9 @@ function M.core_env(c, extras)
 			end
 			-- With the node setup adapter present the blanket constructors are
 			-- skipped; the adapter runs once, after every schematic is placed.
-			return extras.schematic.place(entry, b.min, b.rotation, extras.modpath,
-				extras.node_setup and {initialize = false} or nil)
+			local opts = {swaps = b.swaps}
+			if extras.node_setup then opts.initialize = false end
+			return extras.schematic.place(entry, b.min, b.rotation, extras.modpath, opts)
 		end,
 		node_info = function(name)
 			return placement.node_info(c.registered_nodes, name)

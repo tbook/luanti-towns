@@ -161,6 +161,10 @@ M.REACH_EDGE = 48
 -- nodes of water/ice are landfilled, up to a quarter of the footprint columns.
 M.WET_DEFAULTS = {max_water_depth = 6, max_wet_fraction = 0.25}
 
+-- Slightly more permissive terrain acceptance for automatic first-touch sites.
+-- Keep the manual command's wet defaults and terrain range unchanged.
+M.AUTOMATIC_DEFAULTS = {max_range = 20, max_water_depth = 10, max_wet_fraction = 0.25}
+
 local function constants(opts)
 	local C = {}
 	for k, v in pairs(M.CONSTANTS) do C[k] = v end

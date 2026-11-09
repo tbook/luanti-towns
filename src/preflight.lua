@@ -164,6 +164,14 @@ local function resolve(entries, ground_y, bounds, id, kind, role, rotation, rect
 	}
 end
 
+-- Colours a shared building's mcl_core:tree and mcl_core:wood become in a Roman town.
+M.ROMAN_TERRACOTTA = {
+	"mcl_colorblocks:hardened_clay", "mcl_colorblocks:hardened_clay_silver",
+	"mcl_colorblocks:hardened_clay_orange", "mcl_colorblocks:hardened_clay_grey",
+	"mcl_colorblocks:hardened_clay_yellow", "mcl_colorblocks:hardened_clay_white",
+	"mcl_colorblocks:hardened_clay_red",
+}
+
 function M.compose(plan, entries, ground_y)
 	if type(plan) ~= "table" or type(plan.sites) ~= "table" or type(plan.bounds) ~= "table" then
 		return nil, "plan is not a town plan", "bad_input"
@@ -218,6 +226,25 @@ function M.compose(plan, entries, ground_y)
 	for _, st in ipairs(list) do
 		if not min_y or st.min.y < min_y then min_y = st.min.y end
 		if not max_y or st.max.y > max_y then max_y = st.max.y end
+	end
+	if plan.town_type == "roman" and is_int(plan.seed) then
+		-- Buildings shared with the medieval world (not Roman-only imports,
+		-- not outdoor objects) get terracotta in place of trunk and planks:
+		-- an independent colour for each, per building, drawn from the town
+		-- seed in structure order.
+		local state = (plan.seed % 2147483646) + 1
+		for _ = 1, 8 do state = state * 48271 % 2147483647 end
+		local function colour()
+			state = state * 48271 % 2147483647
+			return M.ROMAN_TERRACOTTA[state % #M.ROMAN_TERRACOTTA + 1]
+		end
+		for _, st in ipairs(list) do
+			local e = entries[st.id]
+			if st.kind ~= "object" and type(e) == "table" and type(e.path) == "string"
+					and e.path:find("schematics/imports/roman/", 1, true) == nil then
+				st.swaps = {["mcl_core:tree"] = colour(), ["mcl_core:wood"] = colour()}
+			end
+		end
 	end
 	return {structures = list, min_y = min_y, max_y = max_y}
 end

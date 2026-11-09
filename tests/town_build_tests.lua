@@ -187,6 +187,43 @@ end
 do
 	local rplan = assert(planner.plan({x = 0, z = 0}, 1, {town_type = "roman"}))
 	local rcomp = assert(builder.preflight.compose(rplan, entries, GROUND_Y))
+	-- Terracotta swaps: shared (non-Roman-only) buildings get independent
+	-- tree and wood colours per building, deterministic from the seed;
+	-- Roman-only buildings and objects get none; medieval towns get none.
+	do
+		local known = {}
+		for _, c in ipairs(builder.preflight.ROMAN_TERRACOTTA) do known[c] = true end
+		local shared, differ, trees, woods = 0, false, {}, {}
+		for _, st in ipairs(rcomp.structures) do
+			local roman_only = entries[st.id] and entries[st.id].path:find("imports/roman/", 1, true)
+			if st.kind == "object" or roman_only then
+				eq(st.swaps, nil, "roman swaps: none on roman-only/object " .. st.id)
+			else
+				shared = shared + 1
+				eq(known[st.swaps["mcl_core:tree"]], true, "roman swaps: tree colour in list")
+				eq(known[st.swaps["mcl_core:wood"]], true, "roman swaps: wood colour in list")
+				trees[st.swaps["mcl_core:tree"]], woods[st.swaps["mcl_core:wood"]] = true, true
+				if st.swaps["mcl_core:tree"] ~= st.swaps["mcl_core:wood"] then differ = true end
+			end
+		end
+		eq(shared > 0, true, "roman swaps: some shared buildings")
+		eq(differ, true, "roman swaps: tree and wood differ independently")
+		local nt, nw = 0, 0
+		for _ in pairs(trees) do nt = nt + 1 end
+		for _ in pairs(woods) do nw = nw + 1 end
+		eq(nt > 1 and nw > 1, true, "roman swaps: colours vary between buildings")
+		local again = assert(builder.preflight.compose(rplan, entries, GROUND_Y))
+		for i, st in ipairs(again.structures) do
+			local o = rcomp.structures[i].swaps
+			eq(st.swaps and st.swaps["mcl_core:tree"], o and o["mcl_core:tree"], "roman swaps: deterministic tree")
+			eq(st.swaps and st.swaps["mcl_core:wood"], o and o["mcl_core:wood"], "roman swaps: deterministic wood")
+		end
+		local mplan = {}
+		for k, v in pairs(rplan) do mplan[k] = v end
+		mplan.town_type = "medieval"
+		local mcomp = assert(builder.preflight.compose(mplan, entries, GROUND_Y))
+		for _, st in ipairs(mcomp.structures) do eq(st.swaps, nil, "medieval: no swaps") end
+	end
 	local heights = {}
 	for _, c in ipairs(ss.boundary_columns(rplan.boundary.rects)) do
 		heights[c.x] = heights[c.x] or {}
@@ -621,4 +658,32 @@ do
 	w5.env.setup_nodes = function() ran = true; return report() end
 	builder.build_town(make_result(), {entries = entries, log = false}, w5.env)
 	eq(ran, false, "no setup after a failed placement")
+end
+
+-- schematic.place applies opts.swaps to placed nodes (Roman terracotta).
+do
+	local saved, saved_vector = rawget(_G, "core"), rawget(_G, "vector")
+	local world = {}
+	vector = {add = function(a, b) return {x = a.x + b.x, y = a.y + b.y, z = a.z + b.z} end}
+	core = {
+		read_schematic = function() return {size = {x = 2, y = 1, z = 1}} end,
+		place_schematic = function()
+			world["0,0,0"] = {name = "mcl_core:tree", param2 = 4}
+			world["1,0,0"] = {name = "mcl_core:wood", param2 = 0}
+			return true
+		end,
+		get_node = function(p) return world[p.x .. "," .. p.y .. "," .. p.z] or {name = "air"} end,
+		swap_node = function(p, n) world[p.x .. "," .. p.y .. "," .. p.z] = n end,
+		get_item_group = function() return 0 end,
+		registered_nodes = {},
+	}
+	local sch = dofile("src/schematic.lua")
+	sch.validate = function() return true end
+	local ok = sch.place({path = "x.mts"}, {x = 0, y = 0, z = 0}, 0, ".",
+		{initialize = false, swaps = {["mcl_core:tree"] = "mcl_colorblocks:hardened_clay_red",
+			["mcl_core:wood"] = "mcl_colorblocks:hardened_clay_silver"}})
+	eq(ok, true, "schematic swaps: placed")
+	eq(world["0,0,0"].name, "mcl_colorblocks:hardened_clay_red", "schematic swaps: tree replaced")
+	eq(world["1,0,0"].name, "mcl_colorblocks:hardened_clay_silver", "schematic swaps: wood replaced")
+	core, vector = saved, saved_vector
 end

@@ -46,7 +46,7 @@ return function(towns, core, vars)
 	local function start(site, trigger)
 		local job = {site = site, started = now(), chunks = 0, suppressed = 0, clearance = false,
 			load_seconds = 0, inspection_seconds = 0, snapshot_voxels = 0}
-		local function settle(result, reason, code, summary, extra)
+		local function settle(result, reason, code, summary, extra, inspection_details)
 			if job.done then return end
 			job.done = true
 			local outcome = result and (mode == "survey" and "surveyed" or "complete") or "declined"
@@ -63,6 +63,9 @@ return function(towns, core, vars)
 			if job.token then towns.generation_lock.release(job.token) end
 			core.log("action", "[towns] " .. (mode == "survey" and "survey " or "automatic ") .. core.write_json({id = site.id,
 				outcome = outcome, reason = code or reason or "ok",
+				message = reason,
+				inspection_rejections = inspection_details and inspection_details.rejections,
+				inspection_examples = inspection_details and inspection_details.examples,
 				chunks = job.chunks, elapsed_seconds = now() - job.started, load_seconds = job.load_seconds,
 				inspection_seconds = job.inspection_seconds, snapshot_voxels = job.snapshot_voxels,
 				clearance = job.clearance, suppressed_villages = job.suppressed,
@@ -87,7 +90,7 @@ return function(towns, core, vars)
 			opts.planner_opts.landmarks = assert(towns.planner.landmark_profile(towns.catalog.snapshot()))
 			opts.planner_opts.wall_feature_entries = towns.catalog.entries
 		end
-		for k, v in pairs(towns.site_search.WET_DEFAULTS) do opts[k] = v end
+		for k, v in pairs(towns.site_search.AUTOMATIC_DEFAULTS or towns.site_search.WET_DEFAULTS) do opts[k] = v end
 		local world = towns.site_search.core_env(core)
 		local emerge = world.emerge
 		world.emerge = function(minp, maxp, cb)
@@ -116,9 +119,9 @@ return function(towns, core, vars)
 				if envelope then job.snapshot_voxels = envelope.snapshot_voxels end
 				return envelope, why, code
 			end}))
-		local function loaded(result, reason, code)
+		local function loaded(result, reason, code, inspection_details)
 			if job.done then return end
-			if not result or mode == "survey" then return settle(result, reason, code) end
+			if not result or mode == "survey" then return settle(result, reason, code, nil, nil, inspection_details) end
 			local function checked()
 				if job.done or not towns.generation_lock.owns(job.token) or towns.auto_disabled
 						or not guard:check() then return false, "ownership or village guard lost" end

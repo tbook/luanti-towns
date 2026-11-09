@@ -170,7 +170,7 @@ function M:start(site, trigger, done)
 		requested = {}, completed = {}, in_flight = false, serial = 0, ref_y = nil}
 	self.jobs[site.id] = job
 
-	local function finish(result, reason, code)
+	local function finish(result, reason, code, details)
 		if job.terminal then return end
 		job.terminal = true
 		job.serial = job.serial + 1 -- invalidate any late emerge callback
@@ -186,7 +186,7 @@ function M:start(site, trigger, done)
 		job.ref_y, job.load_failure = nil, nil
 		-- Successful loading is a handoff to the future builder. Keep session freshness alive
 		-- until that owner records the eventual build or decline.
-		local ok, err = pcall(callback, result, reason, code)
+		local ok, err = pcall(callback, result, reason, code, details)
 		if not ok and self.env.log then pcall(self.env.log, "error", "auto_loader completion raised: " .. tostring(err)) end
 	end
 
@@ -266,8 +266,8 @@ function M:start(site, trigger, done)
 		pump()
 	end
 
-	local function fail(reason, code)
-		finish(nil, reason or "Automatic town inspection could not load fresh terrain.", code or "load_failed")
+	local function fail(reason, code, details)
+		finish(nil, reason or "Automatic town inspection could not load fresh terrain.", code or "load_failed", details)
 	end
 
 	local center_data = self.session:center(site.id)
@@ -299,7 +299,7 @@ function M:start(site, trigger, done)
 		local function inspected(result, reason, details)
 			if called or job.terminal then return end
 			called = true
-			if not result then return fail(reason, job.load_failure or (details and details.reason) or "inspection_failed") end
+			if not result then return fail(reason, job.load_failure or (details and details.reason) or "inspection_failed", details) end
 			result.reference_y = ref_y
 			local ok, envelope, why, code = pcall(self.envelope, result, site, ref_y)
 			if not ok then return fail("Could not calculate the approved site envelope: " .. tostring(envelope), "envelope_failed") end
