@@ -103,10 +103,23 @@ eq(res[1].length >= aq.CONSTANTS.MIN_LENGTH, true, "built length is reported")
 eq(res[1].nodes, #env.writes, "node count matches writes")
 eq(env.commits, 1, "exactly one commit")
 eq(env.commit_at, #env.writes, "commit comes after every set")
-eq(#env.set_nodes, 1, "one spout node")
-eq(env.set_nodes[1].after_commit, 1, "spout written after the commit")
-eq(env.set_nodes[1].node.name, aq.FLOW, "spout is flowing water")
-eq(env.set_nodes[1].pos.x, res[1].spout.x, "spout position reported")
+-- Late writes: the spout and every source are re-set after the commit.
+local flows, sources_set, late_after = 0, 0, true
+for _, s in ipairs(env.set_nodes) do
+	if s.after_commit ~= 1 then late_after = false end
+	if s.node.name == aq.FLOW then
+		flows = flows + 1
+		eq(s.pos.x, res[1].spout.x, "spout position reported")
+		eq(s.pos.z, res[1].spout.z, "spout z reported")
+	elseif s.node.name == aq.SOURCE then
+		sources_set = sources_set + 1
+	end
+end
+eq(late_after, true, "late writes happen after the commit")
+eq(flows, 1, "one spout re-set")
+eq(sources_set > 0, true, "sources are re-set")
+eq(sources_set, res[1].sources_written, "sources_written counts the re-sets")
+eq(#env.set_nodes, sources_set + 1, "only sources and the spout are re-set")
 eq(res[1].spout_written, true, "spout write reported")
 eq(env.timer_fn ~= nil, true, "timeout timer is armed")
 local inbox = true
@@ -187,6 +200,17 @@ env = make({set_node_throws = true})
 res = run(env)
 eq(res[1].status, "built", "spout failure still reports built")
 eq(res[1].spout_written, false, "spout failure is reported")
+eq(res[1].sources_written, 0, "source failures are counted, not fatal")
+
+-- A protected source position (a late write) skips the whole aqueduct.
+local probe = make()
+local first = run(probe)[1]
+env = make({protected = function(p)
+	return p.x == first.source.x and p.y == first.source.y and p.z == first.source.z
+end})
+res = run(env)
+eq(res[1].status, "skipped", "protected source position skips")
+eq(#env.writes + env.commits + #env.set_nodes, 0, "protected source writes nothing")
 
 -- Planner rejection reasons: water and footprints.
 env = make({special = function(x, z) if x >= 25 and x <= 90 then return {ground_at(x), "mcl_core:water_source"} end end})

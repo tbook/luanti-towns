@@ -39,24 +39,29 @@ end
 local function max_pier(profile)
 	local m = 0
 	for _, col in ipairs(profile.columns) do
-		if col.pier then m = math.max(m, col.channel_y - 2 - col.ground) end
+		if col.pier then m = math.max(m, col.bottom_y - 1 - col.ground) end
 	end
 	return m
 end
 
--- Constants: the starting values from issue #417.
+-- Constants: the values from issue #417 (pier-and-channel redesign).
 eq(C.MAX_LENGTH, 100, "max length")
 eq(C.MIN_LENGTH, 24, "min length")
 eq(C.MIN_RISE, 6, "min rise")
-eq(C.DROP_EVERY, 11, "drop every")
-eq(C.PIER_SPACING, 4, "pier spacing")
-eq(C.MAX_PIER, 15, "max pier")
-eq(C.WIDTH, 5, "width")
+eq(C.PIER_PITCH, 10, "pier pitch")
+eq(C.PIER_SIZE, 3, "pier size")
+eq(C.PIER_GAP, 7, "pier gap")
+eq(C.DROP_EVERY, C.PIER_PITCH, "drop every equals the pier pitch")
+eq(C.SOURCE_COUNT, 4, "source count")
+eq(C.SIDE_SLAB_LENGTH, 5, "side slab length")
+eq(C.MAX_PIER, 22, "max pier")
+eq(C.WIDTH, 3, "width")
+eq(C.PIER_SPACING, nil, "old pier spacing is gone")
 
 -- Candidates: one line per side and lateral offset alongside the edge.
--- The 20 x 40 town has 37 offsets on the east and west edges, 17 on north and south.
+-- The 20 x 40 town has 39 offsets on the east and west edges, 19 on north and south.
 local lines = aq.candidates(plan)
-eq(#lines, 2 * 37 + 2 * 17, "candidate count")
+eq(#lines, 2 * 39 + 2 * 19, "candidate count")
 local east_first
 for _, line in ipairs(lines) do
 	if line.side == "+x" and line.offset == 0 then east_first = line end
@@ -149,16 +154,18 @@ eq(cols[#cols].channel_y - cols[1].channel_y, math.floor((base.peak - base.town_
 	"total channel drop over the line")
 eq(cols[#cols].channel_y, base.source.y, "channel at the source is the source height")
 
--- Piers stand only on PIER_SPACING columns, and at least one exists on this line.
-local pier_count, pier_spacing_ok = 0, true
+-- Piers: 3 blocks of column at each pitch of 10 from the source end, so the
+-- first column is the source column itself. Each column tops out at cb - 1.
+local pier_count, pier_pattern_ok = 0, true
 for _, col in ipairs(cols) do
-	if col.pier then
-		pier_count = pier_count + 1
-		if col.n % C.PIER_SPACING ~= 0 then pier_spacing_ok = false end
-	end
+	local s = base.peak - col.n
+	local expect_pier = s % C.PIER_PITCH < C.PIER_SIZE
+	if col.pier ~= expect_pier then pier_pattern_ok = false end
+	if col.pier then pier_count = pier_count + 1 end
 end
 eq(pier_count > 0, true, "piers exist on the rising line")
-eq(pier_spacing_ok, true, "piers only on PIER_SPACING columns")
+eq(pier_pattern_ok, true, "piers at 3 of every 10 columns from the source end")
+eq(cols[#cols].pier, true, "source column carries a pier")
 
 -- Spout: one flowing node, outside the town.
 local result = aq.plan_aqueduct(plan, east(14, 50))
@@ -172,9 +179,9 @@ for _, c in ipairs(result.changes) do
 end
 eq(flowing, 1, "exactly one flowing node")
 
--- Changes: source water in the channel, cobble walls and slab caps, a source box
+-- Changes: source water in the channel, cobble walls and slabs, a source box
 -- at the hill end, and a write box that covers every change.
-local allowed = {[aq.AIR] = true, [aq.WALL] = true, [aq.CAP] = true, [aq.SOURCE] = true, [aq.FLOW] = true}
+local allowed = {[aq.AIR] = true, [aq.WALL] = true, [aq.SLAB] = true, [aq.SIDE_SLAB] = true, [aq.SOURCE] = true, [aq.FLOW] = true}
 local names, sources, unexpected = {}, 0, 0
 for _, c in ipairs(result.changes) do
 	names[c.name] = true
@@ -182,7 +189,7 @@ for _, c in ipairs(result.changes) do
 	if not allowed[c.name] then unexpected = unexpected + 1 end
 end
 eq(names[aq.WALL], true, "cobble used")
-eq(names[aq.CAP], true, "slab caps used")
+eq(names[aq.SLAB], true, "top slabs used (arches)")
 eq(sources > 0, true, "channel holds water source nodes")
 eq(unexpected, 0, "only the aqueduct's own node names")
 local box_ok = true
@@ -236,9 +243,9 @@ local function hill_on(side, rise, run)
 	end)
 end
 local mirror_cases = {
-	{side = "-x", dir = {x = -1, z = 0}, start = -1, spout = {-1, 2}, plug = {-51, 2}, cell3 = {-4, 1}},
-	{side = "+z", dir = {x = 0, z = 1}, start = 41, spout = {2, 41}, plug = {2, 91}, cell3 = {1, 44}},
-	{side = "-z", dir = {x = 0, z = -1}, start = -1, spout = {2, -1}, plug = {2, -51}, cell3 = {1, -4}},
+	{side = "-x", dir = {x = -1, z = 0}, start = -1, spout = {-1, 1}, plug = {-51, 1}, cell3 = {-4, 1}},
+	{side = "+z", dir = {x = 0, z = 1}, start = 41, spout = {1, 41}, plug = {1, 91}, cell3 = {1, 44}},
+	{side = "-z", dir = {x = 0, z = -1}, start = -1, spout = {1, -1}, plug = {1, -51}, cell3 = {1, -4}},
 }
 for _, case in ipairs(mirror_cases) do
 	local label = case.side .. ": "
@@ -331,3 +338,188 @@ eq(why_box ~= nil and why_box:find("source box blocked", 1, true) ~= nil, true,
 local _, why_box_fp = aq.plan_aqueduct(plan, east(14, 50), {{x1 = 71, z1 = 0, x2 = 71, z2 = 40}})
 eq(why_box_fp ~= nil and why_box_fp:find("source box blocked", 1, true) ~= nil, true,
 	"footprint in the source box column rejects")
+
+-- Geometry v2 (PM redesign). A stepped ground profile shows piers, arch depths,
+-- clipping, absence over ground and the side lips on one line. Distance from
+-- the town edge is d (d = 1 at the first column). Ground: 10 for d <= 29, 21 for
+-- d = 30..34, 23 for d = 35..43, 24 from d = 44. The first maximum is d = 44, so
+-- the source is line column 43 and s = distance from the source = 44 - d.
+local DIST = {["+x"] = function(x) return x - 20 end, ["-x"] = function(x) return -x end,
+	["+z"] = function(_, z) return z - 40 end, ["-z"] = function(_, z) return -z end}
+local function stepped_on(side)
+	return field(function(x, z)
+		local d = DIST[side](x, z)
+		if d <= 29 then return 10 end
+		if d <= 34 then return 21 end
+		if d <= 43 then return 23 end
+		return 24
+	end)
+end
+
+local function by_s(profile)
+	local map = {}
+	for _, col in ipairs(profile.columns) do map[col.s] = col end
+	return map
+end
+
+local stepped = aq.plan_aqueduct(plan, stepped_on("+x"))
+eq(stepped ~= nil, true, "stepped hill is planned")
+local P = stepped.profile
+eq(P.peak, 43, "stepped source is line column 43")
+eq(P.town_n, 0, "stepped line keeps the town end")
+local S = by_s(P)
+local map = index(stepped.changes)
+-- Name of the change at column col, lateral l, height y (nil when none).
+local function at(col, l, y)
+	local g = col.cells[l]
+	local c = map[g.x .. ":" .. y .. ":" .. g.z]
+	return c and c.name
+end
+
+-- Channel step: one block down at each period start, bottom constant inside.
+eq(S[9].bottom_y, 24, "period 0 bottom")
+eq(S[10].bottom_y, 23, "period 1 bottom is one lower")
+eq(S[19].bottom_y, 23, "period 1 bottom holds to its last block")
+eq(S[20].bottom_y, 22, "period 2 bottom is one lower again")
+
+-- Piers: 3 x 3 columns from the ground to cb - 1, at s = 10..12 (period 1).
+for l = 0, C.WIDTH - 1 do
+	eq(at(S[11], l, 22), aq.WALL, "pier fills up to cb - 1 at lateral " .. l)
+end
+-- Channel cross-section at s = 15 (gap, period 1, cb = 23): solid bottom row,
+-- cobble walls at l = 0 and 2 on the water row, open centre.
+for l = 0, C.WIDTH - 1 do
+	eq(at(S[15], l, 23), aq.WALL, "bottom row is solid at lateral " .. l)
+end
+eq(at(S[15], 0, 24), aq.WALL, "wall at lateral 0 on the water row")
+eq(at(S[15], 2, 24), aq.WALL, "wall at lateral 2 on the water row")
+eq(at(S[15], 1, 24), aq.AIR, "centre is open at s = 15 (not a source)")
+
+-- Arch depths across a gap (p = s % 10 - 2): 2, 1, slab, 0, slab, 1, 2 below cb.
+-- Period 1: cb = 23, arches at y = 22 and 21. s = 13..14 sit on ground 21, so
+-- the arch is clipped there at y = 21.
+local profile_expect = {
+	[13] = {22, aq.WALL, 21, nil},   -- p = 1, ground 21 clips the second block
+	[14] = {22, aq.WALL, 21, nil},   -- p = 2, one block (ground clip at 21)
+	[15] = {22, aq.SLAB, 21, nil},   -- p = 3, top slab
+	[16] = {22, nil, 21, nil},       -- p = 4, nothing
+	[17] = {22, aq.SLAB, 21, nil},   -- p = 5, top slab
+	[18] = {22, aq.WALL, 21, nil},   -- p = 6, one block
+	[19] = {22, aq.WALL, 21, aq.WALL}, -- p = 7, two blocks
+}
+for s = 13, 19 do
+	local e = profile_expect[s]
+	for l = 0, C.WIDTH - 1 do
+		eq(at(S[s], l, e[1]), e[2], "arch s=" .. s .. " y=22 lateral " .. l)
+		eq(at(S[s], l, e[3]), e[4], "arch s=" .. s .. " y=21 lateral " .. l)
+	end
+end
+-- Absent where the channel sits in the ground (s = 3..9, ground 23 = cb - 1).
+for s = 3, 9 do
+	for l = 0, C.WIDTH - 1 do
+		eq(at(S[s], l, 23), nil, "no arch over ground at s=" .. s)
+		eq(at(S[s], l, 22), nil, "no arch below ground at s=" .. s)
+	end
+end
+
+-- Sources: the first SOURCE_COUNT (4) blocks of each period, centre only.
+-- The spout is the town-end column (s = 43) and takes precedence.
+local source_ok, open_ok = true, true
+for s = 0, 42 do
+	local water = S[s].channel_y
+	if s % 10 < 4 then
+		if at(S[s], 1, water) ~= aq.SOURCE then source_ok = false end
+	else
+		if at(S[s], 1, water) ~= aq.AIR then open_ok = false end
+	end
+end
+eq(source_ok, true, "sources at the first four blocks of every period")
+eq(open_ok, true, "remaining centre cells are open")
+eq(at(S[43], 1, S[43].channel_y), aq.FLOW, "spout at the town-end centre")
+
+-- Side lips: bottom-half slab at cb + 2 on both walls for the first 5 blocks of
+-- each period, only where that cell is air.
+local lip_ok = true
+for s = 0, 43 do
+	local col = S[s]
+	for _, l in ipairs({0, 2}) do
+		local want = s % 10 < 5 and col.bottom_y + 2 > col.cells[l].y
+		local got = at(col, l, col.bottom_y + 2) == aq.SIDE_SLAB
+		if want ~= got then lip_ok = false end
+	end
+end
+eq(lip_ok, true, "side slabs on the first 5 blocks of each period, both walls")
+eq(at(S[0], 0, 26), aq.SIDE_SLAB, "side slab at cb + 2 = 26 on the source period")
+eq(stepped.box.max.y >= 26, true, "write box includes cb + 2")
+
+-- Late writes: exactly the sources plus the spout, all inside the write box.
+local late_sources, late_spouts, late_inside = 0, 0, true
+for _, w in ipairs(stepped.late) do
+	if w.role == "source" then late_sources = late_sources + 1 end
+	if w.role == "spout" then late_spouts = late_spouts + 1 end
+	local b = stepped.box
+	if w.x < b.min.x or w.x > b.max.x or w.y < b.min.y or w.y > b.max.y or w.z < b.min.z or w.z > b.max.z then
+		late_inside = false
+	end
+end
+local want_sources = 0
+for s = 0, 42 do if s % 10 < 4 then want_sources = want_sources + 1 end end
+eq(late_sources, want_sources, "late sources: first four blocks of each period")
+eq(late_spouts, 1, "one late spout")
+eq(#stepped.late, want_sources + 1, "late list is exactly sources plus spout")
+eq(late_inside, true, "late writes lie inside the write box")
+
+-- SOURCE_COUNT >= PIER_PITCH fills every channel cell; SIDE_SLAB_LENGTH = 0
+-- removes the lips. Both are restored afterwards.
+C.SOURCE_COUNT = 10
+local all_src = aq.changes(P)
+local every = true
+for s = 0, 42 do
+	local name
+	for _, c in ipairs(all_src) do
+		if c.x == S[s].cells[1].x and c.y == S[s].channel_y and c.z == S[s].cells[1].z then name = c.name end
+	end
+	if name ~= aq.SOURCE then every = false end
+end
+C.SOURCE_COUNT = 4
+eq(every, true, "SOURCE_COUNT = 10 gives a source in every channel cell")
+
+C.SIDE_SLAB_LENGTH = 0
+local no_lips = true
+for _, c in ipairs((aq.changes(P))) do
+	if c.name == aq.SIDE_SLAB then no_lips = false end
+end
+C.SIDE_SLAB_LENGTH = 5
+eq(no_lips, true, "SIDE_SLAB_LENGTH = 0 removes the side slabs")
+
+-- Orientation: the same geometry on each side, read back through cell().
+for _, side in ipairs({"+x", "-x", "+z", "-z"}) do
+	local r = aq.plan_aqueduct(plan, stepped_on(side))
+	local label = side .. ": "
+	eq(r ~= nil and r.side, side, label .. "stepped hill on this side is chosen")
+	if r then
+		local line = r.profile.line
+		local rmap = index(r.changes)
+		local ok = true
+		for _, col in ipairs(r.profile.columns) do
+			local x, z = aq.cell(line, col.n, 1)
+			local got = rmap[x .. ":" .. col.channel_y .. ":" .. z]
+			local is_spout = col == r.profile.columns[1]
+			local is_src = col.s % 10 < 4 and not is_spout
+			local want = is_spout and aq.FLOW or (is_src and aq.SOURCE or aq.AIR)
+			if not got or got.name ~= want then ok = false end
+			local lx, lz = aq.cell(line, col.n, 0)
+			local lip = col.s % 10 < 5 and col.bottom_y + 2 > col.ground
+			local lip_cell = rmap[lx .. ":" .. (col.bottom_y + 2) .. ":" .. lz]
+			if lip and not (lip_cell and lip_cell.name == aq.SIDE_SLAB) then ok = false end
+		end
+		eq(ok, true, label .. "sources, spout and lips follow the line's cells")
+	end
+end
+
+-- Pier trimming at MAX_PIER = 22: a deep drop near the town end trims, and no
+-- pier column left on the line is taller than MAX_PIER.
+local deep = aq.plan_aqueduct(plan, east(50, 60))
+eq(deep ~= nil and deep.profile.town_n > 0, true, "pier over MAX_PIER trims the town end")
+eq(deep ~= nil and max_pier(deep.profile) <= C.MAX_PIER, true, "piers stay within MAX_PIER after the trim")
+eq(aq.plan_aqueduct(plan, east(5, 50)), nil, "min rise still enforced for the stepped geometry")

@@ -1,18 +1,32 @@
--- Roman aqueduct planner (issue #417, step 1): a procedural pier-and-channel
--- aqueduct that runs straight out from one side of a town toward the highest
--- hill within MAX_LENGTH. Pure Lua: no Minetest globals at load and no world
--- access. Every answer about the world comes from the `surface` and
--- `footprints` arguments, so the same code runs under plain Lua 5.1 tests and
--- in the game. Nothing here writes, and no caller uses this module yet.
+-- Roman aqueduct planner (issue #417): a procedural pier-and-channel aqueduct
+-- that runs straight out from one side of a town toward the highest hill within
+-- MAX_LENGTH. Pure Lua: no Minetest globals at load and no world access. Every
+-- answer about the world comes from the `surface` and `footprints` arguments, so
+-- the same code runs under plain Lua 5.1 tests and in the game. Nothing here
+-- writes; src/aqueduct_build.lua applies the result.
 --
 -- Conventions (shared with the existing modules):
 --   rect  {x1, z1, x2, z2}                   inclusive, horizontal
 --   box   {min = {x, y, z}, max = {x, y, z}} inclusive
 --
 -- Geometry. A line starts at the first column outside the town bounds on one
--- side (index n = 0) and runs outward for MAX_LENGTH columns. Each column is
--- WIDTH cells wide (lateral index l = 0..WIDTH-1, from the line's `offset`).
--- Cells 0 and WIDTH-1 are the walls, the others are water.
+-- side (column n = 0, the town end) and runs outward for MAX_LENGTH columns.
+-- Each column is WIDTH = 3 cells wide; lateral index l = 0..2 with the centre
+-- at l = 1 (the spec's l = -1, 0, +1). Let s = distance from the source end
+-- (s = peak - n), period k = floor(s / PIER_PITCH), and cb = channel bottom.
+--   * cb is constant within each period and drops 1 block per period toward
+--     the town (DROP_EVERY = PIER_PITCH).
+--   * Piers: 3 x 3 cobble columns at s % PIER_PITCH < PIER_SIZE, from the ground
+--     up to cb - 1. Gaps of PIER_GAP columns sit between them.
+--   * Channel: bottom row y = cb is cobble across all 3 cells. Water row
+--     y = cb + 1 has cobble walls at l = 0 and l = 2 and an open centre l = 1.
+--     Sources sit in the centre for the first SOURCE_COUNT blocks of each period
+--     (s % PIER_PITCH < SOURCE_COUNT); the rest of the centre stays open. The
+--     spout is the centre cell of the town-end column.
+--   * Side lips: for the first SIDE_SLAB_LENGTH blocks of each period, a
+--     bottom-half slab on each side wall at y = cb + 2, where that cell is air.
+--   * Arches: in each gap, a position p = 1..PIER_GAP below the channel bottom
+--     (ARCH below), clipped by the ground.
 --
 -- API: local aqueduct = dofile("src/aqueduct.lua")
 --   aqueduct.CONSTANTS
@@ -26,8 +40,10 @@
 --       terrain or vegetation (replaced), anything else is an obstruction.
 --   aqueduct.profile(line, surface, footprints) -> profile | nil, reason
 --       Trims the town end past any water, obstruction, footprint (with a
---       FOOTPRINT_MARGIN) or pier taller than MAX_PIER, then checks MIN_LENGTH.
---   aqueduct.changes(profile) -> list of {x, y, z, name, param2}, write box
+--       FOOTPRINT_MARGIN) or pier taller than MAX_PIER, then checks MIN_LENGTH
+--       and MIN_RISE.
+--   aqueduct.changes(profile) -> list of {x, y, z, name, param2}, write box,
+--       late list (sources and spout, each with role "source" or "spout")
 --   aqueduct.plan_aqueduct(plan, surface, footprints) -> result | nil, reason
 --       At most one aqueduct: the best ranked line whose profile passes.
 local M = {}
@@ -36,19 +52,37 @@ M.CONSTANTS = {
 	MAX_LENGTH = 100,
 	MIN_LENGTH = 24,
 	MIN_RISE = 6,
-	DROP_EVERY = 11,
-	PIER_SPACING = 4,
-	MAX_PIER = 15,
-	WIDTH = 5,
+	PIER_PITCH = 10,
+	PIER_SIZE = 3,
+	PIER_GAP = 7,
+	DROP_EVERY = 10,
+	SOURCE_COUNT = 4,
+	SIDE_SLAB_LENGTH = 5,
+	MAX_PIER = 22,
+	WIDTH = 3,
 	FOOTPRINT_MARGIN = 1,
 }
 local C = M.CONSTANTS
 
 M.WALL = "mcl_core:cobble"
-M.CAP = "mcl_stairs:slab_cobble_top"
+M.SLAB = "mcl_stairs:slab_cobble_top"
+M.SIDE_SLAB = "mcl_stairs:slab_cobble"
 M.SOURCE = "mcl_core:water_source"
 M.FLOW = "mcl_core:water_flowing"
 M.AIR = "air"
+
+-- Arch fill by position p = 1..PIER_GAP across a gap: {dy, name} rows below the
+-- channel bottom (dy = -1 is y = cb - 1). Symmetric, so the count direction
+-- does not matter.
+M.ARCH = {
+	[1] = {{-1, M.WALL}, {-2, M.WALL}},
+	[2] = {{-1, M.WALL}},
+	[3] = {{-1, M.SLAB}},
+	[4] = {},
+	[5] = {{-1, M.SLAB}},
+	[6] = {{-1, M.WALL}},
+	[7] = {{-1, M.WALL}, {-2, M.WALL}},
+}
 
 -- Sides in a fixed order, so ranking ties resolve the same way every time.
 local SIDES = {
@@ -129,13 +163,14 @@ local function in_footprint(x, z, footprints)
 end
 
 -- Profile of one line. The source is the highest centre column (the first one
--- if tied); the channel sits one block above it and drops 1 block every
--- DROP_EVERY blocks toward the town. Columns from the town end up to the source
+-- if tied). The channel bottom at the source is the ground there; it drops 1
+-- block per period toward the town. Columns from the town end up to the source
 -- are kept. The town end is trimmed past the last column holding water, an
 -- obstruction, a footprint or a pier taller than MAX_PIER; a result shorter
--- than MIN_LENGTH is rejected.
+-- than MIN_LENGTH, or with less than MIN_RISE left after the trim, is rejected.
 function M.profile(line, surface, footprints)
-	local W, P = C.WIDTH, C.PIER_SPACING
+	local W, P = C.WIDTH, C.PIER_PITCH
+	local mid = math.floor(W / 2)
 	local ground = {}
 	for n = 0, line.length - 1 do
 		local row = {}
@@ -151,21 +186,23 @@ function M.profile(line, surface, footprints)
 	-- box column (peak + 1) always lies inside the strip.
 	local peak, peak_y
 	for n = 0, line.length - 2 do
-		local y = ground[n][math.floor(W / 2)].y
+		local y = ground[n][mid].y
 		if y and (not peak_y or y > peak_y) then peak, peak_y = n, y end
 	end
 	if not peak then return nil, "no ground" end
-	local src = peak_y + 1
-	local function channel(n) return src - math.floor((peak - n) / C.DROP_EVERY) end
+	local base = peak_y
+	local function bottom(n) return base - math.floor((peak - n) / C.DROP_EVERY) end
+	local function pier_column(n) return (peak - n) % P < C.PIER_SIZE end
 
 	-- Why column n cannot be part of the aqueduct, or nil.
 	local function blocked(n)
-		local cy = channel(n)
+		local cb = bottom(n)
+		local pier = pier_column(n)
 		for l = 0, W - 1 do
 			local g = ground[n][l]
 			if g.kind ~= "solid" then return g.kind end
 			if in_footprint(g.x, g.z, footprints) then return "footprint" end
-			if n % P == 0 and cy - 2 - g.y > C.MAX_PIER then return "pier" end
+			if pier and cb - 1 - g.y > C.MAX_PIER then return "pier" end
 		end
 	end
 
@@ -189,41 +226,35 @@ function M.profile(line, surface, footprints)
 	end
 	-- MIN_RISE is checked again after the trim: a plateau near the peak height
 	-- may be all that is left at the new town end.
-	local rise = peak_y - ground[town_n][math.floor(W / 2)].y
+	local rise = peak_y - ground[town_n][mid].y
 	if rise < C.MIN_RISE then
 		return nil, "rise " .. rise .. " after trim below MIN_RISE"
 	end
 
 	local columns = {}
 	for n = town_n, peak do
-		local cy = channel(n)
-		local c = ground[n][math.floor(W / 2)]
-		local col = {n = n, x = c.x, z = c.z, ground = c.y, channel_y = cy, cells = ground[n],
-			pier = false, cut = false, arch = false}
-		for l = 0, W - 1 do
-			local g = ground[n][l]
-			if n % P == 0 and g.y < cy - 2 then col.pier = true end
-			if l >= 1 and l <= W - 2 and g.y >= cy + 1 then col.cut = true end
-		end
-		col.arch = not col.pier and c.y < cy - 1
-		columns[#columns + 1] = col
+		local c = ground[n][mid]
+		columns[#columns + 1] = {n = n, s = peak - n, x = c.x, z = c.z, ground = c.y,
+			bottom_y = bottom(n), channel_y = bottom(n) + 1, pier = pier_column(n), cells = ground[n]}
 	end
-
-	local centre = math.floor(W / 2)
-	local spout_cell = ground[town_n][centre]
-	local source_cell = ground[peak][centre]
+	local spout_cell = ground[town_n][mid]
+	local source_cell = ground[peak][mid]
 	return {
 		line = line, peak = peak, town_n = town_n, length = length, columns = columns,
-		source = {n = peak, x = source_cell.x, y = src, z = source_cell.z},
-		spout = {x = spout_cell.x, y = channel(town_n), z = spout_cell.z},
+		source = {n = peak, x = source_cell.x, y = base + 1, z = source_cell.z},
+		spout = {x = spout_cell.x, y = bottom(town_n) + 1, z = spout_cell.z},
 	}
 end
 
--- Node writes for a profile: cut air, piers, the cobble deck, walls with a slab
--- cap, the water channel, the spout and the cobble source box. Each cell is
--- written at most once. Returns the list sorted by x, y, z, and its box.
+-- Node writes for a profile. Each cell is written at most once, in this order:
+-- cut air above the channel centre, piers, the bottom row, the water row (walls
+-- or open centre), arches, then the sources, spout and source box on top.
+-- Returns the list sorted by x, y, z, its write box, and the late list: the
+-- source nodes and the spout, which the adapter re-sets after the commit so the
+-- engine starts the flow.
 function M.changes(profile)
-	local W, P = C.WIDTH, C.PIER_SPACING
+	local W, P = C.WIDTH, C.PIER_PITCH
+	local mid = math.floor(W / 2)
 	local line = profile.line
 	local cells, list = {}, {}
 	local function put(x, y, z, name, param2)
@@ -231,36 +262,60 @@ function M.changes(profile)
 		if not cells[k] then list[#list + 1] = k end
 		cells[k] = {x = x, y = y, z = z, name = name, param2 = param2 or 0}
 	end
+	local late = {}
 
-	for _, col in ipairs(profile.columns) do
-		local cy, n = col.channel_y, col.n
+	for i, col in ipairs(profile.columns) do
+		local cb, water = col.bottom_y, col.channel_y
 		for l = 0, W - 1 do
 			local g = col.cells[l]
 			local x, z = g.x, g.z
-			if l >= 1 and l <= W - 2 then
-				for y = cy + 1, g.y do put(x, y, z, M.AIR) end
+			if l == mid then
+				for y = water, math.max(water, g.y) do put(x, y, z, M.AIR) end
 			end
-			if n % P == 0 then
-				for y = g.y + 1, cy - 2 do put(x, y, z, M.WALL) end
+			if col.pier and g.y < cb - 1 then
+				for y = g.y + 1, cb - 1 do put(x, y, z, M.WALL) end
 			end
-			put(x, cy - 1, z, M.WALL)
-			if l == 0 or l == W - 1 then
-				put(x, cy, z, M.WALL)
-				put(x, cy + 1, z, M.CAP)
-			else
-				put(x, cy, z, M.SOURCE)
+			put(x, cb, z, M.WALL)
+			if l ~= mid then put(x, water, z, M.WALL) end
+		end
+
+		-- Arches hang below the bottom in gaps, where the channel is over air.
+		if not col.pier and col.ground < cb - 1 then
+			local p = col.s % P - C.PIER_SIZE + 1
+			for _, a in ipairs(M.ARCH[p]) do
+				for l = 0, W - 1 do
+					local g = col.cells[l]
+					if cb + a[1] > g.y then put(g.x, cb + a[1], g.z, a[2]) end
+				end
+			end
+		end
+
+		-- Sources in the open centre: the first SOURCE_COUNT blocks of each period,
+		-- counted from the source end. The town-end column is the spout instead.
+		if i > 1 and col.s % P < C.SOURCE_COUNT then
+			local g = col.cells[mid]
+			put(g.x, water, g.z, M.SOURCE)
+			late[#late + 1] = {x = g.x, y = water, z = g.z, name = M.SOURCE, param2 = 0, role = "source"}
+		end
+
+		-- Half-block lips on the side walls for the first SIDE_SLAB_LENGTH blocks
+		-- after each step down. Only in air: a cell with ground at or above it is
+		-- left as terrain.
+		if col.s % P < C.SIDE_SLAB_LENGTH then
+			for l = 0, W - 1 do
+				if l ~= mid then
+					local g = col.cells[l]
+					if cb + 2 > g.y then put(g.x, cb + 2, g.z, M.SIDE_SLAB) end
+				end
 			end
 		end
 	end
 
-	-- Spout: one flowing node in the town-end channel. Its side cells are
-	-- capped so that the spout is the only outflow.
-	local first = profile.columns[1]
-	local centre = math.floor(W / 2)
-	for l = 1, W - 2 do
-		local g = first.cells[l]
-		put(g.x, first.channel_y, g.z, l == centre and M.FLOW or M.WALL)
-	end
+	-- Spout: one flowing node in the town-end channel centre. Its walls are
+	-- already in place, so it is the only outflow.
+	local spout = profile.spout
+	put(spout.x, spout.y, spout.z, M.FLOW)
+	late[#late + 1] = {x = spout.x, y = spout.y, z = spout.z, name = M.FLOW, param2 = 0, role = "spout"}
 
 	-- Source box: cobble closes the hill end of the channel.
 	local src = profile.source.y
@@ -270,12 +325,15 @@ function M.changes(profile)
 		put(x, src + 1, z, M.WALL)
 	end
 
-	table.sort(list, function(a, b)
-		local p, q = cells[a], cells[b]
-		if p.x ~= q.x then return p.x < q.x end
-		if p.y ~= q.y then return p.y < q.y end
-		return p.z < q.z
-	end)
+	local function sorted(keys_of)
+		table.sort(keys_of, function(a, b)
+			if a.x ~= b.x then return a.x < b.x end
+			if a.y ~= b.y then return a.y < b.y end
+			return a.z < b.z
+		end)
+		return keys_of
+	end
+
 	local out, box = {}, nil
 	for i, k in ipairs(list) do
 		local c = cells[k]
@@ -287,7 +345,8 @@ function M.changes(profile)
 			box.max.x, box.max.y, box.max.z = math.max(box.max.x, c.x), math.max(box.max.y, c.y), math.max(box.max.z, c.z)
 		end
 	end
-	return out, box
+	sorted(out)
+	return out, box, sorted(late)
 end
 
 -- The one aqueduct for a town, or nil and a reason.
@@ -298,10 +357,10 @@ function M.plan_aqueduct(plan, surface, footprints)
 	for _, r in ipairs(ranked) do
 		local profile, why = M.profile(r.line, surface, footprints)
 		if profile then
-			local list, box = M.changes(profile)
+			local list, box, late = M.changes(profile)
 			return {side = r.line.side, offset = r.line.offset, rise = r.rise, profile = profile,
 				source = profile.source, spout = profile.spout, length = profile.length,
-				changes = list, box = box}
+				changes = list, box = box, late = late}
 		end
 		reasons[#reasons + 1] = r.line.side .. "@" .. r.line.offset .. ": " .. why
 	end

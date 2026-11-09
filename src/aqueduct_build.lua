@@ -50,9 +50,13 @@
 -- "unknown" and trims it away or rejects. So no fake y is ever invented and the
 -- planner needs no change.
 --
--- Spout (inferred, to verify in game): a flowing node written through
+-- Late writes (inferred, to verify in game): a liquid node written through
 -- VoxelManip with write_to_map(true) and no liquid update probably does not
--- flow, so the spout is rewritten with env.set_node after the commit.
+-- flow, so the sources and the spout (result.late, role "source" or "spout")
+-- are rewritten with env.set_node after the commit. Their positions are
+-- checked against the strip box and env.protected like the bulk writes. A
+-- failed set_node never fails the build: the result reports spout_written,
+-- spout_error and sources_written.
 local M = {}
 local source = debug.getinfo(1, "S").source:sub(2)
 local modpath = source:match("^(.*)/src/aqueduct_build.lua$") or "."
@@ -171,25 +175,38 @@ local function plan_and_write(plan, env, opts, boxes, y_min, y_max)
 	if not allowed then
 		return {status = "skipped", reason = "ownership lost: " .. tostring(own_why)}
 	end
-	for _, c in ipairs(result.changes) do
-		if not inside(box, c) then
-			return {status = "skipped", reason = "write outside the strip box"}
-		end
-		if env.protected({x = c.x, y = c.y, z = c.z}) then
-			return {status = "skipped", reason = ("protected position (%d,%d,%d)"):format(c.x, c.y, c.z)}
+	-- Every bulk write and every late write (sources, spout) must sit inside the
+	-- authorized box and clear of protected positions.
+	for _, list in ipairs({result.changes, result.late}) do
+		for _, c in ipairs(list) do
+			if not inside(box, c) then
+				return {status = "skipped", reason = "write outside the strip box"}
+			end
+			if env.protected({x = c.x, y = c.y, z = c.z}) then
+				return {status = "skipped", reason = ("protected position (%d,%d,%d)"):format(c.x, c.y, c.z)}
+			end
 		end
 	end
 
 	local region = env.open_region(read_box)
 	for _, c in ipairs(result.changes) do region.set(c.x, c.y, c.z, c.name, c.param2) end
 	region.commit()
-	local sp = result.spout
-	local spout_ok, spout_err = pcall(env.set_node, {x = sp.x, y = sp.y, z = sp.z},
-		{name = aqueduct.FLOW, param2 = 0})
+	-- Late writes re-set the sources and the spout through env.set_node, so the
+	-- engine runs liquid updates and the flow starts. A failure never fails the
+	-- build: it is counted or reported and the town stays built.
+	local sources_written, spout_ok, spout_err = 0, true, nil
+	for _, w in ipairs(result.late) do
+		local ok, err = pcall(env.set_node, {x = w.x, y = w.y, z = w.z}, {name = w.name, param2 = w.param2})
+		if w.role == "spout" then
+			spout_ok, spout_err = ok, (not ok) and tostring(err) or nil
+		elseif ok then
+			sources_written = sources_written + 1
+		end
+	end
 	return {status = "built", side = result.side, offset = result.offset, length = result.length,
 		rise = result.rise, source = result.source, spout = result.spout, box = box,
-		nodes = #result.changes, spout_written = spout_ok,
-		spout_error = (not spout_ok) and tostring(spout_err) or nil}
+		nodes = #result.changes, spout_written = spout_ok, spout_error = spout_err,
+		sources_written = sources_written}
 end
 
 function M.build(plan, env, opts, done)
