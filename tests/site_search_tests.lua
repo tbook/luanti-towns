@@ -307,7 +307,7 @@ local bv = r.build_volume
 eq(w.emerges[2].min.x, bv.min.x, "flat: emerged build volume min x")
 eq(w.emerges[2].max.y, bv.max.y, "flat: emerged build volume max y")
 eq(bv.min.x, bd.x1 - ss.CONSTANTS.CUT_FILL_MARGIN, "flat: build volume has cut/fill margin")
-eq(bv.max.y, r.build_bounds.max.y, "flat: build volume covers the structures")
+eq(bv.max.y, r.build_bounds.max.y + ss.CONSTANTS.TREETOP_HEADROOM, "flat: build volume covers the structures plus treetop headroom")
 eq(bv.min.y, r.build_bounds.min.y - ss.CONSTANTS.CUT_FILL_MARGIN, "flat: build volume covers cut/fill")
 
 -- Every boundary column is in the height map, and nothing else.

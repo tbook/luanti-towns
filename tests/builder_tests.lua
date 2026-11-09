@@ -148,8 +148,8 @@ local function nodes_table()
 		[GRASS] = {walkable = true}, [DIRT] = {walkable = true}, [STONE] = {walkable = true},
 		[PAVING] = {walkable = true}, [ROAD] = {walkable = true},
 		["fake:wall"] = {walkable = true}, ["fake:door"] = {walkable = true, door = true},
-		["mcl_core:tree"] = {walkable = true, clearable = true},
-		["mcl_core:leaves"] = {walkable = true, clearable = true},
+		["mcl_core:tree"] = {walkable = true, clearable = true, tree = true},
+		["mcl_core:leaves"] = {walkable = true, clearable = true, vegetation = true},
 		[WATER] = {liquid = true}, ["mcl_core:water_flowing"] = {liquid = true},
 		["mcl_core:sand"] = {walkable = true, falling = true},
 		["mcl_core:gravel"] = {walkable = true, falling = true},
@@ -334,6 +334,47 @@ do
 end
 
 ------------------------------------------------------------------------
+-- Treetop clearing: trees taller than the build top are cut through the
+-- headroom of the build volume, in town columns only.
+------------------------------------------------------------------------
+do
+	local result = make_result()
+	local bb, vol = result.build_bounds, result.build_volume
+	local top = vol.max.y
+	eq(top > bb.max.y, true, "build volume has headroom above the build bounds")
+	local tx, tz = bb.min.x + 2, bb.min.z + 2
+	local ox = bb.max.x + 1 -- outside the town
+	local w = new_world({notrees = true, world = function(x, y, z)
+		if y > bb.max.y and y <= top then
+			if x == tx and z == tz then
+				if y == bb.max.y + 3 then return "air" end -- gap in the trunk
+				return y % 2 == 0 and "mcl_core:tree" or "mcl_core:leaves"
+			end
+			if x == tx + 1 and z == tz and y == top then return "fake:wall" end -- not vegetation
+			if x == ox and z == tz then return "mcl_core:leaves" end
+		end
+	end})
+	local summary, msg = build(result, w)
+	eq(summary ~= nil, true, "treetop: build succeeds (" .. tostring(msg) .. ")")
+	for y = bb.max.y + 1, top do
+		eq(w.get(tx, y, tz), "air", "treetop: vegetation cleared at y=" .. y)
+	end
+	eq(w.get(tx + 1, top, tz), "fake:wall", "treetop: non-vegetation above is kept")
+	eq(w.get(ox, bb.max.y + 1, tz), "mcl_core:leaves", "treetop: leaves outside the town are kept")
+	local high = 0
+	for _, wr in ipairs(w.writes) do
+		if wr.y > bb.max.y then
+			high = high + 1
+			eq(wr.y <= top and wr.name == "air" and wr.x >= bb.min.x and wr.x <= bb.max.x, true,
+				"treetop: only air written above the top, inside the bounds")
+		end
+	end
+	eq(high > 0, true, "treetop: nodes were cleared above the build top")
+	local rb = builder.read_bounds(result)
+	eq(rb.max.y, top, "treetop: region is read up to the volume top")
+end
+
+------------------------------------------------------------------------
 -- End to end on the fake world
 ------------------------------------------------------------------------
 do
@@ -379,13 +420,14 @@ do
 	-- Confinement: every terrain write inside the build bounds and the boundary.
 	local oob, outside_town = 0, 0
 	for _, wr in ipairs(w.writes) do
-		if wr.x < bb.min.x or wr.x > bb.max.x or wr.y < bb.min.y or wr.y > bb.max.y
+		if wr.x < bb.min.x or wr.x > bb.max.x or wr.y < bb.min.y
+				or wr.y > result.build_volume.max.y or (wr.y > bb.max.y and wr.name ~= "air")
 				or wr.z < bb.min.z or wr.z > bb.max.z then
 			oob = oob + 1
 		end
 		if not boundary_in(plan, wr.x, wr.z) then outside_town = outside_town + 1 end
 	end
-	eq(oob, 0, "no write outside the build bounds")
+	eq(oob, 0, "no write outside the build bounds (headroom: air only)")
 	eq(outside_town, 0, "no write outside the boundary union")
 	eq(#w.writes > 200, true, "a real amount of work")
 	local st = w.placed[1]
@@ -830,7 +872,7 @@ do
 		if summary then
 			local bb = res.build_bounds
 			eq(req_min.y, math.min(bb.min.y, g - 3), label .. ": region opened from the lowest written row")
-			eq(req_max.y, bb.max.y, label .. ": region opened to the top row")
+			eq(req_max.y, res.build_volume.max.y, label .. ": region opened to the top row")
 			eq(req_min.y <= g - 3, true, label .. ": support rows covered")
 			eq(summary.bounds.min.x, bb.min.x, label .. ": bounds X")
 		end
