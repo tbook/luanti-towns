@@ -37,7 +37,8 @@
 -- written -> confinement check -> write only the changed nodes -> commit ->
 -- place the schematics -> check the doors -> initialize functional nodes.
 -- Terrain writes lie inside result.build_bounds (never outside) and inside
--- the boundary column union.
+-- the boundary column union; the one exception is air replacing tree and
+-- vegetation nodes in the headroom between build_bounds and build_volume.
 --
 -- env contract:
 --   env.node_info(name)           {walkable, liquid, clearable, ice,
@@ -93,7 +94,7 @@ local preflight = load_sibling("preflight.lua")
 function M.read_bounds(result)
 	local bb, g = result.build_bounds, result.ground_y
 	return {min = {x = bb.min.x - 1, y = math.min(bb.min.y, g - TL.FILL_DIRT_DEPTH), z = bb.min.z - 1},
-		max = {x = bb.max.x + 1, y = bb.max.y, z = bb.max.z + 1}}
+		max = {x = bb.max.x + 1, y = result.build_volume.max.y, z = bb.max.z + 1}}
 end
 local plan_sites = load_sibling("plan_sites.lua")
 M.layout = TL
@@ -361,7 +362,9 @@ local function build_impl(result, opts, env, st)
 	end
 	local wbounds = {
 		min = {x = bb.min.x, y = wmin_y, z = bb.min.z},
-		max = {x = bb.max.x, y = bb.max.y, z = bb.max.z},
+		-- The top is the build volume's: the headroom above build_bounds is
+		-- cleared of tree and vegetation nodes only (treetop clearing below).
+		max = {x = bb.max.x, y = result.build_volume.max.y, z = bb.max.z},
 	}
 	st.wbounds = wbounds
 	local wet = result.wet and result.wet.surfaces or {}
@@ -515,6 +518,35 @@ local function build_impl(result, opts, env, st)
 					D.cp2[n] = (kind == "surface") and surf_p2[x][z] or 0
 					D.by_kind[kind] = (D.by_kind[kind] or 0) + 1
 					D.by_name[want] = (D.by_name[want] or 0) + 1
+				end
+			end
+			-- Treetop clearing: tall trees (taiga spruce, jungle) rise past the
+			-- build top, and cutting only up to it leaves crowns floating. Scan
+			-- the headroom the volume reserves above build_bounds and replace
+			-- tree and vegetation nodes with air. Air and every other node
+			-- (stone, buildings, liquids) are left alone and do not stop the
+			-- scan, so crowns detached from their trunk by the cut are removed
+			-- too. Town columns only; nothing outside them is touched.
+			for y = yhi + 1, wbounds.max.y do
+				local have = region.get(x, y, z)
+				D.examined = D.examined + 1
+				if have == "ignore" then
+					return fail("inspection_failed", ("area not loaded at (%d,%d,%d)"):format(x, y, z))
+				end
+				if have ~= TL.AIR then
+					local info = env.node_info(have)
+					if info and info.clearable and not info.liquid and (info.vegetation or info.tree) then
+						if not TL.confined(L.in_town, wbounds, x, y, z) then
+							return fail("bad_result", ("write at (%d,%d,%d) is outside the build volume"):format(x, y, z))
+						end
+						local n = D.n + 1
+						D.n = n
+						D.cx[n], D.cy[n], D.cz[n] = x, y, z
+						D.cname[n] = TL.AIR
+						D.cp2[n] = 0
+						D.by_kind.clear = D.by_kind.clear + 1
+						D.by_name[TL.AIR] = (D.by_name[TL.AIR] or 0) + 1
+					end
 				end
 			end
 		end

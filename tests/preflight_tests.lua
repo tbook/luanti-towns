@@ -333,7 +333,7 @@ do
 	end
 	eq(r.build_bounds.max.y, r.ground_y + expect_top - 1, "exact top of tallest structure")
 	eq(r.build_bounds.min.y <= r.ground_y - 5, true, "bounds include the castle foundation")
-	eq(r.build_volume.max.y, r.build_bounds.max.y, "volume covers the top")
+	eq(r.build_volume.max.y, r.build_bounds.max.y + ss.CONSTANTS.TREETOP_HEADROOM, "volume covers the top plus treetop headroom")
 
 	-- Preflight accepts the real site and emerges the build volume.
 	local w = new_env(catalog.entries)

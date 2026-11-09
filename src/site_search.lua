@@ -64,7 +64,8 @@
 --     inspection_volume = {min, max} emerged and read during the search
 --                    (plan bounds X/Z, surface window ref_y-48 .. ref_y+48+1).
 --     build_volume = {min, max} also emerged for the accepted site:
---                    build_bounds plus CUT_FILL_MARGIN around and below.
+--                    build_bounds plus CUT_FILL_MARGIN around and below and
+--                    TREETOP_HEADROOM above.
 --                    No extra foundation depth below min_height is included.
 --     candidate    = {index, dx, dz}  offset from the player in the order
 --     candidates_tried = integer
@@ -141,6 +142,8 @@ M.CONSTANTS = {
 	OUTLIER_PERCENT = 5,      -- trim up to 2.5% of columns from each tail
 	MAX_CUT_FILL = 24,        -- every surface must be within this of the median
 	CUT_FILL_MARGIN = 8,      -- extra nodes emerged around/below the town
+	TREETOP_HEADROOM = 32,    -- extra nodes emerged above the top, where the
+	                          --  builder clears tree crowns over the town
 	SCAN_UP = 48,             -- surface window: reference ground +/- this
 	SCAN_DOWN = 48,
 	EMERGE_TIMEOUT = 30,      -- seconds to wait for one emerge before giving up
@@ -298,13 +301,14 @@ function M.inspection_volume(plan_bounds, ref_y, C)
 end
 
 -- Volume emerged for an accepted site, so the build ticket need not emerge
--- again: build bounds plus CUT_FILL_MARGIN around and below.
+-- again: build bounds plus CUT_FILL_MARGIN around and below, and
+-- TREETOP_HEADROOM above (the builder clears tree/vegetation nodes there).
 function M.build_volume(build_bounds, C)
 	local m = C.CUT_FILL_MARGIN
 	local b = build_bounds
 	return {
 		min = {x = b.min.x - m, y = b.min.y - m, z = b.min.z - m},
-		max = {x = b.max.x + m, y = b.max.y, z = b.max.z + m},
+		max = {x = b.max.x + m, y = b.max.y + C.TREETOP_HEADROOM, z = b.max.z + m},
 	}
 end
 

@@ -67,8 +67,9 @@
 -- Stage providers (names reported in envelope.stages):
 --   urban_read       read: plan.bounds in X/Z, reference_y -scan_down .. +scan_up+1
 --                    (site_search.inspection_volume; plus wet_ring when enabled).
---   urban_build      write: build_bounds grown by cut_fill_margin in X, Z and below
---                    (site_search.build_volume; the top is not grown).
+--   urban_build      write: build_bounds grown by cut_fill_margin in X, Z and below,
+--                    treetop_headroom above
+--                    (site_search.build_volume; the top grows by treetop_headroom).
 --   city_margins     write: volume.boundary of the boundary rects, ground_y, radius and cap
 --                    (Living Villages boundary_volume: cleanup and column reach included).
 --   walls            write: medieval_walls.bounds (wall line, clearance, foundation).
@@ -242,8 +243,9 @@ function M.default_config()
 	local outskirts = loaded.outskirts.CONSTANTS
 	local roads, walls, features = loaded.roads, loaded.walls, loaded.features
 	return {
-		-- site_search.CONSTANTS (CUT_FILL_MARGIN, SCAN_UP, SCAN_DOWN)
+		-- site_search.CONSTANTS (CUT_FILL_MARGIN, TREETOP_HEADROOM, SCAN_UP, SCAN_DOWN)
 		cut_fill_margin = 8,
+		treetop_headroom = 32,
 		scan_up = 48, scan_down = 48,
 		-- Wet mode is opt-in (MAX_WATER_DEPTH = 0); when enabled it reads one ring.
 		wet_ring = 0,
@@ -312,7 +314,7 @@ local function check_list(list, label)
 	return true
 end
 
-local CONFIG_INTS = {"cut_fill_margin", "scan_up", "scan_down", "wet_ring", "outer_band_far",
+local CONFIG_INTS = {"cut_fill_margin", "treetop_headroom", "scan_up", "scan_down", "wet_ring", "outer_band_far",
 	"outskirts_scan_up", "outskirts_scan_down", "ramp_max", "wall_line_offset", "wall_clearance",
 	"wall_clearance_top", "wall_depth", "foundation_depth", "approach_start", "feature_door_extension"}
 
@@ -454,7 +456,7 @@ end
 local function urban_build(env, st)
 	local m, bb = env.config.cut_fill_margin, st.build_bounds
 	return {min = {x = bb.min.x - m, y = bb.min.y - m, z = bb.min.z - m},
-		max = {x = bb.max.x + m, y = bb.max.y, z = bb.max.z + m}}
+		max = {x = bb.max.x + m, y = bb.max.y + env.config.treetop_headroom, z = bb.max.z + m}}
 end
 
 local function city_margins(env, st)
