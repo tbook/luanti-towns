@@ -152,6 +152,32 @@ for one group. Each test group prints its elapsed time and check count.
 GitHub Actions runs the default command on every pull request and on pushes to
 `main` (see `.github/workflows/tests.yml`).
 
+## Releasing
+
+ContentDB packages are built from the git tree with:
+
+    git archive --format=zip --prefix=towns/ -o towns.zip HEAD
+
+`.gitattributes` marks docs, SVG previews, and development tooling
+(`tools/`, `tests/`, `.github/`, `CLAUDE.md`, `.claude/`) as `export-ignore`, so
+they are left out of the archive.
+
 ## License
 
-GPL-3.0; see [LICENSE](LICENSE).
+- **Code** (Lua and tooling): GPL-3.0, Copyright (C) 2026 Theodore Book; see
+  [LICENSE](LICENSE).
+- **Media** (all `.mts` schematics and their `.lua` sidecars under
+  `schematics/`): CC-BY-SA 4.0, https://creativecommons.org/licenses/by-sa/4.0/
+  - Schematics authored for Towns: Copyright (C) 2026 Theodore Book, CC-BY-SA 4.0.
+  - Exception (third-party): these six files and their matching `.lua` sidecars
+    are derived from VoxeLibre `mcl_villages` schematics by MysticTempest,
+    CC-BY-SA 4.0:
+    - `schematics/templates/tavern.mts`
+    - `schematics/templates/well.mts`
+    - `schematics/templates/library.mts`
+    - `schematics/templates/blacksmith.mts`
+    - `schematics/outskirts/farm.mts`
+    - `schematics/outskirts/small_house.mts`
+
+    See [schematics/templates/NOTICE-stock-village.md](schematics/templates/NOTICE-stock-village.md)
+    for the changes made.

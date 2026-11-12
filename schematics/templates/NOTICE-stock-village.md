@@ -1,8 +1,11 @@
 # Stock village templates: attribution
 
-`tavern.mts`, `well.mts`, `library.mts`, `blacksmith.mts`, and the outskirts
-`farm.mts` and `small_house.mts` are derived from the VoxeLibre
-`mcl_villages` schematics of the same names (VoxeLibre 0.92.3).
+`schematics/templates/tavern.mts`, `schematics/templates/well.mts`,
+`schematics/templates/library.mts`, `schematics/templates/blacksmith.mts`, and
+`schematics/outskirts/farm.mts` and `schematics/outskirts/small_house.mts` are
+derived from the VoxeLibre `mcl_villages` schematics of the same names
+(VoxeLibre 0.92.3). The matching `.lua` sidecars in the same directories are
+covered by this notice too.
 
 - Author: MysticTempest ("Completely new schematics for VoxeLibre")
 - Licence: Creative Commons Attribution-ShareAlike 4.0 (CC-BY-SA 4.0),
