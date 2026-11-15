@@ -13,7 +13,7 @@ stated here.
 Scatter rural buildings around a generated town the way an ordinary village
 scatters its houses:
 
-- 18 farms and 6 shepherd's huts, plus (Roman towns only) 2 villas and
+- 18 farms and 6 shepherd's huts, plus (Roman towns only) one villa and
   (medieval towns only) 1 chapel. **Every number is a placeholder** and a single
   constant (section 2).
 - Farms lie in a **near band** around the urban bounds; huts, villas and the
@@ -42,7 +42,7 @@ this text together (the test checks that they agree).
 VERSION = 1,                  -- result.version
 FARM_COUNT = 18,              -- farms wanted
 HUT_COUNT = 6,                -- shepherd's huts wanted
-VILLA_COUNT = 2,              -- Roman towns only
+VILLA_COUNT = 1,              -- Roman towns only; planned first (#434)
 CHAPEL_COUNT = 1,             -- medieval towns only
 FARM_BAND_NEAR = 10,          -- farms: gap to plan.bounds, nodes (inclusive)
 FARM_BAND_FAR = 24,           -- ... (exclusive); farms stay within villager job reach of town houses
@@ -163,8 +163,10 @@ stream; no global generator.
 
 ### 5.2 Order and algorithm
 
-Classes in fixed order: farms (`FARM_COUNT`), huts (`HUT_COUNT`), then villas
-(`VILLA_COUNT`, Roman) or the chapel (`CHAPEL_COUNT`, medieval). Per building:
+Classes in fixed order: the villa (`VILLA_COUNT`, Roman only) first, because it
+is by far the largest plot and almost never fits once the 24 farms and huts and
+their `MIN_SPACING` have filled the ring (#434); then farms (`FARM_COUNT`), huts
+(`HUT_COUNT`), then for medieval towns the chapel (`CHAPEL_COUNT`). Per building:
 
 1. `rotation = int(0, 3) * 90`; `asset` = the class's catalog entry (the first
    in id order if a class ever has several; a draw is added then).
