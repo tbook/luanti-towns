@@ -46,8 +46,8 @@ local function fixture(mode)
 		inspect_site = function(center, ref, seed, opts, done, io)
 			f.reference = ref
 			f.inspection_opts = opts
-			if mode == "inspection" then return done(nil, "inspection failed", {reason = "inspection_failed",
-				rejections = {too_deep_water = 1}, examples = {too_deep_water = "water at (12,20) deeper than 10 nodes"}}) end
+			if mode == "inspection" then return done(nil, "inspection failed",
+				{rejections = {too_deep_water = 1}, examples = {too_deep_water = "water at (12,20) deeper than 10 nodes"}}) end
 			io.emerge(box.min, box.max, function(ok)
 				if not ok then return done(nil, "failed") end
 				done({plan = {}, ground_y = 64, build_bounds = box})
@@ -104,7 +104,8 @@ for _, mode in ipairs({"missing_center", "inspection", "envelope", "cap", "fresh
 	for _, r in ipairs(f.reports) do if r.id == "A" then matching = matching + 1; report = r end end
 	eq(matching, 1, mode .. " reports site exactly once")
 	eq(report and report.outcome, "declined", mode .. " reports decline")
-	local reasons = {missing_center = "center_ground_missing", inspection = "inspection_failed",
+	eq(report and report.trigger and report.trigger.self_triggered, false, mode .. " reports trigger context")
+	local reasons = {missing_center = "center_ground_missing", inspection = "too_deep_water",
 		envelope = "envelope_failed", cap = "envelope_cap", freshness = "not_fresh",
 		scheduling = "schedule_failed", initialization = "initialization_failed"}
 	eq(report and report.reason, reasons[mode], mode .. " reports its actual failure")

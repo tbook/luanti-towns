@@ -14,6 +14,7 @@ end
 local function session_fixture()
 	local s = {fresh = {}, ground = nil, states = {site = "inspecting"}}
 	function s:center() return self.ground end
+	function s:center_scan() return self.scan end
 	function s:state(id) return self.states[id] end
 	function s:covers(_, b)
 		local x1, y1, z1 = math.floor((b.min.x - ORIGIN) / SIZE), math.floor((b.min.y - ORIGIN) / SIZE),
@@ -84,8 +85,8 @@ local function make_fixture(opts)
 	local loader = assert(loader_mod.new({session = state, site_search = search, envelope = env_calc,
 		env = env, origin = ORIGIN, size = SIZE, seed = "world-seed", inspect_opts = {}, request_timeout = 3}))
 	local function start()
-		loader:start(site, trigger, function(result, reason, code)
-			done_calls[#done_calls + 1] = {result = result, reason = reason, code = code}
+		loader:start(site, trigger, function(result, reason, code, details)
+			done_calls[#done_calls + 1] = {result = result, reason = reason, code = code, details = details}
 		end)
 	end
 	return {state = state, requests = requests, pending = pending, loader = loader, start = start,
@@ -180,9 +181,13 @@ end
 -- Without copied center ground, the site declines and exact inspection never runs.
 do
 	local f = make_fixture({no_center = true})
+	f.state.scan = {valid = 0, clipped = 3, ambiguous = 1, sentinel = 0}
 	f.start()
 	eq(f.inspections(), 0, "missing center ground does not invoke inspector")
 	eq(f.done_calls[1] and f.done_calls[1].code, "center_ground_missing", "missing center ground is terminal")
+	local heights = f.done_calls[1] and f.done_calls[1].details and f.done_calls[1].details.center_heights
+	eq(heights and heights.clipped, 3, "missing center reports what the centre chunk showed")
+	eq(heights and heights.ambiguous, 1, "missing center reports ambiguous heights")
 	eq(f.state.states.site, "declined", "missing center ground declines session")
 	eq(f.loader.jobs.site, nil, "failed job is removed from the loader")
 	local before = #f.requests
@@ -222,7 +227,7 @@ do
 		calls = calls + 1
 		eq(result, nil, "real exact inspector rejects all-air terrain")
 		eq(reason ~= nil, true, "real exact inspector reports its rejection")
-		eq(code, "inspection_failed", "real exact inspector terminates through loader once")
+		eq(code, "no_ground", "real exact inspector rejection code is the terminal code")
 		eq(details and details.rejections and details.rejections.no_ground, 1,
 			"real exact inspector rejection code reaches loader caller")
 		eq(type(details and details.examples and details.examples.no_ground), "string",
