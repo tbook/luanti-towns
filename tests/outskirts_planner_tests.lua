@@ -14,7 +14,7 @@ local medieval_planner = dofile("src/medieval_planner.lua")
 for name, value in pairs(fixture.constants) do
 	eq(C[name], value, "production constant matches fixture: " .. name)
 end
-eq(C.FARM_COUNT == 18 and C.HUT_COUNT == 6 and C.VILLA_COUNT == 2 and C.CHAPEL_COUNT == 1,
+eq(C.FARM_COUNT == 18 and C.HUT_COUNT == 6 and C.VILLA_COUNT == 1 and C.CHAPEL_COUNT == 1,
 	true, "production class counts match the contract")
 eq(C.FARM_BAND_NEAR == 10 and C.FARM_BAND_FAR == 24 and C.OUTER_BAND_NEAR == 24
 	and C.OUTER_BAND_FAR == 58 and C.MIN_SPACING == 20 and C.PROTECT_MARGIN == 6
@@ -54,7 +54,7 @@ eq(signature(first), signature(again), "seed reproduces plots and rejection sequ
 eq(fixture.plots[1].rotation, 90, "worked fixture uses a quarter-turn farm")
 eq(first.counts.requested.farm, 18, "all farms requested")
 eq(first.counts.requested.hut, 6, "all huts requested")
-eq(first.counts.requested.villa, 2, "Roman villas requested")
+eq(first.counts.requested.villa, 1, "Roman villas requested")
 eq(first.counts.requested.chapel, 0, "Roman chapel omitted")
 eq(first.counts.planned.farm, #((function() local r={} for _,p in ipairs(first.plots) do if p.class=="farm" then r[#r+1]=p end end return r end)()),
 	"farm planned count matches plot list")
@@ -104,13 +104,13 @@ local first_rotation
 for i = 1, C.ATTEMPTS_PER_BUILDING do
 	local candidate = assert(bounded:next())
 	if i == 1 then first_rotation = candidate.rotation end
-	eq(candidate.id, "f01", "bounded retries stay on first farm")
+	eq(candidate.id, "v01", "bounded retries stay on the first (villa) building")
 	eq(candidate.attempt, i, "attempt index is bounded and ordered")
 	eq(candidate.rotation, first_rotation, "bounded retries keep one rotation")
 	bounded:reject(candidate, "plot_water", "test retry")
 end
 eq(bounded.counts.rejected.plot_water, C.ATTEMPTS_PER_BUILDING, "all bounded rejections are recorded")
-eq(bounded:next().id, "f02", "planner advances after the attempt limit")
+eq(bounded:next().id, "f01", "planner advances after the attempt limit")
 
 -- Exact spatial boundaries and deterministic no-site exhaustion.
 local protected = {x0=0,z0=0,x1=10,z1=10,margin=4}
@@ -208,3 +208,25 @@ end
 local empty = empty_state:result(62)
 eq(empty.status, "empty", "no accepted plots produce empty status")
 eq(#empty.rejections > 0, true, "omissions are recorded")
+
+-- #434: exactly one villa, planned first, so it is reliably placed in the ring
+-- (planned last it fit in only about a quarter of towns).
+do
+	local villas, early = 0, 0
+	for seed = 1, 200 do
+		local s = outskirts.new(plan, seed, entries)
+		local count, first_class = 0, nil
+		while true do
+			local candidate = s:next()
+			if not candidate then break end
+			first_class = first_class or candidate.class
+			s:accept(candidate, {min = 60, max = 62}, 61)
+		end
+		for _, p in ipairs(s.plots) do if p.class == "villa" then count = count + 1 end end
+		eq(count <= 1, true, "seed " .. seed .. " plans at most one villa")
+		villas = villas + count
+		if first_class == "villa" then early = early + 1 end
+	end
+	eq(early, 200, "the villa is planned before farms and huts")
+	eq(villas >= 196, true, "the villa is placed in nearly every Roman town (" .. villas .. "/200)")
+end

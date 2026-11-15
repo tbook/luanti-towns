@@ -21,7 +21,7 @@ F.constants = {
 	VERSION = 1,
 	FARM_COUNT = 18,
 	HUT_COUNT = 6,
-	VILLA_COUNT = 2,
+	VILLA_COUNT = 1,
 	CHAPEL_COUNT = 1,
 	FARM_BAND_NEAR = 10,
 	FARM_BAND_FAR = 24,
@@ -118,7 +118,7 @@ F.lv_result = {
 
 -- Result counts of the example town (shortfalls are normal).
 F.counts = {
-	requested = {farm = 18, hut = 6, villa = 2, chapel = 0},
+	requested = {farm = 18, hut = 6, villa = 1, chapel = 0},
 	planned = {farm = 16, hut = 6, villa = 1, chapel = 0},
 	rejected = {plot_water = 5, plot_uneven = 3, no_site = 1},
 }
