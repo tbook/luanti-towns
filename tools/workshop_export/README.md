@@ -87,6 +87,9 @@ The catalog IDs are `tower`, `leather_worker`,
 `office_building`, `banker_house`, `butcher_shop`, `mason_yard`, and `chapel`.
 The `armory`, `castle`, `cathedral` compound and the hand-made `demo_house`
 are also in the catalog.
+The Roman palace (`roman_palace`, Issue 439) is catalogued as an import only: it
+has no `role`, so no planner or town type selects it. See
+`tools/issue439_import/README.md`.
 
 Placing a template (`src/schematic.lua`, used by `/towns_generate`)
 reconstructs containers and decorations, restores inventory contents and door
