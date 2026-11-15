@@ -2,6 +2,7 @@ local eq = ...
 local real_dofile = dofile
 local registered, pending, reports, events, jobs = nil, {}, {}, {}, {}
 local states, lock = {}, nil
+local engine_cb
 local site = {id = "one", center = {x = 0, z = 0}, cell = {x = 0, z = 0}, seed = 12,
 	town_type = "roman", max_rect = {x1 = -10, z1 = -10, x2 = 10, z2 = 10},
 	activation_rect = {x1 = -20, z1 = -20, x2 = 20, z2 = 20}}
@@ -40,7 +41,8 @@ local suppressed
 local guard = {check = function() return true end, bind = function(_, _, _, _, cb) suppressed = cb; return true end}
 local towns = {modpath = ".", auto_environment = {}, auto_village_guard = guard,
 	auto_records = {is_enabled = function() return true end, lookup = function() end},
-	catalog = {entries = {}}, site_search = {WET_DEFAULTS = {}, core_env = function() return {emerge = function() end} end},
+	catalog = {entries = {}}, site_search = {WET_DEFAULTS = {}, core_env = function()
+		return {emerge = function(_, _, cb) engine_cb = cb end} end},
 	generation_lock = {acquire = function() if lock then return nil end; lock = {}; return lock end,
 		release = function(token) if lock == token then lock = nil end end}}
 local env = setmetatable({dofile = function(path) return modules[path:gsub("^%./", "")] or real_dofile(path) end}, {__index = _G})
@@ -63,6 +65,8 @@ lock = {}
 registered({x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
 eq(states.one, "declined", "busy command declines site")
 eq(reports[#reports - 1].reason, "busy", "busy result is reported")
+eq(reports[#reports - 1].trigger.self_triggered, false, "lock-busy decline is not self-triggered")
+eq(reports[#reports - 1].trigger.minp.z, 0, "busy result carries the trigger chunk")
 eq(#pending, 1, "busy site does not schedule loading")
 lock, states.one = nil, nil
 registered({x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
@@ -83,6 +87,33 @@ eq(states.one, "complete", "successful survey releases reservation")
 eq(lock, nil, "successful survey releases ownership")
 eq(reports[#reports - 1].outcome, "surveyed", "successful survey is reported")
 eq(reports[#reports - 1].suppressed_villages, 1, "survey counts its own suppressed village")
+-- Busy declines are self-triggered only for a chunk inside a request the active job made and that
+-- has not yet returned. Other chunks are the player's exploration.
+states.one, lock = nil, nil
+registered({x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
+pending[#pending]()
+local own_job = jobs[#jobs]
+local job_env = own_job.opts.env
+local function busy_for(id, minp, maxp)
+	site = {id = id, center = {x = 0, z = 0}, cell = {x = 0, z = 0}, seed = 12,
+		town_type = "roman", max_rect = {x1 = -10, z1 = -10, x2 = 10, z2 = 10},
+		activation_rect = {x1 = -20, z1 = -20, x2 = 20, z2 = 20}}
+	registered(minp, maxp)
+	return reports[#reports - 1]
+end
+local idle = busy_for("two", {x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
+eq(states.two, "declined", "busy decline while the job runs")
+eq(idle.trigger.self_triggered, false, "chunk with no outstanding job request is not self-triggered")
+job_env.emerge({x = -5, y = -5, z = -5}, {x = 5, y = 15, z = 5}, function() end)
+local answer_request = engine_cb
+local inside = busy_for("three", {x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
+eq(inside.reason, "busy", "chunk inside the job's own request is still declined")
+eq(inside.trigger.self_triggered, true, "chunk inside the job's outstanding request is self-triggered")
+answer_request(true)
+local returned = busy_for("four", {x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
+eq(returned.trigger.self_triggered, false, "chunk after the job's request returned is not self-triggered")
+own_job.done(nil, "test stop", "test_stop")
+eq(lock, nil, "test job releases ownership")
 registered = nil
 core.settings.get = function() return "off" end
 chunk()(towns, core, {})

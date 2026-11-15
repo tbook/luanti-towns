@@ -265,6 +265,42 @@ do
 	eq(c and #c.values, 6400, "values hold the clean valid heights")
 end
 
+-- Centre diagnostics: the last footprint scan is reported whether or not a centre is retained, and
+-- it is dropped once the site is terminal.
+do
+	local s = new_session()
+	eq(s:center_scan("A"), nil, "no centre scan before the centre chunk is seen")
+	local e = event(1, 1, 1, "surface")
+	e.heights[60][100] = 48      -- ambiguous
+	e.heights[61][100] = 127     -- clipped
+	e.heights[62][100] = SENTINEL
+	e.heights[63] = nil          -- whole row missing: 80 sentinel columns
+	s:on_generated(e)
+	eq(s:center("A"), nil, "partly invalid centre is not retained")
+	local scan = s:center_scan("A")
+	eq(scan and scan.valid, 6400 - 1 - 1 - 81, "scan counts the valid centre columns")
+	eq(scan and scan.clipped, 1, "scan counts clipped columns")
+	eq(scan and scan.ambiguous, 1, "scan counts ambiguous columns")
+	eq(scan and scan.sentinel, 81, "scan counts sentinel columns")
+	eq(scan and scan.min, 64, "scan reports the lowest valid height")
+	eq(scan and scan.max, 64, "scan reports the highest valid height")
+	s:decline("A")
+	eq(s:center_scan("A"), nil, "terminal site drops its centre scan")
+
+	local sky = new_session()
+	sky:on_generated(event(1, 2, 1, "sky"))
+	local none = sky:center_scan("A")
+	eq(none and none.valid, 0, "sky centre scan has no valid columns")
+	eq(none and none.min, nil, "sky centre scan has no minimum")
+	eq(none and none.max, nil, "sky centre scan has no maximum")
+
+	local clean = new_session()
+	clean:on_generated(event(1, 1, 1, "surface"))
+	local ok = clean:center_scan("A")
+	eq(ok and ok.valid, 6400, "retained centre scan counts every valid column")
+	eq(ok and ok.min, 64, "retained centre scan reports its height")
+end
+
 -- Validation before mutation: a malformed descriptor anywhere in the lookup changes nothing.
 do
 	local bad = {id = "X", center = {x = 1}}   -- malformed: no centre z, no rects

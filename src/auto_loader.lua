@@ -78,6 +78,17 @@ local function median(values)
 	return v[math.floor((#v + 1) / 2)]
 end
 
+-- The most frequent rejection code of an inspection (ties by name), or nil. Diagnostics only.
+local function rejection_code(details)
+	local best, best_count
+	for code, count in pairs(details and details.rejections or {}) do
+		if best == nil or count > best_count or (count == best_count and code < best) then
+			best, best_count = code, count
+		end
+	end
+	return best
+end
+
 local function valid_envelope(e)
 	if type(e) ~= "table" or type(e.stages) ~= "table" or not valid_box(e.read) or not valid_box(e.write)
 			or not is_int(e.chunks) or e.chunks < 0
@@ -271,13 +282,21 @@ function M:start(site, trigger, done)
 	end
 
 	local center_data = self.session:center(site.id)
+	-- Diagnostics for a missing centre: what the centre chunk's footprint scan saw. Read before
+	-- fail declines the session, which drops it.
+	local function center_details()
+		local scan = type(self.session.center_scan) == "function" and self.session:center_scan(site.id) or nil
+		return {center_heights = scan}
+	end
 	local function inspect_from_center(data)
 		if job.terminal then return end
 		if type(data) ~= "table" or type(data.values) ~= "table" then
-			return fail("The center surface chunk did not provide valid ground.", "center_ground_missing")
+			return fail("The center surface chunk did not provide valid ground.", "center_ground_missing", center_details())
 		end
 		local ref_y = median(data.values)
-		if not is_int(ref_y) then return fail("The center surface chunk did not provide valid ground.", "center_ground_missing") end
+		if not is_int(ref_y) then
+			return fail("The center surface chunk did not provide valid ground.", "center_ground_missing", center_details())
+		end
 		job.ref_y = ref_y
 		-- An exploration callback has already loaded this generated chunk and the session's
 		-- retained center copy proves its freshness. Reuse it without another emerge request.
@@ -299,7 +318,10 @@ function M:start(site, trigger, done)
 		local function inspected(result, reason, details)
 			if called or job.terminal then return end
 			called = true
-			if not result then return fail(reason, job.load_failure or (details and details.reason) or "inspection_failed", details) end
+			if not result then
+				return fail(reason, job.load_failure or (details and details.reason) or rejection_code(details)
+					or "inspection_failed", details)
+			end
 			result.reference_y = ref_y
 			local ok, envelope, why, code = pcall(self.envelope, result, site, ref_y)
 			if not ok then return fail("Could not calculate the approved site envelope: " .. tostring(envelope), "envelope_failed") end

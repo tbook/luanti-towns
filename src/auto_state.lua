@@ -50,6 +50,9 @@
 --                             ambiguous and sentinel all zero). A partly clipped, ambiguous or
 --                             sentinel centre is not retained, and a later clean event may still
 --                             provide it. Sky and underground events retain nothing.
+--   session:center_scan(id) -> copy { valid, clipped, ambiguous, sentinel, min, max } | nil. Diagnostics
+--                             for the last centre footprint scan, retained or not. min and max are
+--                             the valid height extremes (nil when there are none). Dropped when terminal.
 --   session:descriptor(id) -> copy of the site descriptor while contacted or inspecting | nil
 --
 --   auto_state.classify(h, minp_y, maxp_y) -> "valid" | "clipped" | "ambiguous" | "sentinel"
@@ -149,6 +152,17 @@ local function scan(event, rect, want_values)
 	return counts, values
 end
 
+-- Diagnostic summary of one centre footprint scan: class counts and the valid height extremes.
+local function center_summary(counts, values)
+	local s = {valid = counts.valid, clipped = counts.clipped, ambiguous = counts.ambiguous,
+		sentinel = counts.sentinel}
+	for _, h in ipairs(values) do
+		if s.min == nil or h < s.min then s.min = h end
+		if s.max == nil or h > s.max then s.max = h end
+	end
+	return s
+end
+
 local function chunk_rect(event)
 	return {x1 = event.minp.x, z1 = event.minp.z, x2 = event.maxp.x, z2 = event.maxp.z}
 end
@@ -175,6 +189,7 @@ local function terminate(rec, state)
 	rec.desc = nil
 	rec.chunks = nil
 	rec.center = nil
+	rec.center_seen = nil
 end
 
 local function active(rec)
@@ -246,6 +261,7 @@ function Session:on_generated(event)
 					local fp = {x1 = c.x + self.footprint.x1, z1 = c.z + self.footprint.z1,
 						x2 = c.x + self.footprint.x2, z2 = c.z + self.footprint.z2}
 					local counts, values = scan(event, intersect(chunk, fp), true)
+					rec.center_seen = center_summary(counts, values)
 					-- Retain only a fully clean footprint: any clipped, ambiguous or sentinel column
 					-- leaves the centre unretained, so a later clean event can still provide it.
 					if counts.valid > 0 and counts.clipped + counts.ambiguous + counts.sentinel == 0 then
@@ -324,6 +340,14 @@ function Session:center(id)
 	local rec = self.records[id]
 	if rec == nil or rec.center == nil then return nil end
 	return copy(rec.center)
+end
+
+-- Diagnostics only: class counts and valid min/max of the last centre footprint scan, retained or
+-- not. nil when no event has covered the centre chunk. Valid until the site is terminal.
+function Session:center_scan(id)
+	local rec = self.records[id]
+	if rec == nil or rec.center_seen == nil then return nil end
+	return copy(rec.center_seen)
 end
 
 function Session:descriptor(id)

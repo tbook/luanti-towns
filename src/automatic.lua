@@ -43,9 +43,25 @@ return function(towns, core, vars)
 		return true
 	end
 	local function now() return core.get_us_time() / 1000000 end
+	-- Log context for the chunk whose callback is being handled. self_triggered is true when the
+	-- chunk lies inside a box the active job itself asked the engine to emerge (see requested_by).
+	local function trigger_info(event, self_triggered)
+		return {minp = event.minp, maxp = event.maxp, self_triggered = self_triggered}
+	end
+	-- True when the callback chunk lies inside a box the job requested and has not yet received.
+	local function requested_by(job, minp, maxp)
+		for request in pairs(job.requests) do
+			local a, b = request.minp, request.maxp
+			if minp.x >= a.x and maxp.x <= b.x and minp.y >= a.y and maxp.y <= b.y
+				and minp.z >= a.z and maxp.z <= b.z then return true end
+		end
+		return false
+	end
 	local function start(site, trigger)
+		-- start runs only when no job is active, so no pending request can own this trigger.
 		local job = {site = site, started = now(), chunks = 0, suppressed = 0, clearance = false,
-			load_seconds = 0, inspection_seconds = 0, snapshot_voxels = 0}
+			load_seconds = 0, inspection_seconds = 0, snapshot_voxels = 0, requests = {},
+			trigger = trigger_info(trigger, false)}
 		local function settle(result, reason, code, summary, extra, inspection_details)
 			if job.done then return end
 			job.done = true
@@ -64,6 +80,8 @@ return function(towns, core, vars)
 			core.log("action", "[towns] " .. (mode == "survey" and "survey " or "automatic ") .. core.write_json({id = site.id,
 				outcome = outcome, reason = code or reason or "ok",
 				message = reason,
+				trigger = job.trigger,
+				center_heights = inspection_details and inspection_details.center_heights,
 				inspection_rejections = inspection_details and inspection_details.rejections,
 				inspection_examples = inspection_details and inspection_details.examples,
 				chunks = job.chunks, elapsed_seconds = now() - job.started, load_seconds = job.load_seconds,
@@ -96,7 +114,12 @@ return function(towns, core, vars)
 		world.emerge = function(minp, maxp, cb)
 			job.chunks = job.chunks + 1
 			local started = now()
-			emerge(minp, maxp, function(...) job.load_seconds = job.load_seconds + now() - started; cb(...) end)
+			local request = {minp = minp, maxp = maxp}
+			job.requests[request] = true
+			emerge(minp, maxp, function(...)
+				job.requests[request] = nil
+				job.load_seconds = job.load_seconds + now() - started; cb(...)
+			end)
 		end
 		local search = {inspect_site = function(...)
 			local args = {...}
@@ -252,6 +275,7 @@ return function(towns, core, vars)
 			end
 		end
 		if not relevant then return end
+		local own = active ~= nil and requested_by(active, minp, maxp)
 		local heights, hm = {}, core.get_mapgen_object("heightmap")
 		if hm then
 			local i = 1
@@ -273,7 +297,7 @@ return function(towns, core, vars)
 			if active then
 				session:decline(site.id)
 				core.log("action", "[towns] " .. (mode == "survey" and "survey " or "automatic ") .. core.write_json({id = site.id, outcome = "declined",
-					reason = "busy", chunks = 0, elapsed_seconds = 0, load_seconds = 0,
+					reason = "busy", trigger = trigger_info(event, own), chunks = 0, elapsed_seconds = 0, load_seconds = 0,
 					inspection_seconds = 0, snapshot_voxels = 0, clearance = false, suppressed_villages = 0}, false))
 			else
 				-- Reserve and take ownership now; defer world requests until after mapgen returns.
