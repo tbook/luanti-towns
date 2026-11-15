@@ -104,3 +104,22 @@ rework.
 Prefer small, focused changes over opportunistic refactoring.
 
 Keep the ticket's intended behavior as the source of truth.
+
+## Working trees
+
+Never run two coding or review agents in the same working tree. Branch
+switches and uncommitted edits in a shared checkout can clobber each other's
+work and commit to the wrong branch.
+
+- Give each implementation agent its own git worktree (for example by
+  launching it with `isolation: "worktree"`, or by creating one with
+  `git worktree add` and telling the agent to work only there).
+- Tell the agent explicitly to stay inside its worktree and never switch
+  branches in any other tree, including the main checkout.
+- The main checkout is for the human. Keep it on whatever branch the human is
+  using, and do not point an agent at it.
+- If an agent needs untracked local files that a fresh worktree will not
+  have (for example the untracked `tools/*_import` directories), copy the
+  needed files into its worktree rather than sharing the main checkout.
+- Reviewers may read a branch from the agent's worktree, but must not check
+  out other branches in a tree another agent is using.
