@@ -468,6 +468,7 @@ run_group("tests/medieval_walls_tests.lua", eq, dofile("src/planner.lua"), catal
 -- Outside-road exits shared by Roman and medieval towns (#357).
 run_group("tests/town_roads_tests.lua", eq, dofile("src/planner.lua"), catalog)
 run_group("tests/medieval_wall_assets_tests.lua", eq, catalog, geometry)
+run_group("tests/roman_palace_import_tests.lua", eq, catalog)
 run_group("tests/town_square_fountain_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
 run_group("tests/medieval_wall_features_tests.lua", eq)
 
