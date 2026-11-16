@@ -33,6 +33,7 @@ local eq = ...
 	-- Trigger a real surface event so the real session owns an active inspection.
 	local h = {}; for z = 368, 447 do h[z] = {}; for x = 368, 447 do h[z][x] = 10 end end
 	assert(session:on_generated({minp = {x = 368, y = -32, z = 368}, maxp = {x = 447, y = 47, z = 447}, heights = h}))
+	eq(session:begin("site"), "inspecting", "job begins the activated candidate")
 	eq(session:state("site"), "inspecting", "surface event activates inspection")
 	eq(s.create_site_plan({x = 300, z = 500}, {x = 300, z = 500}, pr), false, "inclusive reach boundary suppresses")
 	eq(pr.count, 1, "suppression does not touch RNG")
