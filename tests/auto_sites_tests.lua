@@ -76,8 +76,9 @@ for _, g in ipairs(GOLDEN) do
 	local d = S.describe(seed, cx, cz)
 	eq(type(d), "table", label .. " accepted")
 	if d then
-		eq(d.id, ("1:%d:%d:%s:%d:%d:%d"):format(cx, cz, town, pseed, x, z), label .. " id")
-		eq(d.version, 1, label .. " version")
+		eq(d.id, ("2:%d:%d:0:%s:%d:%d:%d"):format(cx, cz, town, pseed, x, z), label .. " id")
+		eq(d.version, 2, label .. " version")
+		eq(d.candidate, 0, label .. " candidate index")
 		xz(d.cell, cx, cz, label .. " cell")
 		xz(d.center, x, z, label .. " centre")
 		eq(d.town_type, town, label .. " town type")
@@ -355,3 +356,174 @@ eq(rw, 737, "fake-provider activation width (not the measured 847)")
 eq(rj, 63, "jitter follows the environment's fit")
 eq(rmin >= -rj and rmax <= rj, true, "centre offsets follow the environment's jitter")
 eq(real_ok, true, "activation keeps one mapchunk from the cell edges for this environment too")
+
+
+-- Candidate lattice (#449, #431 T3). N = 9 is opt-in; the default stays N = 1.
+eq(sites.CANDIDATES, 1, "default is one candidate per cell until the cell job lands")
+eq(sites.VERSION, 2, "version is 2")
+eq(S.candidates, 1, "default lookup has one candidate")
+eq(S.overhang, 0, "N = 1 activation never leaves its cell")
+eq(select(3, sites.new(measured_env(), {candidates = 4})), "invalid_env", "N other than 1 or 9 declines")
+local L = sites.new(measured_env(), {candidates = 9})
+eq(type(L), "table", "lattice lookup builds")
+eq(L.candidates, 9, "lattice reports 9 candidates")
+eq(L.overhang, 98, "activation overhang is 98 nodes for the measured basis")
+
+-- Determinism (any order, any instance) and id format.
+local lat_seen = {}
+local det = true
+for cz = -3, 3 do for cx = -3, 3 do
+	local list = L.cell("2014", cx, cz)
+	eq(#list, 9, "cell has nine candidates")
+	local again = sites.new(measured_env(), {candidates = 9}).cell("2014", cx, cz)
+	for k, c in ipairs(list) do
+		if c.id ~= again[k].id then det = false end
+		eq(c.id, ("2:%d:%d:%d:%s:%d:%d:%d"):format(cx, cz, k - 1, c.town_type, c.seed, c.center.x, c.center.z),
+			"lattice id format")
+		eq(c.candidate, k - 1, "candidate index")
+		eq(c.town_type, list[1].town_type, "town type is per cell")
+		eq(c.seed, list[1].seed, "planner seed is per cell")
+		lat_seen[c.id] = true
+	end
+end end
+eq(det, true, "lattice is deterministic across instances")
+
+-- Every max_rect fits its cell with the clearance; offsets stay within lattice +/- jitter.
+local lat_ok, omin, omax, over = true, math.huge, -math.huge, 0
+for cz = -30, 29 do for cx = -30, 29 do
+	local ox, oz = cx * CELL, cz * CELL
+	for _, c in ipairs(L.cell("2014", cx, cz)) do
+		local m = c.max_rect
+		if m.x1 < ox + 80 or m.x2 > ox + CELL - 81 or m.z1 < oz + 80 or m.z2 > oz + CELL - 81 then lat_ok = false end
+		local a = c.activation_rect
+		over = math.max(over, ox - a.x1, a.x2 - (ox + CELL - 1), oz - a.z1, a.z2 - (oz + CELL - 1))
+		for _, o in ipairs({c.center.x - ox - 512, c.center.z - oz - 512}) do
+			omin, omax = math.min(omin, o), math.max(omax, o)
+		end
+	end
+end end
+eq(lat_ok, true, "every max_rect keeps one mapchunk from its cell edges")
+eq(omin >= -186 and omax <= 186, true, "offsets stay within +/-186")
+eq(omin, -186, "lattice reaches -186")
+eq(omax, 186, "lattice reaches +186")
+eq(over <= 98, true, "activation overhang is at most 98")
+eq(over, 98, "overhang reaches 98 in the sample")
+
+-- Each lattice slot stays within its jitter of its nominal offset.
+local slot_ok = true
+for k, c in ipairs(L.cell("2014", 4, -2)) do
+	local nx, nz = (((k - 1) % 3) - 1) * 180, ((math.floor((k - 1) / 3)) - 1) * 180
+	if math.abs(c.center.x - (4 * CELL + 512 + nx)) > 6 or math.abs(c.center.z - (-2 * CELL + 512 + nz)) > 6 then
+		slot_ok = false
+	end
+end
+eq(slot_ok, true, "candidate k sits within +/-6 of its 3 x 3 lattice slot")
+eq(L.describe("2014", 4, -2, 4).candidate, 4, "describe selects a candidate by index")
+eq(L.describe("2014", 4, -2, 9), nil, "describe rejects an index past N")
+
+-- Lookup across a cell edge: a rect just inside cell 0 finds the cell to the east (and diagonal)
+-- because their activation rects overhang into it.
+local function overhangs(list, rect)
+	local n = 0
+	for _, c in ipairs(list) do
+		local a = c.activation_rect
+		if a.x1 <= rect.x2 and a.x2 >= rect.x1 and a.z1 <= rect.z2 and a.z2 >= rect.z1 then n = n + 1 end
+	end
+	return n
+end
+local edge = {x1 = 1000, z1 = 1000, x2 = 1023, z2 = 1023}
+local seen = {}
+for _, c in ipairs(L.lookup("2014", edge)) do seen[c.cell.x .. ":" .. c.cell.z] = true end
+eq(seen["0:0"] and seen["1:0"] and seen["0:1"] and seen["1:1"], true, "edge rect also finds overhanging neighbours")
+eq(#L.lookup("2014", edge), 36, "four cells of nine candidates")
+eq(cells_of(S.lookup("2014", edge)), "0:0", "N = 1 lookup is unpadded")
+local east = {x1 = 1024 + 5, z1 = 400, x2 = 1024 + 5, z2 = 400}
+local found_east = L.lookup("2014", {x1 = 1020, z1 = 400, x2 = 1023, z2 = 400})
+local reach = false
+for _, c in ipairs(found_east) do
+	if c.cell.x == 1 and c.activation_rect.x1 <= 1023 then reach = true end
+end
+eq(reach, true, "a candidate of the next cell has an activation rect overhanging the edge")
+eq(overhangs(L.lookup("2014", east), east) > 0, true, "node just inside cell 1 is covered by candidate activation rects")
+-- Lookup is a superset of every candidate whose activation rect overlaps the query.
+local sup = true
+for _, r in ipairs({edge, {x1 = -50, z1 = 990, x2 = 10, z2 = 1030}, {x1 = 2040, z1 = 2040, x2 = 2047, z2 = 2047}}) do
+	local got = {}
+	for _, c in ipairs(L.lookup("2014", r)) do got[c.id] = true end
+	for cz = -3, 4 do for cx = -3, 4 do
+		for _, c in ipairs(L.cell("2014", cx, cz)) do
+			local a = c.activation_rect
+			if a.x1 <= r.x2 and a.x2 >= r.x1 and a.z1 <= r.z2 and a.z2 >= r.z1 and not got[c.id] then sup = false end
+		end
+	end end
+end
+eq(sup, true, "lookup returns every candidate whose activation rect overlaps the query")
+local ordered = L.lookup("2014", {x1 = 0, z1 = 0, x2 = 1, z2 = 1})
+eq(ordered[1].id, L.describe("2014", -1, -1, 0).id, "lookup orders by cz, cx, then k")
+eq(ordered[10].candidate, 0, "candidate index restarts per cell")
+
+-- Cache: repeated results are equal, fresh copies, and survive eviction.
+local c1, c2 = L.lookup("2014", edge), L.lookup("2014", edge)
+local cache_eq = #c1 == #c2
+for i = 1, math.min(#c1, #c2) do cache_eq = cache_eq and c1[i].id == c2[i].id end
+eq(cache_eq, true, "cached lookups return equal descriptors")
+eq(rawequal(c1[1], c2[1]), false, "cached descriptors are copied")
+c1[1].center.x = 0; c1[1].max_rect.x1 = 0
+eq(L.lookup("2014", edge)[1].center.x ~= 0 and L.lookup("2014", edge)[1].max_rect.x1 ~= 0, true, "mutation does not reach the cache")
+local small = sites.CACHE_LIMIT
+sites.CACHE_LIMIT = 3
+local E = sites.new(measured_env(), {candidates = 9})
+local before = E.lookup("2014", {x1 = 0, z1 = 0, x2 = 3000, z2 = 3000})
+local after = E.lookup("2014", {x1 = 0, z1 = 0, x2 = 3000, z2 = 3000})
+sites.CACHE_LIMIT = small
+local evict_ok = #before == #after
+for i = 1, math.min(#before, #after) do evict_ok = evict_ok and before[i].id == after[i].id end
+eq(evict_ok, true, "descriptors are identical after cache eviction")
+
+-- N = 1 equivalence: the lattice module with N = 1 gives the version 1 centre, type and seed
+-- (the golden table above is the version 1 data), and the first N = 9 cell uses the same type
+-- and planner seed.
+for _, g in ipairs(GOLDEN) do
+	local d = S.describe(g[1], g[2], g[3])
+	eq(d.center.x == g[4] and d.center.z == g[5] and d.town_type == g[6] and d.seed == g[7], true,
+		"N = 1 reproduces version 1 geometry, type and seed")
+	if d then
+		local c = L.describe(g[1], g[2], g[3], 0)
+		eq(c.town_type == g[6] and c.seed == g[7], true, "lattice keeps the per-cell type and seed")
+	end
+end
+
+-- Version 1 accepted records still reserve their cells under version 2 descriptors.
+do
+	local records = dofile("src/auto_records.lua")
+	local values = {}
+	local function literal(v)
+		if type(v) == "table" then
+			local f = {}
+			for k, x in pairs(v) do f[#f + 1] = "[" .. literal(k) .. "]=" .. literal(x) end
+			table.sort(f)
+			return "{" .. table.concat(f, ",") .. "}"
+		end
+		return type(v) == "string" and string.format("%q", v) or tostring(v)
+	end
+	local reg = records.new({
+		store = {get = function(k) return values[k] end, set = function(k, v) values[k] = v end},
+		serialize = literal,
+		deserialize = function(str) return loadstring("return " .. str)() end,
+	})
+	local d1 = S.describe("2014", 3, 4)
+	local v1 = {cell = {x = 3, z = 4}, version = 1, seed = d1.seed, town_type = d1.town_type,
+		center = {x = d1.center.x, y = 22, z = d1.center.z},
+		envelope = {min = {x = d1.center.x - 100, y = -20, z = d1.center.z - 100},
+			max = {x = d1.center.x + 100, y = 100, z = d1.center.z + 100}}, state = "complete"}
+	eq(reg:begin(v1), true, "version 1 record is accepted")
+	for _, c in ipairs(L.cell("2014", 3, 4)) do
+		eq(reg:lookup(c.cell) ~= nil, true, "version 1 record reserves the cell of version 2 candidate " .. c.candidate)
+	end
+	local dup = L.describe("2014", 3, 4, 5)
+	eq(reg:begin({cell = dup.cell, version = dup.version, seed = dup.seed, town_type = dup.town_type,
+		center = {x = dup.center.x, y = 22, z = dup.center.z},
+		envelope = {min = {x = dup.center.x - 50, y = -20, z = dup.center.z - 50},
+			max = {x = dup.center.x + 50, y = 100, z = dup.center.z + 50}}, state = "building"}), false,
+		"a version 2 candidate cannot take a cell already accepted under version 1")
+end
