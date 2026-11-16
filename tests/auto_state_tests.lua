@@ -129,7 +129,8 @@ do
 	eq(#a, 1, "first valid surface event activates")
 	eq(a[1] and a[1].kind, "activate", "activation kind")
 	eq(a[1] and a[1].site.id, "A", "activation names the site")
-	eq(s:state("A"), "inspecting", "activation starts inspection")
+	eq(s:state("A"), "contacted", "activation leaves the candidate contacted until begin")
+	eq(s:begin("A", 0), "inspecting", "begin starts inspection")
 	ok = s:covers("A", box(60, 50, 60, 100, 70, 100))
 	eq(ok, true, "surface chunk is fresh after recording")
 end
@@ -191,7 +192,7 @@ do
 	s:on_generated(event(1, 1, 1, "surface"))
 	local a = acts(s:on_generated(event(2, 1, 1, "surface")), "racing exploration chunk")
 	eq(#a, 0, "racing chunk does not start a second activation")
-	eq(s:state("A"), "inspecting", "racing chunk keeps inspection")
+	eq(s:state("A"), "contacted", "racing chunk changes no state")
 	local ok = s:covers("A", box(100, 60, 60, 170, 70, 100))
 	eq(ok, true, "racing chunk joins the fresh set")
 end
@@ -245,7 +246,8 @@ do
 	e.heights[63] = nil          -- whole row missing: 80 sentinel columns
 	s:on_generated(e)
 	eq(s:center("A"), nil, "partly invalid footprint retains no centre")
-	eq(s:state("A"), "inspecting", "the same event still activates on its valid ground")
+	eq(s:state("A"), "contacted", "the same event still activates on its valid ground")
+	eq(s:begin("A"), "inspecting", "begin after that activation")
 	local one_clipped = event(1, 1, 1, "surface")
 	one_clipped.heights[60][100] = 127
 	s:on_generated(one_clipped)
@@ -334,6 +336,8 @@ end
 do
 	local s = new_session()
 	s:on_generated(event(1, 1, 1, "surface"))
+	eq(s:finish("A"), nil, "a contacted site cannot finish before begin")
+	s:begin("A")
 	eq(s:finish("A"), "complete", "inspecting site finishes")
 	eq(s:finish("A"), "complete", "second finish is idempotent")
 	eq(s:state("A"), "complete", "state is complete")
@@ -459,7 +463,8 @@ do
 	local s = new_session()
 	s:on_generated(event(3, 2, 1, "sky"))   -- x 208..287 touches A and B
 	s:on_generated(event(2, 1, 1, "surface"))  -- x 128..207 touches A only
-	eq(s:state("A"), "inspecting", "A activates on its own surface")
+	eq(s:state("A"), "contacted", "A activates on its own surface")
+	eq(s:begin("A"), "inspecting", "A begins")
 	eq(s:state("B"), "contacted", "B is not touched by A's surface chunk")
 	-- Chunk x 3 covers 208..287: B's max rect starts at 280, so the boxes stay in that chunk.
 	eq(s:covers("B", box(280, 130, 60, 285, 140, 70)), true, "B records the shared sky chunk")
@@ -511,4 +516,292 @@ do
 	eq(c and c.valid, 6400, "real centre chunk has valid ground in the footprint")
 	eq(s:covers(d.id, box(460, 60, 460, 500, 70, 500)), true, "real chunk covers an interior box")
 	eq(s:covers(d.id, box(300, 60, 300, 310, 70, 310)), false, "real site rejects unrecorded chunks")
+end
+
+-- ---------------------------------------------------------------------------------------------
+-- Cells with several candidates (#431 T4). Synthetic cell {0,0}: C0 (activation 0..239, max
+-- 40..200, centre (120,120)) and C1 (activation 240..479, max 280..440, centre (360,120)), plus
+-- D in the neighbouring cell {1,0} (activation 480..719, max 520..680, centre (600,120)).
+-- Chunk index 5 (x 368..447) touches C1 only; chunk 3 (208..287) touches C0 and C1; chunk 6
+-- (448..527) touches C1 and D.
+local C0 = {id = "C0", cell = {x = 0, z = 0}, candidate = 0, center = {x = 120, z = 120},
+	max_rect = {x1 = 40, z1 = 40, x2 = 200, z2 = 200}, activation_rect = {x1 = 0, z1 = 0, x2 = 239, z2 = 239}}
+local C1 = {id = "C1", cell = {x = 0, z = 0}, candidate = 1, center = {x = 360, z = 120},
+	max_rect = {x1 = 280, z1 = 40, x2 = 440, z2 = 200}, activation_rect = {x1 = 240, z1 = 0, x2 = 479, z2 = 239}}
+local D = {id = "D", cell = {x = 1, z = 0}, candidate = 0, center = {x = 600, z = 120},
+	max_rect = {x1 = 520, z1 = 40, x2 = 680, z2 = 200}, activation_rect = {x1 = 480, z1 = 0, x2 = 719, z2 = 239}}
+-- Like a cell lookup: every candidate of every cell near the chunk, whatever it touches.
+local function lookup_cells() return {C0, C1, D} end
+local function cell_session(opts)
+	opts = opts or {}
+	opts.lookup = opts.lookup or lookup_cells
+	return new_session(opts)
+end
+
+-- Union activation: contact through C1's rect alone activates the whole cell once; both
+-- candidates stay contacted and share one set.
+do
+	local s = cell_session()
+	local a = acts(s:on_generated(event(5, 1, 1, "surface"), 10), "surface through C1's rect")
+	eq(#a, 1, "one activation for the cell (D is not touched)")
+	eq(a[1] and #a[1].sites, 2, "the activation lists both live candidates")
+	eq(a[1] and a[1].site.id, "C0", "site is the first candidate")
+	eq(a[1] and a[1].sites[2].id, "C1", "sites keep lookup order")
+	eq(a[1] and a[1].cell.x, 0, "the activation names the cell")
+	eq(s:state("C0"), "contacted", "C0 contacted although the chunk is outside its rect")
+	eq(s:state("C1"), "contacted", "C1 contacted until begin")
+	eq(s:state("D"), nil, "D's cell is untouched")
+	eq(#acts(s:on_generated(event(3, 1, 1, "surface"), 11), "second surface"), 0, "one activation per cell")
+	eq(#acts(s:on_generated(event(1, 1, 1, "surface"), 12), "third surface"), 0, "still one activation per cell")
+	-- Shared set: chunk 3 (x 208..287) touches both rects and is in the one set; C1's box in that
+	-- chunk is covered although C0 made the first contact there, and C0's box in chunk 1 as well.
+	eq(s:covers("C1", box(280, 50, 60, 287, 70, 100)), true, "C1 covered by the shared set (chunk 3)")
+	eq(s:covers("C0", box(60, 50, 60, 100, 70, 100)), true, "C0 covered by the shared set (chunk 1)")
+	eq(s:covers("C1", box(300, 50, 60, 360, 70, 100)), false, "chunk 4 was never generated: not covered")
+	local ok, why = s:covers("C0", box(208, 50, 60, 215, 70, 100))
+	eq(ok, false, "a recorded chunk outside the candidate's own max_rect is not authorized")
+	eq(why, "outside_envelope", "own max_rect reason")
+end
+
+-- Contact from the sky or underground records into the cell's set; the later surface event
+-- activates the cell and the earlier chunks stay covered.
+do
+	local s = cell_session()
+	eq(#acts(s:on_generated(event(5, 2, 1, "sky")), "sky contact"), 0, "sky contact does not activate")
+	eq(#acts(s:on_generated(event(3, -1, 1, "under")), "underground contact"), 0, "underground contact does not activate")
+	eq(s:state("C0"), "contacted", "sibling contacted by the sky chunk")
+	eq(s:begin("C0", 1), nil, "begin before activation is refused")
+	eq(select(3, s:begin("C0", 1)), "not_activated", "not_activated code")
+	eq(s:covers("C1", box(370, 130, 60, 400, 140, 100)), true, "sky chunk covered for C1")
+	eq(s:covers("C1", box(280, -100, 60, 287, -50, 100)), true, "underground chunk (x 208..287) covered for C1")
+	local a = acts(s:on_generated(event(1, 1, 1, "surface")), "surface")
+	eq(#a, 1, "surface activates the cell")
+	eq(s:covers("C1", box(370, 130, 60, 400, 140, 100)), true, "earlier sky chunk stays covered")
+end
+
+-- Freshness ordering. Chunks the session never saw (generated before first contact, loaded from
+-- disk, other dimensions) are never covered; only chunks generated after contact are.
+do
+	local s = cell_session()
+	-- Chunk 2 (x 128..207) existed before the cell was contacted: no event, never recorded.
+	local other = event(2, 1, 1, "surface")
+	other.dimension = "underworld"
+	eq(#acts(s:on_generated(other), "ineligible event"), 0, "ineligible event emits nothing")
+	eq(s:state("C0"), nil, "ineligible event is not a contact")
+	s:on_generated(event(1, 1, 1, "surface"), 5)      -- first contact: chunk 1 only
+	local ok, why = s:covers("C0", box(130, 50, 60, 170, 70, 100))
+	eq(ok, false, "a chunk generated before first contact is not covered")
+	eq(why, "not_fresh", "pre-contact chunk reason")
+	eq(s:covers("C0", box(60, 50, 60, 100, 70, 100)), true, "the first contact chunk is covered")
+	s:on_generated(event(2, 1, 1, "surface"), 6)      -- generated after contact
+	eq(s:covers("C0", box(130, 50, 60, 170, 70, 100)), true, "a chunk generated after contact is covered")
+	-- Once finished, the set is gone and later chunks authorize nothing.
+	s:begin("C0", 7)
+	eq(s:finish("C0"), "complete", "C0 finishes")
+	s:on_generated(event(1, 1, 1, "surface"))
+	eq(s:covers("C0", box(60, 50, 60, 100, 70, 100)), false, "finished cell authorizes nothing")
+	eq(s:covers("C1", box(280, 50, 60, 287, 70, 100)), false, "declined sibling authorizes nothing")
+end
+
+-- Every chunk touching a real candidate's max_rect also touches the union of the cell's
+-- activation rects: nothing in a max_rect can be generated unseen once a cell is live.
+do
+	local act = {x1 = -423, z1 = -423, x2 = 423, z2 = 423}
+	local env = {activation_rect = act, max_rect = {x1 = -245, z1 = -245, x2 = 245, z2 = 245},
+		fit = ab.fit(ab.CELL, act, ab.CELL_EDGE_CLEARANCE)}
+	local S = assert(sites.new(env, {candidates = 9}))
+	for _, cell in ipairs({{0, 0}, {-1, 2}}) do
+		local list = S.cell("2014", cell[1], cell[2])
+		eq(#list, 9, "nine candidates")
+		local missed = 0
+		local lo_x, hi_x, lo_z, hi_z = math.huge, -math.huge, math.huge, -math.huge
+		for _, d in ipairs(list) do
+			lo_x, hi_x = math.min(lo_x, d.max_rect.x1), math.max(hi_x, d.max_rect.x2)
+			lo_z, hi_z = math.min(lo_z, d.max_rect.z1), math.max(hi_z, d.max_rect.z2)
+		end
+		for cz = math.floor((lo_z + 32) / 80), math.floor((hi_z + 32) / 80) do
+			for cx = math.floor((lo_x + 32) / 80), math.floor((hi_x + 32) / 80) do
+				local minp, maxp = chunk_bounds(cx, 0, cz)
+				local chunk = {x1 = minp.x, z1 = minp.z, x2 = maxp.x, z2 = maxp.z}
+				for _, d in ipairs(list) do
+					local m = d.max_rect
+					if chunk.x1 <= m.x2 and m.x1 <= chunk.x2 and chunk.z1 <= m.z2 and m.z1 <= chunk.z2 then
+						local touched = false
+						for _, e in ipairs(list) do
+							local r = e.activation_rect
+							if chunk.x1 <= r.x2 and r.x1 <= chunk.x2 and chunk.z1 <= r.z2 and r.z1 <= chunk.z2 then
+								touched = true
+							end
+						end
+						if not touched then missed = missed + 1 end
+					end
+				end
+			end
+		end
+		eq(missed, 0, "no chunk of a max_rect escapes the union of the activation rects")
+	end
+end
+
+-- Self-triggered contacts record chunks but activate nothing, in this cell or a neighbour.
+do
+	local s = cell_session()
+	local own = event(6, 1, 1, "surface")      -- touches C1 (cell 0) and D (cell 1)
+	own.self_triggered = true
+	eq(#acts(s:on_generated(own, 1), "self-triggered surface"), 0, "self-triggered contact activates nothing")
+	eq(s:state("C1"), "contacted", "the cell is contacted")
+	eq(s:state("D"), "contacted", "the neighbouring cell is contacted")
+	eq(s:covers("D", box(520, 50, 60, 527, 70, 100)), true, "the self-triggered chunk is recorded")
+	eq(select(3, s:begin("D", 1)), "not_activated", "the neighbour was not activated")
+	eq(#acts(s:on_generated(own, 2), "repeat self-triggered"), 0, "repeating it still activates nothing")
+	-- An ordinary event later activates (the player arrives); the recorded chunk stays covered.
+	local a = acts(s:on_generated(event(7, 1, 1, "surface"), 3), "player arrives at D")
+	eq(#a, 1, "ordinary event activates the neighbour")
+	eq(a[1] and a[1].site.id, "D", "D's cell activates")
+	eq(s:covers("D", box(520, 50, 60, 527, 70, 100)), true, "self-triggered chunk stays covered")
+	-- Centre copy is still taken from a self-triggered centre chunk (A9: only its own event).
+	local s2 = cell_session()
+	local centre = event(1, 1, 1, "surface")
+	centre.self_triggered = true
+	s2:on_generated(centre)
+	eq(s2:center("C0") and s2:center("C0").valid, 6400, "self-triggered centre chunk still retains the centre")
+end
+
+-- begin: one inspecting candidate per cell; a decline frees the slot; declined stays declined.
+do
+	local s = cell_session()
+	s:on_generated(event(3, 1, 1, "surface"), 100)
+	eq(s:begin("C0", 101), "inspecting", "first begin")
+	eq(s:state("C0"), "inspecting", "state after begin")
+	local r, _, code = s:begin("C1", 102)
+	eq(r, nil, "second begin while a sibling inspects is refused")
+	eq(code, "sibling_inspecting", "sibling_inspecting code")
+	eq(select(3, s:begin("C0", 102)), "not_contacted", "an inspecting candidate cannot begin again")
+	eq(s:state("C1"), "contacted", "the refused sibling stays contacted")
+	eq(s:decline("C0"), "declined", "failed candidate declines")
+	eq(s:covers("C1", box(280, 50, 60, 287, 70, 100)), true, "set survives while a sibling is live")
+	eq(s:begin("C1", 103), "inspecting", "the sibling can begin after the decline")
+	eq(select(3, s:begin("C0", 104)), "not_contacted", "a declined candidate cannot begin again")
+	eq(#acts(s:on_generated(event(3, 1, 1, "surface"), 105), "later surface"), 0, "no reactivation")
+	eq(s:state("C0"), "declined", "declined candidate stays declined")
+	eq(s:decline("C1"), "declined", "last candidate declines")
+	eq(s:covers("C1", box(280, 50, 60, 287, 70, 100)), false, "set dropped with the last live candidate")
+	eq(#acts(s:on_generated(event(3, 1, 1, "surface"), 106), "after the cell ended"), 0, "terminal cell stays terminal")
+	eq(s:state("C1"), "declined", "terminal cell state")
+end
+
+-- Success declines the siblings; the cell is terminal and a second accept is rejected.
+do
+	local s = cell_session()
+	s:on_generated(event(3, 1, 1, "surface"), 0)
+	s:begin("C1", 1)
+	eq(s:finish("C1"), "complete", "inspecting candidate finishes")
+	eq(s:state("C0"), "declined", "finish declines the sibling")
+	eq(s:covers("C1", box(280, 50, 60, 287, 70, 100)), false, "finish drops the cell set")
+	local r, _, code = s:begin("C0", 2)
+	eq(r, nil, "the declined sibling cannot begin")
+	eq(code, "not_contacted", "second accept is refused at begin")
+	r, _, code = s:finish("C0")
+	eq(r, nil, "the declined sibling cannot finish")
+	eq(code, "not_inspecting", "second accept is refused at finish")
+	eq(s:finish("C1"), "complete", "finish stays idempotent")
+	eq(#acts(s:on_generated(event(3, 1, 1, "surface"), 3), "after finish"), 0, "a finished cell never reactivates")
+	eq(s:descriptor("C0"), nil, "sibling descriptor freed")
+end
+
+-- The 60 s limit from activation, by the caller's clock; the module reads no clock itself.
+do
+	eq(M.CELL_LIMIT, 60, "cell limit is 60 seconds")
+	local s = cell_session()
+	s:on_generated(event(3, 1, 1, "surface"), 100)
+	eq(s:begin("C0", 160), "inspecting", "begin exactly at the limit is allowed")
+	s:decline("C0")
+	local r, _, code = s:begin("C1", 160.5)
+	eq(r, nil, "begin after the limit is refused")
+	eq(code, "cell_expired", "cell_expired code")
+	eq(s:state("C1"), "declined", "an expired cell declines its candidates")
+	eq(s:covers("C1", box(280, 50, 60, 287, 70, 100)), false, "expired cell authorizes nothing")
+	local e = cell_session()
+	e:on_generated(event(3, 1, 1, "surface"), 0)
+	eq(select(3, e:begin("C0", "soon")), "invalid_clock", "a non-number clock is rejected")
+	eq(e:state("C0"), "contacted", "an invalid clock changes nothing")
+	-- Without an activation time (caller gave no clock) the limit is not applied.
+	local n = cell_session()
+	n:on_generated(event(3, 1, 1, "surface"))
+	eq(n:begin("C0", 1e9), "inspecting", "no activation time means no limit")
+end
+
+-- Centre data is kept per candidate from the first event for that candidate's own centre chunk.
+do
+	local s = cell_session()
+	s:on_generated(event(4, 2, 1, "sky"))                 -- C1's centre chunk column, sky
+	eq(s:center("C1"), nil, "sky retains no C1 centre")
+	s:on_generated(event(4, 1, 1, "surface"))             -- activates; C1's centre chunk
+	eq(s:center("C1") and s:center("C1").chunk.minp.x, 288, "C1 centre retained from its own chunk")
+	eq(s:center("C0"), nil, "C0 centre not copied from another candidate's chunk")
+	s:on_generated(event(1, 1, 1, 70))
+	eq(s:center("C0") and s:center("C0").values[1], 70, "C0 centre retained from its own first event")
+	s:on_generated(event(1, 1, 1, 80))
+	eq(s:center("C0").values[1], 70, "retained once")
+	s:begin("C1")
+	s:decline("C1")
+	eq(s:center("C1"), nil, "terminal candidate drops its centre")
+	eq(s:center("C0") and s:center("C0").valid, 6400, "the live sibling keeps its centre")
+end
+
+-- Declines before contact stick; accepted cells never activate.
+do
+	local s = cell_session()
+	s:decline("C1")
+	local a = acts(s:on_generated(event(3, 1, 1, "surface")), "surface after a pre-decline")
+	eq(#a, 1, "the cell still activates")
+	eq(a[1] and #a[1].sites, 1, "only the undeclined candidate is listed")
+	eq(a[1] and a[1].site.id, "C0", "C0 is listed")
+	eq(s:state("C1"), "declined", "pre-declined candidate stays declined")
+	local acc = cell_session({accepted = function(d) return d.cell.x == 0 end})
+	eq(#acts(acc:on_generated(event(3, 1, 1, "surface")), "accepted cell"), 0, "accepted cell does not activate")
+	eq(acc:state("C0"), "accepted", "accepted candidate")
+	eq(acc:state("C1"), "accepted", "accepted sibling")
+end
+
+-- N = 9 with the real lattice lookup: activation through any candidate's rect, then begin.
+do
+	local act = {x1 = -423, z1 = -423, x2 = 423, z2 = 423}
+	local env = {activation_rect = act, max_rect = {x1 = -245, z1 = -245, x2 = 245, z2 = 245},
+		fit = ab.fit(ab.CELL, act, ab.CELL_EDGE_CLEARANCE)}
+	local S = assert(sites.new(env, {candidates = 9}))
+	local s = M.new({lookup = function(rect) return S.lookup("2014", rect) end, adapter = adapter,
+		footprint = ab.PLAN_EXTENT})
+	local list = S.cell("2014", 0, 0)
+	-- Chunk (6,1,6) x 448..527: inside cell 0 (0..1023).
+	local a = acts(s:on_generated(event(6, 1, 6, "surface"), 0), "lattice surface")
+	local cells = {}
+	for _, x in ipairs(a) do cells[#cells + 1] = x.cell.x .. ":" .. x.cell.z end
+	local own
+	for _, x in ipairs(a) do if x.cell.x == 0 and x.cell.z == 0 then own = x end end
+	eq(own ~= nil, true, "cell 0 activates")
+	eq(own and #own.sites, 9, "all nine candidates are live")
+	eq(own and own.site.id, list[1].id, "first candidate leads")
+	eq(s:begin(list[4].id, 1), "inspecting", "any candidate can begin")
+	eq(select(3, s:begin(list[5].id, 1)), "sibling_inspecting", "only one at a time")
+	eq(s:finish(list[4].id), "complete", "finish")
+	local declined = 0
+	for _, d in ipairs(list) do if s:state(d.id) == "declined" then declined = declined + 1 end end
+	eq(declined, 8, "eight siblings declined")
+end
+
+-- N = 1 (the default): one candidate per cell, begin right after activation as automatic.lua does.
+do
+	local act = {x1 = -423, z1 = -423, x2 = 423, z2 = 423}
+	local env = {activation_rect = act, max_rect = {x1 = -245, z1 = -245, x2 = 245, z2 = 245},
+		fit = ab.fit(ab.CELL, act, ab.CELL_EDGE_CLEARANCE)}
+	local S = assert(sites.new(env))
+	local s = M.new({lookup = function(rect) return S.lookup("2014", rect) end, adapter = adapter,
+		footprint = ab.PLAN_EXTENT})
+	local d = S.describe("2014", 0, 0)
+	local a = acts(s:on_generated(event(6, 1, 6, "surface"), 0), "N = 1 surface")
+	eq(#a, 1, "one activation")
+	eq(a[1] and #a[1].sites, 1, "one candidate")
+	eq(a[1] and a[1].site.id, d.id, "the single candidate")
+	eq(s:begin(d.id, 0), "inspecting", "begin takes it to inspecting at once")
+	eq(s:covers(d.id, box(460, 60, 460, 500, 70, 500)), true, "covered as before")
 end

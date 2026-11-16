@@ -1292,7 +1292,7 @@ do
    set = function(_, v) raw = v end}, serialize = function(v) n = n + 1; serialized[tostring(n)] = v; return tostring(n) end,
    deserialize = function(v) return serialized[v] end}))
   local session = {state = function() return active_state end, covers = function() return true end,
-   finish = function() active_state = "complete" end, decline = function() active_state = "declined" end,
+   begin = function() return "inspecting" end, finish = function() active_state = "complete" end, decline = function() active_state = "declined" end,
    on_generated = function() active_state = "inspecting"; return {{site = site}} end}
   local adapter_core = {settings = {get = function() return "on" end},
    get_mapgen_setting = function(k) return ({mg_name = "flat", chunksize = "5", seed = "42"})[k] end,

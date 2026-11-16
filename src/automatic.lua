@@ -289,17 +289,18 @@ return function(towns, core, vars)
 			end
 		end
 		local event = {minp = {x = minp.x, y = minp.y, z = minp.z},
-			maxp = {x = maxp.x, y = maxp.y, z = maxp.z}, heights = heights}
-		local actions, why = session:on_generated(event)
+			maxp = {x = maxp.x, y = maxp.y, z = maxp.z}, heights = heights,
+			self_triggered = own or nil}
+		local actions, why = session:on_generated(event, now())
 		if not actions then return disabled(why) end
 		for _, action in ipairs(actions) do
 			local site = action.site
 			if active then
-				session:decline(site.id)
+				for _, sibling in ipairs(action.sites or {site}) do session:decline(sibling.id) end
 				core.log("action", "[towns] " .. (mode == "survey" and "survey " or "automatic ") .. core.write_json({id = site.id, outcome = "declined",
 					reason = "busy", trigger = trigger_info(event, own), chunks = 0, elapsed_seconds = 0, load_seconds = 0,
 					inspection_seconds = 0, snapshot_voxels = 0, clearance = false, suppressed_villages = 0}, false))
-			else
+			elseif session:begin(site.id, now()) then
 				-- Reserve and take ownership now; defer world requests until after mapgen returns.
 				start(site, event)
 			end

@@ -146,7 +146,7 @@ do
 	eq(f.reads, 0, "irrelevant chunk does not fetch heightmap")
 	activated(f)
 	f.complete(true)
-	eq(f.session:state("B"), "declined", "nearby activation declines during nested emergence")
+	eq(f.session:state("B"), "contacted", "the job's own request records B but does not activate or decline it")
 	eq(f.session:state("A"), "complete", "real loader completes after nested freshness")
 	eq(f.reports[#f.reports].outcome, "surveyed", "successful inspection reported")
 	eq(f.locked(), false, "success releases lock")

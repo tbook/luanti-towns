@@ -10,6 +10,8 @@ local session = {}
 function session:state(id) return states[id] end
 function session:on_generated(event)
 	events[#events + 1] = event
+	-- Like auto_state: a self-triggered chunk is recorded but activates nothing.
+	if event.self_triggered then return {} end
 	if event.heights[0] and event.heights[0][0] then
 		if states[site.id] then return {} end
 		states[site.id] = "inspecting"
@@ -17,6 +19,7 @@ function session:on_generated(event)
 	end
 	return {}
 end
+function session:begin() return "inspecting" end
 function session:decline(id) states[id] = "declined" end
 function session:finish(id) states[id] = "complete" end
 local modules = {
@@ -106,12 +109,15 @@ eq(states.two, "declined", "busy decline while the job runs")
 eq(idle.trigger.self_triggered, false, "chunk with no outstanding job request is not self-triggered")
 job_env.emerge({x = -5, y = -5, z = -5}, {x = 5, y = 15, z = 5}, function() end)
 local answer_request = engine_cb
-local inside = busy_for("three", {x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
-eq(inside.reason, "busy", "chunk inside the job's own request is still declined")
-eq(inside.trigger.self_triggered, true, "chunk inside the job's outstanding request is self-triggered")
+local before_reports = #reports
+busy_for("three", {x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
+eq(events[#events].self_triggered, true, "chunk inside the job's outstanding request is marked self-triggered")
+eq(states.three, nil, "self-triggered chunk activates nothing, so it is not declined as busy")
+eq(#reports, before_reports, "self-triggered chunk logs no busy decline")
 answer_request(true)
 local returned = busy_for("four", {x = 0, y = 0, z = 0}, {x = 0, y = 10, z = 0})
 eq(returned.trigger.self_triggered, false, "chunk after the job's request returned is not self-triggered")
+eq(events[#events].self_triggered, nil, "chunk after the request returned is not marked self-triggered")
 own_job.done(nil, "test stop", "test_stop")
 eq(lock, nil, "test job releases ownership")
 registered = nil

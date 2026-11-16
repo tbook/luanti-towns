@@ -24,7 +24,7 @@ local function fixture(case, kind)
  local state, covered = nil, true
  local session = {state = function() return state end,
   covers = function(_, id, b) f.covers_calls[#f.covers_calls + 1] = {id = id, box = b}; return covered end,
-  finish = function() state = "complete" end, decline = function() state = "declined" end,
+  begin = function() return "inspecting" end, finish = function() state = "complete" end, decline = function() state = "declined" end,
   on_generated = function() if state then return {} end; state = "inspecting"; return {{site = site}} end}
  local result = {center = site.center, ground_y = 5, plan = {}, read_envelope = box, write_envelope = box,
   envelope = {stages = {urban = {kind = "write", box = box}}}}
