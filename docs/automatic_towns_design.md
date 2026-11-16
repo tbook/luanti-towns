@@ -69,8 +69,9 @@ and reject future plans that exceed it. Build the actual plan only for a
 triggered site. A small in-memory terminal set prevents
 later callbacks from repeatedly inspecting the same declined site.
 
-No candidate lattice, coarse sampling/ranking pass, separate spatial index, or
-village-scheduler patch is needed. Tune cell size from survey results rather than
+Superseded by `automatic_towns_multi_candidate.md` (#431): each cell now has nine
+candidates, ranked by a cheap `core.get_spawn_level` pre-screen and inspected one
+after another (at most two). No separate spatial index or village-scheduler patch is needed. Tune cell size from survey results rather than
 adding more positions or relaxing the terrain test.
 
 ## 3. One inspection, shared construction
@@ -210,7 +211,7 @@ specific writer cannot otherwise honor its declared volume.
 
 ## 6. Work limits and player-visible loading
 
-Read the single candidate through bounded VoxelManip snapshots,
+Read each inspected candidate (at most two per cell) through bounded VoxelManip snapshots,
 cache classifications, and release buffers promptly. Selection remains roughly
 `O(footprint_area * scan_height)`, plus bounded terrain generation.
 

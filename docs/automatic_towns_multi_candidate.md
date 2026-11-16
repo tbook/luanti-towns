@@ -1,7 +1,7 @@
 # Automatic towns: several candidates per cell (#431)
 
-Status: proposed design, not implemented. Source: architect recommendation for
-#431, 2026-11-16, with PM decisions recorded below. Items marked **UNCERTAIN**
+Status: implemented in T3-T5 (the busy queue, T6, is not yet implemented). Source:
+architect recommendation for #431, 2026-11-16, with PM decisions recorded below. Items marked **UNCERTAIN**
 were not verified and are settled by the named ticket or by playtesting.
 
 ## Why
@@ -145,6 +145,22 @@ terrain or freshness rules. Living Villages is untouched.
 Per-cell log line: cell, activation and trigger, queue wait, and per candidate its
 index, center, score, min and max spawn level, outcome and reason, plus the
 winner and the number of tries.
+
+## Implemented constants (T5, `src/automatic.lua`)
+
+- `CANDIDATES = 9` candidates per cell.
+- `PRESCREEN_MIN = 3` (design said 5). **UNCERTAIN:** the T2 probe showed 5-of-9 also
+  rejects dry low land, so 3-of-9 is a deliberately conservative starting point, to be tuned
+  at T7.
+- `MAX_INSPECTIONS = 2` (PM decision 4). **UNCERTAIN** until playtested.
+
+One cell job holds the generation lock from the first inspection to the last and releases it
+once, when the cell ends. Every way the job gives up (no candidates, inspections spent, the
+60 s limit, a refused `begin`, or a clearance, guard, build or record failure) declines every
+remaining live candidate, so the cell is terminal and its chunk set is dropped. A village that
+declines a not-yet-tried candidate mid-cell just skips it. Any failure before acceptance
+(inspection, load, emerge, timeout, freshness) moves on to the next ranked candidate while
+inspections and the 60 s limit allow.
 
 ## Risks
 
