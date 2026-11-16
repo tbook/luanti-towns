@@ -170,8 +170,8 @@ sketch):
   `WET_DEFAULTS`: a column covered by at most `MAX_WATER_DEPTH` = 6 nodes of
   water or ice (bed found within that depth) is "wet" and is landfilled; wet
   columns may be at most `MAX_WET_FRACTION` = 25% of the footprint, deeper
-  water rejects as `too_deep_water`, more wet columns as `too_wet`, lava as
-  `lava`. For range and median a wet column counts at its water surface; the
+  water rejects as `too_deep_water`, air under a water surface as
+  `water_over_air`, more wet columns as `too_wet`, lava as `lava`. For range and median a wet column counts at its water surface; the
   finished ground is the median raised to the highest water surface in the
   footprint or in the one-node ring around it, so no water ends up above the
   ground. Fill is measured from the bed and still limited by the 24 node

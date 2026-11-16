@@ -887,7 +887,17 @@ do
 	eq(prob, "too_deep_water", "scan wet: deeper than the limit")
 	col = {[30] = "water", [29] = "air", [28] = "solid"}
 	_, prob = ss.scan_column_wet(cls, 40, 0, 6)
-	eq(prob, "no_ground", "scan wet: air gap under ice/water rejects")
+	eq(prob, "water_over_air", "scan wet: air gap under ice/water rejects")
+	local py
+	col = {[30] = "water", [29] = "air", [28] = "air"}
+	_, prob, py = ss.scan_column_wet(cls, 40, 0, 6)
+	eq(prob == "water_over_air" and py == 29, true, "scan wet: air under water reports the air y")
+	col = {[30] = "air", [29] = "air"}
+	_, prob, py = ss.scan_column_wet(cls, 40, 0, 6)
+	eq(prob == "no_ground" and py == 0, true, "scan wet: no water and no solid is no_ground")
+	col = {[30] = "water", [29] = "water", [28] = "air"}
+	_, prob = ss.scan_column_wet(cls, 40, 0, 6)
+	eq(prob, "water_over_air", "scan wet: air under water with no bed is water_over_air")
 	col = {[30] = "water", [29] = "lava"}
 	_, prob = ss.scan_column_wet(cls, 40, 0, 6)
 	eq(prob, "lava", "scan wet: lava under water rejects")
@@ -898,6 +908,15 @@ do
 	for y = 30, 0, -1 do col[y] = "water" end
 	_, prob = ss.scan_column_wet(cls, 40, 0, 6)
 	eq(prob, "too_deep_water", "scan wet: bottomless water")
+
+	-- inspect_columns maps water_over_air to its own code, not no_ground
+	local wcols = {{x = 1, z = 0}}
+	local _, wcode, wmsg = ss.inspect_columns(wcols,
+		function() return nil, "water_over_air", 12 end, 100, 16, 0, 24)
+	eq(wcode, "water_over_air", "inspect: water_over_air code")
+	eq(wmsg:find("air under water", 1, true) ~= nil, true, "inspect: water_over_air message")
+	_, wcode = ss.inspect_columns(wcols, function() return nil, "no_ground", 12 end, 100, 16, 0, 24)
+	eq(wcode, "no_ground", "inspect: no_ground code unchanged")
 
 	-- inspect_columns wet rules
 	local cols = {}

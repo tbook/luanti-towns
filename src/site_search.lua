@@ -100,7 +100,8 @@
 -- emerge_timeout (see EMERGE_TIMEOUT), player_inside (player within the candidate's bounds plus
 -- PLAYER_MARGIN), plan_failed, emerge_failed (CANCELLED/ERRORED), water
 -- (water/lava), unknown (ignore/unloaded/unregistered node), no_ground (no
--- solid node in the window), too_high (surface reaches the window top, the
+-- solid node in the window), water_over_air (wet column with air under its
+-- water surface), too_high (surface reaches the window top, the
 -- real surface is not seen), too_uneven (range > MAX_RANGE).
 --
 -- env contract (all thin core wrappers; core_env builds them):
@@ -335,9 +336,11 @@ end
 -- placement.classify classes plus "lava" (named lava). Returns
 --   bed, nil, nil, surface   wet column (surface = topmost liquid/ice y)
 --   bed                      dry column
---   nil, problem, y          problem: lava, unknown, no_ground, too_deep_water
+--   nil, problem, y          problem: lava, unknown, no_ground, water_over_air,
+--                            too_deep_water
 -- (liquid/ice, then vegetation, then solid is wet; air under a liquid is a
--- cave or ice-sheet gap and rejects as no_ground; no bed within max_depth
+-- cave or ice-sheet gap and rejects as water_over_air; no solid at all is
+-- no_ground; no bed within max_depth
 -- nodes of the surface is too_deep_water, including water that runs to the
 -- bottom of the window.)
 function M.scan_column_wet(class_at, top, bottom, max_depth)
@@ -353,7 +356,7 @@ function M.scan_column_wet(class_at, top, bottom, max_depth)
 			surface = surface or y
 			if surface - y + 1 > max_depth then return nil, "too_deep_water", y end
 		elseif c == "air" and surface then
-			return nil, "no_ground", y
+			return nil, "water_over_air", y
 		end
 	end
 	if surface then return nil, "too_deep_water", bottom end
@@ -405,8 +408,8 @@ end
 -- 4th value is the liquid surface of a wet column).
 -- Pure given `read`.
 -- Returns info table, or nil, code, message with code one of
--- water, lava, unknown, no_ground, too_high, too_uneven, too_deep_water,
--- too_wet.
+-- water, lava, unknown, no_ground, water_over_air, too_high, too_uneven,
+-- too_deep_water, too_wet.
 -- Optional outlier_percent trims equally from both tails, rounded down so
 -- the allowance is never exceeded. Actual extremes and all heights are kept
 -- for construction. max_cut_fill caps every column relative to the median.
@@ -431,6 +434,9 @@ function M.inspect_columns(columns, read, top, max_range, outlier_percent, max_c
 						c.x, c.z, wet and wet.max_depth or 0, py)
 			elseif problem == "unknown" then
 				return nil, "unknown", ("unloaded or unknown node at (%d,%d,%d)"):format(c.x, py, c.z)
+			elseif problem == "water_over_air" then
+				return nil, "water_over_air",
+					("air under water at (%d,%d,%d) with no solid ground below the surface"):format(c.x, py, c.z)
 			end
 			return nil, "no_ground", ("no solid ground at (%d,%d) down to y=%d"):format(c.x, c.z, py)
 		end
