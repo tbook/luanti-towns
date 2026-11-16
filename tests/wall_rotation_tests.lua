@@ -40,7 +40,15 @@ local function key(x, y, z) return x .. "," .. y .. "," .. z end
 _G.vector = {add = function(a, b) return {x = a.x + b.x, y = a.y + b.y, z = a.z + b.z} end}
 _G.core = {
 	registered_nodes = {},
-	read_schematic = function(path) return {size = files[path].size} end,
+	read_schematic = function(path)
+		local f = files[path]
+		local data = {}
+		for z = 0, f.size.z - 1 do for y = 0, f.size.y - 1 do for x = 0, f.size.x - 1 do
+			local name, param2 = f.at(x, y, z)
+			data[z * f.size.x * f.size.y + y * f.size.x + x + 1] = {name = name, param2 = param2}
+		end end end
+		return {size = f.size, data = data}
+	end,
 	place_schematic = function(pos, path, rotation)
 		local f = files[path]
 		for z = 0, f.size.z - 1 do for y = 0, f.size.y - 1 do for x = 0, f.size.x - 1 do

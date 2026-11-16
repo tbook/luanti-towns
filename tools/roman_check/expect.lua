@@ -6,7 +6,8 @@
 -- Every node keeps its template name, except walls: schematic.place renames
 -- each wall from its placed neighbours (schematic.wall_name, #178), so the
 -- expectation applies the same recompute to the template's own neighbours in
--- placed (rotated) orientation. Template wall names are not authoritative
+-- placed (rotated) orientation. Armchair variants are turned with the
+-- rotation (schematic.turn_armchair, #444). Template wall names are not authoritative
 -- (#187), so comparing raw template names would fail on correct placement.
 local M = {}
 
@@ -27,7 +28,7 @@ function M.expected_names(source, rotation, schematic)
 	end end end
 	local names = {}
 	for _, c in ipairs(cells) do
-		local name = c.name
+		local name = schematic.turn_armchair(c.name, rotation / 90)
 		if core.get_item_group(name, "wall") > 0 then
 			name = schematic.wall_name(name, function(dx, dy, dz)
 				local n = template[key({x = c.o.x + dx, y = c.o.y + dy, z = c.o.z + dz})]

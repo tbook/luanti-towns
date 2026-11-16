@@ -43,6 +43,24 @@ function M.wall_name(name, at)
  return base .. sum
 end
 
+-- VoxeLibre armchairs (mcl_decor:armchair_<color>, _1_, _2_, _3_) also keep
+-- their facing in the node NAME: the variant swaps the connected node box
+-- ("armchair_<N>_<color>" is the chair turned N quarter turns) and the engine
+-- never touches names on rotation. Rotating the building by `quarter_turns`
+-- (rotation / 90) therefore needs the variant advanced by the same amount;
+-- param2 (4dir, same direction numbering as facedir) advances with it.
+function M.turn_armchair(name, quarter_turns)
+ local n, color = name:match('^mcl_decor:armchair_([123])_(.+)$')
+ if not n then
+  color = name:match('^mcl_decor:armchair_(.+)$')
+  n = 0
+ end
+ if not color then return name end
+ n = (tonumber(n) + quarter_turns) % 4
+ if n == 0 then return 'mcl_decor:armchair_' .. color end
+ return 'mcl_decor:armchair_' .. n .. '_' .. color
+end
+
 local function data(entry, modpath)
  if not entry.data_path then return {metadata = {}, required_nodes = {}} end
  local path = modpath .. '/' .. entry.data_path
@@ -106,6 +124,12 @@ function M.place(entry, pos, rotation, modpath, opts)
  for z = 0, s.size.z - 1 do for y = 0, s.size.y - 1 do for x = 0, s.size.x - 1 do
   local p = vector.add(pos, M.rotate_offset(s.size, {x=x,y=y,z=z}, rotation))
   local node = core.get_node(p)
+  if node.name:find('^mcl_decor:armchair_') then
+   local turns = tonumber(rotation) / 90
+   local src = s.data[z * s.size.y * s.size.x + y * s.size.x + x + 1]
+   core.swap_node(p, {name = M.turn_armchair(src.name, turns), param2 = ((src.param2 or 0) + turns) % 4})
+   node = core.get_node(p)
+  end
   local swap = opts and opts.swaps and opts.swaps[node.name]
   if swap then
    core.swap_node(p, {name = swap, param2 = 0})
