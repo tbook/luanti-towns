@@ -1,0 +1,18 @@
+{
+  "_comment": "Candidate centers from the Testlandia session (seed 14993866105032827525, debug.txt 2026-11-15 17:03-17:08) and the successful Roman town (seed 11605533223103715697, Testlandia world on 2026-11-06 13:37). Land contrast centers are all-land 3x3 footprints found in the saved Testlandia snapshot.",
+  "sites": [
+    {"label": "T no_ground (-511,-511)", "id": "1:-1:-1:roman:398935750:-511:-511", "cx": -511, "cz": -511, "group": "declined", "outcome": "no_ground", "seed": "14993866105032827525"},
+    {"label": "T no_ground (-515,1540)", "id": "1:-1:1:roman:584924571:-515:1540", "cx": -515, "cz": 1540, "group": "declined", "outcome": "no_ground", "seed": "14993866105032827525"},
+    {"label": "T no_ground (1542,1543)", "id": "1:1:1:medieval:586541149:1542:1543", "cx": 1542, "cz": 1543, "group": "declined", "outcome": "no_ground", "seed": "14993866105032827525"},
+    {"label": "T too_deep_water (515,2562)", "id": "1:0:2:roman:550176210:515:2562", "cx": 515, "cz": 2562, "group": "declined", "outcome": "too_deep_water", "seed": "14993866105032827525"},
+    {"label": "T too_deep_water (1528,519)", "id": "1:1:0:roman:42446526:1528:519", "cx": 1528, "cz": 519, "group": "declined", "outcome": "too_deep_water", "seed": "14993866105032827525"},
+    {"label": "T busy (506,-506)", "id": "1:0:-1:roman:505959943:506:-506", "cx": 506, "cz": -506, "group": "busy", "outcome": "busy (never inspected)", "seed": "14993866105032827525"},
+    {"label": "T busy (520,505)", "id": "1:0:0:medieval:847484699:520:505", "cx": 520, "cz": 505, "group": "busy", "outcome": "busy (never inspected)", "seed": "14993866105032827525"},
+    {"label": "T busy (-508,514)", "id": "1:-1:0:medieval:953578935:-508:514", "cx": -508, "cz": 514, "group": "busy", "outcome": "busy (never inspected)", "seed": "14993866105032827525"},
+    {"label": "T busy (519,1531)", "id": "1:0:1:medieval:550404292:519:1531", "cx": 519, "cz": 1531, "group": "busy", "outcome": "busy (never inspected)", "seed": "14993866105032827525"},
+    {"label": "land contrast (500,1600)", "id": "contrast", "cx": 500, "cz": 1600, "group": "land", "outcome": "not a candidate", "seed": "14993866105032827525"},
+    {"label": "land contrast (1200,1000)", "id": "contrast", "cx": 1200, "cz": 1000, "group": "land", "outcome": "not a candidate", "seed": "14993866105032827525"},
+    {"label": "land contrast (0,1100)", "id": "contrast", "cx": 0, "cz": 1100, "group": "land", "outcome": "not a candidate", "seed": "14993866105032827525"},
+    {"label": "Roman town (1543,-5632)", "id": "1:1:-6:roman:899412634:1543:-5632", "cx": 1543, "cz": -5632, "group": "complete", "outcome": "complete (town built)", "seed": "11605533223103715697"}
+  ]
+}
