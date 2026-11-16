@@ -158,8 +158,9 @@ One cell job holds the generation lock from the first inspection to the last and
 once, when the cell ends. Every way the job gives up (no candidates, inspections spent, the
 60 s limit, a refused `begin`, or a clearance, guard, build or record failure) declines every
 remaining live candidate, so the cell is terminal and its chunk set is dropped. A village that
-declines a not-yet-tried candidate mid-cell just skips it. Only a clean inspection failure
-moves on to the next ranked candidate.
+declines a not-yet-tried candidate mid-cell just skips it. Any failure before acceptance
+(inspection, load, emerge, timeout, freshness) moves on to the next ranked candidate while
+inspections and the 60 s limit allow.
 
 ## Risks
 

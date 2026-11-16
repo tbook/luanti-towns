@@ -17,11 +17,11 @@ end
 -- opts.scores: candidate index -> dry points out of 9 (nil: no spawn level function).
 local function fixture(opts)
 	opts = opts or {}
-	local f = {jobs = {}, reports = {}, warnings = 0, acquires = 0, clock = 0, pending = {},
-		current = candidates(0, "C"), players = {}}
+	local f = {jobs = {}, reports = {}, warnings = 0, acquires = 0, clock = 0, pending = {}, emits = {},
+		current = candidates(0, "C"), players = {}, updates = {}}
 	local lock
 	local core = {
-		settings = {get = function() return "survey" end},
+		settings = {get = function() return opts.mode or "survey" end},
 		get_mapgen_setting = function(k) return ({mg_name = "flat", chunksize = "5", seed = "42"})[k] end,
 		get_connected_players = function() return f.players end,
 		get_us_time = function() return f.clock * 1000000 end,
@@ -33,10 +33,15 @@ local function fixture(opts)
 	}
 	local towns = {modpath = ".", auto_environment = {},
 		auto_village_guard = {check = function() return true end, bind = function() return true end},
-		auto_records = {is_enabled = function() return true end, lookup = function() end},
+		auto_records = {is_enabled = function() return true end, lookup = function() end,
+			begin = function() f.begins = (f.begins or 0) + 1; return true end,
+			update = function(_, cell, outcome) f.updates[#f.updates + 1] = outcome; return true end},
 		catalog = {entries = {}}, site_search = {WET_DEFAULTS = {}, core_env = function()
-			return {emerge = function() end} end},
-		generation_lock = {acquire = function() f.acquires = f.acquires + 1; if lock then return nil end; lock = {}; return lock end,
+			return {emerge = function(minp, maxp, cb) f.emits[#f.emits + 1] = {minp = minp, maxp = maxp, cb = cb} end} end},
+		auto_records_factory = {record_for_site = function(site) return {cell = site.cell} end},
+		populated = {build = function(result, cb, context) f.build = {result = result, cb = cb, context = context} end},
+		generation_lock = {owns = function(t) return t ~= nil and lock == t end,
+			set_phase = function() return true end, acquire = function() f.acquires = f.acquires + 1; if lock then return nil end; lock = {}; return lock end,
 			release = function(token) if lock == token then lock = nil end end}}
 	f.locked = function() return lock ~= nil end
 	f.hold = function() lock = {} end
@@ -54,8 +59,8 @@ local function fixture(opts)
 			CHUNKSIZE = 80, CAPS = {}},
 		["src/auto_sites.lua"] = {new = function(_, o) f.site_opts = o
 			return {lookup = function() return f.current end} end},
-		["src/auto_loader.lua"] = {new = function() return {start = function(_, site, _, done)
-			f.jobs[#f.jobs + 1] = {site = site, done = done}; return true end} end},
+		["src/auto_loader.lua"] = {new = function(o) return {start = function(_, site, _, done)
+			f.jobs[#f.jobs + 1] = {site = site, done = done, env = o.env}; return true end} end},
 	}
 	local env = setmetatable({dofile = function(path) return modules[path:gsub("^%./", "")] or real_dofile(path) end},
 		{__index = _G})
@@ -248,4 +253,69 @@ do
 	eq(f.last().reason, "busy", "busy logged")
 	f.fail(1, "x"); f.fail(2, "x")
 	eq(f.locked(), false, "lock released at the end")
+end
+
+-- Straggler: a chunk requested by a failed attempt still counts as the cell's own while a later
+-- attempt runs, so it cannot activate a neighbouring cell (which would be busy-declined for good).
+do
+	local f = fixture({scores = {[0] = 9, 9, 9, 9, 9, 9, 9, 9, 9}})
+	f.activate()
+	local far = candidates(1, "D")
+	for _, d in ipairs(far) do d.activation_rect = {x1 = 130, z1 = -32, x2 = 400, z2 = 127} end
+	local both = {}
+	for _, d in ipairs(f.current) do both[#both + 1] = d end
+	for _, d in ipairs(far) do both[#both + 1] = d end
+	f.current = both
+	local minp, maxp = {x = 128, y = -32, z = -32}, {x = 207, y = 47, z = 47}
+	f.jobs[1].env.emerge(minp, maxp, function() end)
+	f.fail(1, "no_ground")
+	eq(#f.jobs, 2, "second attempt is running")
+	f.generated(minp, maxp)
+	eq(f.session:state("D0"), "contacted", "straggler of an earlier attempt does not activate the neighbour")
+	f.fail(2, "no_ground")
+	eq(f.locked(), false, "lock released")
+end
+
+-- Non-survey mode: accepted records, completion, interruption.
+local function build_ready(f, n)
+	f.jobs[n].done({envelope = {stages = {}},
+		write_envelope = {min = {x = 0, y = 0, z = 0}, max = {x = 1, y = 1, z = 1}},
+		read_envelope = {min = {x = 0, y = 0, z = 0}, max = {x = 1, y = 1, z = 1}}})
+end
+do
+	local f = fixture({mode = "on", scores = {[0] = 9, 9, 9, 9, 9, 9, 9, 9, 9}})
+	f.activate()
+	build_ready(f, 1)
+	eq(f.build.context.before_write(), true, "write gate accepts the record")
+	eq(f.begins, 1, "record begun once")
+	eq(f.build.context.before_write(), false, "a second accept in the same job is refused")
+	f.build.cb({town = {complete = true, residents = {failures = {}, interrupted_beds = {}}}})
+	eq(f.updates[1], "complete", "accepted then complete updates the record")
+	eq(f.session:state("C0"), "complete", "winner complete")
+	eq(f.terminal(), true, "siblings declined by finish")
+	eq(f.session:begin("C1", 0), nil, "no second candidate can begin in the finished cell")
+	eq(f.locked(), false, "lock released")
+	eq(f.last().outcome, "complete", "complete logged")
+	eq(f.last().winner, 0, "winner logged")
+end
+do
+	local f = fixture({mode = "on", scores = {[0] = 9, 9, 9, 9, 9, 9, 9, 9, 9}})
+	f.activate()
+	build_ready(f, 1)
+	f.build.context.before_write()
+	f.build.cb(nil, "build broke", "build_failed")
+	eq(f.updates[1], "interrupted", "accepted then interrupted updates the record")
+	eq(#f.jobs, 1, "no retry after acceptance")
+	eq(f.terminal(), true, "cell terminal after interruption")
+	eq(f.locked(), false, "lock released")
+	eq(f.last().outcome, "interrupted", "interrupted logged")
+end
+do
+	local f = fixture({mode = "on", scores = {[0] = 9, 9, 9, 9, 9, 9, 9, 9, 9}})
+	f.activate()
+	build_ready(f, 1)
+	f.build.cb(nil, "refused", "build_failed")
+	eq(#f.jobs, 1, "a build failure before acceptance does not retry")
+	eq(#f.updates, 0, "no record update without acceptance")
+	eq(f.terminal(), true, "cell terminal")
 end

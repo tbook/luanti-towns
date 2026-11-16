@@ -104,7 +104,9 @@ return function(towns, core, vars)
 	-- still live so the cell becomes terminal and its chunk set is dropped (the T4 sibling leak).
 	local function run_cell(action, trigger, own)
 		local list = action.sites or {action.site}
-		local cell = {started = now(), tries = 0, entries = {}, queue = {}, event = trigger,
+		-- requests is shared by every attempt: a chunk requested by an earlier attempt still counts as
+		-- the cell's own until its callback returns, and the set is dropped when the cell ends.
+		local cell = {started = now(), tries = 0, entries = {}, queue = {}, event = trigger, requests = {},
 			trigger = trigger_info(trigger, own), done = false}
 		cell.activation = {time = cell.started, candidates = #list}
 		for i, site in ipairs(list) do
@@ -140,6 +142,7 @@ return function(towns, core, vars)
 				logged[#logged + 1] = copy
 			end
 			active = nil
+			for request in pairs(cell.requests) do cell.requests[request] = nil end
 			if cell.token then towns.generation_lock.release(cell.token) end
 			local d = cell.last or {}
 			local first = list[1]
@@ -186,7 +189,7 @@ return function(towns, core, vars)
 			end
 		end
 
-		-- Called when an attempt settles. continue is true only after a clean inspection failure.
+		-- Called when an attempt settles. continue is true after any failure before acceptance.
 		local function attempt_done(entry, outcome, code, message, d, won, continue)
 			entry.outcome, entry.reason, entry.message, entry.settled = outcome, code, message, true
 			for k, v in pairs(d) do entry[k] = v end
@@ -204,7 +207,7 @@ return function(towns, core, vars)
 		local site, trigger = entry.site, cell.event
 		-- start runs only when no job is active, so no pending request can own this trigger.
 		local job = {site = site, started = now(), chunks = 0, suppressed = 0, clearance = false,
-			load_seconds = 0, inspection_seconds = 0, snapshot_voxels = 0, requests = {},
+			load_seconds = 0, inspection_seconds = 0, snapshot_voxels = 0, requests = cell.requests,
 			trigger = cell.trigger}
 		local function settle(result, reason, code, summary, extra, inspection_details)
 			if job.done then return end
@@ -232,7 +235,8 @@ return function(towns, core, vars)
 					and summary.aqueduct.reason or nil,
 				write_bounds = summary and summary.write_bounds or extra and extra.bounds,
 				approved_write_bounds = job.write_bounds}
-			-- Only a clean inspection failure moves on to the next candidate; guard, clearance,
+			-- Any loader or inspection failure before acceptance moves on to the next candidate (while
+			-- inspections and the 60 s limit allow); guard, clearance,
 			-- build and record failures end the cell. The lock stays with the cell (see run_cell).
 			attempt_done(entry, outcome, code or reason or "ok", reason, d, result and true,
 				job.retryable and not job.accepted)
