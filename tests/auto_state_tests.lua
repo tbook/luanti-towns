@@ -805,3 +805,45 @@ do
 	eq(s:begin(d.id, 0), "inspecting", "begin takes it to inspecting at once")
 	eq(s:covers(d.id, box(460, 60, 460, 500, 70, 500)), true, "covered as before")
 end
+
+-- Centre copy (A9): only the event for the chunk that contains the candidate's centre sets it,
+-- even when a neighbouring chunk intersects the centre footprint (C0 footprint x,z -12..252).
+do
+	local s = cell_session()
+	-- Chunk 2 (x 128..207) holds z 120 but not x 120: x bound alone excludes it.
+	s:on_generated(event(2, 1, 1, "surface"))
+	eq(s:center("C0"), nil, "x-neighbour chunk intersecting the footprint does not set the centre")
+	eq(s:center_scan("C0"), nil, "x-neighbour chunk makes no centre scan")
+	-- Chunk (1,1,2) (z 128..207) holds x 120 but not z 120: z bound alone excludes it.
+	s:on_generated(event(1, 1, 2, "surface"))
+	eq(s:center("C0"), nil, "z-neighbour chunk intersecting the footprint does not set the centre")
+	eq(s:center_scan("C0"), nil, "z-neighbour chunk makes no centre scan")
+	s:on_generated(event(0, 1, 1, "surface"))
+	s:on_generated(event(1, 1, 0, "surface"))
+	eq(s:center("C0"), nil, "low-side neighbours do not set the centre")
+	s:on_generated(event(1, 1, 1, "surface"))
+	eq(s:center("C0") and s:center("C0").valid, 6400, "the centre chunk's own event sets it")
+
+	-- Two candidates of one cell with centres in different chunks, both footprints overlapping both.
+	local E0 = {id = "E0", cell = {x = 0, z = 0}, center = {x = 120, z = 120},
+		max_rect = {x1 = 40, z1 = 40, x2 = 200, z2 = 200}, activation_rect = {x1 = 0, z1 = 0, x2 = 239, z2 = 239}}
+	local E1 = {id = "E1", cell = {x = 0, z = 0}, center = {x = 200, z = 120},
+		max_rect = {x1 = 120, z1 = 40, x2 = 280, z2 = 200}, activation_rect = {x1 = 80, z1 = 0, x2 = 319, z2 = 239}}
+	local t = new_session({lookup = function() return {E0, E1} end})
+	t:on_generated(event(2, 1, 1, "surface"))     -- E1's centre chunk (x 128..207)
+	eq(t:center("E1") and t:center("E1").chunk.minp.x, 128, "E1 centre set from its own chunk")
+	eq(t:center("E0"), nil, "E0 centre not set by E1's centre chunk")
+	t:on_generated(event(1, 1, 1, "surface"))     -- E0's centre chunk (x 48..127)
+	eq(t:center("E0") and t:center("E0").chunk.minp.x, 48, "E0 centre set from its own chunk")
+	eq(t:center("E1").chunk.minp.x, 128, "E1 centre unchanged by E0's chunk")
+end
+
+-- Activation is once per cell: a different valid surface event touching another candidate's rect
+-- after activation emits nothing.
+do
+	local s = cell_session()
+	eq(#acts(s:on_generated(event(1, 1, 1, "surface")), "first"), 1, "chunk 1 (C0 only) activates the cell")
+	eq(#acts(s:on_generated(event(5, 1, 1, "surface")), "C1-only chunk"), 0, "a surface chunk of C1's rect adds no activation")
+	eq(#acts(s:on_generated(event(3, 1, 1, "surface")), "shared chunk"), 0, "a shared surface chunk adds no activation")
+	eq(s:state("C1"), "contacted", "sibling is still just contacted")
+end
