@@ -494,6 +494,7 @@ run_group("tests/auto_loader_tests.lua", eq, placement, dofile("src/planner.lua"
 
 -- Accepted automatic-town persistence and developer lookup (#399).
 run_group("tests/auto_records_tests.lua", eq)
+run_group("tests/towns_api_tests.lua", eq)
 run_group("tests/auto_villages_tests.lua", eq)
 run_group("tests/automatic_tests.lua", eq)
 run_group("tests/automatic_integration_tests.lua", eq)

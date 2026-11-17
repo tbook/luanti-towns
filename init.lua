@@ -107,3 +107,12 @@ loadfile(modpath .. "/src/generate_command.lua")(towns)
 
 -- Off by default; survey and construction require explicit configuration.
 dofile(modpath .. "/src/automatic.lua")(towns, core, rawget(_G, "mcl_vars"))
+
+-- Public read-only integration API for optional consumers such as Roads (#458).
+-- Defined last so automatic.lua has already published its session. See
+-- docs/roads_integration.md.
+towns_api = dofile(modpath .. "/src/towns_api.lua").new({
+	registry = function() return towns.auto_records end,
+	session = function() return towns.auto_session end,
+	lock = towns.generation_lock,
+})
