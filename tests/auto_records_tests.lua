@@ -146,3 +146,98 @@ local eq = ...
 	end
 	local fractional = registered.def.func("fractional", "")
 	eq(fractional, true, "fractional player coordinates work in nearest lookup")
+
+	-- Published settlement data (#458).
+	do
+		local function published()
+			local profile = {}
+			for n = 1, 4 do profile[n] = {y = 22, name = "mcl_core:cobble", param2 = 0} end
+			return {format = 1, core = {x1 = 0, z1 = 0, x2 = 10, z2 = 10}, structures = {{x1 = 20, z1 = 20, x2 = 25, z2 = 25}},
+				exits = {{id = "+x:12:3", source = "street", direction = {x = 1, z = 0},
+					columns = {{x = 12, z = 3}, {x = 12, z = 4}}, length = 4, profile = profile}},
+				omitted = {{id = "-x:1:1", reason = "mismatch"}}}
+		end
+		local function fresh(cx)
+			local values, st = store()
+			local r = new_registry(st)
+			local rec = record(cx, 0)
+			rec.site_id = "2:" .. cx .. ":0:0:medieval:41:5:5"
+			eq(r:begin(rec), true, "published fixture begin")
+			return r, values, st
+		end
+		local cell = {x = 3, z = 0}
+		local r, values, st = fresh(3)
+		eq(r:lookup(cell).site_id, "2:3:0:0:medieval:41:5:5", "site id kept")
+		eq(r:lookup(cell).published, nil, "building record has no published data")
+		-- Published data is rejected unless the record is going complete.
+		local ok, _, code = r:update(cell, "interrupted", published())
+		eq(ok, false, "published rejected with interrupted")
+		eq(code, "invalid_published", "interrupted publish code")
+		eq(r:lookup(cell).state, "building", "rejected update changes nothing")
+		ok, _, code = r:update(cell, "complete", {format = 1})
+		eq(ok, false, "malformed published rejected")
+		eq(code, "invalid_published", "malformed publish code")
+		eq(r:lookup(cell).state, "building", "malformed publish leaves the record building")
+		-- Save failure: memory stays building, nothing published.
+		values.fail = true
+		ok, _, code = r:update(cell, "complete", published())
+		eq(ok, false, "save failure fails the update")
+		eq(code, "store_failed", "save failure code")
+		eq(r:lookup(cell).state, "building", "save failure leaves the record building")
+		eq(r:lookup(cell).published, nil, "save failure publishes nothing")
+		values.fail = nil
+		-- Success stores published with the state, in one write.
+		ok = r:update(cell, "complete", published())
+		eq(ok, true, "complete with published succeeds")
+		local got = r:lookup(cell)
+		eq(got.state, "complete", "state complete")
+		eq(got.published.exits[1].id, "+x:12:3", "published exit stored")
+		got.published.exits[1].id = "changed"
+		eq(r:lookup(cell).published.exits[1].id, "+x:12:3", "lookup returns a copy")
+		-- A second update cannot replace it.
+		ok, _, code = r:update(cell, "complete", published())
+		eq(ok, false, "second publish rejected")
+		eq(code, "terminal_state", "second publish code")
+		eq(r:update(cell, "complete"), true, "plain repeat update is still idempotent")
+		-- Restart: round trip keeps it.
+		local reloaded = new_registry(st)
+		eq(reloaded:lookup(cell).state, "complete", "complete survives restart")
+		eq(reloaded:lookup(cell).published.core.x2, 10, "published survives restart")
+		eq(reloaded:lookup(cell).published.omitted[1].reason, "mismatch", "omissions survive restart")
+		-- Restart converts building to interrupted and never publishes it.
+		local r2, _, st2 = fresh(4)
+		local after = new_registry(st2)
+		eq(after:lookup({x = 4, z = 0}).state, "interrupted", "building becomes interrupted")
+		eq(after:lookup({x = 4, z = 0}).published, nil, "interrupted record has no published data")
+		-- A record from before this field existed loads as complete, unpublished.
+		local old_values, old_store = store()
+		local old = new_registry(old_store)
+		old:begin(record(5, 0))
+		old:update({x = 5, z = 0}, "complete")
+		local old_loaded = new_registry(old_store)
+		eq(old_loaded:lookup({x = 5, z = 0}).state, "complete", "old complete record loads")
+		eq(old_loaded:lookup({x = 5, z = 0}).published, nil, "old complete record is unpublished")
+		eq(old_loaded:lookup({x = 5, z = 0}).published_invalid, nil, "old record is not flagged invalid")
+		-- Malformed published data is dropped and flagged; the registry stays enabled.
+		local raw = old_values["towns.auto_records.v1"]
+		local serialize, deserialize = serializer()
+		local table_form = deserialize(raw)
+		table_form["5:0"].published = {format = 1, core = "nope"}
+		old_values["towns.auto_records.v1"] = serialize(table_form)
+		local logged = {}
+		local _, d = serializer()
+		local tolerant = records_mod.new({store = old_store, serialize = serialize, deserialize = d,
+			log = function(level, msg) logged[#logged + 1] = msg end})
+		eq(tolerant:is_enabled(), true, "malformed published data does not disable the registry")
+		eq(tolerant:lookup({x = 5, z = 0}).state, "complete", "record remains accepted")
+		eq(tolerant:lookup({x = 5, z = 0}).published, nil, "malformed published dropped")
+		eq(tolerant:lookup({x = 5, z = 0}).published_invalid, true, "malformed published flagged")
+		eq(#logged >= 1, true, "malformed published logged")
+		-- Published data on a non-complete record is dropped too.
+		table_form["5:0"].published = published()
+		table_form["5:0"].state = "interrupted"
+		old_values["towns.auto_records.v1"] = serialize(table_form)
+		local mismatch = records_mod.new({store = old_store, serialize = serialize, deserialize = d})
+		eq(mismatch:is_enabled(), true, "published on interrupted keeps the registry enabled")
+		eq(mismatch:lookup({x = 5, z = 0}).published, nil, "published on interrupted is dropped")
+	end
