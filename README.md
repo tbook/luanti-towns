@@ -129,6 +129,14 @@ village planning. Unsupported mapgens and integrations disable automatic jobs.
 See [automatic town validation](docs/automatic_towns_validation.md) for tested
 scenarios and remaining assumptions.
 
+## Roads integration
+
+Towns publishes a small read-only `towns_api` (completed automatic settlements,
+verified road exits, exclusion areas and a writer-busy query) for the optional
+Roads mod. Towns works without Roads. See
+[Roads integration](docs/roads_integration.md) for the contract, bounds and
+unsupported (manual and older) settlements.
+
 The headless check `python3 tools/place_check/run.py` repeats a
 `/towns_generate` build in a scratch superflat world through the command
 controller and re-reads it.
