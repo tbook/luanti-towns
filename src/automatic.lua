@@ -215,7 +215,17 @@ return function(towns, core, vars)
 			local outcome = result and (mode == "survey" and "surveyed" or "complete") or "declined"
 			if job.accepted then
 				outcome = result and "complete" or "interrupted"
-				local ok, saved, why = pcall(towns.auto_records.update, towns.auto_records, site.cell, outcome)
+				-- Published exits (Roads integration, #458) are saved atomically with the complete
+				-- state. A failed save leaves the record building: nothing is published.
+				local published = outcome == "complete" and summary and summary.published or nil
+				local ok, saved, why, code = pcall(towns.auto_records.update, towns.auto_records,
+					site.cell, outcome, published)
+				if ok and not saved and code == "invalid_published" then
+					-- The town is built and populated; only the exit data was refused. Keep it
+					-- complete (an unsupported destination) rather than leaving it building.
+					core.log("error", "[towns] published exit data rejected, completing without it: " .. tostring(why))
+					ok, saved, why = pcall(towns.auto_records.update, towns.auto_records, site.cell, outcome)
+				end
 				if not ok or not saved then
 					outcome = "interrupted"
 					core.log("error", "[towns] automatic record update failed: " .. tostring(why or saved))

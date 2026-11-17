@@ -81,6 +81,8 @@
 --   session:center_scan(id) -> copy { valid, clipped, ambiguous, sentinel, min, max } | nil. Diagnostics
 --                             for the last centre footprint scan, retained or not. min and max are
 --                             the valid height extremes (nil when there are none). Dropped when terminal.
+--   session:live(rect)     -> list of {id, state, max_rect} for contacted or inspecting candidates whose
+--                             max_rect overlaps rect (sorted by id) | nil, reason, code.
 --   session:descriptor(id) -> copy of the site descriptor while contacted or inspecting | nil
 --
 --   auto_state.classify(h, minp_y, maxp_y) -> "valid" | "clipped" | "ambiguous" | "sentinel"
@@ -465,6 +467,22 @@ function Session:center_scan(id)
 	local rec = self.records[id]
 	if rec == nil or rec.center_seen == nil then return nil end
 	return copy(rec.center_seen)
+end
+
+-- Live candidates whose maximum envelope overlaps rect, for exclusion queries by integrations
+-- (towns_api). A candidate is live while "contacted" or "inspecting"; terminal ones are not
+-- listed. rect = {x1, z1, x2, z2} inclusive. Returns a list sorted by id of fresh
+-- {id, state, max_rect}; nil, reason, code for an invalid rect. Pure: reads session state only.
+function Session:live(rect)
+	if not valid_rect(rect) then return nil, "rect must have integer x1, z1, x2, z2", "invalid_rect" end
+	local out = {}
+	for id, rec in pairs(self.records) do
+		if active(rec) and touches(rec.desc.max_rect, rect) then
+			out[#out + 1] = {id = id, state = rec.state, max_rect = copy(rec.desc.max_rect)}
+		end
+	end
+	table.sort(out, function(a, b) return a.id < b.id end)
+	return out
 end
 
 function Session:descriptor(id)
