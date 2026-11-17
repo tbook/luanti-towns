@@ -15,6 +15,8 @@ towns.planner = dofile(modpath .. "/src/planner.lua")
 towns.preflight = dofile(modpath .. "/src/preflight.lua")
 -- Outside-road and ramp helpers shared by Roman and medieval towns (#357).
 towns.town_roads = dofile(modpath .. "/src/town_roads.lua")
+-- Verified outside-road exits published for completed automatic towns (#458).
+towns.town_exits = dofile(modpath .. "/src/town_exits.lua")
 towns.medieval_walls = dofile(modpath .. "/src/medieval_walls.lua")
 towns.medieval_wall_features = dofile(modpath .. "/src/medieval_wall_features.lua")
 
@@ -105,3 +107,12 @@ loadfile(modpath .. "/src/generate_command.lua")(towns)
 
 -- Off by default; survey and construction require explicit configuration.
 dofile(modpath .. "/src/automatic.lua")(towns, core, rawget(_G, "mcl_vars"))
+
+-- Public read-only integration API for optional consumers such as Roads (#458).
+-- Defined last so automatic.lua has already published its session. See
+-- docs/roads_integration.md.
+towns_api = dofile(modpath .. "/src/towns_api.lua").new({
+	registry = function() return towns.auto_records end,
+	session = function() return towns.auto_session end,
+	lock = towns.generation_lock,
+})

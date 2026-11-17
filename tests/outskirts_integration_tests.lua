@@ -1097,6 +1097,53 @@ do
 		eq(#sets, bounded_sets, kind .. " omitted roads perform no writes")
 		eq(#loads, 1, kind .. " omitted roads request no additional load")
 	end
+	-- Roads integration (#458): an automatic build records each successfully written ramp and
+	-- publishes it only when the world reads back as planned. Manual builds record nothing.
+	do
+		towns.town_exits = dofile("src/town_exits.lua")
+		local saved_get = core.get_node
+		local kept_sets, kept_order = sets, stage_order
+		local function build_auto(world, automatic)
+			local f = fixture("medieval", {{id = 1, kind = "principal", rect = {x1 = 0, z1 = 7, x2 = 19, z2 = 12}}})
+			sets, emerged, search_footprints, stage_order, solid = {}, nil, nil, {}, 10
+			if world == "matches" then
+				core.get_node = function(p)
+					for _, c in ipairs(sets) do
+						if c.x == p.x and c.y == p.y and c.z == p.z then return {name = c.name, param2 = 0} end
+					end
+					return saved_get(p)
+				end
+			end
+			local completed
+			towns.populated.build(f, function(value) completed = value end, automatic and {
+				read_bounds = auto_box,
+				write_bounds = {min = {x = -60, y = -500, z = -1}, max = {x = 60, y = 500, z = 40}},
+				ensure_loaded = function(_, _, cb) cb(true) end,
+				before_write = function() return true end,
+			} or nil)
+			core.get_node = saved_get
+			return f, completed
+		end
+		local f, completed = build_auto("matches", true)
+		eq(completed ~= nil, true, "automatic road build completes")
+		eq(#f.exit_candidates, 2, "each graded crossing is one candidate")
+		eq(f.exit_candidates[1].source, "street", "street ramp provenance")
+		eq(f.exit_candidates[1].length, 4, "flat ramp length recorded")
+		eq(#f.exit_candidates[1].columns, 4, "principal crossing is four wide")
+		local p = completed and completed.published
+		eq(p ~= nil and #p.exits, 2, "a ramp that reads back as planned is published")
+		eq(p and p.exits[1].profile[1].name, "mcl_core:cobble", "flat profile published")
+		eq(p and p.core.x1, -1, "core is the plan bounds widened by the wall line")
+		f, completed = build_auto("unchanged", true)
+		eq(completed and completed.published and #completed.published.exits, 0,
+			"a ramp the world does not reflect is dropped")
+		eq(completed.published.omitted[1] ~= nil, true, "the dropped exit is reported as omitted")
+		f, completed = build_auto("matches", false)
+		eq(f.exit_candidates, nil, "manual builds record no exits")
+		eq(completed and completed.published, nil, "manual builds publish nothing")
+		sets, stage_order = kept_sets, kept_order
+		towns.town_exits = nil
+	end
 	towns.city_margins = saved_margins
 	search_footprints = saved_footprints
 	local zs, xs = {}, {}

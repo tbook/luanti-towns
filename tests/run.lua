@@ -468,6 +468,7 @@ run_group("tests/armchair_rotation_tests.lua", eq, dofile("src/schematic.lua"))
 run_group("tests/medieval_walls_tests.lua", eq, dofile("src/planner.lua"), catalog)
 -- Outside-road exits shared by Roman and medieval towns (#357).
 run_group("tests/town_roads_tests.lua", eq, dofile("src/planner.lua"), catalog)
+run_group("tests/town_exits_tests.lua", eq)
 run_group("tests/medieval_wall_assets_tests.lua", eq, catalog, geometry)
 run_group("tests/roman_palace_import_tests.lua", eq, catalog)
 run_group("tests/town_square_fountain_tests.lua", eq, fails, dofile("src/planner.lua"), catalog)
@@ -493,6 +494,7 @@ run_group("tests/auto_loader_tests.lua", eq, placement, dofile("src/planner.lua"
 
 -- Accepted automatic-town persistence and developer lookup (#399).
 run_group("tests/auto_records_tests.lua", eq)
+run_group("tests/towns_api_tests.lua", eq)
 run_group("tests/auto_villages_tests.lua", eq)
 run_group("tests/automatic_tests.lua", eq)
 run_group("tests/automatic_integration_tests.lua", eq)

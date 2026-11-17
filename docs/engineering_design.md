@@ -385,6 +385,10 @@ village planning.
 different suitable sites, with no duplicate builds, obvious overlaps, or
 extreme terrain scars. Generation cost is acceptable on the test machine.
 
+**Roads integration (#458):** completed automatic towns publish verified road
+exits, and a read-only `towns_api` exposes settlements, exclusions and writer
+state to the optional Roads mod. See [Roads integration](roads_integration.md).
+
 ### 5. Defining silhouette and outskirts
 
 **Result:** the town has a strong skyline and a believable transition to the

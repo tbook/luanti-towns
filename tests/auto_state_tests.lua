@@ -847,3 +847,26 @@ do
 	eq(#acts(s:on_generated(event(3, 1, 1, "surface")), "shared chunk"), 0, "a shared surface chunk adds no activation")
 	eq(s:state("C1"), "contacted", "sibling is still just contacted")
 end
+
+-- live(rect): contacted and inspecting candidates overlapping a query (Roads integration, #458).
+do
+	local s = new_session()
+	eq(#s:live({x1 = 0, z1 = 0, x2 = 1000, z2 = 1000}), 0, "no candidate is live before contact")
+	s:on_generated(event(1, 1, 1, "surface"))
+	local all = s:live({x1 = 0, z1 = 0, x2 = 1000, z2 = 1000})
+	eq(#all, 1, "only the contacted candidate is live")
+	eq(all[1].id, "A", "contacted candidate listed")
+	eq(all[1].state, "contacted", "state reported")
+	eq(all[1].max_rect.x1, 40, "max_rect reported")
+	all[1].max_rect.x1 = -5
+	eq(s:live({x1 = 0, z1 = 0, x2 = 1000, z2 = 1000})[1].max_rect.x1, 40, "result is a copy")
+	eq(#s:live({x1 = 201, z1 = 0, x2 = 300, z2 = 300}), 0, "a query outside max_rect does not match")
+	eq(#s:live({x1 = 200, z1 = 200, x2 = 300, z2 = 300}), 1, "an edge-touching query matches")
+	eq(s:begin("A"), "inspecting", "begin")
+	eq(s:live({x1 = 0, z1 = 0, x2 = 100, z2 = 100})[1].state, "inspecting", "inspecting is live")
+	s:decline("A")
+	eq(#s:live({x1 = 0, z1 = 0, x2 = 1000, z2 = 1000}), 0, "declined candidates are not live")
+	local bad, _, code = s:live({x1 = 5})
+	eq(bad, nil, "invalid rect rejected")
+	eq(code, "invalid_rect", "invalid rect code")
+end

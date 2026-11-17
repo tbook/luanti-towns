@@ -6,8 +6,34 @@
 -- before any writer. The reservation uses descriptor.max_rect horizontally,
 -- matching the temporary reservation and activation contract. Its vertical
 -- bounds come from the inspected union read envelope.
+--
+-- Published settlement data (Roads integration, #458): a record may carry
+-- `published` ({format, core, structures, exits, omitted}, see town_exits.lua)
+-- and an informational `site_id` (the auto_sites id). published is accepted by
+-- update only on the building -> complete transition and is saved in the same
+-- write as the state change, so an interrupted, unsaved or failed town can
+-- never advertise it. A complete record without published (written before
+-- this field existed, or whose exit data was unavailable) is still an
+-- accepted reservation but is "unsupported" as a Roads destination and is
+-- never reconstructed. A malformed published value found at startup is
+-- dropped, logged and flagged `published_invalid`; it never disables the
+-- registry. The storage key stays towns.auto_records.v1 (published is
+-- optional); an older Towns ignores the extra fields it does not know.
 
 local M = {}
+
+-- Pure sibling module; works under the engine and the plain-Lua tests.
+local function sibling(name)
+	local c = rawget(_G, "core")
+	if c and c.get_modpath and c.get_current_modname then
+		return dofile(c.get_modpath(c.get_current_modname()) .. "/src/" .. name)
+	end
+	local source = debug.getinfo(1, "S").source:sub(2)
+	local root = source:match("^(.*)/src/auto_records.lua$") or "."
+	return dofile(root .. "/src/" .. name)
+end
+local exits = sibling("town_exits.lua")
+
 local KEY = "towns.auto_records.v1"
 local SEED_LIMIT = 2 ^ 30 - 1
 local Registry = {}
@@ -40,10 +66,14 @@ local function overlaps(a, b)
 end
 
 local function copy(r)
-	return {cell = {x = r.cell.x, z = r.cell.z}, version = r.version, seed = r.seed,
+	local out = {cell = {x = r.cell.x, z = r.cell.z}, version = r.version, seed = r.seed,
 		town_type = r.town_type, center = {x = r.center.x, y = r.center.y, z = r.center.z},
 		envelope = {min = {x = r.envelope.min.x, y = r.envelope.min.y, z = r.envelope.min.z},
 			max = {x = r.envelope.max.x, y = r.envelope.max.y, z = r.envelope.max.z}}, state = r.state}
+	if type(r.site_id) == "string" then out.site_id = r.site_id end
+	if r.published ~= nil then out.published = exits.copy_published(r.published) end
+	if r.published_invalid then out.published_invalid = true end
+	return out
 end
 
 local function valid_record(r)
@@ -57,7 +87,8 @@ local function valid_record(r)
 		or r.center.x < r.envelope.min.x or r.center.x > r.envelope.max.x
 		or r.center.y < r.envelope.min.y or r.center.y > r.envelope.max.y
 		or r.center.z < r.envelope.min.z or r.center.z > r.envelope.max.z
-		or (r.state ~= "building" and r.state ~= "complete" and r.state ~= "interrupted") then return false end
+		or (r.state ~= "building" and r.state ~= "complete" and r.state ~= "interrupted")
+		or (r.site_id ~= nil and type(r.site_id) ~= "string") then return false end
 	return true
 end
 
@@ -82,7 +113,8 @@ function M.record_for_site(site, result)
 	local r = {cell = site.cell, version = site.version, seed = site.seed, town_type = site.town_type,
 		center = {x = site.center.x, y = result.ground_y, z = site.center.z},
 		envelope = {min = {x = m.x1, y = read.min.y, z = m.z1},
-			max = {x = m.x2, y = read.max.y, z = m.z2}}, state = "building"}
+			max = {x = m.x2, y = read.max.y, z = m.z2}}, state = "building",
+		site_id = type(site.id) == "string" and site.id or nil}
 	if not valid_record(r) then return nil, "invalid automatic town record", "invalid_record" end
 	return copy(r)
 end
@@ -126,6 +158,19 @@ function M.new(opts)
 	end
 	if not self.disabled then
 		local changed = false
+		-- Published data is only valid on a complete record. Anything else is
+		-- dropped (and flagged) rather than trusted or allowed to disable the registry.
+		for k, r in pairs(self.records) do
+			if r.published ~= nil then
+				local ok, why = r.state == "complete", "published data on a record that is not complete"
+				if ok then ok, why = exits.valid_published(r.published) end
+				if not ok then
+					r.published, r.published_invalid, changed = nil, true, true
+					pcall(self.log, "error", "towns: dropped malformed published data for automatic town "
+						.. k .. ": " .. tostring(why))
+				end
+			end
+		end
 		for _, r in pairs(self.records) do
 			if r.state == "building" then r.state, changed = "interrupted", true end
 		end
@@ -165,7 +210,11 @@ function Registry:begin(record)
 	if type(record) ~= "table" or not valid_record(record) then
 		return false, "invalid automatic town record", "invalid_record"
 	end
-	local r = copy(record)
+	-- A new reservation never carries published data; it arrives with update.
+	local plain = {}
+	for k, v in pairs(record) do plain[k] = v end
+	plain.published, plain.published_invalid = nil, nil
+	local r = copy(plain)
 	r.state = "building"
 	if not valid_record(r) then return false, "invalid automatic town record", "invalid_record" end
 	local k = cell_key(r.cell)
@@ -184,7 +233,9 @@ function Registry:begin(record)
 	return true, copy(r)
 end
 
-function Registry:update(cell, state)
+-- update(cell, state, published): published (optional) is validated and stored
+-- only with the building -> complete transition.
+function Registry:update(cell, state, published)
 	if self.disabled then return false, self.disabled, "disabled" end
 	if not valid_cell(cell) then return false, "cell must have integer x and z", "invalid_cell" end
 	if state ~= "complete" and state ~= "interrupted" then
@@ -192,12 +243,23 @@ function Registry:update(cell, state)
 	end
 	local k, old = cell_key(cell), self.records[cell_key(cell)]
 	if not old then return false, "accepted town record not found", "not_found" end
+	if published ~= nil then
+		if state ~= "complete" then
+			return false, "published data is only accepted with the complete state", "invalid_published"
+		end
+		if old.state ~= "building" then
+			return false, "published data is only accepted on a building record", "terminal_state"
+		end
+		local valid, why = exits.valid_published(published)
+		if not valid then return false, "invalid published data: " .. tostring(why), "invalid_published" end
+	end
 	if old.state == state then return true, copy(old) end
 	if old.state ~= "building" then return false, "terminal town record cannot change state", "terminal_state" end
 	local updated = {}
 	for old_key, r in pairs(self.records) do updated[old_key] = r end
 	local next_record = copy(old)
 	next_record.state = state
+	if published ~= nil then next_record.published = exits.copy_published(published) end
 	updated[k] = next_record
 	local ok, why = persist(self, updated)
 	if not ok then return false, why, "store_failed" end

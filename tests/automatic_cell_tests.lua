@@ -18,7 +18,7 @@ end
 local function fixture(opts)
 	opts = opts or {}
 	local f = {jobs = {}, reports = {}, warnings = 0, acquires = 0, clock = 0, pending = {}, emits = {},
-		current = candidates(0, "C"), players = {}, updates = {}}
+		current = candidates(0, "C"), players = {}, updates = {}, published = {}}
 	local lock
 	local core = {
 		settings = {get = function() return opts.mode or "survey" end},
@@ -35,7 +35,12 @@ local function fixture(opts)
 		auto_village_guard = {check = function() return true end, bind = function() return true end},
 		auto_records = {is_enabled = function() return true end, lookup = function() end,
 			begin = function() f.begins = (f.begins or 0) + 1; return true end,
-			update = function(_, cell, outcome) f.updates[#f.updates + 1] = outcome; return true end},
+			update = function(_, cell, outcome, published)
+				f.updates[#f.updates + 1] = outcome
+				f.published[#f.updates] = published
+				if opts.update_result ~= nil then return unpack(opts.update_result) end
+				return true
+			end},
 		catalog = {entries = {}}, site_search = {WET_DEFAULTS = {}, core_env = function()
 			return {emerge = function(minp, maxp, cb) f.emits[#f.emits + 1] = {minp = minp, maxp = maxp, cb = cb} end} end},
 		auto_records_factory = {record_for_site = function(site) return {cell = site.cell} end},
@@ -291,6 +296,7 @@ do
 	eq(f.build.context.before_write(), false, "a second accept in the same job is refused")
 	f.build.cb({town = {complete = true, residents = {failures = {}, interrupted_beds = {}}}})
 	eq(f.updates[1], "complete", "accepted then complete updates the record")
+	eq(f.published[1], nil, "no published data when the build summary has none")
 	eq(f.session:state("C0"), "complete", "winner complete")
 	eq(f.terminal(), true, "siblings declined by finish")
 	eq(f.session:begin("C1", 0), nil, "no second candidate can begin in the finished cell")
@@ -318,4 +324,49 @@ do
 	eq(#f.jobs, 1, "a build failure before acceptance does not retry")
 	eq(#f.updates, 0, "no record update without acceptance")
 	eq(f.terminal(), true, "cell terminal")
+end
+
+-- Published exits ride along with the complete update (#458).
+do
+	local f = fixture({mode = "on", scores = {[0] = 9, 9, 9, 9, 9, 9, 9, 9, 9}})
+	f.activate()
+	build_ready(f, 1)
+	f.build.context.before_write()
+	local published = {format = 1}
+	f.build.cb({published = published, town = {complete = true, residents = {failures = {}, interrupted_beds = {}}}})
+	eq(f.updates[1], "complete", "complete update")
+	eq(f.published[1], published, "published data passed to the record update")
+	eq(f.last().outcome, "complete", "town complete")
+end
+-- A population failure interrupts the record and never publishes, even if the summary has exits.
+do
+	local f = fixture({mode = "on", scores = {[0] = 9, 9, 9, 9, 9, 9, 9, 9, 9}})
+	f.activate()
+	build_ready(f, 1)
+	f.build.context.before_write()
+	f.build.cb({published = {format = 1}, town = {complete = true,
+		residents = {failures = {{}}, interrupted_beds = {}}}})
+	eq(f.updates[1], "interrupted", "population_failed interrupts the record")
+	eq(f.published[1], nil, "interrupted record gets no published data")
+	eq(f.last().outcome, "interrupted", "interrupted logged")
+end
+-- A failed update leaves the cell interrupted in the log and publishes nothing.
+do
+	local f = fixture({mode = "on", scores = {[0] = 9, 9, 9, 9, 9, 9, 9, 9, 9}, update_result = {false, "disk full", "store_failed"}})
+	f.activate()
+	build_ready(f, 1)
+	f.build.context.before_write()
+	f.build.cb({published = {format = 1}, town = {complete = true, residents = {failures = {}, interrupted_beds = {}}}})
+	eq(#f.updates, 1, "a store failure is not retried")
+	eq(f.last().outcome, "interrupted", "update failure reports interrupted")
+end
+-- Rejected published data: complete without it rather than leaving the town building.
+do
+	local f = fixture({mode = "on", scores = {[0] = 9, 9, 9, 9, 9, 9, 9, 9, 9}, update_result = {false, "bad", "invalid_published"}})
+	f.activate()
+	build_ready(f, 1)
+	f.build.context.before_write()
+	f.build.cb({published = {format = 1}, town = {complete = true, residents = {failures = {}, interrupted_beds = {}}}})
+	eq(#f.updates, 2, "invalid published data is retried once without it")
+	eq(f.published[2], nil, "retry carries no published data")
 end
