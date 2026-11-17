@@ -103,19 +103,25 @@ end
 -- Grade each crossing with the outside-road ramp. Returns the ramp changes
 -- and a list of failed omissions; graded columns are flagged. A failed
 -- crossing is left as it is (the street just ends at the boundary). The third
--- result lists the footprint of each graded ramp.
+-- result lists the footprint of each graded ramp. The fourth lists the graded
+-- ramps as {columns = {{x, z}...}, direction, length, profile} (see approach);
+-- a failed crossing is absent. These are plans, not proof that the writes landed.
 function M.grade(openings, ground, region, node_info, protected)
-	local changes, failures, footprints = {}, {}, {}
+	local changes, failures, footprints, graded = {}, {}, {}, {}
 	for _, columns in ipairs(M.crossings(openings)) do
-		local ramp, omissions, length = M.approach(columns, ground, region, node_info, protected)
+		local ramp, omissions, length, profile = M.approach(columns, ground, region, node_info, protected)
 		if #omissions > 0 then failures[#failures + 1] = omissions[1]
 		else
 			for _, c in ipairs(ramp) do changes[#changes + 1] = c end
 			for _, c in ipairs(columns) do c.graded = true end
 			footprints[#footprints + 1] = M.approach_rect(columns, length)
+			local cols = {}
+			for i, c in ipairs(columns) do cols[i] = {x = c.x, z = c.z} end
+			graded[#graded + 1] = {columns = cols, direction = {x = columns[1].direction.x, z = columns[1].direction.z},
+				length = length, profile = profile}
 		end
 	end
-	return changes, failures, footprints
+	return changes, failures, footprints, graded
 end
 
 
@@ -129,7 +135,8 @@ local FACEDIR = {["0:1"] = 0, ["1:0"] = 1, ["0:-1"] = 2, ["-1:0"] = 3}
 -- full block. Higher terrain is trenched to road width; lower terrain gets a
 -- cobblestone causeway. Buildings, fluids and protected nodes are never
 -- replaced: the first such hit omits the whole approach.
--- Returns changes, omissions, length.
+-- Returns changes, omissions, length, profile. profile[n + 1] = {y, name, param2}
+-- is the road node written at step n (0 .. length - 1) in every column.
 function M.approach(columns, ground, region, node_info, protected)
 	local changes, omissions = {}, {}
 	local dir = columns[1].direction
@@ -165,6 +172,7 @@ function M.approach(columns, ground, region, node_info, protected)
 		return true
 	end
 	local level, last_step = 2 * ground, 0
+	local profile = {}
 	for n = 0, M.RAMP_MAX - 1 do
 		local surf, top = {}, nil
 		for i, c in ipairs(columns) do
@@ -187,6 +195,7 @@ function M.approach(columns, ground, region, node_info, protected)
 		elseif step == -2 then y, name, p2 = level / 2 + 1, M.RAMP_STAIR, FACEDIR[(0 - dir.x) .. ":" .. (0 - dir.z)]
 		elseif level % 2 == 0 then y = level / 2
 		else y, name = (level + 1) / 2, M.RAMP_SLAB end
+		profile[n + 1] = {y = y, name = name, param2 = p2}
 		for i, c in ipairs(columns) do
 			local x, z = c.x + dir.x * n, c.z + dir.z * n
 			local function check(yy)
@@ -228,7 +237,7 @@ function M.approach(columns, ground, region, node_info, protected)
 				yy = yy - 1
 			end
 		end
-		if n >= M.RAMP_MIN - 1 and level == 2 * top then return changes, omissions, n + 1 end
+		if n >= M.RAMP_MIN - 1 and level == 2 * top then return changes, omissions, n + 1, profile end
 	end
 	local c = columns[1]
 	return fail(c.x + dir.x * (M.RAMP_MAX - 1), ground, c.z + dir.z * (M.RAMP_MAX - 1),

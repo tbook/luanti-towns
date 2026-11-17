@@ -67,3 +67,68 @@ end
 -- Missing boundary or streets yields an empty list rather than an error.
 eq(#roads.exits({streets = {}}), 0, "exits without a boundary is empty")
 eq(#roads.exits({boundary = {rects = {}}}), 0, "exits without streets is empty")
+
+-- Graded ramps report the node profile actually planned (Roads integration):
+-- profile[n + 1] = {y, name, param2} for step n, identical in every column.
+do
+	local function info(name) return {walkable = name ~= "air"} end
+	local function openings(width)
+		local out = {}
+		for t = 0, width - 1 do
+			out[#out + 1] = {x = 10, z = 20 + t, direction = {x = 1, z = 0}, street = 1, kind = "secondary"}
+		end
+		return out
+	end
+	local function run(width, height)
+		local region = {get = function(x, y, z)
+			return y <= height(x - 10) and "mcl_core:stone" or "air"
+		end}
+		return roads.grade(openings(width), 0, region, info, function() return false end)
+	end
+	-- Flat terrain: a four step cobble profile at ground level.
+	local changes, failures, _, graded = run(2, function() return 0 end)
+	eq(#failures, 0, "flat grade has no failures")
+	eq(#graded, 1, "flat grade reports one ramp")
+	local g = graded[1]
+	eq(g.length, 4, "flat ramp length")
+	eq(#g.profile, 4, "flat profile has one entry per step")
+	for n, step in ipairs(g.profile) do
+		eq(step.y, 0, "flat step " .. n .. " y")
+		eq(step.name, roads.RAMP_FULL, "flat step " .. n .. " is cobble")
+		eq(step.param2, 0, "flat step " .. n .. " param2")
+	end
+	eq(#g.columns, 2, "flat ramp columns")
+	eq(g.columns[1].x .. ":" .. g.columns[1].z, "10:20", "first column")
+	eq(g.direction.x, 1, "direction x")
+	-- Every profile node appears in the changes.
+	local at = {}
+	for _, c in ipairs(changes) do at[c.x .. ":" .. c.y .. ":" .. c.z] = c end
+	for _, col in ipairs(g.columns) do
+		for n, step in ipairs(g.profile) do
+			local c = at[(col.x + n - 1) .. ":" .. step.y .. ":" .. col.z]
+			eq(c and c.name, step.name, "profile node is a planned change")
+			eq(c and c.param2, step.param2, "profile param2 is a planned change")
+		end
+	end
+	-- Ascending: stairs first, ending on a full block at terrain level.
+	_, _, _, graded = run(2, function(d) return d >= 1 and 4 or 0 end)
+	g = graded[1]
+	eq(g.profile[2].name, roads.RAMP_STAIR, "ascending first step is a stair")
+	eq(g.profile[2].param2, 1, "ascending stair faces outward")
+	eq(g.profile[2].y, 1, "ascending first step y")
+	eq(g.profile[#g.profile].name, roads.RAMP_FULL, "ascending ramp ends in a full block")
+	eq(g.profile[#g.profile].y, 4, "ascending ramp ends at terrain level")
+	-- Descending: the stair rises toward town.
+	_, _, _, graded = run(2, function(d) return d >= 1 and -2 or 0 end)
+	g = graded[1]
+	eq(g.profile[2].name, roads.RAMP_STAIR, "descending first step is a stair")
+	eq(g.profile[2].param2, 3, "descending stair faces town")
+	-- A failed crossing is absent from the graded list.
+	local blocked = {get = function(x, y)
+		if x == 12 and y == 0 then return "test:planks" end
+		return y <= 0 and "mcl_core:stone" or "air"
+	end}
+	_, failures, _, graded = roads.grade(openings(2), 0, blocked, info, function() return false end)
+	eq(#failures, 1, "blocked crossing fails")
+	eq(#graded, 0, "failed crossing is not reported as graded")
+end
