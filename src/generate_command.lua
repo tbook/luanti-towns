@@ -88,7 +88,57 @@ local function bounds_union(boxes)
 	return out
 end
 
-local function finalize(summary, result)
+-- Record a graded approach as a candidate exit (Roads integration, #458). Only
+-- automatic towns record exits; call it after the approach's writes succeeded.
+-- Candidates are re-read from the world in publish_exits before being trusted.
+local function record_exit(result, automatic_context, source, columns, direction, length, profile)
+	if not automatic_context or type(columns) ~= "table" or #columns == 0 or not profile then return end
+	local cols = {}
+	for i, c in ipairs(columns) do cols[i] = {x = c.x, z = c.z} end
+	result.exit_candidates = result.exit_candidates or {}
+	result.exit_candidates[#result.exit_candidates + 1] = {source = source,
+		direction = {x = direction.x, z = direction.z}, columns = cols, length = length, profile = profile}
+end
+
+-- Record every ramp of a town_roads.grade / inspect_graded `graded` list.
+local function record_graded(result, automatic_context, source, graded)
+	for _, g in ipairs(graded or {}) do
+		record_exit(result, automatic_context, source, g.columns, g.direction, g.length, g.profile)
+	end
+end
+
+-- Build summary.published for a completed automatic town: core, structure
+-- rects and the exits whose every built node reads back as planned. A failure
+-- publishes no exits; the town itself still completes.
+local function publish_exits(summary, result)
+	local exits_api = towns.town_exits
+	local args = {bounds = result.plan.bounds, candidates = result.exit_candidates or {}, boxes = {}}
+	for _, st in ipairs(summary.town.structures or {}) do
+		if st.min and st.max then args.boxes[#args.boxes + 1] = {min = st.min, max = st.max} end
+	end
+	for _, b in ipairs(summary.outskirts and summary.outskirts.boxes or {}) do
+		args.boxes[#args.boxes + 1] = b
+	end
+	local ok, published = pcall(exits_api.build, args, function(x, y, z)
+		local node = core.get_node({x = x, y = y, z = z})
+		return node.name, node.param2
+	end)
+	if not ok then
+		core.log("warning", "towns: exit verification failed, publishing no exits: " .. tostring(published))
+		local fallback_ok, fallback = pcall(exits_api.without_exits, args, "verification failed: " .. tostring(published))
+		if not fallback_ok then
+			core.log("warning", "towns: published record could not be built: " .. tostring(fallback))
+			return
+		end
+		published = fallback
+	end
+	for _, o in ipairs(published.omitted) do
+		core.log("warning", ("towns: road exit %s not published: %s"):format(tostring(o.id or "?"), tostring(o.reason)))
+	end
+	summary.published = published
+end
+
+local function finalize(summary, result, automatic_context)
 	if not summary or not summary.town then return summary end
 	if summary.site == nil then
 		summary.site = {wet = result.wet and {count = result.wet.count,
@@ -120,6 +170,12 @@ local function finalize(summary, result)
 	else
 		core.log("warning", "towns: bed enumeration failed: " .. tostring(rep))
 		summary.town.beds_error = tostring(rep)
+	end
+	if automatic_context then
+		local published_ok, published_err = pcall(publish_exits, summary, result)
+		if not published_ok then
+			core.log("warning", "towns: could not publish town exits: " .. tostring(published_err))
+		end
 	end
 	return summary
 end
@@ -535,7 +591,7 @@ local function build(result, done, automatic_context)
 		end
 		local step = towns.aqueduct_step
 		if not step or not result.plan or result.plan.town_type ~= "roman" then
-			return finish(finalize(summary, result), message or "", nil)
+			return finish(finalize(summary, result, automatic_context), message or "", nil)
 		end
 		if aqueduct_started then return end
 		aqueduct_started = true
@@ -545,7 +601,7 @@ local function build(result, done, automatic_context)
 		-- it fails the build here with the combined bounds of everything written.
 		local function proceed()
 			if completed then return end
-			local ok, err = pcall(function() finish(finalize(summary, result), message or "", nil) end)
+			local ok, err = pcall(function() finish(finalize(summary, result, automatic_context), message or "", nil) end)
 			if not ok and not completed then
 				core.log("error", "towns: finalizing the town failed: " .. tostring(err))
 				fail_writer("Town finalization failed: " .. tostring(err), nil, {reason = "finalize"})
@@ -679,11 +735,11 @@ local function build(result, done, automatic_context)
 				end
 				local report = {attempted_bounds = bounds, graded = 0, failed = 0}
 				summary.roads = report
-				local read_ok, changes, failures, footprints, region = pcall(function()
+				local read_ok, changes, failures, footprints, region, graded_ramps = pcall(function()
 					local r = assert(env.open_region(bounds.min, bounds.max))
-					local c, f, fp = roads.grade(result.exits, result.ground_y, r, env.node_info,
+					local c, f, fp, g = roads.grade(result.exits, result.ground_y, r, env.node_info,
 						function(pos) return protection_check(automatic_context, pos) end)
-					return c, f, fp, r
+					return c, f, fp, r, g
 				end)
 				if not read_ok then
 					warning(summary, "road exit inspection failed: " .. tostring(changes))
@@ -702,6 +758,7 @@ local function build(result, done, automatic_context)
 					return fail_writer("road exit write failed: " .. tostring(err), nil,
 						{bounds = bounds, reason = "road_write"})
 				end
+				record_graded(result, automatic_context, "street", graded_ramps)
 				local meta_ok, meta_err = pcall(towns.medieval_walls.clear_metadata, core, changes)
 				if not meta_ok then warning(summary, "road exit metadata cleanup failed: " .. tostring(meta_err)) end
 				result.wall_feature_footprints = result.wall_feature_footprints or {}
@@ -811,12 +868,13 @@ local function build(result, done, automatic_context)
 								return nil, "wall join: " .. omission.reason .. blocker_text(omission.blocker), r
 							end
 						end
-						local changes, omissions, length = walls.approach(feature.outside_approach,
+						local changes, omissions, length, profile = walls.approach(feature.outside_approach,
 							result.ground_y, r, env.node_info, function(pos) return protection_check(automatic_context, pos) end)
 						if #omissions > 0 then
 							return nil, "outside road: " .. omissions[1].reason .. blocker_text(omissions[1].blocker), r
 						end
 						feature.approach_length = length
+						feature.approach_profile = profile
 						return ok, detail, raw_region, changes, clearance
 					end
 					return ok, detail, raw_region, nil, clearance
@@ -859,6 +917,12 @@ local function build(result, done, automatic_context)
 					local meta_ok, meta_error = pcall(walls.clear_metadata, core, overwritten)
 					if not meta_ok then warning(summary, "tower metadata cleanup failed: " .. tostring(meta_error)) end
 					placed_candidates[#placed_candidates + 1] = feature
+					if feature.approach_length and feature.outside_approach then
+						record_exit(result, automatic_context,
+							feature.asset == "wall_postern" and "wall_postern" or "wall_gatehouse",
+							feature.outside_approach, feature.outside_approach[1].direction,
+							feature.approach_length, feature.approach_profile)
+					end
 					placed_features[#placed_features + 1] = st
 					wall_masks[#wall_masks + 1] = st.rect
 					placed_footprints[#placed_footprints + 1] = feature.reserve_rect or st.rect
@@ -885,17 +949,17 @@ local function build(result, done, automatic_context)
 			remaining.placed_features = placed_candidates
 			remaining.road_openings = wall.openings
 			remaining.streets = result.plan.streets
-			local read_ok, changes, omissions, region, ramp_footprints = pcall(function()
+			local read_ok, changes, omissions, region, ramp_footprints, bare_ramps = pcall(function()
 				local r = assert(env.open_region(bounds.min, bounds.max))
 				local is_protected = function(pos) return protection_check(automatic_context, pos) end
 				-- Openings left without a gatehouse/postern get the graded ramp.
-				local c, o, ramp_failures, graded_footprints = walls.inspect_graded(remaining,
+				local c, o, ramp_failures, graded_footprints, graded = walls.inspect_graded(remaining,
 					result.ground_y, r, env.node_info, is_protected)
 				for _, f in ipairs(ramp_failures) do
 					warning(summary, ("wall opening at (%d,%d) left ungraded: %s%s"):format(
 						f.x, f.z, f.reason, blocker_text(f.blocker)))
 				end
-				return c, o, r, graded_footprints
+				return c, o, r, graded_footprints, graded
 			end)
 			if not read_ok then
 				warning(summary, "wall inspection failed: " .. tostring(changes))
@@ -930,6 +994,7 @@ local function build(result, done, automatic_context)
 			if not wrote then
 				return fail_writer("wall write failed: " .. tostring(err), nil, {bounds = bounds, reason = "wall_write"})
 			end
+			record_graded(result, automatic_context, "wall_opening", bare_ramps)
 			-- Graded bare openings keep their ramps reserved from outskirts terraforming.
 			for _, rect in ipairs(ramp_footprints or {}) do
 				result.wall_feature_footprints[#result.wall_feature_footprints + 1] = rect
